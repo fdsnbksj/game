@@ -45,9 +45,9 @@ We only use the `main` branch, and **every push to `main` deploys automatically*
 1. Type-check and build
 2. Firestore rules tests
 3. Seed the item catalog into production Firestore
-4. Deploy Hosting, Firestore rules and Auth settings (anonymous sign-in) to the project in `.firebaserc`
+4. Deploy Hosting and Firestore rules to the project in `.firebaserc`
 
-A failing step stops the deploy. Watch a run with `gh run watch`.
+A failing step stops the deploy. Auth settings in `firebase.json` (anonymous sign-in) aren't deployed by the workflow; after changing them, run `npm run deploy` as a project owner. Watch a run with `gh run watch`.
 
 The workflow signs in with a service account key stored in the `FIREBASE_SERVICE_ACCOUNT` GitHub secret. The public Firebase web config is committed in `.env.production`.
 

@@ -50,5 +50,7 @@ jobs:
         # .firebaserc has no .json extension, so require() would parse it as JavaScript and fail.
         run: SEED_PROJECT_ID="$(node -p "JSON.parse(require('fs').readFileSync('.firebaserc', 'utf8')).projects.default")" npm run seed
 
-      - name: Deploy Hosting, Firestore rules and Auth settings
-        run: npx firebase deploy --only hosting,firestore,auth --project default --non-interactive
+      # Auth settings (anonymous sign-in) are left out: deploying them needs broader Firebase
+      # permissions than this account has. Apply auth changes with `npm run deploy` as a project owner.
+      - name: Deploy Hosting and Firestore rules
+        run: npx firebase deploy --only hosting,firestore --project default --non-interactive

@@ -5,7 +5,8 @@ Mobile web skill game (working title **Jungle Swing**): React screens, Phaser 3 
 ## Git and deploy
 
 - **Only the `main` branch.** Commit directly to `main`. Don't create branches or pull requests.
-- **Every push to `main` deploys to production** via `.github/workflows/deploy.yml`: build → Firestore rules tests → seed the item catalog → deploy Hosting, Firestore rules and Auth settings (anonymous sign-in, from `firebase.json`). Push right after each commit so every commit is deployed.
+- **Every push to `main` deploys to production** via `.github/workflows/deploy.yml`: build → Firestore rules tests → seed the item catalog → deploy Hosting and Firestore rules. Push right after each commit so every commit is deployed.
+- Auth settings in `firebase.json` (anonymous sign-in) are **not** deployed by the workflow, because the deploy account lacks those permissions. After changing them, run `npm run deploy` logged in as a project owner.
 - A failing build or rules test stops the deploy, so run `npm run build` and `npm run test:rules` before committing.
 - Never commit secrets. The Firebase web config in `.env.production` is public by design. The deploy service account key lives only in the `FIREBASE_SERVICE_ACCOUNT` GitHub secret.
 - The production Firebase project ID is the `default` entry in `.firebaserc`. Local development always uses the `demo-game` emulator project.
