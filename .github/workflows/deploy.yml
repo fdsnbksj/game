@@ -47,7 +47,8 @@ jobs:
 
       - name: Seed item catalog
         timeout-minutes: 3
-        run: SEED_PROJECT_ID="$(node -p "require('./.firebaserc').projects.default")" npm run seed
+        # .firebaserc has no .json extension, so require() would parse it as JavaScript and fail.
+        run: SEED_PROJECT_ID="$(node -p "JSON.parse(require('fs').readFileSync('.firebaserc', 'utf8')).projects.default")" npm run seed
 
       - name: Deploy Hosting, Firestore rules and Auth settings
         run: npx firebase deploy --only hosting,firestore,auth --project default --non-interactive
