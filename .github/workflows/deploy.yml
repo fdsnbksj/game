@@ -46,6 +46,7 @@ jobs:
           credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
 
       - name: Seed item catalog
+        timeout-minutes: 3
         run: SEED_PROJECT_ID="$(node -p "require('./.firebaserc').projects.default")" npm run seed
 
       - name: Deploy Hosting, Firestore rules and Auth settings
