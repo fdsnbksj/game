@@ -1,0 +1,52 @@
+name: Deploy
+
+# We only use main: every push to main is checked, then deployed to production.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      # The Firestore emulator used by the rules tests needs Java.
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type-check and build
+        run: npm run build
+
+      - name: Firestore rules tests
+        run: npm run test:rules
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v3
+        with:
+          credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+
+      - name: Seed item catalog
+        run: SEED_PROJECT_ID="$(node -p "require('./.firebaserc').projects.default")" npm run seed
+
+      - name: Deploy Hosting, Firestore rules and Auth settings
+        run: npx firebase deploy --only hosting,firestore,auth --project default --non-interactive

@@ -1,0 +1,126 @@
+rules_version = '2';
+
+// On the Spark plan there are no Cloud Functions, so these rules are the only
+// server-side validation. They make cheating harder, not impossible.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Keep in sync with src/shared/constants.ts.
+    function maxScore() { return 100000; }
+    function minSecondsBetweenRuns() { return 20; }
+
+    function isOwner(uid) {
+      return request.auth != null && request.auth.uid == uid;
+    }
+
+    function hasExactly(data, keys) {
+      return data.keys().hasAll(keys) && data.keys().hasOnly(keys);
+    }
+
+    function isValidName(name) {
+      return name is string && name.size() >= 1 && name.size() <= 20;
+    }
+
+    // getAfter so a write can rely on changes made earlier in the same batch.
+    function userAfter(uid) {
+      return getAfter(/databases/$(database)/documents/users/$(uid)).data;
+    }
+
+    function catalogItem(itemId) {
+      return get(/databases/$(database)/documents/items/$(itemId)).data;
+    }
+
+    function ownsForSlot(uid, itemId, slot) {
+      return itemId is string
+        && existsAfter(/databases/$(database)/documents/users/$(uid)/inventory/$(itemId))
+        && catalogItem(itemId).slot == slot;
+    }
+
+    function isColor(value) {
+      return value is int && value >= 0 && value <= 16777215;
+    }
+
+    function isValidLoadout(uid, loadout) {
+      return hasExactly(loadout, ['body', 'hair', 'outfit', 'accessory', 'colors'])
+        && ownsForSlot(uid, loadout.body, 'body')
+        && ownsForSlot(uid, loadout.hair, 'hair')
+        && ownsForSlot(uid, loadout.outfit, 'outfit')
+        && ownsForSlot(uid, loadout.accessory, 'accessory')
+        && loadout.colors is map
+        && hasExactly(loadout.colors, ['skin', 'hair', 'outfit'])
+        && isColor(loadout.colors.skin)
+        && isColor(loadout.colors.hair)
+        && isColor(loadout.colors.outfit);
+    }
+
+    function isRename() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName'])
+        && isValidName(request.resource.data.displayName);
+    }
+
+    // A finished run: rate-limited, and the best score can only go up.
+    function isRunResult() {
+      let before = resource.data;
+      let after = request.resource.data;
+      return after.diff(before).affectedKeys().hasOnly(['bestScore', 'gamesPlayed', 'lastRunAt'])
+        && after.bestScore is int
+        && after.bestScore >= before.bestScore
+        && after.bestScore <= maxScore()
+        && after.gamesPlayed == before.gamesPlayed + 1
+        && after.lastRunAt == request.time
+        && request.time > before.lastRunAt + duration.value(minSecondsBetweenRuns(), 's');
+    }
+
+    // Must be written in the same batch as the run result that set this best score.
+    function isValidEntry(uid) {
+      let entry = request.resource.data;
+      let user = userAfter(uid);
+      return hasExactly(entry, ['score', 'displayName', 'loadout', 'submittedAt'])
+        && entry.score is int
+        && entry.score > 0
+        && entry.score <= maxScore()
+        && entry.score == user.bestScore
+        && user.lastRunAt == request.time
+        && (resource == null || entry.score > resource.data.score)
+        && entry.displayName == user.displayName
+        && entry.loadout == get(/databases/$(database)/documents/users/$(uid)/meta/loadout).data
+        && entry.submittedAt == request.time;
+    }
+
+    // Catalog is seeded with `npm run seed`; clients can only read it.
+    match /items/{itemId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    match /users/{uid} {
+      allow read: if isOwner(uid);
+      allow create: if isOwner(uid)
+        && hasExactly(request.resource.data, ['displayName', 'bestScore', 'gamesPlayed', 'createdAt', 'lastRunAt'])
+        && isValidName(request.resource.data.displayName)
+        && request.resource.data.bestScore == 0
+        && request.resource.data.gamesPlayed == 0
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.lastRunAt == request.time;
+      allow update: if isOwner(uid) && (isRename() || isRunResult());
+
+      match /inventory/{itemId} {
+        allow read: if isOwner(uid);
+        allow create: if isOwner(uid)
+          && hasExactly(request.resource.data, ['unlockedAt'])
+          && request.resource.data.unlockedAt == request.time
+          && userAfter(uid).bestScore >= catalogItem(itemId).unlockScore;
+      }
+
+      match /meta/loadout {
+        allow read: if isOwner(uid);
+        allow create, update: if isOwner(uid) && isValidLoadout(uid, request.resource.data);
+      }
+    }
+
+    match /leaderboards/{seasonId}/entries/{uid} {
+      allow read: if request.auth != null;
+      allow create, update: if isOwner(uid) && isValidEntry(uid);
+    }
+  }
+}

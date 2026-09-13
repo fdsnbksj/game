@@ -1,0 +1,38 @@
+{
+  "name": "game",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host",
+    "build": "tsc -b && vite build",
+    "typecheck": "tsc -b",
+    "preview": "vite preview --host",
+    "emulators": "firebase emulators:start --only auth,firestore --project demo-game --export-on-exit .emulator-data $([ -f .emulator-data/firebase-export-metadata.json ] && echo --import .emulator-data)",
+    "seed": "tsx scripts/seedItems.ts",
+    "test:rules": "firebase emulators:exec --project demo-game --only firestore 'vitest run'",
+    "deploy": "npm run build && firebase deploy --only hosting,firestore,auth"
+  },
+  "dependencies": {
+    "firebase": "^12.19.0",
+    "phaser": "^3.90.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "react-router": "^8.3.1",
+    "zustand": "^5.0.15"
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^5.0.2",
+    "@types/node": "^22.20.2",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.1",
+    "firebase-admin": "^14.3.0",
+    "firebase-tools": "^15.30.0",
+    "tsx": "^4.23.13",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.0",
+    "vite-plugin-pwa": "^1.3.0",
+    "vitest": "^5.0.0"
+  }
+}
