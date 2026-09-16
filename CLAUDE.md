@@ -35,3 +35,5 @@ npm run test:rules  # Firestore rules tests (starts its own emulator; stop `npm 
 - `MAX_SCORE`, `MIN_SECONDS_BETWEEN_RUNS` and `MAX_RUNS_PER_SAVE` are duplicated in `firestore.rules` and `src/shared/constants.ts`. Change both together.
 - The item catalog lives in `src/shared/items.ts`. Each deploy re-seeds it and deletes items no longer listed.
 - Phaser is not mounted inside React `StrictMode` (see `src/main.tsx`).
+- **Hosting cache headers** in `firebase.json` match the *requested* path, not the file served. The no-cache rules therefore use `/` and `/*` (the app's routes, which all serve `index.html`); `/assets/**` has two segments, so hashed assets keep their immutable caching. Without this, a deploy can be masked for an hour by a cached page.
+- After a deploy, the first visit is served from the offline cache and runs the **previous** version, which may not match current rules. The error screen's Reload button (`src/App.tsx`) clears the service worker and caches.
