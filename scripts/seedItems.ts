@@ -18,13 +18,21 @@ if (!seedProjectId) {
 }
 
 const db = getFirestore(initializeApp({ projectId }));
+const items = db.collection('items');
 const batch = db.batch();
+
 for (const { id, ...item } of ITEMS) {
-  batch.set(db.collection('items').doc(id), item);
+  batch.set(items.doc(id), item);
 }
+
+// Drop items that are no longer in the catalog, so retired cosmetics can't be equipped.
+const keep = new Set(ITEMS.map((item) => item.id));
+const existing = await items.listDocuments();
+const stale = existing.filter((doc) => !keep.has(doc.id));
+for (const doc of stale) batch.delete(doc);
+
 await batch.commit();
-// Close the connection so the process exits right away.
 await db.terminate();
 
 const target = process.env.FIRESTORE_EMULATOR_HOST ? `emulator (${projectId})` : projectId;
-console.log(`Seeded ${ITEMS.length} items into ${target}.`);
+console.log(`Seeded ${ITEMS.length} items into ${target}${stale.length > 0 ? `, removed ${stale.length} stale` : ''}.`);

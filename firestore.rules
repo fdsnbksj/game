@@ -6,8 +6,9 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     // Keep in sync with src/shared/constants.ts.
-    function maxScore() { return 100000; }
-    function minSecondsBetweenRuns() { return 20; }
+    function maxScore() { return 1000; }
+    function minSecondsBetweenRuns() { return 5; }
+    function maxRunsPerSave() { return 100; }
 
     function isOwner(uid) {
       return request.auth != null && request.auth.uid == uid;
@@ -19,6 +20,11 @@ service cloud.firestore {
 
     function isValidName(name) {
       return name is string && name.size() >= 1 && name.size() <= 20;
+    }
+
+    // A UTC day, as YYYY-MM-DD.
+    function isValidDay(day) {
+      return day is string && day.size() == 10;
     }
 
     // getAfter so a write can rely on changes made earlier in the same batch.
@@ -41,16 +47,16 @@ service cloud.firestore {
     }
 
     function isValidLoadout(uid, loadout) {
-      return hasExactly(loadout, ['body', 'hair', 'outfit', 'accessory', 'colors'])
+      return hasExactly(loadout, ['body', 'wing', 'hat', 'trail', 'colors'])
         && ownsForSlot(uid, loadout.body, 'body')
-        && ownsForSlot(uid, loadout.hair, 'hair')
-        && ownsForSlot(uid, loadout.outfit, 'outfit')
-        && ownsForSlot(uid, loadout.accessory, 'accessory')
+        && ownsForSlot(uid, loadout.wing, 'wing')
+        && ownsForSlot(uid, loadout.hat, 'hat')
+        && ownsForSlot(uid, loadout.trail, 'trail')
         && loadout.colors is map
-        && hasExactly(loadout.colors, ['skin', 'hair', 'outfit'])
-        && isColor(loadout.colors.skin)
-        && isColor(loadout.colors.hair)
-        && isColor(loadout.colors.outfit);
+        && hasExactly(loadout.colors, ['body', 'wing', 'trail'])
+        && isColor(loadout.colors.body)
+        && isColor(loadout.colors.wing)
+        && isColor(loadout.colors.trail);
     }
 
     function isRename() {
@@ -58,28 +64,37 @@ service cloud.firestore {
         && isValidName(request.resource.data.displayName);
     }
 
-    // A finished run: rate-limited, and the best score can only go up.
+    // A saved run. The client only saves when the player beats their best for the day,
+    // counting the other attempts locally, so one save can add several games played.
     function isRunResult() {
       let before = resource.data;
       let after = request.resource.data;
-      return after.diff(before).affectedKeys().hasOnly(['bestScore', 'gamesPlayed', 'lastRunAt'])
+      return after.diff(before).affectedKeys().hasOnly(['bestScore', 'gamesPlayed', 'lastRunAt', 'dailyId', 'dailyScore'])
         && after.bestScore is int
         && after.bestScore >= before.bestScore
         && after.bestScore <= maxScore()
-        && after.gamesPlayed == before.gamesPlayed + 1
+        && after.dailyScore is int
+        && after.dailyScore > 0
+        && after.dailyScore <= after.bestScore
+        && isValidDay(after.dailyId)
+        // Same day: the score has to improve. A new day starts over.
+        && (after.dailyId != before.dailyId || after.dailyScore > before.dailyScore)
+        && after.gamesPlayed > before.gamesPlayed
+        && after.gamesPlayed <= before.gamesPlayed + maxRunsPerSave()
         && after.lastRunAt == request.time
         && request.time > before.lastRunAt + duration.value(minSecondsBetweenRuns(), 's');
     }
 
-    // Must be written in the same batch as the run result that set this best score.
-    function isValidEntry(uid) {
+    // Must be written in the same batch as the run that set this daily score.
+    function isValidEntry(uid, day) {
       let entry = request.resource.data;
       let user = userAfter(uid);
       return hasExactly(entry, ['score', 'displayName', 'loadout', 'submittedAt'])
         && entry.score is int
         && entry.score > 0
         && entry.score <= maxScore()
-        && entry.score == user.bestScore
+        && entry.score == user.dailyScore
+        && day == user.dailyId
         && user.lastRunAt == request.time
         && (resource == null || entry.score > resource.data.score)
         && entry.displayName == user.displayName
@@ -96,16 +111,19 @@ service cloud.firestore {
     match /users/{uid} {
       allow read: if isOwner(uid);
       allow create: if isOwner(uid)
-        && hasExactly(request.resource.data, ['displayName', 'bestScore', 'gamesPlayed', 'createdAt', 'lastRunAt'])
+        && hasExactly(request.resource.data, ['displayName', 'bestScore', 'gamesPlayed', 'createdAt', 'lastRunAt', 'dailyId', 'dailyScore'])
         && isValidName(request.resource.data.displayName)
         && request.resource.data.bestScore == 0
         && request.resource.data.gamesPlayed == 0
+        && request.resource.data.dailyScore == 0
+        && isValidDay(request.resource.data.dailyId)
         && request.resource.data.createdAt == request.time
         && request.resource.data.lastRunAt == request.time;
       allow update: if isOwner(uid) && (isRename() || isRunResult());
 
       match /inventory/{itemId} {
         allow read: if isOwner(uid);
+        // Unlocks are earned by all-time best score. getAfter lets onboarding create the profile in the same batch.
         allow create: if isOwner(uid)
           && hasExactly(request.resource.data, ['unlockedAt'])
           && request.resource.data.unlockedAt == request.time
@@ -118,9 +136,10 @@ service cloud.firestore {
       }
     }
 
-    match /leaderboards/{seasonId}/entries/{uid} {
+    // One leaderboard per day, holding each player's best score on that day's course.
+    match /leaderboards/{day}/entries/{uid} {
       allow read: if request.auth != null;
-      allow create, update: if isOwner(uid) && isValidEntry(uid);
+      allow create, update: if isOwner(uid) && isValidEntry(uid, day);
     }
   }
 }

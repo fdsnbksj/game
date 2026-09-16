@@ -134,9 +134,9 @@ body {
   font: inherit;
 }
 
-.character-preview {
-  width: 160px;
-  height: 210px;
+.bird-preview {
+  width: 200px;
+  height: 150px;
   flex: none;
 }
 

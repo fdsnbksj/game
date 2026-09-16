@@ -1,20 +1,22 @@
 import { useState } from 'react';
 import { Link } from 'react-router';
-import { CharacterPreview } from '../components/CharacterPreview';
+import { BirdPreview } from '../components/BirdPreview';
 import { renamePlayer } from '../services/profile';
+import { dayId } from '../shared/constants';
 import { useGameStore } from '../store';
 
 export function Home() {
   const profile = useGameStore((s) => s.profile)!;
   const loadout = useGameStore((s) => s.loadout);
+  const bestToday = profile.dailyId === dayId() ? profile.dailyScore : 0;
 
   return (
     <main className="screen">
-      <h1 className="title">Untitled Game</h1>
-      <CharacterPreview loadout={loadout} />
+      <h1 className="title">Neon Flap</h1>
+      <BirdPreview loadout={loadout} />
       <NameEditor name={profile.displayName} />
       <p className="muted">
-        Best {profile.bestScore} · {profile.gamesPlayed} runs
+        Today {bestToday} · Best {profile.bestScore} · {profile.gamesPlayed} runs
       </p>
       <nav className="menu">
         <Link className="button primary" to="/play">

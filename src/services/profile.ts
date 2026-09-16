@@ -1,5 +1,6 @@
 import { getDoc, getDocs, serverTimestamp, updateDoc, writeBatch } from 'firebase/firestore';
 import { db } from '../firebase';
+import { dayId } from '../shared/constants';
 import { DEFAULT_ITEM_IDS, DEFAULT_LOADOUT } from '../shared/items';
 import type { Loadout, UserProfile } from '../shared/types';
 import { requireSession } from '../store';
@@ -14,6 +15,8 @@ export async function loadOrCreateProfile(uid: string) {
     displayName: userSnap.get('displayName'),
     bestScore: userSnap.get('bestScore'),
     gamesPlayed: userSnap.get('gamesPlayed'),
+    dailyId: userSnap.get('dailyId'),
+    dailyScore: userSnap.get('dailyScore'),
   };
   return {
     profile,
@@ -28,6 +31,8 @@ async function createProfile(uid: string) {
     displayName: `Player${Math.floor(1000 + Math.random() * 9000)}`,
     bestScore: 0,
     gamesPlayed: 0,
+    dailyId: dayId(),
+    dailyScore: 0,
   };
   const batch = writeBatch(db);
   batch.set(userRef(uid), { ...profile, createdAt: serverTimestamp(), lastRunAt: serverTimestamp() });

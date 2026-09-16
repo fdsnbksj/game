@@ -1,8 +1,8 @@
-# Untitled Game
+# Neon Flap
 
-A 2D mobile web skill game with character customization. React handles the screens, Phaser 3 runs the gameplay, and Firebase (free Spark plan) provides auth, data and hosting.
+Tap to fly a bird through gaps in a neon skyline. Everyone gets the same course each day, and the daily leaderboard resets at 00:00 UTC. Beat your best score to unlock bird parts.
 
-The gameplay in `src/game/scenes/PlayScene.ts` is a placeholder (tap the targets) until the real game is chosen.
+React handles the screens, Phaser 3 runs the gameplay, and Firebase (free Spark plan) provides auth, data and hosting. All art is drawn in code, so there are no image assets.
 
 ## Requirements
 
@@ -32,10 +32,11 @@ npm run build       # type-check + production build
 
 | Path | What |
 |---|---|
-| `src/game/` | Phaser: scenes, the layered `CharacterSprite`, and the `PhaserGame` React mount |
+| `src/game/scenes/FlapScene.ts` | The game: physics, towers from the daily seed, scoring |
+| `src/game/character/` | The bird: parts drawn in code, tinting, particle trail |
 | `src/screens/` | React screens: Home, Play, Customize, Leaderboard |
 | `src/services/` | All Firestore reads and writes |
-| `src/shared/` | Types, constants, and the item catalog |
+| `src/shared/` | Types, constants, the item catalog, the seeded random generator |
 | `firestore.rules` | The only server-side validation (Spark has no Cloud Functions) |
 
 ## Deploy
@@ -47,7 +48,7 @@ We only use the `main` branch, and **every push to `main` deploys automatically*
 3. Seed the item catalog into production Firestore
 4. Deploy Hosting and Firestore rules to the project in `.firebaserc`
 
-A failing step stops the deploy. Auth settings in `firebase.json` (anonymous sign-in) aren't deployed by the workflow; after changing them, run `npm run deploy` as a project owner. Watch a run with `gh run watch`.
+A failing step stops the deploy. Auth settings in `firebase.json` (anonymous sign-in) aren't deployed by the workflow; after changing them, run `npm run deploy` as a project owner.
 
 The workflow signs in with a service account key stored in the `FIREBASE_SERVICE_ACCOUNT` GitHub secret. The public Firebase web config is committed in `.env.production`.
 
@@ -55,4 +56,4 @@ To deploy by hand from this machine with your own Firebase login, run `npm run d
 
 ## Anti-cheat on Spark
 
-Clients write to Firestore directly, and `firestore.rules` rejects invalid data: a player can only write their own docs, scores are capped and can only go up, runs are rate-limited, and items unlock only once the stored best score reaches the item's threshold. A determined player can still send a fake score. When we move to the Blaze plan, a `submitRun` Cloud Function should validate runs and the rules should lock leaderboard and inventory writes to it.
+Clients write to Firestore directly, and `firestore.rules` rejects invalid data: a player can only write their own docs, scores are capped, a day's score can only improve, saves are rate-limited, a leaderboard entry must be written alongside the run that set it, and items unlock only once the stored best score reaches the item's threshold. A determined player can still send a fake score. When we move to the Blaze plan, a `submitRun` Cloud Function should validate runs and the rules should lock leaderboard and inventory writes to it.

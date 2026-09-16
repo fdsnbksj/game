@@ -9,9 +9,9 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['icon.svg', 'apple-touch-icon.png'],
       manifest: {
-        name: 'Untitled Game',
-        short_name: 'Game',
-        description: 'A 2D skill game with custom characters.',
+        name: 'Neon Flap',
+        short_name: 'Neon Flap',
+        description: 'Tap to fly through a neon skyline. New course every day.',
         theme_color: '#10131a',
         background_color: '#10131a',
         display: 'standalone',

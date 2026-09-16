@@ -5,11 +5,11 @@ import type { Loadout } from '../shared/types';
 
 const SCENES = [PreviewScene];
 
-export function CharacterPreview({ loadout }: { loadout: Loadout }) {
+export function BirdPreview({ loadout }: { loadout: Loadout }) {
   const registry = useMemo(() => ({ loadout }), [loadout]);
   return (
     <PhaserGame
-      className="character-preview"
+      className="bird-preview"
       scenes={SCENES}
       width={PREVIEW_WIDTH}
       height={PREVIEW_HEIGHT}

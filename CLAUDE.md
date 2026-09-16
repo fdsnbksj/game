@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Mobile web skill game (working title **Jungle Swing**): React screens, Phaser 3 gameplay, Firebase on the free Spark plan (Auth, Firestore, Hosting). Setup and layout are in `README.md`.
+**Neon Flap**: a tap-to-fly mobile web game. You flap a customizable bird through gaps in a neon skyline, and the course is generated from a day-based seed so everyone plays the same one each day. React handles the screens, Phaser 3 the gameplay, and Firebase the free-plan backend (Auth, Firestore, Hosting). Setup and layout are in `README.md`.
 
 ## Git and deploy
 
@@ -21,10 +21,17 @@ npm run build       # type-check + production build
 npm run test:rules  # Firestore rules tests (starts its own emulator; stop `npm run emulators` first)
 ```
 
+## How the game fits together
+
+- `src/game/scenes/FlapScene.ts` is the game: fixed-step physics, towers from a seeded random generator, score per gap passed.
+- The daily course id is `dayId()` (UTC). It seeds the towers and names the day's leaderboard.
+- `src/game/character/` draws the bird: tinted body and wing, fixed face, hat, plus a particle trail. All art is generated in code, no image files.
+- A run ends by emitting `RUN_FINISHED` on `EventBus`; `src/screens/Play.tsx` saves it.
+
 ## Constraints
 
 - **Spark plan:** no Cloud Functions, no Cloud Storage. `firestore.rules` is the only server-side validation, so every client write needs a matching rule and a test in `tests/rules.test.ts`.
-- **Free quota:** keep Firestore reads and writes minimal (write once per run, cache the leaderboard).
-- `MAX_SCORE` and `MIN_SECONDS_BETWEEN_RUNS` are duplicated in `firestore.rules` and `src/shared/constants.ts`. Change both together.
-- The item catalog lives in `src/shared/items.ts`. Each deploy re-seeds it into production Firestore.
+- **Saving runs:** a run is saved only when it beats the player's best for that day. Other attempts are counted in `pendingRuns` and added to `gamesPlayed` with the next save, so fast retries don't hit the free quota or the rate limit.
+- `MAX_SCORE`, `MIN_SECONDS_BETWEEN_RUNS` and `MAX_RUNS_PER_SAVE` are duplicated in `firestore.rules` and `src/shared/constants.ts`. Change both together.
+- The item catalog lives in `src/shared/items.ts`. Each deploy re-seeds it and deletes items no longer listed.
 - Phaser is not mounted inside React `StrictMode` (see `src/main.tsx`).

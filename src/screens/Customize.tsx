@@ -1,13 +1,13 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router';
-import { CharacterPreview } from '../components/CharacterPreview';
+import { BirdPreview } from '../components/BirdPreview';
 import { saveLoadout } from '../services/inventory';
-import { ITEMS, LAYER_ORDER, sameLoadout } from '../shared/items';
+import { COSMETIC_SLOTS, ITEMS, sameLoadout } from '../shared/items';
 import type { LoadoutColors, Slot } from '../shared/types';
 import { useGameStore } from '../store';
 
-const SLOT_LABELS: Record<Slot, string> = { body: 'Body', outfit: 'Outfit', hair: 'Hair', accessory: 'Accessory' };
-const COLOR_LABELS: Record<keyof LoadoutColors, string> = { skin: 'Skin', hair: 'Hair', outfit: 'Outfit' };
+const SLOT_LABELS: Record<Slot, string> = { body: 'Body', wing: 'Wings', hat: 'Hat', trail: 'Trail' };
+const COLOR_LABELS: Record<keyof LoadoutColors, string> = { body: 'Body', wing: 'Wings', trail: 'Trail' };
 const COLOR_KEYS = Object.keys(COLOR_LABELS) as (keyof LoadoutColors)[];
 
 const toHex = (color: number) => `#${color.toString(16).padStart(6, '0')}`;
@@ -40,9 +40,9 @@ export function Customize() {
         <h2>Customize</h2>
       </header>
 
-      <CharacterPreview loadout={draft} />
+      <BirdPreview loadout={draft} />
 
-      {LAYER_ORDER.map((slot) => (
+      {COSMETIC_SLOTS.map((slot) => (
         <section key={slot} className="slot">
           <h3>{SLOT_LABELS[slot]}</h3>
           <div className="item-row">

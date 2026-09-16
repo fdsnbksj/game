@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { fetchLeaderboard } from '../services/leaderboard';
+import { dayId } from '../shared/constants';
 import { useGameStore } from '../store';
 
 export function Leaderboard() {
@@ -21,12 +22,13 @@ export function Leaderboard() {
         <Link className="button small" to="/">
           ← Home
         </Link>
-        <h2>Leaderboard</h2>
+        <h2>Today</h2>
+        <span className="muted">{dayId()}</span>
       </header>
 
       {status === 'loading' && <p className="muted">Loading…</p>}
       {status === 'error' && <p className="error">Couldn't load scores.</p>}
-      {status === 'ready' && entries.length === 0 && <p className="muted">No scores yet. Be the first!</p>}
+      {status === 'ready' && entries.length === 0 && <p className="muted">No scores yet today. Be the first!</p>}
       {status === 'ready' && entries.length > 0 && (
         <ol className="leaderboard">
           {entries.map((entry, index) => (

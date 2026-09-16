@@ -1,113 +1,106 @@
 import Phaser from 'phaser';
 
-/** Layers are designed on a 64x96 grid and rendered at this multiple so they stay sharp when scaled up. */
+/** Parts are designed on a 48x48 grid and rendered at this multiple so they stay sharp when scaled up. */
 export const TEXTURE_SCALE = 4;
-const WIDTH = 64;
-const HEIGHT = 96;
+const PART_SIZE = 48;
+const PARTICLE_SIZE = 12;
 
-// White areas take the layer's tint; INK details stay dark under any tint.
+// White areas take the layer's tint. Fixed colors (beak, hats, eyes) are drawn as they should look.
 const WHITE = 0xffffff;
-const INK = 0x1b1b1f;
+const INK = 0x10131a;
+const BEAK = 0xffa42b;
+const BEAK_SHADE = 0xd97d12;
 
-type DrawLayer = (g: Phaser.GameObjects.Graphics) => void;
+type DrawPart = (g: Phaser.GameObjects.Graphics) => void;
 
-function drawLimbs(g: Phaser.GameObjects.Graphics) {
-  g.fillRoundedRect(12, 40, 8, 24, 4);
-  g.fillRoundedRect(44, 40, 8, 24, 4);
-  g.fillRoundedRect(22, 66, 8, 26, 4);
-  g.fillRoundedRect(34, 66, 8, 26, 4);
-}
-
-function drawEyes(g: Phaser.GameObjects.Graphics) {
-  g.fillStyle(INK);
-  g.fillCircle(27, 23, 2);
-  g.fillCircle(37, 23, 2);
-}
-
-// Placeholder art, keyed by Item.spriteKey. Replace with a sprite sheet once there's real art.
-const LAYERS: Record<string, DrawLayer> = {
-  body_basic: (g) => {
-    g.fillStyle(WHITE);
-    g.fillCircle(32, 22, 14);
-    g.fillRoundedRect(21, 38, 22, 30, 6);
-    drawLimbs(g);
-    drawEyes(g);
-  },
+// Body and wing are tinted, so they're drawn white. The bird faces right.
+const PARTS: Record<string, DrawPart> = {
   body_round: (g) => {
     g.fillStyle(WHITE);
-    g.fillCircle(32, 22, 16);
-    g.fillEllipse(32, 54, 34, 34);
-    drawLimbs(g);
-    drawEyes(g);
+    g.fillTriangle(10, 20, 0, 13, 11, 31);
+    g.fillCircle(22, 24, 14);
   },
-  outfit_basic: (g) => {
+  body_sleek: (g) => {
     g.fillStyle(WHITE);
-    g.fillRoundedRect(19, 37, 26, 24, 6);
-    g.fillRoundedRect(11, 39, 10, 12, 4);
-    g.fillRoundedRect(43, 39, 10, 12, 4);
+    g.fillTriangle(9, 22, 0, 15, 10, 31);
+    g.fillEllipse(24, 24, 38, 22);
   },
-  outfit_hoodie: (g) => {
+  body_chunky: (g) => {
     g.fillStyle(WHITE);
-    g.fillEllipse(32, 38, 30, 10);
-    g.fillRoundedRect(18, 37, 28, 32, 6);
-    g.fillRoundedRect(10, 39, 11, 26, 4);
-    g.fillRoundedRect(43, 39, 11, 26, 4);
-    g.fillStyle(INK, 0.25);
-    g.fillRoundedRect(24, 55, 16, 9, 3);
+    g.fillTriangle(8, 20, 0, 12, 9, 32);
+    g.fillCircle(22, 25, 16);
   },
-  outfit_armor: (g) => {
+  // Drawn over the body, never tinted, so every bird keeps a readable face.
+  face: (g) => {
+    g.fillStyle(BEAK);
+    g.fillTriangle(34, 21, 47, 25, 34, 29);
+    g.fillStyle(BEAK_SHADE);
+    g.fillTriangle(34, 25, 45, 26, 34, 29);
     g.fillStyle(WHITE);
-    g.fillRoundedRect(18, 36, 28, 34, 4);
-    g.fillCircle(15, 42, 7);
-    g.fillCircle(49, 42, 7);
-    g.lineStyle(2, INK, 0.35);
-    g.lineBetween(20, 50, 44, 50);
-    g.lineBetween(20, 60, 44, 60);
+    g.fillCircle(30, 18, 5);
+    g.fillStyle(INK);
+    g.fillCircle(31, 18, 2.5);
   },
-  hair_basic: (g) => {
+  wing_basic: (g) => {
     g.fillStyle(WHITE);
-    g.fillEllipse(32, 13, 30, 14);
-    g.fillRect(18, 12, 4, 10);
-    g.fillRect(42, 12, 4, 10);
+    g.fillEllipse(20, 26, 22, 13);
   },
-  hair_spiky: (g) => {
+  wing_pointed: (g) => {
     g.fillStyle(WHITE);
-    g.fillEllipse(32, 15, 30, 12);
-    g.fillTriangle(17, 16, 20, 1, 27, 12);
-    g.fillTriangle(24, 12, 31, 0, 36, 12);
-    g.fillTriangle(33, 12, 42, 1, 44, 14);
-    g.fillTriangle(40, 14, 49, 5, 47, 19);
+    g.fillTriangle(9, 17, 30, 26, 13, 35);
   },
-  hair_long: (g) => {
+  wing_feathered: (g) => {
     g.fillStyle(WHITE);
-    g.fillEllipse(32, 13, 32, 14);
-    g.fillRoundedRect(15, 12, 8, 32, 4);
-    g.fillRoundedRect(41, 12, 8, 32, 4);
+    g.fillEllipse(21, 24, 21, 11);
+    g.fillEllipse(19, 28, 18, 10);
+    g.fillEllipse(16, 32, 14, 8);
   },
-  acc_none: () => {},
-  acc_glasses: (g) => {
-    g.lineStyle(2, INK);
-    g.strokeCircle(26, 23, 5);
-    g.strokeCircle(38, 23, 5);
-    g.lineBetween(31, 23, 33, 23);
+  hat_none: () => {},
+  hat_cap: (g) => {
+    g.fillStyle(0xff3df0);
+    g.fillEllipse(24, 10, 20, 11);
+    g.fillRect(30, 9, 13, 3);
   },
-  acc_crown: (g) => {
-    g.fillStyle(0xffc83d);
-    g.fillRect(21, 6, 22, 6);
-    g.fillTriangle(21, 7, 24, 0, 27, 7);
-    g.fillTriangle(29, 7, 32, 0, 35, 7);
-    g.fillTriangle(37, 7, 40, 0, 43, 7);
+  hat_antenna: (g) => {
+    g.lineStyle(2, 0x36e2ff);
+    g.lineBetween(24, 12, 27, 3);
+    g.fillStyle(0x36e2ff);
+    g.fillCircle(27, 2, 3);
+  },
+  hat_crown: (g) => {
+    g.fillStyle(0xffd23f);
+    g.fillRect(15, 7, 19, 5);
+    g.fillTriangle(15, 8, 18, 1, 21, 8);
+    g.fillTriangle(22, 8, 25, 0, 28, 8);
+    g.fillTriangle(29, 8, 32, 1, 34, 8);
   },
 };
 
-/** Generates every character layer texture once per game. */
-export function ensureCharacterTextures(scene: Phaser.Scene) {
-  for (const [key, draw] of Object.entries(LAYERS)) {
-    if (scene.textures.exists(key)) continue;
-    const g = scene.make.graphics({}, false);
-    g.scaleCanvas(TEXTURE_SCALE, TEXTURE_SCALE);
-    draw(g);
-    g.generateTexture(key, WIDTH * TEXTURE_SCALE, HEIGHT * TEXTURE_SCALE);
-    g.destroy();
-  }
+// Trail particles are tinted per player, so they're white too.
+const PARTICLES: Record<string, DrawPart> = {
+  trail_spark: (g) => {
+    g.fillStyle(WHITE);
+    g.fillTriangle(6, 0, 8, 6, 6, 12);
+    g.fillTriangle(0, 6, 6, 4, 12, 6);
+    g.fillCircle(6, 6, 2.5);
+  },
+  trail_rainbow: (g) => {
+    g.fillStyle(WHITE);
+    g.fillCircle(6, 6, 5);
+  },
+};
+
+function generate(scene: Phaser.Scene, key: string, draw: DrawPart, size: number) {
+  if (scene.textures.exists(key)) return;
+  const g = scene.make.graphics({}, false);
+  g.scaleCanvas(TEXTURE_SCALE, TEXTURE_SCALE);
+  draw(g);
+  g.generateTexture(key, size * TEXTURE_SCALE, size * TEXTURE_SCALE);
+  g.destroy();
+}
+
+/** Generates every bird part and trail particle texture once per game. */
+export function ensureBirdTextures(scene: Phaser.Scene) {
+  for (const [key, draw] of Object.entries(PARTS)) generate(scene, key, draw, PART_SIZE);
+  for (const [key, draw] of Object.entries(PARTICLES)) generate(scene, key, draw, PARTICLE_SIZE);
 }
