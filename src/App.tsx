@@ -7,6 +7,24 @@ import { Play } from './screens/Play';
 import { startSession } from './services/auth';
 import { useGameStore } from './store';
 
+/**
+ * An installed copy of an older version can fail against the current rules, and the
+ * offline cache keeps serving it. Throw the cache away and start over.
+ */
+async function reloadFresh() {
+  try {
+    const registrations = (await navigator.serviceWorker?.getRegistrations()) ?? [];
+    await Promise.all(registrations.map((registration) => registration.unregister()));
+    if (typeof caches !== 'undefined') {
+      const names = await caches.keys();
+      await Promise.all(names.map((name) => caches.delete(name)));
+    }
+  } catch {
+    // Reloading is still worth a try.
+  }
+  location.reload();
+}
+
 export function App() {
   const ready = useGameStore((s) => s.profile !== null);
   const [error, setError] = useState<string | null>(null);
@@ -24,6 +42,9 @@ export function App() {
     return (
       <main className="screen center">
         <p className="error">{error}</p>
+        <button className="button primary" onClick={() => void reloadFresh()}>
+          Reload
+        </button>
       </main>
     );
   }
