@@ -69,6 +69,9 @@ service cloud.firestore {
     function isRunResult() {
       let before = resource.data;
       let after = request.resource.data;
+      // Profiles created before daily scores existed have neither field.
+      let beforeDay = 'dailyId' in before ? before.dailyId : '';
+      let beforeDailyScore = 'dailyScore' in before ? before.dailyScore : 0;
       return after.diff(before).affectedKeys().hasOnly(['bestScore', 'gamesPlayed', 'lastRunAt', 'dailyId', 'dailyScore'])
         && after.bestScore is int
         && after.bestScore >= before.bestScore
@@ -78,7 +81,7 @@ service cloud.firestore {
         && after.dailyScore <= after.bestScore
         && isValidDay(after.dailyId)
         // Same day: the score has to improve. A new day starts over.
-        && (after.dailyId != before.dailyId || after.dailyScore > before.dailyScore)
+        && (after.dailyId != beforeDay || after.dailyScore > beforeDailyScore)
         && after.gamesPlayed > before.gamesPlayed
         && after.gamesPlayed <= before.gamesPlayed + maxRunsPerSave()
         && after.lastRunAt == request.time

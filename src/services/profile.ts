@@ -1,7 +1,7 @@
 import { getDoc, getDocs, serverTimestamp, updateDoc, writeBatch } from 'firebase/firestore';
 import { db } from '../firebase';
 import { dayId } from '../shared/constants';
-import { DEFAULT_ITEM_IDS, DEFAULT_LOADOUT } from '../shared/items';
+import { COSMETIC_SLOTS, DEFAULT_ITEM_IDS, DEFAULT_LOADOUT, getItem } from '../shared/items';
 import type { Loadout, UserProfile } from '../shared/types';
 import { requireSession } from '../store';
 import { inventoryCollection, inventoryRef, loadoutRef, userRef } from './refs';
@@ -15,14 +15,21 @@ export async function loadOrCreateProfile(uid: string) {
     displayName: userSnap.get('displayName'),
     bestScore: userSnap.get('bestScore'),
     gamesPlayed: userSnap.get('gamesPlayed'),
-    dailyId: userSnap.get('dailyId'),
-    dailyScore: userSnap.get('dailyScore'),
+    // Profiles from before daily scores existed have neither field.
+    dailyId: userSnap.get('dailyId') ?? '',
+    dailyScore: userSnap.get('dailyScore') ?? 0,
   };
+  const stored = loadoutSnap.data() as Loadout | undefined;
   return {
     profile,
     inventory: inventorySnap.docs.map((d) => d.id),
-    loadout: (loadoutSnap.data() as Loadout | undefined) ?? DEFAULT_LOADOUT,
+    loadout: isCurrentLoadout(stored) ? stored : DEFAULT_LOADOUT,
   };
+}
+
+/** A loadout saved by an older version can name items that no longer exist. */
+function isCurrentLoadout(loadout: Loadout | undefined): loadout is Loadout {
+  return loadout !== undefined && COSMETIC_SLOTS.every((slot) => getItem(loadout[slot])?.slot === slot);
 }
 
 // One batch so the rules never see a player without their starter items and loadout.

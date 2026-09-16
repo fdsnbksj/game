@@ -174,6 +174,26 @@ describe('runs and the daily leaderboard', () => {
     await assertFails(submitRun(dbFor('alice'), 'alice', 9, { runs: MAX_RUNS_PER_SAVE + 1 }));
   });
 
+  it('accepts a save from a profile created before daily scores existed', async () => {
+    await asAdmin(async (db) => {
+      const batch = writeBatch(db);
+      batch.set(doc(db, 'users', 'legacy'), {
+        // Same name the submitRun helper writes on the entry; the rules require them to match.
+        displayName: 'Alice',
+        bestScore: 32,
+        gamesPlayed: 3,
+        createdAt: hourAgo(),
+        lastRunAt: hourAgo(),
+      });
+      for (const itemId of DEFAULT_ITEM_IDS) {
+        batch.set(doc(db, 'users', 'legacy', 'inventory', itemId), { unlockedAt: hourAgo() });
+      }
+      batch.set(doc(db, 'users', 'legacy', 'meta', 'loadout'), DEFAULT_LOADOUT);
+      await batch.commit();
+    });
+    await assertSucceeds(submitRun(dbFor('legacy'), 'legacy', 4, { bestScore: 32 }));
+  });
+
   it('rejects a score above the maximum', async () => {
     await seedPlayer('alice');
     await assertFails(submitRun(dbFor('alice'), 'alice', MAX_SCORE + 1));
