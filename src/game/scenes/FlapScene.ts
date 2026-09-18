@@ -5,6 +5,7 @@ import { COLORS, DISPLAY_FONT, NEON } from '../../shared/theme';
 import type { Loadout, RunResult } from '../../shared/types';
 import { BIRD_RADIUS, BirdSprite } from '../character/BirdSprite';
 import { createTrail } from '../character/trail';
+import { setMusicLevel, sfx, vibrate } from '../audio';
 import { EventBus, RESTART_RUN, RUN_FINISHED } from '../EventBus';
 
 export const GAME_WIDTH = 360;
@@ -44,6 +45,9 @@ const VIGNETTE_TEXTURE = 'vignette';
 
 /** Parallax: how far each layer moves per pixel the towers move. */
 const PARALLAX = { back: 0.05, far: 0.12, near: 0.35, ground: 1 };
+
+/** The music gains a layer at each of these scores. */
+const MUSIC_LEVEL_SCORES = [10, 25];
 
 interface Tower {
   x: number;
@@ -107,6 +111,7 @@ export class FlapScene extends Phaser.Scene {
     this.running = false;
     this.dead = false;
     this.accumulator = 0;
+    setMusicLevel(0);
 
     this.drawCity(courseId);
 
@@ -180,9 +185,11 @@ export class FlapScene extends Phaser.Scene {
           onComplete: () => prompt.destroy(),
         });
         this.running = true;
+        setMusicLevel(1);
       }
       this.velocity = FLAP_VELOCITY;
       this.bird.flap();
+      sfx.flap();
     });
 
     // Restarting the scene keeps the game, its WebGL context and its textures between runs.
@@ -314,6 +321,9 @@ export class FlapScene extends Phaser.Scene {
     this.score += 1;
     this.scoreText.setText(`${this.score}`);
     this.tweens.add({ targets: this.scoreText, scale: 1.25, duration: 90, yoyo: true });
+    sfx.score();
+    if (this.score % 10 === 0) vibrate(20);
+    setMusicLevel(1 + MUSIC_LEVEL_SCORES.filter((score) => this.score >= score).length);
     if (this.score >= MAX_SCORE) this.die();
   }
 
@@ -323,6 +333,9 @@ export class FlapScene extends Phaser.Scene {
     this.running = false;
     this.trail?.stop();
     this.cameras.main.shake(180, 0.008);
+    sfx.death();
+    vibrate([40, 30, 60]);
+    setMusicLevel(0);
 
     // Report the run straight away. Hanging this on the fall animation's callback meant
     // a bird that died on the ground never finished falling, so the run was never reported.

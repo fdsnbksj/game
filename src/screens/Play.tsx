@@ -1,6 +1,8 @@
 import { FirebaseError } from 'firebase/app';
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router';
+import { SoundToggle } from '../components/SoundToggle';
+import { sfx, startMusic, stopMusic } from '../game/audio';
 import { EventBus, RESTART_RUN, RUN_FINISHED } from '../game/EventBus';
 import { PhaserGame } from '../game/PhaserGame';
 import { FlapScene, GAME_HEIGHT, GAME_WIDTH } from '../game/scenes/FlapScene';
@@ -34,12 +36,17 @@ export function Play() {
     const onFinished = ({ score }: RunResult) => {
       setRun({ status: 'saving', score });
       submitRun(score)
-        .then((outcome) => setRun({ status: 'done', outcome }))
+        .then((outcome) => {
+          if (outcome.newBest || outcome.unlocked.length > 0) sfx.reward();
+          setRun({ status: 'done', outcome });
+        })
         .catch((error: unknown) => setRun({ status: 'failed', score, message: describeError(error) }));
     };
     EventBus.on(RUN_FINISHED, onFinished);
+    startMusic();
     return () => {
       EventBus.off(RUN_FINISHED, onFinished);
+      stopMusic();
     };
   }, []);
 
@@ -56,6 +63,8 @@ export function Play() {
         <Link className="button small" to="/">
           ← Home
         </Link>
+        <span className="spacer" />
+        <SoundToggle />
       </header>
       <PhaserGame
         className="game-container"

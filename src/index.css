@@ -128,7 +128,7 @@ body {
 /* ---------- Type ---------- */
 
 .title {
-  margin: var(--sp-6) 0 0;
+  margin: var(--sp-2) 0 0;
   font-family: var(--font-display);
   font-size: var(--fs-2xl);
   font-weight: 900;
@@ -279,6 +279,21 @@ body {
 .button.icon {
   min-width: 40px;
   padding: 8px;
+}
+
+.sound-toggle {
+  display: flex;
+  gap: var(--sp-2);
+}
+
+.sound-toggle .button[aria-pressed='true'] {
+  color: var(--primary);
+  border-color: rgb(54 226 255 / 0.5);
+  box-shadow: 0 0 10px rgb(54 226 255 / 0.2);
+}
+
+.sound-toggle .button[aria-pressed='false'] {
+  color: var(--muted);
 }
 
 .button:disabled {

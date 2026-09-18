@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router';
 import { BirdPreview } from '../components/BirdPreview';
+import { SoundToggle } from '../components/SoundToggle';
 import { Wordmark } from '../components/Wordmark';
 import { renamePlayer } from '../services/profile';
 import { dayId } from '../shared/constants';
@@ -13,6 +14,10 @@ export function Home() {
 
   return (
     <main className="screen">
+      <header className="topbar">
+        <span className="spacer" />
+        <SoundToggle />
+      </header>
       <Wordmark />
       <BirdPreview loadout={loadout} />
       <NameEditor name={profile.displayName} />
