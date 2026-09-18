@@ -7,6 +7,8 @@ interface Session {
   profile: UserProfile;
   inventory: string[];
   loadout: Loadout;
+  /** When the profile was created, in ms. */
+  joinedAt: number | null;
 }
 
 interface GameState {
@@ -16,6 +18,7 @@ interface GameState {
   inventory: string[];
   /** Last loadout saved to Firestore. */
   loadout: Loadout;
+  joinedAt: number | null;
   leaderboard: LeaderboardEntry[];
   /** Day the cached leaderboard belongs to. */
   leaderboardDay: string;
@@ -39,6 +42,7 @@ export const useGameStore = create<GameState>()((set) => ({
   profile: null,
   inventory: [],
   loadout: DEFAULT_LOADOUT,
+  joinedAt: null,
   leaderboard: [],
   leaderboardDay: '',
   leaderboardFetchedAt: 0,

@@ -25,6 +25,7 @@ npm run test:rules  # Firestore rules tests (starts its own emulator; stop `npm 
 
 - `src/game/scenes/FlapScene.ts` is the game: fixed-step physics, towers from a seeded random generator, score per gap passed.
 - The daily course id is `dayId()` (UTC). It seeds the towers and names the day's leaderboard.
+- The near and far skylines draw from the course's random stream before the towers do, so they are part of the course: changing how they draw changes every day's towers. New decor gets its own stream (`drawCity()` in `FlapScene.ts`).
 - `src/game/character/` draws the bird: tinted body and wing, fixed face, hat, plus a particle trail. All art is generated in code, no image files.
 - A run ends by emitting `RUN_FINISHED` on `EventBus`; `src/screens/Play.tsx` saves it.
 
@@ -33,6 +34,8 @@ npm run test:rules  # Firestore rules tests (starts its own emulator; stop `npm 
 - **Spark plan:** no Cloud Functions, no Cloud Storage. `firestore.rules` is the only server-side validation, so every client write needs a matching rule and a test in `tests/rules.test.ts`.
 - **Saving runs:** a run is saved only when it beats the player's best for that day. Other attempts are counted in `pendingRuns` and added to `gamesPlayed` with the next save, so fast retries don't hit the free quota or the rate limit.
 - `MAX_SCORE`, `MIN_SECONDS_BETWEEN_RUNS` and `MAX_RUNS_PER_SAVE` are duplicated in `firestore.rules` and `src/shared/constants.ts`. Change both together.
+- Streaks are duplicated the same way: `nextProgress()` in `src/shared/progress.ts` and `isNextDay()` in `src/shared/constants.ts` mirror `isValidProgress()` and `isNextDay()` in `firestore.rules`.
+- The rules only accept a run dated within a day of the server clock, so tests derive their dates from `dayId()` rather than hardcoding them.
 - The item catalog lives in `src/shared/items.ts`. Each deploy re-seeds it and deletes items no longer listed.
 - Phaser is not mounted inside React `StrictMode` (see `src/main.tsx`).
 - **Hosting cache headers** in `firebase.json` match the *requested* path, not the file served. The no-cache rules therefore use `/` and `/*` (the app's routes, which all serve `index.html`); `/assets/**` has two segments, so hashed assets keep their immutable caching. Without this, a deploy can be masked for an hour by a cached page.

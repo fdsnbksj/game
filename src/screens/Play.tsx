@@ -1,6 +1,7 @@
 import { FirebaseError } from 'firebase/app';
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router';
+import { FlameIcon } from '../components/icons';
 import { SoundToggle } from '../components/SoundToggle';
 import { sfx, startMusic, stopMusic } from '../game/audio';
 import { EventBus, RESTART_RUN, RUN_FINISHED } from '../game/EventBus';
@@ -37,7 +38,7 @@ export function Play() {
       setRun({ status: 'saving', score });
       submitRun(score)
         .then((outcome) => {
-          if (outcome.newBest || outcome.unlocked.length > 0) sfx.reward();
+          if (outcome.newBest || outcome.unlocked.length > 0 || outcome.newBestStreak) sfx.reward();
           setRun({ status: 'done', outcome });
         })
         .catch((error: unknown) => setRun({ status: 'failed', score, message: describeError(error) }));
@@ -80,6 +81,14 @@ export function Play() {
             {run.status === 'done' && run.outcome.newBest && <p className="highlight">All-time best!</p>}
             {run.status === 'done' && run.outcome.newDailyBest && !run.outcome.newBest && (
               <p className="highlight">Best today!</p>
+            )}
+            {run.status === 'done' && run.outcome.streak !== null && (
+              <p className="streak-line">
+                <FlameIcon />
+                {run.outcome.streak === 1
+                  ? 'Streak started. Come back tomorrow!'
+                  : `${run.outcome.streak}-day streak${run.outcome.newBestStreak ? ' · your best' : ''}`}
+              </p>
             )}
             {run.status === 'done' && run.outcome.unlocked.length > 0 && (
               <>

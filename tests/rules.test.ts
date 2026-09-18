@@ -12,11 +12,15 @@ import {
 } from 'firebase/firestore';
 import { readFileSync } from 'node:fs';
 import { afterAll, beforeAll, beforeEach, describe, it } from 'vitest';
-import { MAX_RUNS_PER_SAVE, MAX_SCORE } from '../src/shared/constants';
+import { dayId, MAX_RUNS_PER_SAVE, MAX_SCORE } from '../src/shared/constants';
 import { DEFAULT_ITEM_IDS, DEFAULT_LOADOUT, ITEMS } from '../src/shared/items';
 
-const TODAY = '2026-09-16';
-const YESTERDAY = '2026-09-15';
+// Real dates: the rules only accept a run dated within a day of the server clock.
+const DAY_MS = 24 * 60 * 60 * 1000;
+const daysAgo = (days: number) => dayId(new Date(Date.now() - days * DAY_MS));
+const TODAY = daysAgo(0);
+const YESTERDAY = daysAgo(1);
+const TWO_DAYS_AGO = daysAgo(2);
 
 let env: RulesTestEnvironment;
 
@@ -31,7 +35,17 @@ async function asAdmin(write: (db: Firestore) => Promise<unknown>) {
   });
 }
 
+/** Streak fields as the client writes them. Leave them out to act as an older client. */
+interface Progress {
+  streak: number;
+  bestStreak: number;
+  streakDay: string;
+  daysPlayed: number;
+}
+
 interface SeedOptions {
+  /** Omit for a profile saved before streaks existed. */
+  progress?: Progress;
   bestScore?: number;
   dailyId?: string;
   dailyScore?: number;
@@ -48,6 +62,7 @@ async function seedPlayer(uid: string, options: SeedOptions = {}) {
     gamesPlayed = 3,
     lastRunAt = hourAgo(),
     inventory = DEFAULT_ITEM_IDS,
+    progress = {},
   } = options;
   await asAdmin(async (db) => {
     const batch = writeBatch(db);
@@ -59,6 +74,7 @@ async function seedPlayer(uid: string, options: SeedOptions = {}) {
       lastRunAt,
       dailyId,
       dailyScore,
+      ...progress,
     });
     for (const itemId of inventory) batch.set(doc(db, 'users', uid, 'inventory', itemId), { unlockedAt: hourAgo() });
     batch.set(doc(db, 'users', uid, 'meta', 'loadout'), DEFAULT_LOADOUT);
@@ -67,6 +83,7 @@ async function seedPlayer(uid: string, options: SeedOptions = {}) {
 }
 
 interface RunOptions {
+  progress?: Progress;
   day?: string;
   entryDay?: string;
   entryScore?: number;
@@ -76,7 +93,7 @@ interface RunOptions {
 
 /** Mirrors submitRun() in src/services/runs.ts. */
 function submitRun(db: Firestore, uid: string, score: number, options: RunOptions = {}) {
-  const { day = TODAY, entryDay = day, entryScore = score, bestScore = score, runs = 1 } = options;
+  const { day = TODAY, entryDay = day, entryScore = score, bestScore = score, runs = 1, progress = {} } = options;
   const batch = writeBatch(db);
   batch.update(doc(db, 'users', uid), {
     bestScore,
@@ -84,6 +101,7 @@ function submitRun(db: Firestore, uid: string, score: number, options: RunOption
     dailyScore: score,
     gamesPlayed: increment(runs),
     lastRunAt: serverTimestamp(),
+    ...progress,
   });
   batch.set(doc(db, 'leaderboards', entryDay, 'entries', uid), {
     score: entryScore,
@@ -248,6 +266,170 @@ describe('runs and the daily leaderboard', () => {
 
   it('lets signed-in players read the leaderboard', async () => {
     await assertSucceeds(getDoc(doc(dbFor('bob'), 'leaderboards', TODAY, 'entries', 'alice')));
+  });
+});
+
+const progress = (streak: number, bestStreak: number, streakDay: string, daysPlayed: number): Progress => ({
+  streak,
+  bestStreak,
+  streakDay,
+  daysPlayed,
+});
+
+describe('streaks and days played', () => {
+  it('starts a streak on the first saved run', async () => {
+    await seedPlayer('alice', { progress: progress(0, 0, '', 0) });
+    await assertSucceeds(submitRun(dbFor('alice'), 'alice', 5, { progress: progress(1, 1, TODAY, 1) }));
+  });
+
+  it('starts a streak for a profile created before streaks existed', async () => {
+    await seedPlayer('alice');
+    await assertSucceeds(submitRun(dbFor('alice'), 'alice', 5, { progress: progress(1, 1, TODAY, 1) }));
+  });
+
+  it('extends the streak on the next UTC day', async () => {
+    await seedPlayer('alice', { dailyId: YESTERDAY, dailyScore: 9, progress: progress(4, 4, YESTERDAY, 6) });
+    await assertSucceeds(submitRun(dbFor('alice'), 'alice', 3, { bestScore: 9, progress: progress(5, 5, TODAY, 7) }));
+  });
+
+  it('keeps a higher best streak when the streak grows', async () => {
+    await seedPlayer('alice', { dailyId: YESTERDAY, dailyScore: 9, progress: progress(2, 8, YESTERDAY, 12) });
+    await assertSucceeds(submitRun(dbFor('alice'), 'alice', 3, { bestScore: 9, progress: progress(3, 8, TODAY, 13) }));
+  });
+
+  it('restarts the streak after a missed day', async () => {
+    await seedPlayer('alice', { dailyId: TWO_DAYS_AGO, dailyScore: 9, progress: progress(4, 4, TWO_DAYS_AGO, 6) });
+    await assertSucceeds(submitRun(dbFor('alice'), 'alice', 3, { bestScore: 9, progress: progress(1, 4, TODAY, 7) }));
+  });
+
+  it('leaves progress alone on a later save the same day', async () => {
+    await seedPlayer('alice', { dailyScore: 3, progress: progress(2, 2, TODAY, 2) });
+    await assertSucceeds(submitRun(dbFor('alice'), 'alice', 5));
+  });
+
+  it('accepts a save from an older client that leaves the progress fields out', async () => {
+    await seedPlayer('alice', { dailyId: YESTERDAY, dailyScore: 9, progress: progress(4, 4, YESTERDAY, 6) });
+    await assertSucceeds(submitRun(dbFor('alice'), 'alice', 3, { bestScore: 9 }));
+  });
+
+  it('rejects carrying a streak over a missed day', async () => {
+    await seedPlayer('alice', { dailyId: TWO_DAYS_AGO, dailyScore: 9, progress: progress(4, 4, TWO_DAYS_AGO, 6) });
+    await assertFails(submitRun(dbFor('alice'), 'alice', 3, { bestScore: 9, progress: progress(5, 5, TODAY, 7) }));
+  });
+
+  it('rejects counting the same day twice', async () => {
+    await seedPlayer('alice', { dailyScore: 3, progress: progress(2, 2, TODAY, 2) });
+    await assertFails(submitRun(dbFor('alice'), 'alice', 5, { progress: progress(3, 3, TODAY, 3) }));
+  });
+
+  it('rejects a streak day other than the run day', async () => {
+    await seedPlayer('alice', { dailyId: TWO_DAYS_AGO, dailyScore: 9, progress: progress(4, 4, TWO_DAYS_AGO, 6) });
+    await assertFails(submitRun(dbFor('alice'), 'alice', 3, { bestScore: 9, progress: progress(5, 5, YESTERDAY, 7) }));
+  });
+
+  it('rejects a best streak that skips ahead', async () => {
+    await seedPlayer('alice', { progress: progress(0, 0, '', 0) });
+    await assertFails(submitRun(dbFor('alice'), 'alice', 5, { progress: progress(1, 30, TODAY, 1) }));
+  });
+
+  it('rejects lowering the best streak', async () => {
+    await seedPlayer('alice', { dailyId: YESTERDAY, dailyScore: 9, progress: progress(1, 8, YESTERDAY, 12) });
+    await assertFails(submitRun(dbFor('alice'), 'alice', 3, { bestScore: 9, progress: progress(2, 2, TODAY, 13) }));
+  });
+
+  it('rejects days played growing by more than one', async () => {
+    await seedPlayer('alice', { progress: progress(0, 0, '', 0) });
+    await assertFails(submitRun(dbFor('alice'), 'alice', 5, { progress: progress(1, 1, TODAY, 5) }));
+  });
+
+  it('rejects changing only some of the progress fields', async () => {
+    await seedPlayer('alice', { dailyId: YESTERDAY, dailyScore: 9, progress: progress(4, 4, YESTERDAY, 6) });
+    const db = dbFor('alice');
+    const batch = writeBatch(db);
+    batch.update(doc(db, 'users', 'alice'), {
+      bestScore: 9,
+      dailyId: TODAY,
+      dailyScore: 3,
+      gamesPlayed: increment(1),
+      lastRunAt: serverTimestamp(),
+      streak: 50,
+    });
+    batch.set(doc(db, 'leaderboards', TODAY, 'entries', 'alice'), {
+      score: 3,
+      displayName: 'Alice',
+      loadout: DEFAULT_LOADOUT,
+      submittedAt: serverTimestamp(),
+    });
+    await assertFails(batch.commit());
+  });
+
+  it('lets a new profile start with zeroed progress', async () => {
+    const db = dbFor('alice');
+    const batch = writeBatch(db);
+    batch.set(doc(db, 'users', 'alice'), {
+      displayName: 'Alice',
+      bestScore: 0,
+      gamesPlayed: 0,
+      createdAt: serverTimestamp(),
+      lastRunAt: serverTimestamp(),
+      dailyId: TODAY,
+      dailyScore: 0,
+      ...progress(0, 0, '', 0),
+    });
+    for (const itemId of DEFAULT_ITEM_IDS) {
+      batch.set(doc(db, 'users', 'alice', 'inventory', itemId), { unlockedAt: serverTimestamp() });
+    }
+    batch.set(doc(db, 'users', 'alice', 'meta', 'loadout'), DEFAULT_LOADOUT);
+    await assertSucceeds(batch.commit());
+  });
+
+  it('rejects a new profile that starts with a streak', async () => {
+    await assertFails(
+      setDoc(doc(dbFor('alice'), 'users', 'alice'), {
+        displayName: 'Alice',
+        bestScore: 0,
+        gamesPlayed: 0,
+        createdAt: serverTimestamp(),
+        lastRunAt: serverTimestamp(),
+        dailyId: TODAY,
+        dailyScore: 0,
+        ...progress(30, 30, TODAY, 30),
+      }),
+    );
+  });
+});
+
+describe('run dates', () => {
+  it('accepts a run dated a day ahead of the server clock', async () => {
+    await seedPlayer('alice');
+    await assertSucceeds(submitRun(dbFor('alice'), 'alice', 5, { day: daysAgo(-1) }));
+  });
+
+  it('rejects a run dated a week ahead of the server clock', async () => {
+    await seedPlayer('alice');
+    await assertFails(submitRun(dbFor('alice'), 'alice', 5, { day: daysAgo(-7) }));
+  });
+
+  it('rejects a run dated a week in the past', async () => {
+    await seedPlayer('alice', { dailyId: daysAgo(8) });
+    await assertFails(submitRun(dbFor('alice'), 'alice', 5, { day: daysAgo(7) }));
+  });
+
+  it('rejects a streak farmed by replaying past dates', async () => {
+    const past = daysAgo(30);
+    await seedPlayer('alice', { dailyId: daysAgo(31), dailyScore: 9, progress: progress(1, 1, daysAgo(31), 1) });
+    await assertFails(submitRun(dbFor('alice'), 'alice', 3, { day: past, bestScore: 9, progress: progress(2, 2, past, 2) }));
+  });
+
+  it('rejects a run on a day that is not YYYY-MM-DD', async () => {
+    await seedPlayer('alice');
+    // Dots, not slashes: a slash would make the leaderboard path invalid and fail for the wrong reason.
+    await assertFails(submitRun(dbFor('alice'), 'alice', 5, { day: TODAY.replaceAll('-', '.') }));
+  });
+
+  it('rejects a run on an impossible date', async () => {
+    await seedPlayer('alice');
+    await assertFails(submitRun(dbFor('alice'), 'alice', 5, { day: `${TODAY.slice(0, 4)}-02-31` }));
   });
 });
 

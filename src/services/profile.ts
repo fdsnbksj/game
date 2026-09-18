@@ -1,4 +1,4 @@
-import { getDoc, getDocs, serverTimestamp, updateDoc, writeBatch } from 'firebase/firestore';
+import { getDoc, getDocs, serverTimestamp, updateDoc, writeBatch, type Timestamp } from 'firebase/firestore';
 import { db } from '../firebase';
 import { dayId } from '../shared/constants';
 import { COSMETIC_SLOTS, DEFAULT_ITEM_IDS, DEFAULT_LOADOUT, getItem } from '../shared/items';
@@ -15,15 +15,21 @@ export async function loadOrCreateProfile(uid: string) {
     displayName: userSnap.get('displayName'),
     bestScore: userSnap.get('bestScore'),
     gamesPlayed: userSnap.get('gamesPlayed'),
-    // Profiles from before daily scores existed have neither field.
+    // Profiles from before daily scores or streaks existed lack those fields.
     dailyId: userSnap.get('dailyId') ?? '',
     dailyScore: userSnap.get('dailyScore') ?? 0,
+    streak: userSnap.get('streak') ?? 0,
+    bestStreak: userSnap.get('bestStreak') ?? 0,
+    streakDay: userSnap.get('streakDay') ?? '',
+    daysPlayed: userSnap.get('daysPlayed') ?? 0,
   };
+  const createdAt = userSnap.get('createdAt') as Timestamp | null | undefined;
   const stored = loadoutSnap.data() as Loadout | undefined;
   return {
     profile,
     inventory: inventorySnap.docs.map((d) => d.id),
     loadout: isCurrentLoadout(stored) ? stored : DEFAULT_LOADOUT,
+    joinedAt: createdAt?.toMillis() ?? null,
   };
 }
 
@@ -40,6 +46,10 @@ async function createProfile(uid: string) {
     gamesPlayed: 0,
     dailyId: dayId(),
     dailyScore: 0,
+    streak: 0,
+    bestStreak: 0,
+    streakDay: '',
+    daysPlayed: 0,
   };
   const batch = writeBatch(db);
   batch.set(userRef(uid), { ...profile, createdAt: serverTimestamp(), lastRunAt: serverTimestamp() });
@@ -48,7 +58,7 @@ async function createProfile(uid: string) {
   }
   batch.set(loadoutRef(uid), DEFAULT_LOADOUT);
   await batch.commit();
-  return { profile, inventory: [...DEFAULT_ITEM_IDS], loadout: DEFAULT_LOADOUT };
+  return { profile, inventory: [...DEFAULT_ITEM_IDS], loadout: DEFAULT_LOADOUT, joinedAt: Date.now() };
 }
 
 export async function renamePlayer(displayName: string) {

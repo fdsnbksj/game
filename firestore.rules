@@ -22,9 +22,26 @@ service cloud.firestore {
       return name is string && name.size() >= 1 && name.size() <= 20;
     }
 
-    // A UTC day, as YYYY-MM-DD.
+    // A UTC day, as YYYY-MM-DD. Strict, because dayStart() parses it.
     function isValidDay(day) {
-      return day is string && day.size() == 10;
+      return day is string && day.matches('[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])');
+    }
+
+    // Midnight UTC on that day. Only call it on a day isValidDay() accepts; an
+    // impossible date such as 2026-02-31 raises an error, which denies the write.
+    function dayStart(day) {
+      return timestamp.date(int(day[0:4]), int(day[5:7]), int(day[8:10]));
+    }
+
+    // The client names the day from its own clock, so allow a day either side of
+    // the server's. Any wider and streaks could be farmed by replaying dates.
+    function isDayNearNow(day) {
+      return dayStart(day) >= request.time.date() - duration.value(1, 'd')
+        && dayStart(day) <= request.time.date() + duration.value(1, 'd');
+    }
+
+    function isNextDay(previous, day) {
+      return isValidDay(previous) && dayStart(day) == dayStart(previous) + duration.value(1, 'd');
     }
 
     // getAfter so a write can rely on changes made earlier in the same batch.
@@ -64,15 +81,35 @@ service cloud.firestore {
         && isValidName(request.resource.data.displayName);
     }
 
+    // Streaks and days played, counted on the first save of each UTC day. streakDay is
+    // that day. All four change together or not at all: an older client that doesn't
+    // know them can still save, but its day doesn't count, and since a streak only
+    // continues from streakDay, skipping the fields can never bridge a missed day.
+    function isValidProgress(before, after) {
+      let beforeDay = before.get('streakDay', '');
+      let beforeStreak = before.get('streak', 0);
+      let beforeBest = before.get('bestStreak', 0);
+      let beforeDays = before.get('daysPlayed', 0);
+      let streak = isNextDay(beforeDay, after.dailyId) ? beforeStreak + 1 : 1;
+      return !after.diff(before).affectedKeys().hasAny(['streak', 'bestStreak', 'streakDay', 'daysPlayed'])
+        || (after.streakDay == after.dailyId
+          && after.streakDay != beforeDay
+          && after.streak == streak
+          && after.bestStreak == (streak > beforeBest ? streak : beforeBest)
+          && after.daysPlayed == beforeDays + 1);
+    }
+
     // A saved run. The client only saves when the player beats their best for the day,
     // counting the other attempts locally, so one save can add several games played.
     function isRunResult() {
       let before = resource.data;
       let after = request.resource.data;
       // Profiles created before daily scores existed have neither field.
-      let beforeDay = 'dailyId' in before ? before.dailyId : '';
-      let beforeDailyScore = 'dailyScore' in before ? before.dailyScore : 0;
-      return after.diff(before).affectedKeys().hasOnly(['bestScore', 'gamesPlayed', 'lastRunAt', 'dailyId', 'dailyScore'])
+      let beforeDay = before.get('dailyId', '');
+      let beforeDailyScore = before.get('dailyScore', 0);
+      return after.diff(before).affectedKeys().hasOnly([
+          'bestScore', 'gamesPlayed', 'lastRunAt', 'dailyId', 'dailyScore',
+          'streak', 'bestStreak', 'streakDay', 'daysPlayed'])
         && after.bestScore is int
         && after.bestScore >= before.bestScore
         && after.bestScore <= maxScore()
@@ -80,12 +117,14 @@ service cloud.firestore {
         && after.dailyScore > 0
         && after.dailyScore <= after.bestScore
         && isValidDay(after.dailyId)
+        && isDayNearNow(after.dailyId)
         // Same day: the score has to improve. A new day starts over.
         && (after.dailyId != beforeDay || after.dailyScore > beforeDailyScore)
         && after.gamesPlayed > before.gamesPlayed
         && after.gamesPlayed <= before.gamesPlayed + maxRunsPerSave()
         && after.lastRunAt == request.time
-        && request.time > before.lastRunAt + duration.value(minSecondsBetweenRuns(), 's');
+        && request.time > before.lastRunAt + duration.value(minSecondsBetweenRuns(), 's')
+        && isValidProgress(before, after);
     }
 
     // Must be written in the same batch as the run that set this daily score.
@@ -114,7 +153,14 @@ service cloud.firestore {
     match /users/{uid} {
       allow read: if isOwner(uid);
       allow create: if isOwner(uid)
-        && hasExactly(request.resource.data, ['displayName', 'bestScore', 'gamesPlayed', 'createdAt', 'lastRunAt', 'dailyId', 'dailyScore'])
+        && request.resource.data.keys().hasAll(['displayName', 'bestScore', 'gamesPlayed', 'createdAt', 'lastRunAt', 'dailyId', 'dailyScore'])
+        // The progress fields are optional, so a client from before they existed can still sign up.
+        && request.resource.data.keys().hasOnly(['displayName', 'bestScore', 'gamesPlayed', 'createdAt', 'lastRunAt', 'dailyId', 'dailyScore',
+          'streak', 'bestStreak', 'streakDay', 'daysPlayed'])
+        && request.resource.data.get('streak', 0) == 0
+        && request.resource.data.get('bestStreak', 0) == 0
+        && request.resource.data.get('streakDay', '') == ''
+        && request.resource.data.get('daysPlayed', 0) == 0
         && isValidName(request.resource.data.displayName)
         && request.resource.data.bestScore == 0
         && request.resource.data.gamesPlayed == 0

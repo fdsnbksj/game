@@ -1,14 +1,18 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
+import { BirdChip } from '../components/BirdChip';
 import { fetchLeaderboard } from '../services/leaderboard';
-import { dayId } from '../shared/constants';
+import { dayId, LEADERBOARD_SIZE } from '../shared/constants';
 import { useGameStore } from '../store';
 
 // The board is the UTC day, so format it in UTC or it shows yesterday west of Greenwich.
 const DAY_FORMAT = new Intl.DateTimeFormat(undefined, { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' });
+const PODIUM = ['gold', 'silver', 'bronze'];
 
 export function Leaderboard() {
   const uid = useGameStore((s) => s.uid);
+  const profile = useGameStore((s) => s.profile)!;
+  const loadout = useGameStore((s) => s.loadout);
   const entries = useGameStore((s) => s.leaderboard);
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
 
@@ -19,6 +23,10 @@ export function Leaderboard() {
     );
   }, []);
 
+  const today = dayId();
+  const myScore = profile.dailyId === today ? profile.dailyScore : 0;
+  const onBoard = entries.some((entry) => entry.uid === uid);
+
   return (
     <main className="screen">
       <header className="topbar">
@@ -27,7 +35,7 @@ export function Leaderboard() {
         </Link>
         <h2>Today</h2>
         <span className="spacer" />
-        <span className="muted">{DAY_FORMAT.format(new Date(`${dayId()}T00:00:00Z`))}</span>
+        <span className="muted">{DAY_FORMAT.format(new Date(`${today}T00:00:00Z`))}</span>
       </header>
 
       {status === 'loading' && <div className="spinner large" aria-label="Loading" />}
@@ -38,15 +46,29 @@ export function Leaderboard() {
           {entries.map((entry, index) => (
             <li
               key={entry.uid}
-              className={entry.uid === uid ? 'me' : undefined}
+              className={[entry.uid === uid && 'me', PODIUM[index]].filter(Boolean).join(' ') || undefined}
               style={{ animationDelay: `${Math.min(index, 12) * 30}ms` }}
             >
               <span className="rank">{index + 1}</span>
-              <span>{entry.displayName}</span>
+              <BirdChip loadout={entry.loadout} />
+              <span className="name">{entry.displayName}</span>
               <span className="score">{entry.score}</span>
             </li>
           ))}
         </ol>
+      )}
+      {status === 'ready' && !onBoard && (
+        <div className="leaderboard">
+          <div className="row me off-board">
+            <span className="rank">–</span>
+            <BirdChip loadout={loadout} />
+            <span className="name">
+              {profile.displayName}
+              <small className="muted">{myScore > 0 ? `Not in the top ${LEADERBOARD_SIZE}` : 'No score today yet'}</small>
+            </span>
+            <span className="score">{myScore}</span>
+          </div>
+        </div>
       )}
     </main>
   );

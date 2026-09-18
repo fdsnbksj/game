@@ -2,7 +2,9 @@ import { useState } from 'react';
 import { Link } from 'react-router';
 import { BirdPreview } from '../components/BirdPreview';
 import { SoundToggle } from '../components/SoundToggle';
+import { FlameIcon } from '../components/icons';
 import { Wordmark } from '../components/Wordmark';
+import { liveStreak, streakAtRisk } from '../shared/progress';
 import { renamePlayer } from '../services/profile';
 import { dayId } from '../shared/constants';
 import { useGameStore } from '../store';
@@ -10,7 +12,9 @@ import { useGameStore } from '../store';
 export function Home() {
   const profile = useGameStore((s) => s.profile)!;
   const loadout = useGameStore((s) => s.loadout);
-  const bestToday = profile.dailyId === dayId() ? profile.dailyScore : 0;
+  const today = dayId();
+  const bestToday = profile.dailyId === today ? profile.dailyScore : 0;
+  const streak = liveStreak(profile, today);
 
   return (
     <main className="screen">
@@ -30,21 +34,32 @@ export function Home() {
           <dt>Best</dt>
           <dd>{profile.bestScore}</dd>
         </div>
-        <div className="stat">
-          <dt>Runs</dt>
-          <dd>{profile.gamesPlayed}</dd>
+        <div className={streak > 0 ? 'stat streak lit' : 'stat streak'}>
+          <dt>Streak</dt>
+          <dd>
+            <FlameIcon />
+            {streak}
+          </dd>
         </div>
       </dl>
+      {streakAtRisk(profile, today) && (
+        <p className="nudge">Score today to keep your {profile.streak}-day streak</p>
+      )}
       <nav className="menu">
         <Link className="button primary play-cta" to="/play">
           Play
         </Link>
-        <Link className="button" to="/customize">
-          Customize
-        </Link>
-        <Link className="button" to="/leaderboard">
-          Leaderboard
-        </Link>
+        <div className="menu-row">
+          <Link className="button" to="/customize">
+            Customize
+          </Link>
+          <Link className="button" to="/leaderboard">
+            Ranks
+          </Link>
+          <Link className="button" to="/profile">
+            Profile
+          </Link>
+        </div>
       </nav>
     </main>
   );

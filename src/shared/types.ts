@@ -35,6 +35,19 @@ export interface UserProfile {
   dailyId: string;
   /** Best score on that day's course, and what the daily leaderboard shows. */
   dailyScore: number;
+  /** Consecutive UTC days with a saved run, as of streakDay. See liveStreak(). */
+  streak: number;
+  bestStreak: number;
+  /** Last UTC day that counted toward the streak, or '' if none has. */
+  streakDay: string;
+  /** Days with a saved run. Counted since streaks shipped, so older players start from 0. */
+  daysPlayed: number;
+}
+
+/** What the client knows about a profile beyond the fields it writes. */
+export interface ProfileInfo {
+  /** When the profile was created, in ms; null until the server has set it. */
+  joinedAt: number | null;
 }
 
 export interface LeaderboardEntry {

@@ -5,6 +5,7 @@ import { Customize } from './screens/Customize';
 import { Home } from './screens/Home';
 import { Leaderboard } from './screens/Leaderboard';
 import { Play } from './screens/Play';
+import { Profile } from './screens/Profile';
 import { sfx, unlockAudio } from './game/audio';
 import { startSession } from './services/auth';
 import { useGameStore } from './store';
@@ -80,6 +81,7 @@ export function App() {
         <Route path="/play" element={<Play />} />
         <Route path="/customize" element={<Customize />} />
         <Route path="/leaderboard" element={<Leaderboard />} />
+        <Route path="/profile" element={<Profile />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
