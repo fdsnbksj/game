@@ -1,7 +1,7 @@
 import { FirebaseError } from 'firebase/app';
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router';
-import { EventBus, RUN_FINISHED } from '../game/EventBus';
+import { EventBus, RESTART_RUN, RUN_FINISHED } from '../game/EventBus';
 import { PhaserGame } from '../game/PhaserGame';
 import { FlapScene, GAME_HEIGHT, GAME_WIDTH } from '../game/scenes/FlapScene';
 import { submitRun, type RunOutcome } from '../services/runs';
@@ -28,7 +28,6 @@ export function Play() {
   const loadout = useGameStore((s) => s.loadout);
   const profile = useGameStore((s) => s.profile)!;
   const registry = useMemo(() => ({ loadout, courseId: dayId() }), [loadout]);
-  const [runId, setRunId] = useState(0);
   const [run, setRun] = useState<RunState>({ status: 'playing' });
 
   useEffect(() => {
@@ -45,7 +44,7 @@ export function Play() {
   }, []);
 
   function playAgain() {
-    setRunId((id) => id + 1);
+    EventBus.emit(RESTART_RUN);
     setRun({ status: 'playing' });
   }
 
@@ -58,9 +57,7 @@ export function Play() {
           ← Home
         </Link>
       </header>
-      {/* A new key remounts the Phaser game for a fresh run. */}
       <PhaserGame
-        key={runId}
         className="game-container"
         scenes={SCENES}
         width={GAME_WIDTH}
