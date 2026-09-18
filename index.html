@@ -3,14 +3,38 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="theme-color" content="#10131a" />
+    <meta name="theme-color" content="#080b14" />
+    <meta name="description" content="Tap to fly through a neon skyline. Everyone flies the same course each day — beat your best, climb the daily board." />
     <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Neon Flap" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Neon Flap" />
+    <meta property="og:description" content="Tap to fly through a neon skyline. New course every day." />
+    <meta property="og:image" content="/pwa-512.png" />
+    <meta name="twitter:card" content="summary" />
     <link rel="icon" type="image/svg+xml" href="/icon.svg" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="preload" href="/fonts/orbitron-var-latin.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/chakra-petch-digits.woff2" as="font" type="font/woff2" crossorigin />
     <title>Neon Flap</title>
+    <!-- Just enough to paint the first frame before the app's CSS and JS arrive. -->
+    <style>
+      html, body { margin: 0; height: 100%; background: #080b14; color: #eef2ff; }
+      .boot { height: 100%; display: grid; place-content: center; gap: 24px; justify-items: center;
+        font: 900 2.5rem/1 'Orbitron', system-ui, sans-serif; letter-spacing: .06em; text-transform: uppercase;
+        text-shadow: 0 0 6px rgb(54 226 255 / .9), 0 0 18px rgb(54 226 255 / .6), 0 0 42px rgb(255 61 240 / .45); }
+      .boot span { color: #ff3df0; }
+      .boot i { width: 28px; height: 28px; border: 3px solid rgb(54 226 255 / .2); border-top-color: #36e2ff;
+        border-radius: 50%; animation: boot-spin .8s linear infinite; }
+      @keyframes boot-spin { to { transform: rotate(360deg); } }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root"><div class="boot" aria-label="Loading Neon Flap">
+      <div>Neon <span>Flap</span></div><i></i>
+    </div></div>
+    <noscript>Neon Flap needs JavaScript to run.</noscript>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

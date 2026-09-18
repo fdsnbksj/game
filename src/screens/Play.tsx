@@ -76,15 +76,29 @@ export function Play() {
               <p className="highlight">Best today!</p>
             )}
             {run.status === 'done' && run.outcome.unlocked.length > 0 && (
-              <p>Unlocked: {run.outcome.unlocked.map((item) => item.name).join(', ')}</p>
+              <>
+                <p className="eyebrow">Unlocked</p>
+                <ul className="unlocks">
+                  {run.outcome.unlocked.map((item) => (
+                    <li key={item.id} className={`unlock ${item.rarity}`}>
+                      {item.name}
+                    </li>
+                  ))}
+                </ul>
+              </>
             )}
             <p className="muted">
               Today {bestToday} · Best {profile.bestScore}
             </p>
-            {run.status === 'saving' && <p className="muted">Saving…</p>}
+            {run.status === 'saving' && (
+              <p className="muted status-line">
+                <span className="spinner" aria-hidden="true" />
+                Saving…
+              </p>
+            )}
             {run.status === 'failed' && <p className="error">{run.message}</p>}
             <div className="menu">
-              <button className="button primary" onClick={playAgain}>
+              <button className="button primary" onClick={playAgain} autoFocus>
                 Play again
               </button>
               <Link className="button" to="/">

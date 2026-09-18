@@ -7,15 +7,20 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['icon.svg', 'apple-touch-icon.png'],
+      includeAssets: ['icon.svg', 'apple-touch-icon.png', 'fonts/*.woff2'],
       manifest: {
         name: 'Neon Flap',
         short_name: 'Neon Flap',
         description: 'Tap to fly through a neon skyline. New course every day.',
-        theme_color: '#10131a',
-        background_color: '#10131a',
+        theme_color: '#080b14',
+        background_color: '#080b14',
         display: 'standalone',
         orientation: 'portrait',
+        categories: ['games'],
+        shortcuts: [
+          { name: 'Play', url: '/play' },
+          { name: 'Leaderboard', url: '/leaderboard' },
+        ],
         icons: [
           { src: 'pwa-192.png', sizes: '192x192', type: 'image/png' },
           { src: 'pwa-512.png', sizes: '512x512', type: 'image/png' },

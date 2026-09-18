@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router';
 import { BirdPreview } from '../components/BirdPreview';
+import { Wordmark } from '../components/Wordmark';
 import { renamePlayer } from '../services/profile';
 import { dayId } from '../shared/constants';
 import { useGameStore } from '../store';
@@ -12,14 +13,25 @@ export function Home() {
 
   return (
     <main className="screen">
-      <h1 className="title">Neon Flap</h1>
+      <Wordmark />
       <BirdPreview loadout={loadout} />
       <NameEditor name={profile.displayName} />
-      <p className="muted">
-        Today {bestToday} · Best {profile.bestScore} · {profile.gamesPlayed} runs
-      </p>
+      <dl className="stat-row">
+        <div className="stat">
+          <dt>Today</dt>
+          <dd>{bestToday}</dd>
+        </div>
+        <div className="stat">
+          <dt>Best</dt>
+          <dd>{profile.bestScore}</dd>
+        </div>
+        <div className="stat">
+          <dt>Runs</dt>
+          <dd>{profile.gamesPlayed}</dd>
+        </div>
+      </dl>
       <nav className="menu">
-        <Link className="button primary" to="/play">
+        <Link className="button primary play-cta" to="/play">
           Play
         </Link>
         <Link className="button" to="/customize">

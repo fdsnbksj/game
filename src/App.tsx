@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router';
+import { Wordmark } from './components/Wordmark';
 import { Customize } from './screens/Customize';
 import { Home } from './screens/Home';
 import { Leaderboard } from './screens/Leaderboard';
@@ -41,6 +42,7 @@ export function App() {
   if (error) {
     return (
       <main className="screen center">
+        <Wordmark />
         <p className="error">{error}</p>
         <button className="button primary" onClick={() => void reloadFresh()}>
           Reload
@@ -51,8 +53,11 @@ export function App() {
 
   if (!ready) {
     return (
-      <main className="screen center">
-        <p className="muted">Loading…</p>
+      <main className="screen center" aria-busy="true">
+        <div className="brand-splash">
+          <Wordmark />
+          <div className="spinner large" aria-label="Loading" />
+        </div>
       </main>
     );
   }

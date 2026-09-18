@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { useEffect, useRef } from 'react';
+import { COLORS } from '../shared/theme';
 
 interface PhaserGameProps {
   /** Pass a module-level array: a new array recreates the game. */
@@ -31,7 +32,7 @@ export function PhaserGame({ scenes, width, height, transparent = false, registr
       width,
       height,
       transparent,
-      backgroundColor: '#10131a',
+      backgroundColor: COLORS.bg,
       banner: false,
       scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
       scene: scenes,
