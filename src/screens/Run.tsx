@@ -47,6 +47,7 @@ export function Run() {
   }, [battle, run]);
 
   useRoundResultNotice();
+  useOnlineSync();
 
   if (!run) return null;
   // During the replay, show the run as it was when the fight began.
@@ -62,7 +63,7 @@ export function Run() {
         height={BOARD_HEIGHT * CANVAS_ZOOM}
         transparent
       />
-      <TraitBar run={shown} opponent={battle?.opponent} />
+      <TraitBar run={shown} opponent={battle ? { name: battle.opponent, kind: battle.opponentKind } : undefined} />
       {/* Both panels share one grid cell, so the board keeps its size when a fight starts. */}
       <div className="dock">
         <div className={battle ? 'dock-layer inactive' : 'dock-layer'} aria-hidden={battle ? true : undefined}>
@@ -109,7 +110,7 @@ function Hud({ run }: { run: RunState }) {
   );
 }
 
-function TraitBar({ run, opponent }: { run: RunState; opponent?: string }) {
+function TraitBar({ run, opponent }: { run: RunState; opponent?: { name: string; kind: 'ghost' | 'bot' } }) {
   const notify = useRunStore((s) => s.notify);
   const traits = activeTraits(run.board.flatMap((unit) => (unit ? [unit.unitId] : [])))
     .filter((entry) => entry.count > 0)
@@ -117,7 +118,10 @@ function TraitBar({ run, opponent }: { run: RunState; opponent?: string }) {
   return (
     <div className="trait-bar">
       {opponent ? (
-        <span className="versus">vs {opponent}</span>
+        <span className="versus">
+          vs {opponent.name}
+          <small className={`rival-kind ${opponent.kind}`}>{opponent.kind === 'ghost' ? 'player' : 'bot'}</small>
+        </span>
       ) : (
         <span className="board-count">
           {boardCount(run)}/{run.level}
@@ -375,8 +379,19 @@ function Summary({ run }: { run: RunState }) {
   const startRun = useRunStore((s) => s.startRun);
   const leaveRun = useRunStore((s) => s.leaveRun);
   const stats = useRunStore((s) => s.stats);
+  const online = useRunStore((s) => s.online);
   const navigate = useNavigate();
   const survived = run.hp > 0;
+  const saving = online !== null && online.status !== 'offline' && (online.status === 'starting' || online.pending.length > 0);
+  // Leaving drops anything unsaved, so wait for the result, but not forever.
+  const [gaveUp, setGaveUp] = useState(false);
+  useEffect(() => {
+    if (!saving) return;
+    const timer = setTimeout(() => setGaveUp(true), 12_000);
+    return () => clearTimeout(timer);
+  }, [saving]);
+  const blocked = saving && !gaveUp;
+
   return (
     <div className="overlay">
       <div className="panel">
@@ -390,12 +405,25 @@ function Summary({ run }: { run: RunState }) {
           ))}
         </ol>
         {survived && <p className="muted">{run.hp} HP left</p>}
+        <p className="muted status-line small-print">
+          {blocked ? (
+            <>
+              <span className="spinner" aria-hidden="true" />
+              Saving your result…
+            </>
+          ) : online?.status === 'live' && !saving ? (
+            <Link to="/ranks">See today's rankings</Link>
+          ) : (
+            "This run couldn't be saved online, so it isn't ranked."
+          )}
+        </p>
         <div className="menu">
-          <button className="button primary" onClick={startRun}>
+          <button className="button primary" disabled={blocked} onClick={startRun}>
             New run
           </button>
           <button
             className="button"
+            disabled={blocked}
             onClick={() => {
               leaveRun();
               navigate('/');
@@ -407,4 +435,23 @@ function Summary({ run }: { run: RunState }) {
       </div>
     </div>
   );
+}
+
+/** Keeps the run's Firestore writes moving, and finds a real player's board for each round. */
+function useOnlineSync() {
+  const round = useRunStore((s) => s.run?.round);
+  const fighting = useRunStore((s) => s.battle !== null);
+  const sync = useRunStore((s) => s.sync);
+  const prepareOpponent = useRunStore((s) => s.prepareOpponent);
+
+  useEffect(() => {
+    void sync();
+    const retry = () => void sync();
+    window.addEventListener('online', retry);
+    return () => window.removeEventListener('online', retry);
+  }, [sync]);
+
+  useEffect(() => {
+    if (!fighting) void prepareOpponent();
+  }, [round, fighting, prepareOpponent]);
 }

@@ -1,67 +1,25 @@
 import { create } from 'zustand';
-import { DEFAULT_LOADOUT } from './shared/items';
-import type { LeaderboardEntry, Loadout, UserProfile } from './shared/types';
 
-interface Session {
-  uid: string;
-  profile: UserProfile;
-  inventory: string[];
-  loadout: Loadout;
-  /** When the profile was created, in ms. */
-  joinedAt: number | null;
+/** What the client keeps of players/{uid}. */
+export interface Player {
+  displayName: string;
+  /** Runs started so far; the next run is `${uid}_${runsStarted}`. */
+  runsStarted: number;
+  /** ms, for spacing run starts the way the rules require. */
+  lastRunStartAt: number;
 }
 
-interface GameState {
+interface SessionState {
   uid: string | null;
-  profile: UserProfile | null;
-  /** Owned item ids. */
-  inventory: string[];
-  /** Last loadout saved to Firestore. */
-  loadout: Loadout;
-  joinedAt: number | null;
-  leaderboard: LeaderboardEntry[];
-  /** Day the cached leaderboard belongs to. */
-  leaderboardDay: string;
-  leaderboardFetchedAt: number;
-  /** Runs finished since the last save; they're added to gamesPlayed with the next one. */
-  pendingRuns: number;
-  /** Client clock, used to keep saves apart enough for the rules to accept them. */
-  lastSaveAt: number;
-  setSession: (session: Session) => void;
-  setProfile: (profile: UserProfile) => void;
-  addToInventory: (itemIds: string[]) => void;
-  setLoadout: (loadout: Loadout) => void;
-  setLeaderboard: (day: string, entries: LeaderboardEntry[]) => void;
-  invalidateLeaderboard: () => void;
-  addPendingRun: () => void;
-  markSaved: (gamesSaved: number) => void;
+  player: Player | null;
+  setSession: (uid: string, player: Player) => void;
+  setPlayer: (player: Player) => void;
 }
 
-export const useGameStore = create<GameState>()((set) => ({
+/** Who's signed in. The run in progress lives in runStore. */
+export const useGameStore = create<SessionState>()((set) => ({
   uid: null,
-  profile: null,
-  inventory: [],
-  loadout: DEFAULT_LOADOUT,
-  joinedAt: null,
-  leaderboard: [],
-  leaderboardDay: '',
-  leaderboardFetchedAt: 0,
-  pendingRuns: 0,
-  lastSaveAt: 0,
-  setSession: (session) => set(session),
-  setProfile: (profile) => set({ profile }),
-  addToInventory: (itemIds) => set((state) => ({ inventory: [...new Set([...state.inventory, ...itemIds])] })),
-  setLoadout: (loadout) => set({ loadout }),
-  setLeaderboard: (day, entries) => set({ leaderboard: entries, leaderboardDay: day, leaderboardFetchedAt: Date.now() }),
-  invalidateLeaderboard: () => set({ leaderboardFetchedAt: 0 }),
-  addPendingRun: () => set((state) => ({ pendingRuns: state.pendingRuns + 1 })),
-  markSaved: () => set({ pendingRuns: 0, lastSaveAt: Date.now() }),
+  player: null,
+  setSession: (uid, player) => set({ uid, player }),
+  setPlayer: (player) => set({ player }),
 }));
-
-/** Store state for services that only run once the player is signed in. */
-export function requireSession() {
-  const state = useGameStore.getState();
-  const { uid, profile } = state;
-  if (!uid || !profile) throw new Error('No active session');
-  return { ...state, uid, profile };
-}

@@ -4,6 +4,7 @@ import { Wordmark } from './components/Wordmark';
 import { Home } from './screens/Home';
 import { HowToPlay } from './screens/HowToPlay';
 import { Profile } from './screens/Profile';
+import { Rankings } from './screens/Rankings';
 import { Run } from './screens/Run';
 import { sfx, unlockAudio } from './game/audio';
 import { startSession } from './services/auth';
@@ -28,7 +29,7 @@ async function reloadFresh() {
 }
 
 export function App() {
-  const ready = useGameStore((s) => s.profile !== null);
+  const ready = useGameStore((s) => s.player !== null);
   const [error, setError] = useState<string | null>(null);
 
   // Audio can only start inside a gesture, so every tap is a chance to unlock it.
@@ -80,6 +81,7 @@ export function App() {
         <Route path="/run" element={<Run />} />
         <Route path="/how" element={<HowToPlay />} />
         <Route path="/profile" element={<Profile />} />
+        <Route path="/ranks" element={<Rankings />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

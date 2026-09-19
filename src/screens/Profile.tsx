@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { Link } from 'react-router';
 import { useRunStore } from '../runStore';
-import { renamePlayer } from '../services/profile';
+import { renamePlayer } from '../services/players';
 import { useGameStore } from '../store';
 
 export function Profile() {
-  const profile = useGameStore((s) => s.profile)!;
+  const player = useGameStore((s) => s.player)!;
   const stats = useRunStore((s) => s.stats);
   return (
     <main className="screen">
@@ -16,7 +16,7 @@ export function Profile() {
         <h2>Profile</h2>
       </header>
 
-      <NameEditor name={profile.displayName} />
+      <NameEditor name={player.displayName} />
 
       <dl className="stat-row">
         <div className="stat">
@@ -33,8 +33,8 @@ export function Profile() {
         </div>
       </dl>
       <p className="muted small-print">
-        Stats are kept on this device for now. Online rankings, and rivals built from other players' boards, are coming
-        next.
+        Your name shows on the rankings and to players who meet your teams as rivals. Runs, best wins and best round are
+        counted on this device.
       </p>
     </main>
   );

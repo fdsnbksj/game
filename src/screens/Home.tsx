@@ -86,9 +86,9 @@ export function Home() {
           <Link className="button" to="/profile">
             Profile
           </Link>
-          <button className="button" disabled title="Online rankings are coming soon">
-            Ranks <small className="soon">soon</small>
-          </button>
+          <Link className="button" to="/ranks">
+            Ranks
+          </Link>
         </div>
       </nav>
     </main>

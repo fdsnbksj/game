@@ -5,7 +5,8 @@
 ## Git and deploy
 
 - **Only the `main` branch.** Commit directly to `main`. Don't create branches or pull requests.
-- **Every push to `main` deploys to production** via `.github/workflows/deploy.yml`: build → unit tests → Firestore rules tests → seed the item catalog → deploy Hosting and Firestore rules. Push right after each commit so every commit is deployed.
+- **Every push to `main` deploys to production** via `.github/workflows/deploy.yml`: unit tests → build → Firestore rules tests → seed the item catalog → deploy Hosting and Firestore rules → deploy Firestore indexes. Push right after each commit so every commit is deployed.
+- The index step may fail if the deploy account can't create indexes; it's allowed to, so the site still deploys, and ghosts fall back to bots until the index exists. If it fails, run `npm run deploy` logged in as a project owner.
 - Auth settings in `firebase.json` (anonymous sign-in) are **not** deployed by the workflow, because the deploy account lacks those permissions. After changing them, run `npm run deploy` logged in as a project owner.
 - A failing build, unit test or rules test stops the deploy, so run `npm run build`, `npm run test:unit` and `npm run test:rules` before committing.
 - Never commit secrets. The Firebase web config in `.env.production` is public by design. The deploy service account key lives only in the `FIREBASE_SERVICE_ACCOUNT` GitHub secret.
@@ -29,12 +30,14 @@ npm run test:rules  # Firestore rules tests (starts its own emulator; stop `npm 
 - Changing anything that affects combat changes old fights: bump `BALANCE_VERSION` in `src/sim/balance.ts` and update the golden hash in `tests/unit/combat.test.ts`.
 - `src/runStore.ts` (zustand) holds the run in progress and saves it to `localStorage`, so a reload resumes it. The scene subscribes to the store directly.
 - Creatures are shape data in `src/shared/creatureShapes.ts`, baked into Phaser textures and drawn as SVG by `CreatureChip`, so every view shows the same creature. All art is generated in code, no image files.
-- Opponents are AI bots (`src/sim/ai.ts`) that play the real shop and economy, so their boards are always ones a player could have had. Online ghost opponents (fighting other players' saved boards) are the next phase.
+- **Opponents are ghosts:** each round you fight another player's saved board from the same round (`src/services/opponents.ts`), or a bot (`src/sim/ai.ts`) when there's none, the query fails, or the index isn't built yet. Bots play the real shop and economy, so their boards are always ones a player could have had.
+- **Online runs:** a run is `runs/{uid}_{n}`, started in one batch with `players/{uid}.runsStarted`. Each round is queued in `runStore` (saved to localStorage) and written in order, at least 3 s apart as the rules require; the last round also files `rankings/{day}/entries/{uid}`. A write the rules refuse marks the run offline (it plays on, unranked); a network error leaves it queued to retry.
+- **Rules check boards, not fights:** `isValidBoard()` in `firestore.rules` rejects boards no one could have afforded by that round. Its numbers (unit costs, XP table, gold budget, base damage) are copies of `src/sim`; `tests/unit/rulesSync.test.ts` fails if they drift. After changing costs or the economy, update both.
 
 ## Constraints
 
 - **Spark plan:** no Cloud Functions, no Cloud Storage. `firestore.rules` is the only server-side validation, so every client write needs a matching rule and a test in `tests/rules/`.
-- **Legacy Neon Flap backend:** `users/*`, `leaderboards/*`, the item catalog (seeded on every deploy), `src/services/{runs,inventory,leaderboard}.ts`, `src/shared/{items,progress}.ts` and `tests/rules/neonFlap.test.ts` belong to the old game. They stay until old cached clients have updated, then get retired. Until then, the notes below about runs, streaks and the catalog describe that legacy backend.
+- **Legacy Neon Flap backend:** `users/*`, `leaderboards/*`, the item catalog (seeded on every deploy), `src/shared/{items,types}.ts` and `tests/rules/neonFlap.test.ts` belong to the old game. New players' names are copied once from `users/{uid}`. They stay until old cached clients have updated, then get retired. Until then, the notes below about saving runs, streaks, `MAX_SCORE` and the catalog describe that legacy backend.
 - **Saving runs:** a run is saved only when it beats the player's best for that day. Other attempts are counted in `pendingRuns` and added to `gamesPlayed` with the next save, so fast retries don't hit the free quota or the rate limit.
 - `MAX_SCORE`, `MIN_SECONDS_BETWEEN_RUNS` and `MAX_RUNS_PER_SAVE` are duplicated in `firestore.rules` and `src/shared/constants.ts`. Change both together.
 - Streaks are duplicated the same way: `nextProgress()` in `src/shared/progress.ts` and `isNextDay()` in `src/shared/constants.ts` mirror `isValidProgress()` and `isNextDay()` in `firestore.rules`.

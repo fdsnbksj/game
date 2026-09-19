@@ -1,8 +1,7 @@
 import { onAuthStateChanged, signInAnonymously } from 'firebase/auth';
 import { auth } from '../firebase';
 import { useGameStore } from '../store';
-import { unlockEarnedItems } from './inventory';
-import { loadOrCreateProfile } from './profile';
+import { loadOrCreatePlayer } from './players';
 
 /** Signs in anonymously if needed and loads the player into the store. Returns an unsubscribe function. */
 export function startSession(onError: (error: unknown) => void): () => void {
@@ -11,12 +10,8 @@ export function startSession(onError: (error: unknown) => void): () => void {
       signInAnonymously(auth).catch(onError);
       return;
     }
-    loadOrCreateProfile(user.uid)
-      .then((session) => {
-        useGameStore.getState().setSession({ uid: user.uid, ...session });
-        // Catches up on unlocks if a previous attempt failed (e.g. the player went offline after a run).
-        return unlockEarnedItems(session.profile.bestScore);
-      })
+    loadOrCreatePlayer(user.uid)
+      .then((player) => useGameStore.getState().setSession(user.uid, player))
       .catch(onError);
   });
 }

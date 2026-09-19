@@ -57,4 +57,11 @@ jobs:
       # Auth settings (anonymous sign-in) are left out: deploying them needs broader Firebase
       # permissions than this account has. Apply auth changes with `npm run deploy` as a project owner.
       - name: Deploy Hosting and Firestore rules
-        run: npx firebase deploy --only hosting,firestore --project default --non-interactive
+        run: npx firebase deploy --only hosting,firestore:rules --project default --non-interactive
+
+      # Separate, and allowed to fail: creating an index may need more permissions than this
+      # account has. The game falls back to AI opponents until the index exists. If this step
+      # fails, run `npm run deploy` as a project owner.
+      - name: Deploy Firestore indexes
+        continue-on-error: true
+        run: npx firebase deploy --only firestore:indexes --project default --non-interactive

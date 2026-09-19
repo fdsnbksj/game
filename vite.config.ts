@@ -20,6 +20,7 @@ export default defineConfig({
         shortcuts: [
           { name: 'Play', url: '/run' },
           { name: 'How to play', url: '/how' },
+          { name: 'Rankings', url: '/ranks' },
         ],
         icons: [
           { src: 'pwa-192.png', sizes: '192x192', type: 'image/png' },

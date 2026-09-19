@@ -1,4 +1,20 @@
 {
-  "indexes": [],
-  "fieldOverrides": []
+  "indexes": [
+    {
+      "collectionGroup": "runs",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "v", "order": "ASCENDING" },
+        { "fieldPath": "rounds", "arrayConfig": "CONTAINS" },
+        { "fieldPath": "rand", "order": "ASCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": [
+    {
+      "collectionGroup": "runs",
+      "fieldPath": "boards",
+      "indexes": []
+    }
+  ]
 }

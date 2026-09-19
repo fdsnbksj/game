@@ -1,95 +1,89 @@
-import { increment, serverTimestamp, writeBatch } from 'firebase/firestore';
+import { FirebaseError } from 'firebase/app';
+import { getDoc, serverTimestamp, writeBatch } from 'firebase/firestore';
 import { db } from '../firebase';
-import { dayId, MAX_RUNS_PER_SAVE, MAX_SCORE, MIN_SECONDS_BETWEEN_RUNS } from '../shared/constants';
-import { nextProgress } from '../shared/progress';
-import type { Item } from '../shared/types';
-import { requireSession, useGameStore } from '../store';
-import { unlockEarnedItems } from './inventory';
-import { leaderboardEntryRef, userRef } from './refs';
+import { dayId } from '../shared/constants';
+import { BALANCE_VERSION, START_HP } from '../sim/balance';
+import type { BoardSnapshot } from '../sim/validate';
+import type { Player } from '../store';
+import { playerRef, rankingRef, runRef } from './refs';
+import { invalidateRankings } from './rankings';
 
-export interface RunOutcome {
-  score: number;
-  /** Whether the run reached Firestore. Runs that don't beat today's best are only counted locally. */
-  saved: boolean;
-  newBest: boolean;
-  newDailyBest: boolean;
-  unlocked: Item[];
-  /** The streak, when this run was the first saved today; null otherwise. */
-  streak: number | null;
-  newBestStreak: boolean;
+// Writes a run to Firestore: one batch to start it, then one per round. firestore.rules
+// checks each write, so these must match what the rules expect exactly; the rules tests
+// in tests/rules/brawl.test.ts mirror them.
+
+/** A round waiting to be written: the board it was fought with and the run after it. */
+export interface RoundWrite {
+  round: number;
+  board: BoardSnapshot;
+  hp: number;
+  wins: number;
+  done: boolean;
 }
 
-/** The rules reject saves that are too close together, so wait out the gap first. */
-async function waitForCooldown(lastSaveAt: number) {
-  const waitMs = lastSaveAt + MIN_SECONDS_BETWEEN_RUNS * 1000 - Date.now();
-  if (waitMs > 0) await new Promise((resolve) => setTimeout(resolve, waitMs));
+/** Starts run `${uid}_${player.runsStarted}`, counting it on the player in the same batch. */
+export async function startOnlineRun(uid: string, player: Player, runId: string, rand: number) {
+  const batch = writeBatch(db);
+  batch.update(playerRef(uid), { runsStarted: player.runsStarted + 1, lastRunStartAt: serverTimestamp() });
+  batch.set(runRef(runId), {
+    uid,
+    name: player.displayName,
+    v: BALANCE_VERSION,
+    rand,
+    round: 0,
+    rounds: [],
+    boards: {},
+    hp: START_HP,
+    wins: 0,
+    done: false,
+    startedAt: serverTimestamp(),
+    lastAt: serverTimestamp(),
+  });
+  await batch.commit();
 }
 
 /**
- * Saves a run only when it beats the player's best for today's course; other runs
- * just add to a local counter that rides along with the next save.
+ * Writes one round. The last round also files the run on today's rankings, if it beats
+ * the player's best today (the rules only accept an improvement).
  */
-export async function submitRun(rawScore: number): Promise<RunOutcome> {
-  const { uid, profile, loadout, pendingRuns, lastSaveAt, setProfile, markSaved, addPendingRun, invalidateLeaderboard } =
-    requireSession();
-  const score = Math.min(Math.max(Math.floor(rawScore), 0), MAX_SCORE);
-  const today = dayId();
-  const bestToday = profile.dailyId === today ? profile.dailyScore : 0;
-
-  if (score <= bestToday) {
-    addPendingRun();
-    return { score, saved: false, newBest: false, newDailyBest: false, unlocked: [], streak: null, newBestStreak: false };
-  }
-
-  const newBest = score > profile.bestScore;
-  const bestScore = Math.max(profile.bestScore, score);
-  const runs = Math.min(pendingRuns + 1, MAX_RUNS_PER_SAVE);
-  // Only the first save of a day moves the streak; the rules reject counting a day twice.
-  const progress = nextProgress(profile, today);
-
-  await waitForCooldown(lastSaveAt);
-
-  // The rules only accept a leaderboard entry alongside the run that set this daily score.
+export async function writeRound(uid: string, player: Player, runId: string, write: RoundWrite) {
   const batch = writeBatch(db);
-  batch.update(userRef(uid), {
-    bestScore,
-    dailyId: today,
-    dailyScore: score,
-    gamesPlayed: increment(runs),
-    lastRunAt: serverTimestamp(),
-    ...progress,
+  batch.update(runRef(runId), {
+    round: write.round,
+    rounds: Array.from({ length: write.round }, (_, i) => i + 1),
+    [`boards.r${write.round}`]: write.board,
+    hp: write.hp,
+    wins: write.wins,
+    done: write.done,
+    lastAt: serverTimestamp(),
   });
-  batch.set(leaderboardEntryRef(today, uid), {
-    score,
-    displayName: profile.displayName,
-    loadout,
-    submittedAt: serverTimestamp(),
-  });
+
+  let ranked = false;
+  if (write.done) {
+    const day = dayId();
+    const score = write.wins * 1000 + write.hp;
+    const best = await getDoc(rankingRef(day, uid)).catch(() => null);
+    // Unknown (couldn't read it): skip rather than risk the rules rejecting the whole batch.
+    if (best && (!best.exists() || score > (best.get('score') as number))) {
+      batch.set(rankingRef(day, uid), {
+        score,
+        wins: write.wins,
+        hp: write.hp,
+        runId,
+        displayName: player.displayName,
+        submittedAt: serverTimestamp(),
+      });
+      ranked = true;
+    }
+  }
   await batch.commit();
-
-  setProfile({
-    ...profile,
-    bestScore,
-    gamesPlayed: profile.gamesPlayed + runs,
-    dailyId: today,
-    dailyScore: score,
-    ...progress,
-  });
-  markSaved(runs);
-  invalidateLeaderboard();
-
-  return {
-    score,
-    saved: true,
-    newBest,
-    newDailyBest: true,
-    unlocked: newBest ? await unlockEarnedItems(bestScore) : [],
-    streak: progress?.streak ?? null,
-    newBestStreak: progress !== null && progress.bestStreak > profile.bestStreak,
-  };
+  if (ranked) invalidateRankings();
 }
 
-/** Counts a run that was abandoned or failed to save, so games played stays roughly right. */
-export function countRunLocally() {
-  useGameStore.getState().addPendingRun();
+/**
+ * Whether a failed write could succeed if tried again. The rest mean the rules refused it,
+ * and retrying the same write won't help.
+ */
+export function isRetryable(error: unknown) {
+  return error instanceof FirebaseError && ['unavailable', 'deadline-exceeded', 'aborted', 'internal', 'unknown'].includes(error.code);
 }

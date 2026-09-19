@@ -25,7 +25,7 @@ export function aiOpponent(seed: string, round: number): AiOpponent {
     // Bots win every other round, for a middling economy.
     if (r < round) run = nextRound(run, r % 2 === 0);
   }
-  return { name: `${BOT_NAMES[rng(BOT_NAMES.length)]} bot`, units: boardUnits(run) };
+  return { name: BOT_NAMES[rng(BOT_NAMES.length)], units: boardUnits(run) };
 }
 
 const BOT_NAMES = ['Circuit', 'Neon', 'Static', 'Pulse', 'Vector', 'Glow', 'Flux', 'Byte'];

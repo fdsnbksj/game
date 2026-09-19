@@ -1,0 +1,58 @@
+import { getUnit, MAX_LEVEL, UNITS, type Star } from './balance';
+import type { Placed } from './combat';
+import { copies, maxGoldByRound, xpGoldForLevel } from './economy';
+import { SIDE_CELLS } from './hex';
+
+// A board as it's stored online: the team a player fought a round with. Firestore rules
+// can't loop, so it's parallel lists rather than a list of objects, and isValidBoard() in
+// firestore.rules checks exactly what isLegalBoard() checks here.
+
+export interface BoardSnapshot {
+  /** Level, which caps the number of units. */
+  lv: number;
+  u: string[];
+  /** Own-board cells, 0–27. */
+  c: number[];
+  s: number[];
+  /** Who this board fought: a ghost's `runId:round`, or `ai`. */
+  o: string;
+}
+
+export function toSnapshot(units: readonly Placed[], level: number, opponent: string): BoardSnapshot {
+  return {
+    lv: level,
+    u: units.map((unit) => unit.unitId),
+    c: units.map((unit) => unit.cell),
+    s: units.map((unit) => unit.star),
+    o: opponent,
+  };
+}
+
+export function fromSnapshot(board: BoardSnapshot): Placed[] {
+  return board.u.map((unitId, i) => ({ unitId, cell: board.c[i], star: board.s[i] as Star }));
+}
+
+/** Gold that units on the board plus the XP for its level must have cost. */
+export function boardSpend(board: BoardSnapshot, round: number): number {
+  const units = board.u.reduce((sum, id, i) => sum + getUnit(id).cost * copies(board.s[i]), 0);
+  return units + xpGoldForLevel(board.lv, round);
+}
+
+const UNIT_IDS = new Set(UNITS.map((unit) => unit.id));
+const MAX_GOLD = maxGoldByRound();
+
+/**
+ * Whether a player could have fielded this board in `round`. It can't prove the shop
+ * offered those units, only that the board isn't impossible: no more units than the level,
+ * one per cell, and no more gold's worth than could have been earned by then.
+ */
+export function isLegalBoard(board: BoardSnapshot, round: number): boolean {
+  const { lv, u, c, s } = board;
+  if (!Number.isInteger(lv) || lv < 1 || lv > MAX_LEVEL) return false;
+  if (u.length > lv || c.length !== u.length || s.length !== u.length) return false;
+  if (!u.every((id) => UNIT_IDS.has(id))) return false;
+  if (!c.every((cell) => Number.isInteger(cell) && cell >= 0 && cell < SIDE_CELLS)) return false;
+  if (new Set(c).size !== c.length) return false;
+  if (!s.every((star) => star === 1 || star === 2 || star === 3)) return false;
+  return round >= 1 && round < MAX_GOLD.length && boardSpend(board, round) <= MAX_GOLD[round];
+}

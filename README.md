@@ -1,6 +1,6 @@
 # Neon Brawl
 
-A neon auto-battler for your phone. Buy creatures from the shop, drag them onto a hex board, and watch them fight. Three copies merge into a stronger ★★, creatures that share a trait power each other up, and a run lasts up to 15 rounds on 100 HP.
+A neon auto-battler for your phone. Buy creatures from the shop, drag them onto a hex board, and watch them fight. Three copies merge into a stronger ★★, creatures that share a trait power each other up, and a run lasts up to 15 rounds on 100 HP. Each round you fight another player's saved team from the same round, or a bot if there isn't one, and finished runs go on a daily ranking.
 
 React handles the screens, Phaser 3 runs the board and fight replays, and Firebase (free Spark plan) provides auth, data and hosting. All art is drawn in code, so there are no image assets. The game replaced Neon Flap, a flappy-bird game whose backend is still being retired.
 
@@ -38,7 +38,7 @@ npm run build       # type-check + production build
 | `src/runStore.ts` | The run in progress, saved to localStorage |
 | `src/screens/` | React screens: Home, Run, How to play, Profile |
 | `src/shared/creatureShapes.ts` | Every creature as shape data, drawn by Phaser and as SVG |
-| `src/services/` | Firestore reads and writes (sign-in, profile; the rest is legacy Neon Flap) |
+| `src/services/` | Firestore reads and writes: players, runs, ghost opponents, rankings |
 | `tests/unit/`, `tests/rules/` | Game logic tests, and Firestore rules tests |
 | `firestore.rules` | The only server-side validation (Spark has no Cloud Functions) |
 
@@ -46,8 +46,8 @@ npm run build       # type-check + production build
 
 We only use the `main` branch, and **every push to `main` deploys automatically** (`.github/workflows/deploy.yml`):
 
-1. Type-check and build
-2. Unit tests
+1. Unit tests
+2. Type-check and build
 3. Firestore rules tests
 4. Seed the (legacy) item catalog into production Firestore
 5. Deploy Hosting and Firestore rules to the project in `.firebaserc`
@@ -60,4 +60,11 @@ To deploy by hand from this machine with your own Firebase login, run `npm run d
 
 ## Anti-cheat on Spark
 
-Clients write to Firestore directly, and `firestore.rules` rejects invalid data: a player can only write their own docs, scores are capped, a day's score can only improve, a run's date must be within a day of the server clock, streaks can only grow by one day at a time, saves are rate-limited, a leaderboard entry must be written alongside the run that set it, and items unlock only once the stored best score reaches the item's threshold. A determined player can still send a fake score. When we move to the Blaze plan, a `submitRun` Cloud Function should validate runs and the rules should lock leaderboard and inventory writes to it.
+Clients write to Firestore directly, so `firestore.rules` is the only check. It can't replay a fight, so it can't tell who really won; instead it rejects what can't be true:
+
+- every board a run saves must be one a player could have afforded by that round (no more units than the level, one per hex, and no more gold's worth than could have been earned)
+- rounds are written one at a time, in order, a few seconds apart, and old rounds can't be changed
+- a round's result stays within what a fight can do: a win costs no health, a loss costs at least the round's base damage and no more than a full board could deal
+- a ranking must be written with the run's last round, match the run, beat the player's best that day, and be for today
+
+A scripted client can still submit the strongest legal board every round, or claim wins it didn't earn. Combat is deterministic and every board records its opponent, so any run can be replayed later to check it. On the Blaze plan, a Cloud Function should replay each fight and the rules should leave run and ranking writes to it.
