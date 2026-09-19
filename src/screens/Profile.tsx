@@ -1,34 +1,12 @@
+import { useState } from 'react';
 import { Link } from 'react-router';
-import { BirdPreview } from '../components/BirdPreview';
-import { FlameIcon } from '../components/icons';
-import { dayId } from '../shared/constants';
-import { ITEMS } from '../shared/items';
-import { liveStreak, medalFor, MEDALS, nextMedal } from '../shared/progress';
-import type { Rarity } from '../shared/types';
+import { useRunStore } from '../runStore';
+import { renamePlayer } from '../services/profile';
 import { useGameStore } from '../store';
-
-const RARITIES: Rarity[] = ['common', 'rare', 'epic'];
-const RARITY_LABELS: Record<Rarity, string> = { common: 'Common', rare: 'Rare', epic: 'Epic' };
-const JOINED_FORMAT = new Intl.DateTimeFormat(undefined, { month: 'long', day: 'numeric', year: 'numeric' });
 
 export function Profile() {
   const profile = useGameStore((s) => s.profile)!;
-  const loadout = useGameStore((s) => s.loadout);
-  const inventory = useGameStore((s) => s.inventory);
-  const joinedAt = useGameStore((s) => s.joinedAt);
-
-  const today = dayId();
-  const owned = new Set(inventory);
-  const medal = medalFor(profile.bestScore);
-  const next = nextMedal(profile.bestScore);
-  const stats: [string, number][] = [
-    ['Best', profile.bestScore],
-    ['Today', profile.dailyId === today ? profile.dailyScore : 0],
-    ['Best streak', profile.bestStreak],
-    ['Days played', profile.daysPlayed],
-    ['Runs', profile.gamesPlayed],
-  ];
-
+  const stats = useRunStore((s) => s.stats);
   return (
     <main className="screen">
       <header className="topbar">
@@ -38,72 +16,60 @@ export function Profile() {
         <h2>Profile</h2>
       </header>
 
-      <BirdPreview loadout={loadout} />
-      <div className="profile-name">
-        <h3>{profile.displayName}</h3>
-        {medal && <span className={`medal-badge ${medal.id}`}>{medal.name}</span>}
-      </div>
+      <NameEditor name={profile.displayName} />
 
-      <dl className="stat-grid">
-        <div className="stat streak lit">
-          <dt>Streak</dt>
-          <dd>
-            <FlameIcon />
-            {liveStreak(profile, today)}
-          </dd>
+      <dl className="stat-row">
+        <div className="stat">
+          <dt>Runs</dt>
+          <dd>{stats.runs}</dd>
         </div>
-        {stats.map(([label, value]) => (
-          <div key={label} className="stat">
-            <dt>{label}</dt>
-            <dd>{value}</dd>
-          </div>
-        ))}
+        <div className="stat">
+          <dt>Best wins</dt>
+          <dd>{stats.bestWins}</dd>
+        </div>
+        <div className="stat">
+          <dt>Best round</dt>
+          <dd>{stats.bestRound}</dd>
+        </div>
       </dl>
-
-      <section className="slot">
-        <h3>Medals</h3>
-        <ul className="medals">
-          {MEDALS.map((m) => {
-            const earned = profile.bestScore >= m.score;
-            return (
-              <li key={m.id} className={earned ? `medal ${m.id} earned` : `medal ${m.id}`}>
-                <span className="medal-disc" aria-hidden="true" />
-                <span>{m.name}</span>
-                <small>{earned ? 'Earned' : `Best ${m.score}`}</small>
-              </li>
-            );
-          })}
-        </ul>
-        {next && (
-          <p className="muted small-print">
-            {next.score - profile.bestScore} more for {next.name}
-          </p>
-        )}
-      </section>
-
-      <section className="slot">
-        <h3>Collection</h3>
-        <div className="collection">
-          <p className="collection-count">
-            {owned.size} <span className="muted">/ {ITEMS.length}</span>
-          </p>
-          <div className="meter" role="img" aria-label={`${owned.size} of ${ITEMS.length} items`}>
-            <span style={{ width: `${(owned.size / ITEMS.length) * 100}%` }} />
-          </div>
-          <ul className="rarity-counts">
-            {RARITIES.map((rarity) => {
-              const items = ITEMS.filter((item) => item.rarity === rarity);
-              return (
-                <li key={rarity} className={rarity}>
-                  {RARITY_LABELS[rarity]} {items.filter((item) => owned.has(item.id)).length}/{items.length}
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-      </section>
-
-      {joinedAt !== null && <p className="muted small-print">Flying since {JOINED_FORMAT.format(joinedAt)}</p>}
+      <p className="muted small-print">
+        Stats are kept on this device for now. Online rankings, and rivals built from other players' boards, are coming
+        next.
+      </p>
     </main>
+  );
+}
+
+function NameEditor({ name }: { name: string }) {
+  const [draft, setDraft] = useState(name);
+  const [status, setStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const trimmed = draft.trim();
+  const canSave = trimmed.length > 0 && trimmed !== name && status !== 'saving';
+
+  async function save() {
+    setStatus('saving');
+    try {
+      await renamePlayer(trimmed);
+      setStatus('saved');
+    } catch {
+      setStatus('error');
+    }
+  }
+
+  return (
+    <form
+      className="name-editor"
+      onSubmit={(event) => {
+        event.preventDefault();
+        void save();
+      }}
+    >
+      <input aria-label="Display name" value={draft} maxLength={20} onChange={(e) => setDraft(e.target.value)} />
+      <button className="button small" disabled={!canSave}>
+        Rename
+      </button>
+      {status === 'saved' && <span className="muted">Saved</span>}
+      {status === 'error' && <span className="error">Couldn't save</span>}
+    </form>
   );
 }

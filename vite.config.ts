@@ -9,17 +9,17 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['icon.svg', 'apple-touch-icon.png', 'fonts/*.woff2'],
       manifest: {
-        name: 'Neon Flap',
-        short_name: 'Neon Flap',
-        description: 'Tap to fly through a neon skyline. New course every day.',
+        name: 'Neon Brawl',
+        short_name: 'Neon Brawl',
+        description: 'Draft neon creatures, build synergies, outlast every rival.',
         theme_color: '#080b14',
         background_color: '#080b14',
         display: 'standalone',
         orientation: 'portrait',
         categories: ['games'],
         shortcuts: [
-          { name: 'Play', url: '/play' },
-          { name: 'Leaderboard', url: '/leaderboard' },
+          { name: 'Play', url: '/run' },
+          { name: 'How to play', url: '/how' },
         ],
         icons: [
           { src: 'pwa-192.png', sizes: '192x192', type: 'image/png' },

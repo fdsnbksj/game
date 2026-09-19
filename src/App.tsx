@@ -1,11 +1,10 @@
 import { useEffect, useState } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router';
 import { Wordmark } from './components/Wordmark';
-import { Customize } from './screens/Customize';
 import { Home } from './screens/Home';
-import { Leaderboard } from './screens/Leaderboard';
-import { Play } from './screens/Play';
+import { HowToPlay } from './screens/HowToPlay';
 import { Profile } from './screens/Profile';
+import { Run } from './screens/Run';
 import { sfx, unlockAudio } from './game/audio';
 import { startSession } from './services/auth';
 import { useGameStore } from './store';
@@ -78,9 +77,8 @@ export function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Home />} />
-        <Route path="/play" element={<Play />} />
-        <Route path="/customize" element={<Customize />} />
-        <Route path="/leaderboard" element={<Leaderboard />} />
+        <Route path="/run" element={<Run />} />
+        <Route path="/how" element={<HowToPlay />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

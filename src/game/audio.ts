@@ -8,6 +8,7 @@ export interface AudioPrefs {
   music: boolean;
 }
 
+// Named for the game's old title; kept so players' sound settings carry over.
 const PREFS_KEY = 'neon-flap:audio';
 const DEFAULT_PREFS: AudioPrefs = { sound: true, music: false };
 
@@ -151,28 +152,37 @@ function play(effect: (now: number) => void) {
 }
 
 export const sfx = {
-  flap: () =>
-    play((t) => {
-      hiss(sfxBus, 'bandpass', 1400, t, 0.07, 0.18);
-      tone(sfxBus, 'triangle', 320, 560, t, 0.08, 0.1);
-    }),
-  score: () =>
-    play((t) => {
-      tone(sfxBus, 'sine', 1320, 1320, t, 0.14, 0.12);
-      tone(sfxBus, 'sine', 1980, 1980, t + 0.05, 0.16, 0.07);
-    }),
-  death: () =>
-    play((t) => {
-      hiss(sfxBus, 'lowpass', 1800, t, 0.35, 0.35);
-      tone(sfxBus, 'sawtooth', 240, 50, t, 0.45, 0.14);
-    }),
-  /** Unlocks and new bests. */
+  /** Victories and big moments. */
   reward: () =>
     play((t) => {
       [72, 76, 79, 84].forEach((note, i) => tone(sfxBus, 'triangle', midi(note), midi(note), t + i * 0.075, 0.28, 0.12));
       tone(sfxBus, 'sine', midi(96), midi(96), t + 0.3, 0.5, 0.05);
     }),
   tick: () => play((t) => tone(sfxBus, 'sine', 1500, 1200, t, 0.035, 0.05)),
+  buy: () =>
+    play((t) => {
+      tone(sfxBus, 'triangle', 660, 990, t, 0.09, 0.1);
+      tone(sfxBus, 'sine', 1320, 1320, t + 0.06, 0.1, 0.05);
+    }),
+  sell: () =>
+    play((t) => {
+      tone(sfxBus, 'square', 1760, 1760, t, 0.05, 0.04);
+      tone(sfxBus, 'square', 2350, 2350, t + 0.05, 0.08, 0.04);
+    }),
+  combine: () =>
+    play((t) => {
+      [67, 71, 74, 79].forEach((note, i) => tone(sfxBus, 'square', midi(note), midi(note), t + i * 0.05, 0.14, 0.05));
+      hiss(sfxBus, 'highpass', 5000, t + 0.2, 0.25, 0.06);
+    }),
+  levelUp: () => play((t) => [60, 64, 67, 72].forEach((note, i) => tone(sfxBus, 'triangle', midi(note), midi(note), t + i * 0.06, 0.2, 0.1))),
+  hit: () => play((t) => hiss(sfxBus, 'bandpass', 900 + Math.random() * 600, t, 0.05, 0.08)),
+  cast: () =>
+    play((t) => {
+      tone(sfxBus, 'sawtooth', 300, 1200, t, 0.18, 0.05);
+      hiss(sfxBus, 'bandpass', 3000, t, 0.2, 0.06);
+    }),
+  faint: () => play((t) => tone(sfxBus, 'triangle', 420, 120, t, 0.22, 0.08)),
+  defeat: () => play((t) => [64, 60, 55].forEach((note, i) => tone(sfxBus, 'triangle', midi(note), midi(note), t + i * 0.12, 0.3, 0.1))),
 };
 
 // ---------- Haptics ----------

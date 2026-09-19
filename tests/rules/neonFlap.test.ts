@@ -12,8 +12,8 @@ import {
 } from 'firebase/firestore';
 import { readFileSync } from 'node:fs';
 import { afterAll, beforeAll, beforeEach, describe, it } from 'vitest';
-import { dayId, MAX_RUNS_PER_SAVE, MAX_SCORE } from '../src/shared/constants';
-import { DEFAULT_ITEM_IDS, DEFAULT_LOADOUT, ITEMS } from '../src/shared/items';
+import { dayId, MAX_RUNS_PER_SAVE, MAX_SCORE } from '../../src/shared/constants';
+import { DEFAULT_ITEM_IDS, DEFAULT_LOADOUT, ITEMS } from '../../src/shared/items';
 
 // Real dates: the rules only accept a run dated within a day of the server clock.
 const DAY_MS = 24 * 60 * 60 * 1000;

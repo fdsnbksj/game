@@ -1,8 +1,8 @@
-# Neon Flap
+# Neon Brawl
 
-Tap to fly a bird through gaps in a neon skyline. Everyone gets the same course each day, and the daily leaderboard resets at 00:00 UTC. Beat your best score to unlock bird parts.
+A neon auto-battler for your phone. Buy creatures from the shop, drag them onto a hex board, and watch them fight. Three copies merge into a stronger ★★, creatures that share a trait power each other up, and a run lasts up to 15 rounds on 100 HP.
 
-React handles the screens, Phaser 3 runs the gameplay, and Firebase (free Spark plan) provides auth, data and hosting. All art is drawn in code, so there are no image assets.
+React handles the screens, Phaser 3 runs the board and fight replays, and Firebase (free Spark plan) provides auth, data and hosting. All art is drawn in code, so there are no image assets. The game replaced Neon Flap, a flappy-bird game whose backend is still being retired.
 
 ## Requirements
 
@@ -24,6 +24,7 @@ Emulator data is saved to `.emulator-data/` when you stop the emulators. The emu
 ## Test
 
 ```sh
+npm run test:unit   # game logic: sim, economy, shop, AI (no emulator)
 npm run test:rules  # starts its own Firestore emulator, so stop `npm run emulators` first
 npm run build       # type-check + production build
 ```
@@ -32,11 +33,13 @@ npm run build       # type-check + production build
 
 | Path | What |
 |---|---|
-| `src/game/scenes/FlapScene.ts` | The game: physics, towers from the daily seed, scoring |
-| `src/game/character/` | The bird: parts drawn in code, tinting, particle trail |
-| `src/screens/` | React screens: Home, Play, Customize, Leaderboard |
-| `src/services/` | All Firestore reads and writes |
-| `src/shared/` | Types, constants, the item catalog, the seeded random generator |
+| `src/sim/` | The game as pure, deterministic TypeScript: units, traits, economy, shop, combat, AI |
+| `src/game/scenes/BattleScene.ts` | The board: drag and drop, and replaying fights from the sim's event log |
+| `src/runStore.ts` | The run in progress, saved to localStorage |
+| `src/screens/` | React screens: Home, Run, How to play, Profile |
+| `src/shared/creatureShapes.ts` | Every creature as shape data, drawn by Phaser and as SVG |
+| `src/services/` | Firestore reads and writes (sign-in, profile; the rest is legacy Neon Flap) |
+| `tests/unit/`, `tests/rules/` | Game logic tests, and Firestore rules tests |
 | `firestore.rules` | The only server-side validation (Spark has no Cloud Functions) |
 
 ## Deploy
@@ -44,9 +47,10 @@ npm run build       # type-check + production build
 We only use the `main` branch, and **every push to `main` deploys automatically** (`.github/workflows/deploy.yml`):
 
 1. Type-check and build
-2. Firestore rules tests
-3. Seed the item catalog into production Firestore
-4. Deploy Hosting and Firestore rules to the project in `.firebaserc`
+2. Unit tests
+3. Firestore rules tests
+4. Seed the (legacy) item catalog into production Firestore
+5. Deploy Hosting and Firestore rules to the project in `.firebaserc`
 
 A failing step stops the deploy. Auth settings in `firebase.json` (anonymous sign-in) aren't deployed by the workflow; after changing them, run `npm run deploy` as a project owner.
 

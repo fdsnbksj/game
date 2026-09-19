@@ -1,99 +1,96 @@
-import { useState } from 'react';
-import { Link } from 'react-router';
-import { BirdPreview } from '../components/BirdPreview';
+import { useEffect, useState } from 'react';
+import { Link, useNavigate } from 'react-router';
+import { CreatureChip } from '../components/CreatureChip';
 import { SoundToggle } from '../components/SoundToggle';
-import { FlameIcon } from '../components/icons';
 import { Wordmark } from '../components/Wordmark';
-import { liveStreak, streakAtRisk } from '../shared/progress';
-import { renamePlayer } from '../services/profile';
-import { dayId } from '../shared/constants';
-import { useGameStore } from '../store';
+import { useRunStore } from '../runStore';
+
+const PARADE = ['sparkmouse', 'bytebat', 'thunderstag', 'mirrorowl', 'glitchtoad'];
 
 export function Home() {
-  const profile = useGameStore((s) => s.profile)!;
-  const loadout = useGameStore((s) => s.loadout);
-  const today = dayId();
-  const bestToday = profile.dailyId === today ? profile.dailyScore : 0;
-  const streak = liveStreak(profile, today);
+  const run = useRunStore((s) => s.run);
+  const stats = useRunStore((s) => s.stats);
+  const startRun = useRunStore((s) => s.startRun);
+  const navigate = useNavigate();
+  const [confirming, setConfirming] = useState(false);
+  const inProgress = run !== null && !run.done;
+
+  useEffect(() => {
+    if (!confirming) return;
+    const timer = setTimeout(() => setConfirming(false), 3000);
+    return () => clearTimeout(timer);
+  }, [confirming]);
+
+  function newRun() {
+    if (inProgress && !confirming) {
+      setConfirming(true);
+      return;
+    }
+    startRun();
+    navigate('/run');
+  }
 
   return (
-    <main className="screen">
+    <main className="screen home">
       <header className="topbar">
         <span className="spacer" />
         <SoundToggle />
       </header>
       <Wordmark />
-      <BirdPreview loadout={loadout} />
-      <NameEditor name={profile.displayName} />
+      <p className="tagline">Draft neon creatures. Build synergies. Outlast every rival.</p>
+      <div className="parade" aria-hidden="true">
+        {PARADE.map((unitId, i) => (
+          <span key={unitId} style={{ animationDelay: `${i * 160}ms` }}>
+            <CreatureChip unitId={unitId} size={i === 2 ? 72 : 52} />
+          </span>
+        ))}
+      </div>
+
       <dl className="stat-row">
         <div className="stat">
-          <dt>Today</dt>
-          <dd>{bestToday}</dd>
+          <dt>Runs</dt>
+          <dd>{stats.runs}</dd>
         </div>
         <div className="stat">
-          <dt>Best</dt>
-          <dd>{profile.bestScore}</dd>
+          <dt>Best wins</dt>
+          <dd>{stats.bestWins}</dd>
         </div>
-        <div className={streak > 0 ? 'stat streak lit' : 'stat streak'}>
-          <dt>Streak</dt>
-          <dd>
-            <FlameIcon />
-            {streak}
-          </dd>
+        <div className="stat">
+          <dt>Best round</dt>
+          <dd>{stats.bestRound}</dd>
         </div>
       </dl>
-      {streakAtRisk(profile, today) && (
-        <p className="nudge">Score today to keep your {profile.streak}-day streak</p>
-      )}
+
       <nav className="menu">
-        <Link className="button primary play-cta" to="/play">
-          Play
-        </Link>
+        {inProgress ? (
+          <>
+            <Link className="button primary play-cta" to="/run">
+              Continue
+            </Link>
+            <p className="muted continue-line">
+              Round {run.round} · {run.hp} HP · {run.wins} wins
+            </p>
+            <button className={confirming ? 'button danger' : 'button'} onClick={newRun}>
+              {confirming ? 'Tap again to abandon this run' : 'New run'}
+            </button>
+          </>
+        ) : (
+          <button className="button primary play-cta" onClick={newRun}>
+            Play
+          </button>
+        )}
         <div className="menu-row">
-          <Link className="button" to="/customize">
-            Customize
-          </Link>
-          <Link className="button" to="/leaderboard">
-            Ranks
+          <Link className="button" to="/how">
+            How to play
           </Link>
           <Link className="button" to="/profile">
             Profile
           </Link>
+          <button className="button" disabled title="Online rankings are coming soon">
+            Ranks <small className="soon">soon</small>
+          </button>
         </div>
       </nav>
     </main>
-  );
-}
-
-function NameEditor({ name }: { name: string }) {
-  const [draft, setDraft] = useState(name);
-  const [status, setStatus] = useState<'idle' | 'saving' | 'error'>('idle');
-  const trimmed = draft.trim();
-  const canSave = trimmed.length > 0 && trimmed !== name && status !== 'saving';
-
-  async function save() {
-    setStatus('saving');
-    try {
-      await renamePlayer(trimmed);
-      setStatus('idle');
-    } catch {
-      setStatus('error');
-    }
-  }
-
-  return (
-    <form
-      className="name-editor"
-      onSubmit={(event) => {
-        event.preventDefault();
-        void save();
-      }}
-    >
-      <input aria-label="Display name" value={draft} maxLength={20} onChange={(e) => setDraft(e.target.value)} />
-      <button className="button small" disabled={!canSave}>
-        Rename
-      </button>
-      {status === 'error' && <span className="error">Couldn't save</span>}
-    </form>
   );
 }
