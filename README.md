@@ -2,7 +2,7 @@
 
 A neon auto-battler for your phone. Buy creatures from the shop, drag them onto a hex board, and watch them fight. Three copies merge into a stronger ★★, creatures that share a trait power each other up, and a run lasts up to 15 rounds on 100 HP. Each round you fight another player's saved team from the same round, or a bot if there isn't one, and finished runs go on a daily ranking.
 
-React handles the screens, Phaser 3 runs the board and fight replays, and Firebase (free Spark plan) provides auth, data and hosting. All art is drawn in code, so there are no image assets. The game replaced Neon Flap, a flappy-bird game whose backend is still being retired.
+React handles the screens, Phaser 3 runs the board and fight replays, and Firebase (free Spark plan) provides auth, data and hosting. All art is drawn in code, so there are no image assets. The game replaced Neon Flap, a flappy-bird game.
 
 ## Requirements
 
@@ -15,7 +15,6 @@ React handles the screens, Phaser 3 runs the board and fight replays, and Fireba
 ```sh
 npm install
 npm run emulators   # terminal 1: Auth + Firestore emulators, UI at http://localhost:4000
-npm run seed        # terminal 2: loads the item catalog (once per fresh emulator)
 npm run dev         # terminal 2: open the "Network" URL on your phone (same Wi-Fi)
 ```
 
@@ -49,8 +48,7 @@ We only use the `main` branch, and **every push to `main` deploys automatically*
 1. Unit tests
 2. Type-check and build
 3. Firestore rules tests
-4. Seed the (legacy) item catalog into production Firestore
-5. Deploy Hosting and Firestore rules to the project in `.firebaserc`
+4. Deploy Hosting and Firestore rules to the project in `.firebaserc`
 
 A failing step stops the deploy. Auth settings in `firebase.json` (anonymous sign-in) aren't deployed by the workflow; after changing them, run `npm run deploy` as a project owner.
 

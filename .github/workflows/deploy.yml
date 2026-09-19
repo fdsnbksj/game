@@ -49,11 +49,6 @@ jobs:
         with:
           credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
 
-      - name: Seed item catalog
-        timeout-minutes: 3
-        # .firebaserc has no .json extension, so require() would parse it as JavaScript and fail.
-        run: SEED_PROJECT_ID="$(node -p "JSON.parse(require('fs').readFileSync('.firebaserc', 'utf8')).projects.default")" npm run seed
-
       # Auth settings (anonymous sign-in) are left out: deploying them needs broader Firebase
       # permissions than this account has. Apply auth changes with `npm run deploy` as a project owner.
       - name: Deploy Hosting and Firestore rules

@@ -2,7 +2,7 @@
 // properties in src/index.css); Phaser reads the `0xRRGGBB` ints.
 //
 // The CSS custom properties in src/index.css mirror COLORS below. Change both
-// together — same rule as MAX_SCORE in src/shared/constants.ts.
+// together.
 
 /** Hex strings, for CSS, inline SVG and Phaser text styles. */
 export const COLORS = {

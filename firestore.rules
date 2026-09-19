@@ -2,13 +2,11 @@ rules_version = '2';
 
 // On the Spark plan there are no Cloud Functions, so these rules are the only
 // server-side validation. They make cheating harder, not impossible.
+//
+// Anything without a rule here is denied, including everything left from Neon Flap
+// (its leaderboards, item catalog and inventories) apart from reading your own old profile.
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Keep in sync with src/shared/constants.ts.
-    function maxScore() { return 1000; }
-    function minSecondsBetweenRuns() { return 5; }
-    function maxRunsPerSave() { return 100; }
 
     function isOwner(uid) {
       return request.auth != null && request.auth.uid == uid;
@@ -22,6 +20,11 @@ service cloud.firestore {
       return name is string && name.size() >= 1 && name.size() <= 20;
     }
 
+    function isRename() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName'])
+        && isValidName(request.resource.data.displayName);
+    }
+
     // A UTC day, as YYYY-MM-DD. Strict, because dayStart() parses it.
     function isValidDay(day) {
       return day is string && day.matches('[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])');
@@ -33,166 +36,18 @@ service cloud.firestore {
       return timestamp.date(int(day[0:4]), int(day[5:7]), int(day[8:10]));
     }
 
-    // The client names the day from its own clock, so allow a day either side of
-    // the server's. Any wider and streaks could be farmed by replaying dates.
+    // The client names the day from its own clock, so allow a day either side of the
+    // server's. Any wider and a result could be filed under a day long gone.
     function isDayNearNow(day) {
       return dayStart(day) >= request.time.date() - duration.value(1, 'd')
         && dayStart(day) <= request.time.date() + duration.value(1, 'd');
     }
 
-    function isNextDay(previous, day) {
-      return isValidDay(previous) && dayStart(day) == dayStart(previous) + duration.value(1, 'd');
-    }
-
-    // getAfter so a write can rely on changes made earlier in the same batch.
-    function userAfter(uid) {
-      return getAfter(/databases/$(database)/documents/users/$(uid)).data;
-    }
-
-    function catalogItem(itemId) {
-      return get(/databases/$(database)/documents/items/$(itemId)).data;
-    }
-
-    function ownsForSlot(uid, itemId, slot) {
-      return itemId is string
-        && existsAfter(/databases/$(database)/documents/users/$(uid)/inventory/$(itemId))
-        && catalogItem(itemId).slot == slot;
-    }
-
-    function isColor(value) {
-      return value is int && value >= 0 && value <= 16777215;
-    }
-
-    function isValidLoadout(uid, loadout) {
-      return hasExactly(loadout, ['body', 'wing', 'hat', 'trail', 'colors'])
-        && ownsForSlot(uid, loadout.body, 'body')
-        && ownsForSlot(uid, loadout.wing, 'wing')
-        && ownsForSlot(uid, loadout.hat, 'hat')
-        && ownsForSlot(uid, loadout.trail, 'trail')
-        && loadout.colors is map
-        && hasExactly(loadout.colors, ['body', 'wing', 'trail'])
-        && isColor(loadout.colors.body)
-        && isColor(loadout.colors.wing)
-        && isColor(loadout.colors.trail);
-    }
-
-    function isRename() {
-      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName'])
-        && isValidName(request.resource.data.displayName);
-    }
-
-    // Streaks and days played, counted on the first save of each UTC day. streakDay is
-    // that day. All four change together or not at all: an older client that doesn't
-    // know them can still save, but its day doesn't count, and since a streak only
-    // continues from streakDay, skipping the fields can never bridge a missed day.
-    function isValidProgress(before, after) {
-      let beforeDay = before.get('streakDay', '');
-      let beforeStreak = before.get('streak', 0);
-      let beforeBest = before.get('bestStreak', 0);
-      let beforeDays = before.get('daysPlayed', 0);
-      let streak = isNextDay(beforeDay, after.dailyId) ? beforeStreak + 1 : 1;
-      return !after.diff(before).affectedKeys().hasAny(['streak', 'bestStreak', 'streakDay', 'daysPlayed'])
-        || (after.streakDay == after.dailyId
-          && after.streakDay != beforeDay
-          && after.streak == streak
-          && after.bestStreak == (streak > beforeBest ? streak : beforeBest)
-          && after.daysPlayed == beforeDays + 1);
-    }
-
-    // A saved run. The client only saves when the player beats their best for the day,
-    // counting the other attempts locally, so one save can add several games played.
-    function isRunResult() {
-      let before = resource.data;
-      let after = request.resource.data;
-      // Profiles created before daily scores existed have neither field.
-      let beforeDay = before.get('dailyId', '');
-      let beforeDailyScore = before.get('dailyScore', 0);
-      return after.diff(before).affectedKeys().hasOnly([
-          'bestScore', 'gamesPlayed', 'lastRunAt', 'dailyId', 'dailyScore',
-          'streak', 'bestStreak', 'streakDay', 'daysPlayed'])
-        && after.bestScore is int
-        && after.bestScore >= before.bestScore
-        && after.bestScore <= maxScore()
-        && after.dailyScore is int
-        && after.dailyScore > 0
-        && after.dailyScore <= after.bestScore
-        && isValidDay(after.dailyId)
-        && isDayNearNow(after.dailyId)
-        // Same day: the score has to improve. A new day starts over.
-        && (after.dailyId != beforeDay || after.dailyScore > beforeDailyScore)
-        && after.gamesPlayed > before.gamesPlayed
-        && after.gamesPlayed <= before.gamesPlayed + maxRunsPerSave()
-        && after.lastRunAt == request.time
-        && request.time > before.lastRunAt + duration.value(minSecondsBetweenRuns(), 's')
-        && isValidProgress(before, after);
-    }
-
-    // Must be written in the same batch as the run that set this daily score.
-    function isValidEntry(uid, day) {
-      let entry = request.resource.data;
-      let user = userAfter(uid);
-      return hasExactly(entry, ['score', 'displayName', 'loadout', 'submittedAt'])
-        && entry.score is int
-        && entry.score > 0
-        && entry.score <= maxScore()
-        && entry.score == user.dailyScore
-        && day == user.dailyId
-        && user.lastRunAt == request.time
-        && (resource == null || entry.score > resource.data.score)
-        && entry.displayName == user.displayName
-        && entry.loadout == get(/databases/$(database)/documents/users/$(uid)/meta/loadout).data
-        && entry.submittedAt == request.time;
-    }
-
-    // Catalog is seeded with `npm run seed`; clients can only read it.
-    match /items/{itemId} {
-      allow read: if true;
-      allow write: if false;
-    }
-
+    // Neon Flap profiles, read once so a returning player keeps their name.
     match /users/{uid} {
       allow read: if isOwner(uid);
-      allow create: if isOwner(uid)
-        && request.resource.data.keys().hasAll(['displayName', 'bestScore', 'gamesPlayed', 'createdAt', 'lastRunAt', 'dailyId', 'dailyScore'])
-        // The progress fields are optional, so a client from before they existed can still sign up.
-        && request.resource.data.keys().hasOnly(['displayName', 'bestScore', 'gamesPlayed', 'createdAt', 'lastRunAt', 'dailyId', 'dailyScore',
-          'streak', 'bestStreak', 'streakDay', 'daysPlayed'])
-        && request.resource.data.get('streak', 0) == 0
-        && request.resource.data.get('bestStreak', 0) == 0
-        && request.resource.data.get('streakDay', '') == ''
-        && request.resource.data.get('daysPlayed', 0) == 0
-        && isValidName(request.resource.data.displayName)
-        && request.resource.data.bestScore == 0
-        && request.resource.data.gamesPlayed == 0
-        && request.resource.data.dailyScore == 0
-        && isValidDay(request.resource.data.dailyId)
-        && request.resource.data.createdAt == request.time
-        && request.resource.data.lastRunAt == request.time;
-      allow update: if isOwner(uid) && (isRename() || isRunResult());
-
-      match /inventory/{itemId} {
-        allow read: if isOwner(uid);
-        // Unlocks are earned by all-time best score. getAfter lets onboarding create the profile in the same batch.
-        allow create: if isOwner(uid)
-          && hasExactly(request.resource.data, ['unlockedAt'])
-          && request.resource.data.unlockedAt == request.time
-          && userAfter(uid).bestScore >= catalogItem(itemId).unlockScore;
-      }
-
-      match /meta/loadout {
-        allow read: if isOwner(uid);
-        allow create, update: if isOwner(uid) && isValidLoadout(uid, request.resource.data);
-      }
     }
 
-    // One leaderboard per day, holding each player's best score on that day's course.
-    match /leaderboards/{day}/entries/{uid} {
-      allow read: if request.auth != null;
-      allow create, update: if isOwner(uid) && isValidEntry(uid, day);
-    }
-    // ======================= Neon Brawl =======================
-    // Everything above this line is the retired Neon Flap game, kept for old cached clients.
-    //
     // A run is written one round at a time. The rules can't replay a fight, so they check
     // that each board is one a player could have had, and that each round's result stays
     // within what a fight can do. Keep the numbers below in sync with src/sim; the unit

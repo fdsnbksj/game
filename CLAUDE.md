@@ -1,11 +1,11 @@
 # CLAUDE.md
 
-**Neon Brawl**: a mobile web auto-battler (TFT-style) with original neon creatures. Buy creatures from a shop, place them on a hex board, and they fight on their own; a run is up to 15 rounds on 100 HP. React handles the screens, Phaser 3 the board and fight replays, and Firebase the free-plan backend (Auth, Firestore, Hosting). Setup and layout are in `README.md`. The game replaced **Neon Flap**, a flappy-bird game; its Firestore data and rules are still live (see Constraints).
+**Neon Brawl**: a mobile web auto-battler (TFT-style) with original neon creatures. Buy creatures from a shop, place them on a hex board, and they fight on their own; a run is up to 15 rounds on 100 HP. React handles the screens, Phaser 3 the board and fight replays, and Firebase the free-plan backend (Auth, Firestore, Hosting). Setup and layout are in `README.md`. The game replaced **Neon Flap**, a flappy-bird game; its old data is still in Firestore but closed (see Constraints).
 
 ## Git and deploy
 
 - **Only the `main` branch.** Commit directly to `main`. Don't create branches or pull requests.
-- **Every push to `main` deploys to production** via `.github/workflows/deploy.yml`: unit tests → build → Firestore rules tests → seed the item catalog → deploy Hosting and Firestore rules → deploy Firestore indexes. Push right after each commit so every commit is deployed.
+- **Every push to `main` deploys to production** via `.github/workflows/deploy.yml`: unit tests → build → Firestore rules tests → deploy Hosting and Firestore rules → deploy Firestore indexes. Push right after each commit so every commit is deployed.
 - The index step may fail if the deploy account can't create indexes; it's allowed to, so the site still deploys, and ghosts fall back to bots until the index exists. If it fails, run `npm run deploy` logged in as a project owner.
 - Auth settings in `firebase.json` (anonymous sign-in) are **not** deployed by the workflow, because the deploy account lacks those permissions. After changing them, run `npm run deploy` logged in as a project owner.
 - A failing build, unit test or rules test stops the deploy, so run `npm run build`, `npm run test:unit` and `npm run test:rules` before committing.
@@ -16,7 +16,6 @@
 
 ```sh
 npm run emulators   # Auth + Firestore emulators (needs Java 21: /opt/homebrew/opt/openjdk@21/bin on PATH)
-npm run seed        # load the item catalog into the emulator
 npm run dev         # Vite dev server, reachable from a phone on the LAN
 npm run build       # type-check + production build
 npm run test:unit   # game logic tests, no emulator needed
@@ -37,12 +36,8 @@ npm run test:rules  # Firestore rules tests (starts its own emulator; stop `npm 
 ## Constraints
 
 - **Spark plan:** no Cloud Functions, no Cloud Storage. `firestore.rules` is the only server-side validation, so every client write needs a matching rule and a test in `tests/rules/`.
-- **Legacy Neon Flap backend:** `users/*`, `leaderboards/*`, the item catalog (seeded on every deploy), `src/shared/{items,types}.ts` and `tests/rules/neonFlap.test.ts` belong to the old game. New players' names are copied once from `users/{uid}`. They stay until old cached clients have updated, then get retired. Until then, the notes below about saving runs, streaks, `MAX_SCORE` and the catalog describe that legacy backend.
-- **Saving runs:** a run is saved only when it beats the player's best for that day. Other attempts are counted in `pendingRuns` and added to `gamesPlayed` with the next save, so fast retries don't hit the free quota or the rate limit.
-- `MAX_SCORE`, `MIN_SECONDS_BETWEEN_RUNS` and `MAX_RUNS_PER_SAVE` are duplicated in `firestore.rules` and `src/shared/constants.ts`. Change both together.
-- Streaks are duplicated the same way: `nextProgress()` in `src/shared/progress.ts` and `isNextDay()` in `src/shared/constants.ts` mirror `isValidProgress()` and `isNextDay()` in `firestore.rules`.
-- The rules only accept a run dated within a day of the server clock, so tests derive their dates from `dayId()` rather than hardcoding them.
-- The item catalog lives in `src/shared/items.ts`. Each deploy re-seeds it and deletes items no longer listed.
+- **Neon Flap's old data** (`users/*`, `leaderboards/*`, `items/*`) is left in Firestore; deleting it would only spend quota. The rules deny all of it except a player reading their own `users/{uid}`, which the app does once to carry their name over. `tests/rules/legacy.test.ts` covers this.
+- Rankings are filed under a UTC day, and the rules only accept a day within one of the server clock, so tests derive their dates from `dayId()` rather than hardcoding them.
 - Phaser is not mounted inside React `StrictMode` (see `src/main.tsx`).
 - **Hosting cache headers** in `firebase.json` match the *requested* path, not the file served. The no-cache rules therefore use `/` and `/*` (the app's routes, which all serve `index.html`); `/assets/**` has two segments, so hashed assets keep their immutable caching. Without this, a deploy can be masked for an hour by a cached page.
 - After a deploy, the first visit is served from the offline cache and runs the **previous** version, which may not match current rules. The error screen's Reload button (`src/App.tsx`) clears the service worker and caches.
