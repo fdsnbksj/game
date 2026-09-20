@@ -1,4 +1,4 @@
-import { getUnit, MAX_ROUNDS, type TraitId } from './balance';
+import { getUnit, MAX_ROUNDS, TRAITS, type TraitId } from './balance';
 import type { Placed } from './combat';
 import { copies } from './economy';
 import { autoFill, boardUnits, buy, buyXp, move, newRun, nextRound, ownedUnits, reroll, sell, type RunState } from './planning';
@@ -8,7 +8,7 @@ import { stream } from './rng';
 // economy and rules as a player, so its boards are always ones a player could have had.
 
 const TARGET_LEVEL = [0, 1, 2, 3, 3, 4, 4, 5, 5, 5, 6, 6, 6, 7, 7, 7];
-const FOCUSES: TraitId[] = ['voltage', 'glitch', 'chrome', 'bruiser', 'striker', 'caster'];
+const FOCUSES: TraitId[] = TRAITS.map((trait) => trait.id);
 
 export interface AiOpponent {
   name: string;

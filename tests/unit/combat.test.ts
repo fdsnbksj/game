@@ -78,6 +78,67 @@ describe('combat', () => {
     }
   });
 
+  it('poisons with Toxin attacks, damaging over time', () => {
+    const toxic: Placed[] = [
+      { unitId: 'acidfrog', star: 2, cell: 3 },
+      { unitId: 'sludgebear', star: 2, cell: 2 },
+    ];
+    const clean: Placed[] = [
+      { unitId: 'bytebat', star: 2, cell: 3 },
+      { unitId: 'ironhog', star: 2, cell: 2 },
+    ];
+    const poisoned = simulate(toxic, clean, 'toxin').events.filter((event) => event.k === 'dot');
+    expect(poisoned.length).toBeGreaterThan(0);
+    // Only the side without Toxin takes it.
+    const sideOf = (id: number) => simulate(toxic, clean, 'toxin').fighters[id].side;
+    expect(poisoned.every((event) => sideOf(event.id) === 'b')).toBe(true);
+  });
+
+  it('makes abilities do more with Prism', () => {
+    const enemy: Placed[] = [{ unitId: 'ironhog', star: 3, cell: 3 }];
+    const firstShield = (allies: Placed[]) => {
+      const event = simulate(allies, enemy, 'power').events.find((e) => e.k === 'shield');
+      return event && event.k === 'shield' ? event.amount : 0;
+    };
+    // Two Prism units switch the trait on; pairing with a non-Prism unit doesn't.
+    const withPrism = firstShield([{ unitId: 'prismfly', star: 1, cell: 0 }, { unitId: 'lumihare', star: 1, cell: 1 }, { unitId: 'chromeshell', star: 1, cell: 3 }]);
+    const without = firstShield([{ unitId: 'prismfly', star: 1, cell: 0 }, { unitId: 'voltmoth', star: 1, cell: 1 }, { unitId: 'chromeshell', star: 1, cell: 3 }]);
+    expect(withPrism).toBeGreaterThan(0);
+    expect(withPrism).toBeGreaterThan(without);
+  });
+
+  it('casts more often with Support mana', () => {
+    const enemy: Placed[] = [{ unitId: 'thunderstag', star: 3, cell: 3 }];
+    const casts = (allies: Placed[]) => simulate(allies, enemy, 'mana').events.filter((e) => e.k === 'cast').length;
+    const supported = casts([{ unitId: 'sporecat', star: 2, cell: 0 }, { unitId: 'prismfly', star: 2, cell: 1 }, { unitId: 'chromeshell', star: 2, cell: 3 }]);
+    const alone = casts([{ unitId: 'sporecat', star: 2, cell: 0 }, { unitId: 'voltmoth', star: 2, cell: 1 }, { unitId: 'chromeshell', star: 2, cell: 3 }]);
+    expect(supported).toBeGreaterThan(alone);
+  });
+
+  it('heals every nearby ally at once', () => {
+    // Sunwash reaches two hexes, so the allies stand next to the healer.
+    const hurt: Placed[] = [
+      { unitId: 'beamray', star: 2, cell: 9 },
+      { unitId: 'chromeshell', star: 1, cell: 2 },
+      { unitId: 'ironhog', star: 1, cell: 3 },
+    ];
+    const healsOf = (allies: Placed[]) =>
+      simulate(allies, [{ unitId: 'thunderstag', star: 3, cell: 3 }], 'care').events.filter((event) => event.k === 'heal');
+    const heals = healsOf(hurt);
+    expect(heals.length).toBeGreaterThan(0);
+    // Sunwash reaches more than one ally.
+    expect(new Set(heals.map((event) => event.id)).size).toBeGreaterThan(1);
+  });
+
+  it('speeds allies up with a haste ability', () => {
+    const hasted = simulate(
+      [{ unitId: 'lumihare', star: 2, cell: 0 }, { unitId: 'chromemantis', star: 2, cell: 3 }],
+      [{ unitId: 'ironhog', star: 2, cell: 3 }],
+      'haste',
+    );
+    expect(hasted.events.some((event) => event.k === 'haste')).toBe(true);
+  });
+
   it('counts the winners surviving stars', () => {
     const result = simulate(strong, weak, 'x');
     const deadIds = new Set(result.events.filter((e) => e.k === 'death').map((e) => e.id));

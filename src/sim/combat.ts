@@ -1,11 +1,15 @@
 import {
   getUnit,
+  HASTE_SECONDS,
   MANA_PER_ATTACK,
   MAX_MANA_FROM_HIT,
   MAX_TICKS,
   MOVE_TICKS,
   OVERTIME_TICK,
+  POISON_INTERVAL,
+  POISON_SECONDS,
   STAR_PERCENT,
+  TICKS_PER_SECOND,
   type Star,
   type UnitDef,
 } from './balance';
@@ -46,6 +50,8 @@ export type BattleEvent =
   | { t: number; k: 'heal'; id: number; amount: number; hp: number }
   | { t: number; k: 'shield'; id: number; amount: number; shield: number }
   | { t: number; k: 'stun'; id: number; ticks: number }
+  | { t: number; k: 'dot'; id: number; amount: number; hp: number }
+  | { t: number; k: 'haste'; id: number; percent: number }
   | { t: number; k: 'death'; id: number };
 
 export interface BattleResult {
@@ -68,10 +74,21 @@ interface Fighter {
   maxHp: number;
   armor: number;
   damage: number;
-  /** Percent bonus to all damage dealt. */
+  /** Percent bonus to attack damage. */
   damageBonus: number;
+  /** Percent bonus to everything its ability does: damage, healing and shielding. */
+  abilityBonus: number;
+  /** Mana gained every second, from the Support trait. */
+  manaRegen: number;
+  /** Poison a second its attacks leave behind, from the Toxin trait. */
+  poisonOnHit: number;
   dodge: number;
   attackTicks: number;
+  /** While hasted, attacks come this much faster. */
+  hastePercent: number;
+  hasteUntil: number;
+  poisonDamage: number;
+  poisonUntil: number;
   mana: number;
   shield: number;
   stun: number;
@@ -82,9 +99,11 @@ interface Fighter {
 
 type Effect =
   | { kind: 'damage'; src: number; dst: number; amount: number; ability: boolean }
-  | { kind: 'heal'; dst: number; amount: number }
-  | { kind: 'shield'; dst: number; amount: number }
-  | { kind: 'stun'; dst: number; ticks: number };
+  | { kind: 'heal'; src: number; dst: number; amount: number }
+  | { kind: 'shield'; src: number; dst: number; amount: number }
+  | { kind: 'stun'; dst: number; ticks: number }
+  | { kind: 'poison'; dst: number; damage: number }
+  | { kind: 'haste'; dst: number; percent: number };
 
 function buildSide(units: readonly Placed[], side: Side): Omit<Fighter, 'id'>[] {
   const traits = activeTraits(units.map((unit) => unit.unitId));
@@ -105,8 +124,15 @@ function buildSide(units: readonly Placed[], side: Side): Omit<Fighter, 'id'>[] 
       armor: def.armor + bonus('chrome'),
       damage: Math.floor((def.damage * STAR_PERCENT[unit.star]) / 100),
       damageBonus: bonus('striker'),
+      abilityBonus: bonus('prism'),
+      manaRegen: bonus('support'),
+      poisonOnHit: bonus('toxin'),
       dodge: bonus('glitch'),
       attackTicks: Math.max(6, Math.floor((def.attackTicks * 100) / (100 + attackSpeed))),
+      hastePercent: 0,
+      hasteUntil: 0,
+      poisonDamage: 0,
+      poisonUntil: 0,
       mana: Math.min(def.maxMana - 1, def.startMana + bonus('caster')),
       shield: 0,
       stun: 0,
@@ -169,9 +195,36 @@ export function simulate(a: readonly Placed[], b: readonly Placed[], seed: strin
     tick += 1;
     const effects: Effect[] = [];
 
+    // Support regenerates mana once a second.
+    if (tick % TICKS_PER_SECOND === 0) {
+      for (const f of fighters) {
+        if (f.alive && f.manaRegen > 0) f.mana = Math.min(f.def.maxMana, f.mana + f.manaRegen);
+      }
+    }
+
+    // Poison burns once a second and ignores armor.
+    if (tick % POISON_INTERVAL === 0) {
+      for (const f of fighters) {
+        if (!f.alive || f.poisonUntil < tick || f.poisonDamage <= 0) continue;
+        f.hp = Math.max(0, f.hp - f.poisonDamage);
+        events.push({ t: tick, k: 'dot', id: f.id, amount: f.poisonDamage, hp: f.hp });
+      }
+      for (const f of fighters) {
+        if (f.alive && f.hp <= 0) {
+          f.alive = false;
+          occupant[f.cell] = -1;
+          events.push({ t: tick, k: 'death', id: f.id });
+        }
+      }
+    }
+
     for (const f of fighters) {
       if (!f.alive) continue;
       if (f.attackCooldown > 0) f.attackCooldown -= 1;
+      if (f.hasteUntil > 0 && tick > f.hasteUntil) {
+        f.hasteUntil = 0;
+        f.hastePercent = 0;
+      }
       if (f.moveCooldown > 0) f.moveCooldown -= 1;
       if (f.stun > 0) {
         f.stun -= 1;
@@ -187,7 +240,7 @@ export function simulate(a: readonly Placed[], b: readonly Placed[], seed: strin
       if (distance(f.cell, target.cell) <= f.def.range) {
         if (f.attackCooldown === 0) {
           effects.push({ kind: 'damage', src: f.id, dst: target.id, amount: f.damage, ability: false });
-          f.attackCooldown = f.attackTicks;
+          f.attackCooldown = Math.max(4, Math.floor((f.attackTicks * 100) / (100 + f.hastePercent)));
           f.mana = Math.min(f.def.maxMana, f.mana + MANA_PER_ATTACK);
           events.push({ t: tick, k: 'attack', id: f.id, target: target.id, mana: f.mana });
         }
@@ -211,6 +264,9 @@ export function simulate(a: readonly Placed[], b: readonly Placed[], seed: strin
       }
     }
 
+    // Overtime wears healers down as well as ramping damage, so no fight grinds on forever.
+    const mending = tick > OVERTIME_TICK + 5 * TICKS_PER_SECOND ? 0 : tick > OVERTIME_TICK ? 50 : 100;
+
     // Everything this tick lands at once, so acting first gives no edge.
     for (const effect of effects) {
       const dst = fighters[effect.dst];
@@ -223,13 +279,18 @@ export function simulate(a: readonly Placed[], b: readonly Placed[], seed: strin
             break;
           }
           const overtime = tick > OVERTIME_TICK ? tick - OVERTIME_TICK : 0;
-          const raw = Math.floor((effect.amount * (100 + src.damageBonus + overtime)) / 100);
+          const power = effect.ability ? src.abilityBonus : src.damageBonus;
+          const raw = Math.floor((effect.amount * (100 + power + overtime)) / 100);
           let taken = Math.floor((raw * 100) / (100 + dst.armor));
           const absorbed = Math.min(dst.shield, taken);
           dst.shield -= absorbed;
           taken -= absorbed;
           dst.hp = Math.max(0, dst.hp - taken);
           dst.mana = Math.min(dst.def.maxMana, dst.mana + Math.min(MAX_MANA_FROM_HIT, Math.floor(raw / 25)));
+          if (!effect.ability && src.poisonOnHit > 0) {
+            dst.poisonDamage = Math.max(dst.poisonDamage, src.poisonOnHit);
+            dst.poisonUntil = tick + POISON_SECONDS * TICKS_PER_SECOND;
+          }
           events.push({
             t: tick,
             k: 'hit',
@@ -244,14 +305,26 @@ export function simulate(a: readonly Placed[], b: readonly Placed[], seed: strin
           break;
         }
         case 'heal': {
-          const amount = Math.min(effect.amount, dst.maxHp - dst.hp);
+          const given = Math.floor((effect.amount * (100 + fighters[effect.src].abilityBonus) * mending) / 10000);
+          const amount = Math.min(given, dst.maxHp - dst.hp);
           dst.hp += amount;
           events.push({ t: tick, k: 'heal', id: dst.id, amount, hp: dst.hp });
           break;
         }
-        case 'shield':
-          dst.shield += effect.amount;
-          events.push({ t: tick, k: 'shield', id: dst.id, amount: effect.amount, shield: dst.shield });
+        case 'shield': {
+          const given = Math.floor((effect.amount * (100 + fighters[effect.src].abilityBonus) * mending) / 10000);
+          dst.shield += given;
+          events.push({ t: tick, k: 'shield', id: dst.id, amount: given, shield: dst.shield });
+          break;
+        }
+        case 'poison':
+          dst.poisonDamage = Math.max(dst.poisonDamage, effect.damage);
+          dst.poisonUntil = tick + POISON_SECONDS * TICKS_PER_SECOND;
+          break;
+        case 'haste':
+          dst.hastePercent = Math.max(dst.hastePercent, effect.percent);
+          dst.hasteUntil = tick + HASTE_SECONDS * TICKS_PER_SECOND;
+          events.push({ t: tick, k: 'haste', id: dst.id, percent: effect.percent });
           break;
         case 'stun':
           dst.stun = Math.max(dst.stun, effect.ticks);
@@ -292,28 +365,39 @@ export function simulate(a: readonly Placed[], b: readonly Placed[], seed: strin
     const ability = f.def.ability;
     const star = f.star - 1;
     const cells: number[] = [];
-    if (ability.target === 'weakestAlly') {
-      const ally = weakest(alliesOf(f));
-      if (!ally) return false;
-      if (ability.heal) queue.push({ kind: 'heal', dst: ally.id, amount: ability.heal[star] });
-      if (ability.shield) queue.push({ kind: 'shield', dst: ally.id, amount: ability.shield[star] });
-      cells.push(ally.cell);
-    } else {
-      if (ability.target === 'self' && ability.shield) {
-        queue.push({ kind: 'shield', dst: f.id, amount: ability.shield[star] });
-        cells.push(f.cell);
+
+    if (ability.target === 'weakestAlly' || ability.target === 'allies') {
+      const helped =
+        ability.target === 'weakestAlly'
+          ? [weakest(alliesOf(f))].filter((ally): ally is Fighter => ally !== undefined)
+          : alliesOf(f).filter((ally) => distance(ally.cell, f.cell) <= ability.radius);
+      if (helped.length === 0) return false;
+      for (const ally of helped) {
+        if (ability.heal) queue.push({ kind: 'heal', src: f.id, dst: ally.id, amount: ability.heal[star] });
+        if (ability.shield) queue.push({ kind: 'shield', src: f.id, dst: ally.id, amount: ability.shield[star] });
+        if (ability.haste) queue.push({ kind: 'haste', dst: ally.id, percent: ability.haste[star] });
+        cells.push(ally.cell);
       }
-      if (ability.damage || ability.stunTicks) {
-        const centre = ability.target === 'self' ? f.cell : target.cell;
-        const hit = enemiesOf(f).filter((o) => distance(o.cell, centre) <= ability.radius);
-        if (ability.target === 'self' && hit.length === 0 && !ability.shield) return false;
-        for (const o of hit) {
-          if (ability.damage) queue.push({ kind: 'damage', src: f.id, dst: o.id, amount: ability.damage[star], ability: true });
-          if (ability.stunTicks) queue.push({ kind: 'stun', dst: o.id, ticks: ability.stunTicks });
-        }
-        for (let cell = 0; cell < BATTLE_CELLS; cell++) {
-          if (distance(cell, centre) <= ability.radius) cells.push(cell);
-        }
+      f.mana = 0;
+      events.push({ t: tick, k: 'cast', id: f.id, cells });
+      return true;
+    }
+
+    if (ability.target === 'self' && ability.shield) {
+      queue.push({ kind: 'shield', src: f.id, dst: f.id, amount: ability.shield[star] });
+      cells.push(f.cell);
+    }
+    if (ability.damage || ability.stunTicks || ability.poison) {
+      const centre = ability.target === 'self' ? f.cell : target.cell;
+      const hit = enemiesOf(f).filter((o) => distance(o.cell, centre) <= ability.radius);
+      if (hit.length === 0 && !ability.shield) return false;
+      for (const o of hit) {
+        if (ability.damage) queue.push({ kind: 'damage', src: f.id, dst: o.id, amount: ability.damage[star], ability: true });
+        if (ability.stunTicks) queue.push({ kind: 'stun', dst: o.id, ticks: ability.stunTicks });
+        if (ability.poison) queue.push({ kind: 'poison', dst: o.id, damage: ability.poison[star] });
+      }
+      for (let cell = 0; cell < BATTLE_CELLS; cell++) {
+        if (distance(cell, centre) <= ability.radius) cells.push(cell);
       }
     }
     f.mana = 0;

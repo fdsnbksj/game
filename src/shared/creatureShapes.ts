@@ -24,6 +24,11 @@ const LIME = 0x5cff87;
 const CHROME = 0xc9d4e8;
 const CHROME_DARK = 0x7d8aa8;
 const STEEL = 0x4a5878;
+const TOXIN = 0x7cff3d;
+const TOXIN_DARK = 0x3f8f22;
+const PRISM = 0xf2f6ff;
+const PRISM_DARK = 0xb9c6e8;
+const SUN = 0xffd23f;
 
 const circle = (x: number, y: number, r: number, color: number): Shape => ({ type: 'circle', x, y, r, color });
 const ellipse = (x: number, y: number, width: number, height: number, color: number): Shape => ({ type: 'ellipse', x, y, width, height, color });
@@ -131,5 +136,68 @@ export const CREATURE_SHAPES: Record<string, readonly Shape[]> = {
     circle(21.5, 14, 1.1, WHITE), circle(29.5, 14, 1.1, WHITE),
     line(25, 21, 25, 26, 1.2, LIME), line(25, 26, 23, 28, 1, LIME), line(25, 26, 27, 28, 1, LIME),
     circle(12, 39, 1.6, LIME), circle(36, 39, 1.6, LIME), circle(18, 30, 1.4, LIME), circle(30, 30, 1.4, LIME),
+  ],
+  sporecat: [
+    polygon(TOXIN_DARK, 8, 18, 12, 4, 20, 16), polygon(TOXIN_DARK, 40, 18, 36, 4, 28, 16),
+    circle(13, 12, 5, 0xff7bd5), circle(35, 12, 5, 0xff7bd5),
+    circle(24, 28, 15, TOXIN),
+    ...eye(18, 25), ...eye(30, 25),
+    polygon(TOXIN_DARK, 21, 31, 27, 31, 24, 35),
+    circle(9, 41, 2.5, TOXIN_DARK), circle(39, 42, 2, TOXIN_DARK),
+  ],
+  prismfly: [
+    polygon(CYAN, 22, 20, 4, 10, 8, 26), polygon(GLITCH, 26, 20, 44, 10, 40, 26),
+    polygon(SUN, 22, 26, 9, 40, 20, 32), polygon(SUN, 26, 26, 39, 40, 28, 32),
+    ellipse(24, 26, 11, 26, PRISM),
+    line(22, 14, 17, 5, 1.5, PRISM_DARK), line(26, 14, 31, 5, 1.5, PRISM_DARK),
+    ...eye(21.5, 18, 2.5), ...eye(26.5, 18, 2.5),
+  ],
+  acidfrog: [
+    ellipse(24, 30, 42, 26, 0xb6ff2e),
+    circle(11, 20, 7, 0xb6ff2e), circle(37, 20, 7, 0xb6ff2e),
+    ...eye(11, 19, 4.5), ...eye(37, 19, 4.5),
+    polygon(0x24500f, 8, 30, 40, 30, 32, 40, 16, 40),
+    polygon(WHITE, 13, 31, 18, 31, 15.5, 36), polygon(WHITE, 30, 31, 35, 31, 32.5, 36),
+    circle(20, 43, 2.6, TOXIN_DARK), circle(30, 44, 2, TOXIN_DARK),
+  ],
+  lumihare: [
+    ellipse(15, 13, 9, 26, PRISM), ellipse(33, 13, 9, 26, PRISM),
+    ellipse(15, 13, 4, 18, CYAN), ellipse(33, 13, 4, 18, GLITCH),
+    circle(24, 32, 14, PRISM),
+    ...eye(19, 30, 3.5), ...eye(29, 30, 3.5),
+    circle(24, 35, 2, 0xff9ec7),
+  ],
+  blightmoth: [
+    polygon(TOXIN_DARK, 22, 22, 2, 8, 7, 30), polygon(TOXIN_DARK, 26, 22, 46, 8, 41, 30),
+    polygon(TOXIN, 22, 25, 8, 41, 20, 33), polygon(TOXIN, 26, 25, 40, 41, 28, 33),
+    circle(11, 18, 3, 0x1a3b0f), circle(37, 18, 3, 0x1a3b0f),
+    ellipse(24, 26, 12, 26, 0x2f6b1a),
+    line(22, 14, 16, 4, 1.5, TOXIN), line(26, 14, 32, 4, 1.5, TOXIN),
+    circle(21.5, 18, 2.5, TOXIN), circle(26.5, 18, 2.5, TOXIN),
+  ],
+  beamray: [
+    polygon(PRISM, 24, 8, 46, 34, 24, 28, 2, 34),
+    polygon(CYAN, 24, 12, 38, 31, 24, 26),
+    polygon(GLITCH, 24, 12, 10, 31, 24, 26),
+    line(24, 28, 24, 45, 2, PRISM_DARK),
+    circle(18, 20, 2.5, INK), circle(30, 20, 2.5, INK),
+    circle(24, 42, 2, SUN),
+  ],
+  sludgebear: [
+    circle(11, 15, 6, TOXIN_DARK), circle(37, 15, 6, TOXIN_DARK),
+    ellipse(24, 30, 40, 32, TOXIN_DARK),
+    ellipse(24, 32, 28, 22, TOXIN),
+    ellipse(24, 36, 14, 10, 0xc8ff8a),
+    circle(21, 35, 1.6, INK), circle(27, 35, 1.6, INK),
+    ...eye(17, 24, 4), ...eye(31, 24, 4),
+  ],
+  solaris: [
+    line(24, 6, 24, 0, 2.5, SUN), line(42, 24, 47, 24, 2.5, SUN), line(6, 24, 1, 24, 2.5, SUN),
+    line(36, 12, 41, 7, 2.5, SUN), line(12, 12, 7, 7, 2.5, SUN),
+    line(36, 36, 41, 41, 2.5, SUN), line(12, 36, 7, 41, 2.5, SUN),
+    circle(24, 24, 17, SUN),
+    circle(24, 24, 13, 0xfff1b0),
+    ...eye(19, 22, 3.5), ...eye(29, 22, 3.5),
+    polygon(0xffa42b, 20, 30, 28, 30, 24, 34),
   ],
 };

@@ -1,7 +1,7 @@
 // Every number that shapes a run. Changing combat numbers changes old fights, so bump
 // BALANCE_VERSION with them: ghosts are only matched against the same version.
 
-export const BALANCE_VERSION = 1;
+export const BALANCE_VERSION = 2;
 
 export const MAX_ROUNDS = 15;
 export const START_HP = 100;
@@ -41,30 +41,41 @@ export const SHOP_ODDS: Record<number, [number, number, number, number, number]>
 // Combat runs at 20 ticks a second and stops after 30 seconds.
 export const TICKS_PER_SECOND = 20;
 export const MAX_TICKS = 30 * TICKS_PER_SECOND;
-/** From here, damage grows 20% a second, so stalemates between tanks resolve. */
-export const OVERTIME_TICK = 15 * TICKS_PER_SECOND;
+/** From here damage ramps 20% a second and healing fades, so no fight grinds on. */
+export const OVERTIME_TICK = 12 * TICKS_PER_SECOND;
 export const MOVE_TICKS = 10;
 export const MANA_PER_ATTACK = 10;
 export const MAX_MANA_FROM_HIT = 15;
+/** Poison ticks once a second. */
+export const POISON_INTERVAL = TICKS_PER_SECOND;
+export const POISON_SECONDS = 3;
+export const HASTE_SECONDS = 4;
 
 export type Cost = 1 | 2 | 3 | 4 | 5;
 export type Star = 1 | 2 | 3;
-export type Origin = 'voltage' | 'glitch' | 'chrome';
-export type Role = 'bruiser' | 'striker' | 'caster';
+export type Origin = 'voltage' | 'glitch' | 'chrome' | 'toxin' | 'prism';
+export type Role = 'bruiser' | 'striker' | 'caster' | 'support';
 export type TraitId = Origin | Role;
 
 export interface Ability {
   name: string;
   description: string;
-  /** Where it lands: the attack target, the caster itself, or the most hurt ally. */
-  target: 'enemy' | 'self' | 'weakestAlly';
-  /** Hexes around that point that are also hit (enemy effects only). 0 = just the one unit. */
+  /**
+   * Where it lands: the attack target, the caster itself, the most hurt ally, or every
+   * ally within `radius` of the caster.
+   */
+  target: 'enemy' | 'self' | 'weakestAlly' | 'allies';
+  /** Hexes around that point that are also hit. 0 = just the one unit. */
   radius: number;
   /** Per star. */
   damage?: [number, number, number];
   heal?: [number, number, number];
   shield?: [number, number, number];
   stunTicks?: number;
+  /** Damage a second, for POISON_SECONDS. */
+  poison?: [number, number, number];
+  /** Attack speed, as a percentage, for HASTE_SECONDS. */
+  haste?: [number, number, number];
 }
 
 export interface UnitDef {
@@ -146,6 +157,46 @@ export const UNITS: readonly UnitDef[] = [
     hp: 900, damage: 70, attackTicks: 20, range: 4, armor: 30, maxMana: 100, startMana: 40,
     ability: { name: 'Void', description: 'Blasts its target and everything within two hexes.', target: 'enemy', radius: 2, damage: [500, 750, 1100] },
   },
+  {
+    id: 'sporecat', name: 'Sporecat', cost: 1, origin: 'toxin', role: 'support',
+    hp: 520, damage: 40, attackTicks: 20, range: 2, armor: 20, maxMana: 60, startMana: 10,
+    ability: { name: 'Bloom', description: 'Heals the most hurt ally.', target: 'weakestAlly', radius: 0, heal: [230, 345, 520] },
+  },
+  {
+    id: 'prismfly', name: 'Prismfly', cost: 1, origin: 'prism', role: 'support',
+    hp: 460, damage: 40, attackTicks: 19, range: 3, armor: 15, maxMana: 60, startMana: 20,
+    ability: { name: 'Refract', description: 'Shields the most hurt ally.', target: 'weakestAlly', radius: 0, shield: [210, 315, 475] },
+  },
+  {
+    id: 'acidfrog', name: 'Acidfrog', cost: 2, origin: 'toxin', role: 'striker',
+    hp: 620, damage: 55, attackTicks: 17, range: 1, armor: 25, maxMana: 70, startMana: 10,
+    ability: { name: 'Spit', description: 'Damages its target and poisons it.', target: 'enemy', radius: 0, damage: [200, 300, 450], poison: [40, 60, 90] },
+  },
+  {
+    id: 'lumihare', name: 'Lumihare', cost: 2, origin: 'prism', role: 'support',
+    hp: 560, damage: 45, attackTicks: 18, range: 2, armor: 25, maxMana: 60, startMana: 20,
+    ability: { name: 'Quicken', description: 'Speeds up nearby allies.', target: 'allies', radius: 2, haste: [30, 45, 70] },
+  },
+  {
+    id: 'blightmoth', name: 'Blightmoth', cost: 3, origin: 'toxin', role: 'caster',
+    hp: 640, damage: 55, attackTicks: 19, range: 3, armor: 25, maxMana: 80, startMana: 20,
+    ability: { name: 'Miasma', description: 'Poisons its target and everything around it.', target: 'enemy', radius: 1, damage: [180, 270, 400], poison: [55, 80, 120] },
+  },
+  {
+    id: 'beamray', name: 'Beamray', cost: 3, origin: 'prism', role: 'support',
+    hp: 700, damage: 50, attackTicks: 19, range: 3, armor: 30, maxMana: 80, startMana: 20,
+    ability: { name: 'Sunwash', description: 'Heals every nearby ally.', target: 'allies', radius: 2, heal: [190, 285, 430] },
+  },
+  {
+    id: 'sludgebear', name: 'Sludgebear', cost: 4, origin: 'toxin', role: 'bruiser',
+    hp: 1150, damage: 70, attackTicks: 21, range: 1, armor: 50, maxMana: 90, startMana: 30,
+    ability: { name: 'Fume', description: 'Poisons and damages enemies within two hexes.', target: 'self', radius: 2, damage: [220, 330, 500], poison: [60, 90, 135] },
+  },
+  {
+    id: 'solaris', name: 'Solaris', cost: 5, origin: 'prism', role: 'support',
+    hp: 950, damage: 65, attackTicks: 19, range: 3, armor: 35, maxMana: 100, startMana: 40,
+    ability: { name: 'Daybreak', description: 'Shields and speeds up every nearby ally.', target: 'allies', radius: 2, shield: [280, 420, 630], haste: [35, 50, 75] },
+  },
 ];
 
 const UNITS_BY_ID = new Map(UNITS.map((unit) => [unit.id, unit]));
@@ -173,6 +224,9 @@ export const TRAITS: readonly TraitDef[] = [
   { id: 'bruiser', name: 'Bruiser', description: '+{v} health', thresholds: [2, 4], values: [200, 450] },
   { id: 'striker', name: 'Striker', description: '+{v}% damage', thresholds: [2, 4], values: [15, 35] },
   { id: 'caster', name: 'Caster', description: '+{v} starting mana', thresholds: [2, 4], values: [20, 40] },
+  { id: 'toxin', name: 'Toxin', description: 'attacks poison for {v} a second', thresholds: [2, 4], values: [30, 70] },
+  { id: 'prism', name: 'Prism', description: '+{v}% ability power', thresholds: [2, 4], values: [25, 55] },
+  { id: 'support', name: 'Support', description: '+{v} mana a second', thresholds: [2, 4], values: [8, 18] },
 ];
 
 export function getTrait(id: TraitId): TraitDef {
