@@ -23,6 +23,7 @@ Emulator data is saved to `.emulator-data/` when you stop the emulators. The emu
 ## Test
 
 ```sh
+npm run audit       # replay saved runs and report ones that don't add up
 npm run test:unit   # game logic: sim, economy, shop, AI (no emulator)
 npm run test:rules  # starts its own Firestore emulator, so stop `npm run emulators` first
 npm run build       # type-check + production build
@@ -65,4 +66,4 @@ Clients write to Firestore directly, so `firestore.rules` is the only check. It 
 - a round's result stays within what a fight can do: a win costs no health, a loss costs at least the round's base damage and no more than a full board could deal
 - a ranking must be written with the run's last round, match the run, beat the player's best that day, and be for today
 
-A scripted client can still submit the strongest legal board every round, or claim wins it didn't earn. Combat is deterministic and every board records its opponent, so any run can be replayed later to check it. On the Blaze plan, a Cloud Function should replay each fight and the rules should leave run and ranking writes to it.
+A scripted client can still submit the strongest legal board every round, or claim wins it didn't earn. Combat is deterministic and every board records its opponent, so `npm run audit` replays saved runs and reports any whose wins or health don't add up. On the Blaze plan, a Cloud Function should replay each fight and the rules should leave run and ranking writes to it.

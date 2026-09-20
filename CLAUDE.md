@@ -18,6 +18,7 @@
 npm run emulators   # Auth + Firestore emulators (needs Java 21: /opt/homebrew/opt/openjdk@21/bin on PATH)
 npm run dev         # Vite dev server, reachable from a phone on the LAN
 npm run build       # type-check + production build
+npm run audit       # replays saved runs and reports ones that don't add up
 npm run test:unit   # game logic tests, no emulator needed
 npm run test:rules  # Firestore rules tests (starts its own emulator; stop `npm run emulators` first)
 ```
@@ -36,6 +37,7 @@ npm run test:rules  # Firestore rules tests (starts its own emulator; stop `npm 
 
 ## Constraints
 
+- **Catching cheats:** the rules can't replay a fight, so `npm run audit` does it here. Every board records the rival it fought, so `scripts/auditRuns.ts` re-simulates each round and reports runs whose wins or HP don't match. Read-only; run it by hand against production with `AUDIT_PROJECT_ID=<id>`.
 - **Spark plan:** no Cloud Functions, no Cloud Storage. `firestore.rules` is the only server-side validation, so every client write needs a matching rule and a test in `tests/rules/`.
 - **Neon Flap's old data** (`users/*`, `leaderboards/*`, `items/*`) is left in Firestore; deleting it would only spend quota. The rules deny all of it except a player reading their own `users/{uid}`, which the app does once to carry their name over. `tests/rules/legacy.test.ts` covers this.
 - Rankings are filed under a UTC day, and the rules only accept a day within one of the server clock, so tests derive their dates from `dayId()` rather than hardcoding them.
