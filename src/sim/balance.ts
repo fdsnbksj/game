@@ -1,7 +1,7 @@
 // Every number that shapes a run. Changing combat numbers changes old fights, so bump
 // BALANCE_VERSION with them: ghosts are only matched against the same version.
 
-export const BALANCE_VERSION = 2;
+export const BALANCE_VERSION = 3;
 
 export const MAX_ROUNDS = 15;
 export const START_HP = 100;
@@ -16,6 +16,9 @@ export const XP_PER_BUY = 4;
 export const XP_PER_ROUND = 2;
 /** Total XP needed to reach each level; index = level. */
 export const LEVEL_XP = [0, 0, 2, 6, 12, 20, 32, 48, 68];
+
+/** A creature can hold one item; one drops after each of these rounds. */
+export const ITEM_ROUNDS = [2, 5, 8, 11, 14];
 
 export const MAX_INTEREST = 5;
 export const WIN_BONUS = 1;
@@ -50,6 +53,40 @@ export const MAX_MANA_FROM_HIT = 15;
 export const POISON_INTERVAL = TICKS_PER_SECOND;
 export const POISON_SECONDS = 3;
 export const HASTE_SECONDS = 4;
+
+export interface ItemDef {
+  id: string;
+  name: string;
+  description: string;
+  /** Drawn by ItemChip and on the board. */
+  color: number;
+  /** Flat additions to the holder. */
+  hp?: number;
+  damage?: number;
+  armor?: number;
+  startMana?: number;
+  /** Percent additions. */
+  attackSpeed?: number;
+  /** Percent of damage dealt returned as health. */
+  lifesteal?: number;
+}
+
+export const ITEMS: readonly ItemDef[] = [
+  { id: 'heavy_plate', name: 'Heavy Plate', description: '+280 health', color: 0x8fa3c8, hp: 280 },
+  { id: 'razor_fang', name: 'Razor Fang', description: '+30% attack damage', color: 0xff5a5f, damage: 30 },
+  { id: 'volt_coil', name: 'Volt Coil', description: '+25% attack speed', color: 0xffd23f, attackSpeed: 25 },
+  { id: 'mirror_shard', name: 'Mirror Shard', description: '+30 armor', color: 0xd9e2f2, armor: 30 },
+  { id: 'mana_cell', name: 'Mana Cell', description: '+30 starting mana', color: 0x36e2ff, startMana: 30 },
+  { id: 'siphon_core', name: 'Siphon Core', description: 'heals for 20% of damage dealt', color: 0xff3df0, lifesteal: 20 },
+];
+
+const ITEMS_BY_ID = new Map(ITEMS.map((item) => [item.id, item]));
+
+export function getItem(id: string): ItemDef {
+  const item = ITEMS_BY_ID.get(id);
+  if (!item) throw new Error(`Unknown item ${id}`);
+  return item;
+}
 
 export type Cost = 1 | 2 | 3 | 4 | 5;
 export type Star = 1 | 2 | 3;

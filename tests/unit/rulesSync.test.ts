@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { BALANCE_VERSION, LEVEL_XP, MAX_LEVEL, MAX_ROUNDS, START_HP, UNITS, XP_COST, XP_PER_BUY, XP_PER_ROUND } from '../../src/sim/balance';
-import { maxGoldByRound, stageDamage, xpGoldForLevel } from '../../src/sim/economy';
+import { BALANCE_VERSION, ITEMS, LEVEL_XP, MAX_LEVEL, MAX_ROUNDS, START_HP, UNITS, XP_COST, XP_PER_BUY, XP_PER_ROUND } from '../../src/sim/balance';
+import { maxGoldByRound, maxItemsByRound, stageDamage, xpGoldForLevel } from '../../src/sim/economy';
 import { SIDE_CELLS } from '../../src/sim/hex';
 
 // firestore.rules repeats some game numbers, because rules can't import code. If a balance
@@ -33,6 +33,12 @@ describe('firestore.rules matches src/sim', () => {
     expect(returned('levelXp')).toEqual(LEVEL_XP);
     expect(returned('maxGold')).toEqual(maxGoldByRound());
     expect(returned('stageDamage')).toEqual([0, ...Array.from({ length: MAX_ROUNDS }, (_, i) => stageDamage(i + 1))]);
+  });
+
+  it('has the same items and item limits', () => {
+    expect(returned('itemIds')).toEqual(ITEMS.map((item) => item.id));
+    expect(returned('maxItems')).toEqual(maxItemsByRound());
+    expect(returned('itemSlots')).toEqual([...Array(MAX_LEVEL).keys()]);
   });
 
   it('covers every cell of a board', () => {

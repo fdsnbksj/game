@@ -1,6 +1,6 @@
-import { getUnit, MAX_LEVEL, UNITS, type Star } from './balance';
+import { getUnit, ITEMS, MAX_LEVEL, UNITS, type Star } from './balance';
 import type { Placed } from './combat';
-import { copies, maxGoldByRound, xpGoldForLevel } from './economy';
+import { copies, maxGoldByRound, maxItemsByRound, xpGoldForLevel } from './economy';
 import { SIDE_CELLS } from './hex';
 
 // A board as it's stored online: the team a player fought a round with. Firestore rules
@@ -16,20 +16,33 @@ export interface BoardSnapshot {
   s: number[];
   /** Who this board fought: a ghost's `runId:round`, or `ai`. */
   o: string;
+  /** Item ids the board carried; left out when it carried none. */
+  it?: string[];
+  /** Which slot of `u` holds each item in `it`. */
+  ia?: number[];
 }
 
 export function toSnapshot(units: readonly Placed[], level: number, opponent: string): BoardSnapshot {
-  return {
+  const board: BoardSnapshot = {
     lv: level,
     u: units.map((unit) => unit.unitId),
     c: units.map((unit) => unit.cell),
     s: units.map((unit) => unit.star),
     o: opponent,
   };
+  const held = units.flatMap((unit, slot) => (unit.item ? [{ item: unit.item, slot }] : []));
+  if (held.length > 0) {
+    board.it = held.map((entry) => entry.item);
+    board.ia = held.map((entry) => entry.slot);
+  }
+  return board;
 }
 
 export function fromSnapshot(board: BoardSnapshot): Placed[] {
-  return board.u.map((unitId, i) => ({ unitId, cell: board.c[i], star: board.s[i] as Star }));
+  return board.u.map((unitId, i) => {
+    const held = board.it && board.ia ? board.it[board.ia.indexOf(i)] : undefined;
+    return { unitId, cell: board.c[i], star: board.s[i] as Star, ...(held ? { item: held } : {}) };
+  });
 }
 
 /** Gold that units on the board plus the XP for its level must have cost. */
@@ -40,6 +53,8 @@ export function boardSpend(board: BoardSnapshot, round: number): number {
 
 const UNIT_IDS = new Set(UNITS.map((unit) => unit.id));
 const MAX_GOLD = maxGoldByRound();
+const MAX_ITEMS = maxItemsByRound();
+const ITEM_IDS = new Set(ITEMS.map((item) => item.id));
 
 /**
  * Whether a player could have fielded this board in `round`. It can't prove the shop
@@ -54,5 +69,13 @@ export function isLegalBoard(board: BoardSnapshot, round: number): boolean {
   if (!c.every((cell) => Number.isInteger(cell) && cell >= 0 && cell < SIDE_CELLS)) return false;
   if (new Set(c).size !== c.length) return false;
   if (!s.every((star) => star === 1 || star === 2 || star === 3)) return false;
-  return round >= 1 && round < MAX_GOLD.length && boardSpend(board, round) <= MAX_GOLD[round];
+  if (round < 1 || round >= MAX_GOLD.length || boardSpend(board, round) > MAX_GOLD[round]) return false;
+
+  const it = board.it ?? [];
+  const ia = board.ia ?? [];
+  if (it.length !== ia.length || it.length > MAX_ITEMS[round]) return false;
+  if (!it.every((id) => ITEM_IDS.has(id))) return false;
+  if (!ia.every((slot) => Number.isInteger(slot) && slot >= 0 && slot < MAX_LEVEL)) return false;
+  // One item per creature.
+  return new Set(ia).size === ia.length;
 }

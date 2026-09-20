@@ -1,6 +1,6 @@
 # Neon Brawl
 
-A neon auto-battler for your phone. Buy creatures from the shop, drag them onto a hex board, and watch them fight. Three copies merge into a stronger ★★, creatures that share a trait power each other up, and a run lasts up to 15 rounds on 100 HP. Each round you fight another player's saved team from the same round, or a bot if there isn't one, and finished runs go on a daily ranking.
+A neon auto-battler for your phone. Buy creatures from the shop, drag them onto a hex board, and watch them fight. Three copies merge into a stronger ★★, creatures that share a trait power each other up, items drop as you go, and a run lasts up to 15 rounds on 100 HP. Each round you fight another player's saved team from the same round, or a bot if there isn't one, and finished runs go on a daily ranking.
 
 React handles the screens, Phaser 3 runs the board and fight replays, and Firebase (free Spark plan) provides auth, data and hosting. All art is drawn in code, so there are no image assets. The game replaced Neon Flap, a flappy-bird game.
 
@@ -60,7 +60,7 @@ To deploy by hand from this machine with your own Firebase login, run `npm run d
 
 Clients write to Firestore directly, so `firestore.rules` is the only check. It can't replay a fight, so it can't tell who really won; instead it rejects what can't be true:
 
-- every board a run saves must be one a player could have afforded by that round (no more units than the level, one per hex, and no more gold's worth than could have been earned)
+- every board a run saves must be one a player could have afforded by that round (no more units than the level, one per hex, no more gold's worth than could have been earned, and no more items than have dropped, one per creature)
 - rounds are written one at a time, in order, a few seconds apart, and old rounds can't be changed
 - a round's result stays within what a fight can do: a win costs no health, a loss costs at least the round's base damage and no more than a full board could deal
 - a ranking must be written with the run's last round, match the run, beat the player's best that day, and be for today

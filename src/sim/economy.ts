@@ -1,4 +1,4 @@
-import { LEVEL_XP, MAX_INTEREST, MAX_LEVEL, MAX_ROUNDS, WIN_BONUS, XP_COST, XP_PER_BUY, XP_PER_ROUND, type Star } from './balance';
+import { ITEM_ROUNDS, LEVEL_XP, MAX_INTEREST, MAX_LEVEL, MAX_ROUNDS, WIN_BONUS, XP_COST, XP_PER_BUY, XP_PER_ROUND, type Star } from './balance';
 
 export function baseIncome(round: number): number {
   return Math.min(5, round + 2);
@@ -61,4 +61,9 @@ export function stageDamage(round: number): number {
 
 export function lossDamage(round: number, survivorStars: number): number {
   return stageDamage(round) + survivorStars;
+}
+
+/** Items held by the planning phase of each round (index = round): one per drop round gone by. */
+export function maxItemsByRound(): number[] {
+  return Array.from({ length: MAX_ROUNDS + 1 }, (_, round) => ITEM_ROUNDS.filter((drop) => drop < round).length);
 }

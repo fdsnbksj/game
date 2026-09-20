@@ -42,12 +42,13 @@ interface RunState {
 }
 
 const rounds = (n: number) => Array.from({ length: n }, (_, i) => i + 1);
-const board = (units: [string, number][], lv = units.length, cells?: number[]): BoardSnapshot => ({
+const board = (units: [string, number][], lv = units.length, cells?: number[], items?: [number, string][]): BoardSnapshot => ({
   lv,
   u: units.map(([id]) => id),
   c: cells ?? units.map((_, i) => i),
   s: units.map(([, star]) => star),
   o: 'ai',
+  ...(items ? { it: items.map(([, id]) => id), ia: items.map(([slot]) => slot) } : {}),
 });
 
 /** A run partway through: `round` rounds already written. */
@@ -297,6 +298,38 @@ describe('playing rounds', () => {
       board([['sparkmouse', 4]]),
     ];
     for (const b of bad) await assertFails(playRound(db, 'alice', 0, before, { board: b, hp: 100, wins: 7 }));
+  });
+
+  it('accepts items a run could have picked up by then', async () => {
+    const before = { round: 6, hp: 90, wins: 4 };
+    await seedRun('alice', 0, before);
+    // Two items have dropped by round 7.
+    const carried = board([['sparkmouse', 1], ['voltmoth', 1]], 4, [2, 3], [[0, 'razor_fang'], [1, 'volt_coil']]);
+    await assertSucceeds(playRound(dbFor('alice'), 'alice', 0, before, { board: carried, hp: 90, wins: 5 }));
+  });
+
+  it('rejects more items than have dropped', async () => {
+    const before = { round: 3, hp: 90, wins: 2 };
+    await seedRun('alice', 0, before);
+    // Only one item has dropped by round 4.
+    const carried = board([['sparkmouse', 1], ['voltmoth', 1]], 4, [2, 3], [[0, 'razor_fang'], [1, 'volt_coil']]);
+    await assertFails(playRound(dbFor('alice'), 'alice', 0, before, { board: carried, hp: 90, wins: 3 }));
+  });
+
+  it('rejects two items on one creature, or an item that does not exist', async () => {
+    const before = { round: 6, hp: 90, wins: 4 };
+    await seedRun('alice', 0, before);
+    const db = dbFor('alice');
+    const twoOnOne = board([['sparkmouse', 1], ['voltmoth', 1]], 4, [2, 3], [[0, 'razor_fang'], [0, 'volt_coil']]);
+    const madeUp = board([['sparkmouse', 1]], 4, [2], [[0, 'excalibur']]);
+    await assertFails(playRound(db, 'alice', 0, before, { board: twoOnOne, hp: 90, wins: 5 }));
+    await assertFails(playRound(db, 'alice', 0, before, { board: madeUp, hp: 90, wins: 5 }));
+  });
+
+  it('accepts a board from a client that knows nothing about items', async () => {
+    const before = { round: 6, hp: 90, wins: 4 };
+    await seedRun('alice', 0, before);
+    await assertSucceeds(playRound(dbFor('alice'), 'alice', 0, before, { hp: 90, wins: 5 }));
   });
 
   it('rejects skipping a round or rewriting an earlier one', async () => {

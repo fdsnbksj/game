@@ -1,4 +1,5 @@
 import {
+  getItem,
   getUnit,
   HASTE_SECONDS,
   MANA_PER_ATTACK,
@@ -27,6 +28,8 @@ export interface Placed {
   star: Star;
   /** Own-board cell, 0–27, row 0 at the front. */
   cell: number;
+  /** The item it holds, if any. */
+  item?: string;
 }
 
 export interface FighterInfo {
@@ -34,6 +37,7 @@ export interface FighterInfo {
   side: Side;
   unitId: string;
   star: Star;
+  item?: string;
   cell: number;
   hp: number;
   maxHp: number;
@@ -89,6 +93,9 @@ interface Fighter {
   hasteUntil: number;
   poisonDamage: number;
   poisonUntil: number;
+  /** Percent of damage dealt returned as health, from an item. */
+  lifesteal: number;
+  item?: string;
   mana: number;
   shield: number;
   stun: number;
@@ -111,8 +118,9 @@ function buildSide(units: readonly Placed[], side: Side): Omit<Fighter, 'id'>[] 
     const def = getUnit(unit.unitId);
     const bonus = (id: typeof def.origin | typeof def.role) =>
       def.origin === id || def.role === id ? traitBonus(traits, id) : 0;
-    const maxHp = Math.floor((def.hp * STAR_PERCENT[unit.star]) / 100) + bonus('bruiser');
-    const attackSpeed = bonus('voltage');
+    const item = unit.item ? getItem(unit.item) : null;
+    const maxHp = Math.floor((def.hp * STAR_PERCENT[unit.star]) / 100) + bonus('bruiser') + (item?.hp ?? 0);
+    const attackSpeed = bonus('voltage') + (item?.attackSpeed ?? 0);
     return {
       side,
       def,
@@ -121,9 +129,9 @@ function buildSide(units: readonly Placed[], side: Side): Omit<Fighter, 'id'>[] 
       alive: true,
       hp: maxHp,
       maxHp,
-      armor: def.armor + bonus('chrome'),
+      armor: def.armor + bonus('chrome') + (item?.armor ?? 0),
       damage: Math.floor((def.damage * STAR_PERCENT[unit.star]) / 100),
-      damageBonus: bonus('striker'),
+      damageBonus: bonus('striker') + (item?.damage ?? 0),
       abilityBonus: bonus('prism'),
       manaRegen: bonus('support'),
       poisonOnHit: bonus('toxin'),
@@ -133,7 +141,9 @@ function buildSide(units: readonly Placed[], side: Side): Omit<Fighter, 'id'>[] 
       hasteUntil: 0,
       poisonDamage: 0,
       poisonUntil: 0,
-      mana: Math.min(def.maxMana - 1, def.startMana + bonus('caster')),
+      lifesteal: item?.lifesteal ?? 0,
+      ...(unit.item ? { item: unit.item } : {}),
+      mana: Math.min(def.maxMana - 1, def.startMana + bonus('caster') + (item?.startMana ?? 0)),
       shield: 0,
       stun: 0,
       attackCooldown: 0,
@@ -167,6 +177,7 @@ export function simulate(a: readonly Placed[], b: readonly Placed[], seed: strin
     side: f.side,
     unitId: f.def.id,
     star: f.star,
+    ...(f.item ? { item: f.item } : {}),
     cell: f.cell,
     hp: f.hp,
     maxHp: f.maxHp,
@@ -287,6 +298,13 @@ export function simulate(a: readonly Placed[], b: readonly Placed[], seed: strin
           taken -= absorbed;
           dst.hp = Math.max(0, dst.hp - taken);
           dst.mana = Math.min(dst.def.maxMana, dst.mana + Math.min(MAX_MANA_FROM_HIT, Math.floor(raw / 25)));
+          if (src.lifesteal > 0 && src.alive && taken > 0) {
+            const healed = Math.min(Math.floor((taken * src.lifesteal) / 100), src.maxHp - src.hp);
+            if (healed > 0) {
+              src.hp += healed;
+              events.push({ t: tick, k: 'heal', id: src.id, amount: healed, hp: src.hp });
+            }
+          }
           if (!effect.ability && src.poisonOnHit > 0) {
             dst.poisonDamage = Math.max(dst.poisonDamage, src.poisonOnHit);
             dst.poisonUntil = tick + POISON_SECONDS * TICKS_PER_SECOND;

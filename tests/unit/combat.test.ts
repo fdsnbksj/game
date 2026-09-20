@@ -139,6 +139,23 @@ describe('combat', () => {
     expect(hasted.events.some((event) => event.k === 'haste')).toBe(true);
   });
 
+  it('heals an item holder for part of the damage it deals', () => {
+    const enemy: Placed[] = [{ unitId: 'ironhog', star: 3, cell: 3 }];
+    const healsOf = (item?: string) =>
+      simulate([{ unitId: 'chromemantis', star: 2, cell: 3, ...(item ? { item } : {}) }], enemy, 'siphon').events.filter(
+        (event) => event.k === 'heal',
+      ).length;
+    expect(healsOf('siphon_core')).toBeGreaterThan(0);
+    expect(healsOf()).toBe(0);
+  });
+
+  it('makes a creature tougher with an item', () => {
+    const enemy: Placed[] = [{ unitId: 'bytebat', star: 2, cell: 3 }];
+    const lasts = (item?: string) =>
+      simulate([{ unitId: 'chromeshell', star: 1, cell: 3, ...(item ? { item } : {}) }], enemy, 'plate').ticks;
+    expect(lasts('heavy_plate')).toBeGreaterThan(lasts());
+  });
+
   it('counts the winners surviving stars', () => {
     const result = simulate(strong, weak, 'x');
     const deadIds = new Set(result.events.filter((e) => e.k === 'death').map((e) => e.id));

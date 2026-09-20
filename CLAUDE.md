@@ -31,7 +31,8 @@ npm run test:rules  # Firestore rules tests (starts its own emulator; stop `npm 
 - Creatures are shape data in `src/shared/creatureShapes.ts`, baked into Phaser textures and drawn as SVG by `CreatureChip`, so every view shows the same creature. All art is generated in code, no image files.
 - **Opponents are ghosts:** each round you fight another player's saved board from the same round (`src/services/opponents.ts`), or a bot (`src/sim/ai.ts`) when there's none, the query fails, or the index isn't built yet. Bots play the real shop and economy, so their boards are always ones a player could have had.
 - **Online runs:** a run is `runs/{uid}_{n}`, started in one batch with `players/{uid}.runsStarted`. Each round is queued in `runStore` (saved to localStorage) and written in order, at least 3 s apart as the rules require; the last round also files `rankings/{day}/entries/{uid}`. A write the rules refuse marks the run offline (it plays on, unranked); a network error leaves it queued to retry.
-- **Rules check boards, not fights:** `isValidBoard()` in `firestore.rules` rejects boards no one could have afforded by that round. Its numbers (unit costs, XP table, gold budget, base damage) are copies of `src/sim`; `tests/unit/rulesSync.test.ts` fails if they drift. After changing costs or the economy, update both.
+- **Items** drop after rounds 2, 5, 8, 11 and 14, and a creature holds one. A board records them as two lists, `it` (item ids) and `ia` (which slot holds each), which is what lets loop-free rules check both the cap and one-per-creature.
+- **Rules check boards, not fights:** `isValidBoard()` in `firestore.rules` rejects boards no one could have afforded by that round. Its numbers (unit costs, XP table, gold budget, base damage, items) are copies of `src/sim`; `tests/unit/rulesSync.test.ts` fails if they drift. After changing costs or the economy, update both.
 
 ## Constraints
 

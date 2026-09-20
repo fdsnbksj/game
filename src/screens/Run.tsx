@@ -1,13 +1,16 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { CreatureChip } from '../components/CreatureChip';
+import { ItemChip } from '../components/ItemChip';
 import { SoundToggle } from '../components/SoundToggle';
 import { setMusicLevel, sfx, startMusic, stopMusic } from '../game/audio';
 import { PhaserGame } from '../game/PhaserGame';
 import { BattleScene, BOARD_HEIGHT, BOARD_WIDTH, CANVAS_ZOOM } from '../game/scenes/BattleScene';
 import { useRunStore } from '../runStore';
 import {
+  getItem,
   getTrait,
+  ITEM_ROUNDS,
   getUnit,
   LEVEL_XP,
   MAX_LEVEL,
@@ -19,7 +22,7 @@ import {
   type TraitId,
 } from '../sim/balance';
 import { sellValue } from '../sim/economy';
-import { boardCount, buy, buyXp, ownedUnits, reroll, sell, whyNotBuy, type RunState, type Slot } from '../sim/planning';
+import { boardCount, buy, buyXp, equip, ownedUnits, reroll, sell, unequip, whyNotBuy, type RunState, type Slot } from '../sim/planning';
 import { activeTraits } from '../sim/traits';
 
 const SCENES = [BattleScene];
@@ -184,6 +187,15 @@ function Planning({ run }: { run: RunState }) {
         </button>
       </section>
 
+      {run.bag.length > 0 && (
+        <div className="bag" aria-label="Items to give out">
+          {run.bag.map((itemId, index) => (
+            <ItemChip key={`${itemId}-${index}`} itemId={itemId} />
+          ))}
+          <span className="muted hint">Tap a creature to give it one</span>
+        </div>
+      )}
+
       <section className="shop" aria-label="Shop">
         {run.shop.map((unitId, index) =>
           unitId ? (
@@ -255,7 +267,7 @@ function UnitSheet() {
   const act = useRunStore((s) => s.act);
   const select = useRunStore((s) => s.select);
   const unit = selected && run ? (selected.area === 'board' ? run.board : run.bench)[selected.index] : null;
-  if (!unit || !selected || battle) return null;
+  if (!run || !unit || !selected || battle) return null;
 
   const def = getUnit(unit.unitId);
   const scale = (value: number) => Math.floor((value * STAR_PERCENT[unit.star]) / 100);
@@ -302,6 +314,7 @@ function UnitSheet() {
           </p>
         </div>
         <TraitLines traits={[def.origin, def.role]} />
+        <ItemSection slot={selected} held={unit.item} bag={run.bag} />
         <div className="sheet-actions">
           <button
             className="button danger"
@@ -318,6 +331,37 @@ function UnitSheet() {
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+/** The item a creature holds, and the ones waiting to be given out. */
+function ItemSection({ slot, held, bag }: { slot: Slot; held?: string; bag: string[] }) {
+  const act = useRunStore((s) => s.act);
+  if (!held && bag.length === 0) return null;
+  return (
+    <div className="item-section">
+      <p className="eyebrow">Item</p>
+      {held && (
+        <button className="item-row held" onClick={() => act((run) => unequip(run, slot))}>
+          <ItemChip itemId={held} size={26} />
+          <span>
+            <strong>{getItem(held).name}</strong>
+            <small className="muted">{getItem(held).description}</small>
+          </span>
+          <span className="take-off">Take off</span>
+        </button>
+      )}
+      {bag.map((itemId, index) => (
+        <button key={`${itemId}-${index}`} className="item-row" onClick={() => act((run) => equip(run, slot, itemId))}>
+          <ItemChip itemId={itemId} size={26} />
+          <span>
+            <strong>{getItem(itemId).name}</strong>
+            <small className="muted">{getItem(itemId).description}</small>
+          </span>
+          <span className="take-off">{held ? 'Swap' : 'Give'}</span>
+        </button>
+      ))}
     </div>
   );
 }
@@ -371,7 +415,10 @@ function useRoundResultNotice() {
     wasFighting.current = false;
     const last = useRunStore.getState().run?.history.at(-1);
     if (!last || useRunStore.getState().run?.done) return;
-    notify(last.won ? `Round ${last.round} won: +1 gold bonus` : `Round ${last.round} ${last.draw ? 'drawn' : 'lost'}: −${last.damage} HP`);
+    const run = useRunStore.getState().run;
+    const dropped = run && run.bag.length > 0 && ITEM_ROUNDS.includes(last.round) ? getItem(run.bag[run.bag.length - 1]) : null;
+    const result = last.won ? `Round ${last.round} won` : `Round ${last.round} ${last.draw ? 'drawn' : 'lost'}: −${last.damage} HP`;
+    notify(dropped ? `${result}. ${dropped.name} dropped!` : result);
   }, [battle, notify]);
 }
 

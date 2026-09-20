@@ -53,7 +53,7 @@ service cloud.firestore {
     // within what a fight can do. Keep the numbers below in sync with src/sim; the unit
     // test tests/unit/rulesSync.test.ts compares them.
 
-    function balanceVersion() { return 2; }
+    function balanceVersion() { return 3; }
     function maxRounds() { return 15; }
     function startHp() { return 100; }
     function maxLevel() { return 8; }
@@ -69,6 +69,14 @@ service cloud.firestore {
     function stageDamage() { return [0, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9]; }
     function minSecondsBetweenRounds() { return 3; }
     function minSecondsBetweenRunStarts() { return 5; }
+    function itemIds() {
+      return ['heavy_plate', 'razor_fang', 'volt_coil', 'mirror_shard', 'mana_cell', 'siphon_core'];
+    }
+    // Items held by each round's planning; index = round.
+    function maxItems() { return [0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4, 5]; }
+    // A board holds at most maxLevel() units, so an item can name slots 0 to 7.
+    function itemSlots() { return [0, 1, 2, 3, 4, 5, 6, 7]; }
+
     function ownCells() {
       return [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27];
     }
@@ -91,10 +99,25 @@ service cloud.firestore {
       return needed > 0 ? needed + (4 - needed % 4) % 4 : 0;
     }
 
+    // Items a board carried: `it` holds the item ids and `ia` which slot holds each, so a
+    // creature can hold one item and a run can't hold more than have dropped. Both are
+    // optional, so a client from before items can still save its rounds.
+    function itemsAreLegal(board, round) {
+      let it = board.get('it', []);
+      let ia = board.get('ia', []);
+      return it is list && ia is list
+        && it.size() == ia.size()
+        && it.size() <= maxItems()[round]
+        && it.hasOnly(itemIds())
+        && ia.hasOnly(itemSlots())
+        && ia.toSet().size() == ia.size();
+    }
+
     // The team a player fought round `round` with. Mirrors isLegalBoard() in src/sim/validate.ts.
     function isValidBoard(board, round) {
       return board is map
-        && hasExactly(board, ['lv', 'u', 'c', 's', 'o'])
+        && board.keys().hasAll(['lv', 'u', 'c', 's', 'o'])
+        && board.keys().hasOnly(['lv', 'u', 'c', 's', 'o', 'it', 'ia'])
         && board.lv is int && board.lv >= 1 && board.lv <= maxLevel()
         && board.u is list && board.c is list && board.s is list
         && board.o is string && board.o.size() <= 100
@@ -105,7 +128,8 @@ service cloud.firestore {
         && board.c.toSet().size() == board.c.size()
         && board.s.hasOnly([1, 2, 3])
         // Last, so the checks above guard the lookups.
-        && boardCost(board, unitCosts()) + xpGold(board.lv, round) <= maxGold()[round];
+        && boardCost(board, unitCosts()) + xpGold(board.lv, round) <= maxGold()[round]
+        && itemsAreLegal(board, round);
     }
 
     // Starting a run: runsStarted counts up in the same batch that creates runs/{uid}_{n}.

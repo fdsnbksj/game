@@ -898,6 +898,72 @@ body {
   border-style: dashed;
 }
 
+/* ---------- Items ---------- */
+
+.bag {
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 26px;
+}
+
+.item-chip {
+  display: block;
+  flex: none;
+  filter: drop-shadow(0 0 6px rgb(255 255 255 / 0.15));
+}
+
+.item-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.item-section .eyebrow {
+  margin-bottom: -2px;
+}
+
+.item-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--bg-raised);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color var(--dur) var(--ease), transform var(--dur-fast) var(--ease);
+}
+
+.item-row:active {
+  transform: scale(0.98);
+}
+
+.item-row.held {
+  border-color: rgb(54 226 255 / 0.6);
+}
+
+.item-row span {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.item-row small {
+  font-size: var(--fs-xs);
+}
+
+.take-off {
+  color: var(--cyan);
+  font-size: var(--fs-sm);
+  font-weight: 700;
+}
+
 /* ---------- Unit sheet ---------- */
 
 .sheet-backdrop {

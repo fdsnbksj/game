@@ -55,7 +55,10 @@ describe('board legality', () => {
     for (let n = 0; n < 10; n++) {
       for (let round = 1; round <= MAX_ROUNDS; round++) {
         const { units } = aiOpponent(`legal${n}`, round);
-        expect(isLegalBoard(toSnapshot(units, Math.max(1, units.length), 'ai'), round)).toBe(true);
+        const board = toSnapshot(units, Math.max(1, units.length), 'ai');
+        expect(isLegalBoard(board, round)).toBe(true);
+        // Bots pick their items up as they go, like a player.
+        if (round > 3) expect((board.it ?? []).length).toBeGreaterThan(0);
       }
     }
   });
@@ -63,6 +66,29 @@ describe('board legality', () => {
   it('round-trips a board through its stored form', () => {
     const { units } = aiOpponent('trip', 9);
     expect(fromSnapshot(toSnapshot(units, units.length, 'ai'))).toEqual(units);
+  });
+
+  it('accepts items a run could have dropped, and rejects the rest', () => {
+    const team = [
+      { unitId: 'sparkmouse' as const, star: 1 as const, cell: 3, item: 'razor_fang' },
+      { unitId: 'voltmoth' as const, star: 1 as const, cell: 4, item: 'volt_coil' },
+    ];
+    const board = toSnapshot(team, 4, 'ai');
+    expect(board.it).toEqual(['razor_fang', 'volt_coil']);
+    expect(board.ia).toEqual([0, 1]);
+    // Two items have dropped by round 7, but only one by round 4.
+    expect(isLegalBoard(board, 7)).toBe(true);
+    expect(isLegalBoard(board, 4)).toBe(false);
+    // One item per creature, and only real items.
+    expect(isLegalBoard({ ...board, ia: [0, 0] }, 7)).toBe(false);
+    expect(isLegalBoard({ ...board, it: ['excalibur', 'volt_coil'] }, 7)).toBe(false);
+    expect(isLegalBoard({ ...board, ia: [0] }, 7)).toBe(false);
+    expect(isLegalBoard({ ...board, ia: [0, 99] }, 7)).toBe(false);
+  });
+
+  it('carries items through a board round trip', () => {
+    const team = [{ unitId: 'ironhog' as const, star: 2 as const, cell: 1, item: 'heavy_plate' }];
+    expect(fromSnapshot(toSnapshot(team, 4, 'ai'))).toEqual(team);
   });
 
   it('rejects boards no player could have had', () => {

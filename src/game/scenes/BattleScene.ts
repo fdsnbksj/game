@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { useRunStore, type Battle } from '../../runStore';
 import { COLORS, DISPLAY_FONT, HEX } from '../../shared/theme';
-import { BENCH_SIZE, MOVE_TICKS, OVERTIME_TICK, TICKS_PER_SECOND, type Star } from '../../sim/balance';
+import { BENCH_SIZE, getItem, MOVE_TICKS, OVERTIME_TICK, TICKS_PER_SECOND, type Star } from '../../sim/balance';
 import type { BattleEvent, FighterInfo } from '../../sim/combat';
 import { COLS, ROWS, SIDE_CELLS, toBattleCell } from '../../sim/hex';
 import { move, type OwnedUnit, type Slot } from '../../sim/planning';
@@ -53,17 +53,32 @@ function hexPoints(cx: number, cy: number, radius: number) {
 class UnitView extends Phaser.GameObjects.Container {
   readonly image: Phaser.GameObjects.Image;
   private pips: Phaser.GameObjects.Graphics;
+  private badge: Phaser.GameObjects.Graphics;
   star: Star = 1;
+  item?: string;
 
-  constructor(scene: Phaser.Scene, x: number, y: number, unitId: string, star: Star) {
+  constructor(scene: Phaser.Scene, x: number, y: number, unitId: string, star: Star, item?: string) {
     super(scene, x, y);
     const glow = scene.add.ellipse(0, UNIT_SIZE * 0.38, UNIT_SIZE * 0.8, 8, 0x000000, 0.35);
     this.image = scene.add.image(0, -2, creatureKey(unitId)).setScale(creatureScale(UNIT_SIZE));
     this.pips = scene.add.graphics();
-    this.add([glow, this.image, this.pips]);
+    this.badge = scene.add.graphics();
+    this.add([glow, this.image, this.pips, this.badge]);
     this.setStar(star);
+    this.setItem(item);
     this.setSize(UNIT_SIZE, UNIT_SIZE);
     scene.add.existing(this);
+  }
+
+  /** A small mark in the corner when the creature is holding something. */
+  setItem(item?: string) {
+    this.item = item;
+    this.badge.clear();
+    if (!item) return;
+    const x = -UNIT_SIZE / 2 + 5;
+    const y = -UNIT_SIZE / 2 + 5;
+    this.badge.fillStyle(0x000000, 0.65).fillCircle(x, y, 5.5);
+    this.badge.fillStyle(getItem(item).color).fillCircle(x, y, 4);
   }
 
   setStar(star: Star) {
@@ -86,7 +101,7 @@ class FighterView extends UnitView {
 
   constructor(scene: Phaser.Scene, readonly info: FighterInfo) {
     const { x, y } = cellCenter(info.cell);
-    super(scene, x, y, info.unitId, info.star);
+    super(scene, x, y, info.unitId, info.star, info.item);
     this.hp = info.hp;
     this.mana = info.mana;
     this.bars = scene.add.graphics();
@@ -157,7 +172,10 @@ export class BattleScene extends Phaser.Scene {
         this.syncPlanning();
       }
     });
+    // Leaving the screen destroys the game, which emits DESTROY rather than SHUTDOWN. Miss
+    // that and this subscription outlives the scene and throws on the next store change.
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, unsubscribe);
+    this.events.once(Phaser.Scenes.Events.DESTROY, unsubscribe);
 
     const { battle } = useRunStore.getState();
     if (battle) this.startReplay(battle);
@@ -241,6 +259,7 @@ export class BattleScene extends Phaser.Scene {
 
   /** Makes the sprites match the run: new units pop in, moved ones slide, sold ones fade. */
   private syncPlanning() {
+    if (!this.sys || !this.sys.isActive()) return;
     const { run, battle, selected } = useRunStore.getState();
     const planning = !battle;
     const seen = new Set<number>();
@@ -250,7 +269,7 @@ export class BattleScene extends Phaser.Scene {
       const target = slotCenter(slot);
       let view = this.views.get(unit.uid);
       if (!view) {
-        view = new UnitView(this, target.x, target.y, unit.unitId, unit.star).setDepth(10);
+        view = new UnitView(this, target.x, target.y, unit.unitId, unit.star, unit.item).setDepth(10);
         view.setInteractive({ draggable: true, useHandCursor: true });
         view.on('pointerup', (pointer: Phaser.Input.Pointer) => {
           if (pointer.getDistance() < 6) useRunStore.getState().select(view!.getData('slot') as Slot);
@@ -258,7 +277,10 @@ export class BattleScene extends Phaser.Scene {
         view.setScale(0.4);
         this.tweens.add({ targets: view, scale: 1, duration: 220, ease: 'Back.easeOut' });
         this.views.set(unit.uid, view);
-      } else if (view.star !== unit.star) {
+      } else if (view.item !== unit.item) {
+        view.setItem(unit.item);
+      }
+      if (view.star !== unit.star) {
         view.setStar(unit.star);
         this.tweens.add({ targets: view, scale: { from: 1.5, to: 1 }, duration: 380, ease: 'Back.easeOut' });
         this.burst(target.x, target.y, unit.star === 3 ? HEX.cyan : 0xffffff);
@@ -296,6 +318,7 @@ export class BattleScene extends Phaser.Scene {
   // ---------- Combat replay ----------
 
   private startReplay(battle: Battle) {
+    if (!this.sys || !this.sys.isActive()) return;
     this.stopReplay();
     for (const view of this.views.values()) view.setVisible(false);
     this.highlight.clear();
@@ -310,6 +333,7 @@ export class BattleScene extends Phaser.Scene {
 
   private stopReplay() {
     this.replay = null;
+    if (!this.sys || !this.sys.isActive()) return;
     this.tweens.killTweensOf(this.fighters);
     for (const fighter of this.fighters) fighter.destroy();
     this.fighters = [];

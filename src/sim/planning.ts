@@ -1,8 +1,10 @@
-import { BENCH_SIZE, getUnit, MAX_LEVEL, MAX_ROUNDS, REROLL_COST, START_HP, XP_COST, XP_PER_BUY, XP_PER_ROUND, type Star } from './balance';
+import { BENCH_SIZE, getUnit, ITEM_ROUNDS, MAX_LEVEL, MAX_ROUNDS, REROLL_COST, START_HP, XP_COST, XP_PER_BUY, XP_PER_ROUND, type Star } from './balance';
 import type { BattleResult, Placed } from './combat';
 import { copies, income, levelForXp, lossDamage, sellValue } from './economy';
 import { SIDE_CELLS } from './hex';
 import { rollShop, type Taken } from './shop';
+import { stream } from './rng';
+import { ITEMS } from './balance';
 
 // A run as plain, serializable data, and every change to it as a pure function. The UI,
 // the AI and the tests all drive runs through these same functions.
@@ -12,6 +14,8 @@ export interface OwnedUnit {
   uid: number;
   unitId: string;
   star: Star;
+  /** The item it holds, if any. A creature can hold one. */
+  item?: string;
 }
 
 export interface RoundRecord {
@@ -34,6 +38,8 @@ export interface RunState {
   board: (OwnedUnit | null)[];
   bench: (OwnedUnit | null)[];
   shop: (string | null)[];
+  /** Items dropped but not yet given to a creature. */
+  bag: string[];
   /** Rerolls this round; part of the shop's seed. */
   rolls: number;
   nextUid: number;
@@ -56,6 +62,7 @@ export function newRun(seed: string): RunState {
     board: new Array(SIDE_CELLS).fill(null),
     bench: new Array(BENCH_SIZE).fill(null),
     shop: [],
+    bag: [],
     rolls: 0,
     nextUid: 1,
     wonLast: false,
@@ -82,7 +89,7 @@ export function ownedUnits(run: RunState): OwnedUnit[] {
 }
 
 export function boardUnits(run: RunState): Placed[] {
-  return run.board.flatMap((unit, cell) => (unit ? [{ unitId: unit.unitId, star: unit.star, cell }] : []));
+  return run.board.flatMap((unit, cell) => (unit ? [{ unitId: unit.unitId, star: unit.star, cell, item: unit.item }] : []));
 }
 
 export function boardCount(run: RunState): number {
@@ -145,9 +152,14 @@ function combine(run: RunState, trimOverflow = false): RunState {
     const bench = [...next.bench];
     const at = (slot: Slot) => (slot.area === 'board' ? board : bench);
     const kept = at(keep)[keep.index]!;
-    for (const slot of rest) at(slot)[slot.index] = null;
-    at(keep)[keep.index] = { uid: kept.uid, unitId: kept.unitId, star: (kept.star + 1) as Star };
-    next = { ...next, board, bench };
+    const freed: string[] = [];
+    for (const slot of rest) {
+      const merged = at(slot)[slot.index]!;
+      if (merged.item) freed.push(merged.item);
+      at(slot)[slot.index] = null;
+    }
+    at(keep)[keep.index] = { uid: kept.uid, unitId: kept.unitId, star: (kept.star + 1) as Star, item: kept.item };
+    next = { ...next, board, bench, bag: freed.length > 0 ? [...next.bag, ...freed] : next.bag };
   }
   if (trimOverflow) next = { ...next, bench: next.bench.slice(0, BENCH_SIZE) };
   return next;
@@ -167,6 +179,7 @@ export function sell(run: RunState, slot: Slot): RunState {
   return {
     ...run,
     [slot.area]: area,
+    bag: unit.item ? [...run.bag, unit.item] : run.bag,
     gold: run.gold + sellValue(getUnit(unit.unitId).cost, unit.star),
   };
 }
@@ -184,6 +197,29 @@ export function move(run: RunState, from: Slot, to: Slot): RunState {
   at(from)[from.index] = there;
   if (board.filter(Boolean).length > run.level) return run;
   return { ...run, board, bench };
+}
+
+/** Gives a bagged item to a creature. Whatever it held goes back to the bag. */
+export function equip(run: RunState, slot: Slot, itemId: string): RunState {
+  const area = slot.area === 'board' ? run.board : run.bench;
+  const unit = area[slot.index];
+  if (run.done || !unit || !run.bag.includes(itemId)) return run;
+  const bag = [...run.bag];
+  bag.splice(bag.indexOf(itemId), 1);
+  if (unit.item) bag.push(unit.item);
+  const next = [...area];
+  next[slot.index] = { ...unit, item: itemId };
+  return { ...run, [slot.area]: next, bag };
+}
+
+/** Takes an item back off a creature. */
+export function unequip(run: RunState, slot: Slot): RunState {
+  const area = slot.area === 'board' ? run.board : run.bench;
+  const unit = area[slot.index];
+  if (run.done || !unit?.item) return run;
+  const next = [...area];
+  next[slot.index] = { uid: unit.uid, unitId: unit.unitId, star: unit.star };
+  return { ...run, [slot.area]: next, bag: [...run.bag, unit.item] };
 }
 
 export function reroll(run: RunState): RunState {
@@ -222,8 +258,18 @@ export function finishRound(run: RunState, result: BattleResult, opponent: strin
   const history = [...run.history, { round: run.round, won, draw, damage, opponent }];
   const wins = run.wins + (won ? 1 : 0);
   const done = hp <= 0 || run.round >= MAX_ROUNDS;
-  const next: RunState = { ...run, hp, wins, history, done };
+  const next: RunState = { ...run, hp, wins, history, bag: withDrop(run).bag, done };
   return done ? { ...next, wonLast: won } : nextRound(next, won);
+}
+
+/**
+ * The item a round drops, if it drops one: the same item every time for a given run and
+ * round. Rounds are played through finishRound(); bots use this directly.
+ */
+export function withDrop(run: RunState): RunState {
+  if (!ITEM_ROUNDS.includes(run.round)) return run;
+  const item = ITEMS[stream(`${run.seed}:item:${run.round}`)(ITEMS.length)].id;
+  return { ...run, bag: [...run.bag, item] };
 }
 
 /** On to the next round's planning, paying the win bonus if the last round was won. */

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { getUnit, REROLL_COST, XP_COST } from '../../src/sim/balance';
 import type { BattleResult } from '../../src/sim/combat';
-import { buy, buyXp, finishRound, move, newRun, ownedUnits, reroll, sell, type RunState } from '../../src/sim/planning';
+import { buy, buyXp, equip, finishRound, move, newRun, ownedUnits, reroll, sell, unequip, type RunState } from '../../src/sim/planning';
 
 /** A run with a hand-picked shop and plenty of gold. */
 function runWith(shop: string[], gold = 50, extra: Partial<RunState> = {}): RunState {
@@ -111,5 +111,62 @@ describe('planning', () => {
     const dying = finishRound({ ...newRun('seed'), hp: 1 }, result('b'), 'bot');
     expect(dying.done).toBe(true);
     expect(dying.hp).toBe(0);
+  });
+});
+
+describe('items', () => {
+  const withBag = (bag: string[], extra: Partial<RunState> = {}) => ({ ...runWith([]), bag, ...extra });
+
+  it('drops an item after certain rounds, and always the same one', () => {
+    const afterRound = (round: number) =>
+      finishRound({ ...newRun('drops'), round }, result('a'), 'bot').bag;
+    expect(afterRound(1)).toEqual([]);
+    expect(afterRound(2)).toHaveLength(1);
+    expect(afterRound(2)).toEqual(afterRound(2));
+    expect(afterRound(5)).toHaveLength(1);
+    expect(afterRound(3)).toEqual([]);
+  });
+
+  it('gives an item to a creature and takes it back', () => {
+    let run = buy(withBag(['razor_fang'], { shop: ['bytebat'] }), 0);
+    run = equip(run, { area: 'bench', index: 0 }, 'razor_fang');
+    expect(run.bench[0]?.item).toBe('razor_fang');
+    expect(run.bag).toEqual([]);
+    run = unequip(run, { area: 'bench', index: 0 });
+    expect(run.bench[0]?.item).toBeUndefined();
+    expect(run.bag).toEqual(['razor_fang']);
+  });
+
+  it('swaps an item, putting the old one back in the bag', () => {
+    let run = buy(withBag(['razor_fang', 'volt_coil'], { shop: ['bytebat'] }), 0);
+    run = equip(run, { area: 'bench', index: 0 }, 'razor_fang');
+    run = equip(run, { area: 'bench', index: 0 }, 'volt_coil');
+    expect(run.bench[0]?.item).toBe('volt_coil');
+    expect(run.bag).toEqual(['razor_fang']);
+  });
+
+  it("won't give away an item it doesn't have", () => {
+    const run = buy(withBag([], { shop: ['bytebat'] }), 0);
+    expect(equip(run, { area: 'bench', index: 0 }, 'razor_fang')).toBe(run);
+  });
+
+  it('returns a sold creature’s item to the bag', () => {
+    let run = buy(withBag(['mana_cell'], { shop: ['bytebat'] }), 0);
+    run = equip(run, { area: 'bench', index: 0 }, 'mana_cell');
+    run = sell(run, { area: 'bench', index: 0 });
+    expect(run.bag).toEqual(['mana_cell']);
+  });
+
+  it('keeps one item when creatures combine and frees the others', () => {
+    let run = withBag(['mana_cell', 'volt_coil'], { shop: ['sparkmouse', 'sparkmouse', 'sparkmouse'] });
+    run = buy(buy(run, 0), 1);
+    run = equip(run, { area: 'bench', index: 0 }, 'mana_cell');
+    run = equip(run, { area: 'bench', index: 1 }, 'volt_coil');
+    run = buy(run, 2);
+    const merged = ownedUnits(run);
+    expect(merged).toHaveLength(1);
+    expect(merged[0].star).toBe(2);
+    expect(merged[0].item).toBe('mana_cell');
+    expect(run.bag).toEqual(['volt_coil']);
   });
 });

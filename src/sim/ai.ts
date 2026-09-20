@@ -1,7 +1,7 @@
 import { getUnit, MAX_ROUNDS, TRAITS, type TraitId } from './balance';
 import type { Placed } from './combat';
 import { copies } from './economy';
-import { autoFill, boardUnits, buy, buyXp, move, newRun, nextRound, ownedUnits, reroll, sell, type RunState } from './planning';
+import { autoFill, boardUnits, buy, buyXp, equip, move, newRun, nextRound, ownedUnits, reroll, sell, unequip, withDrop, type RunState } from './planning';
 import { stream } from './rng';
 
 // Opponents for when there's no ghost to fight. A bot plays a whole run with the same shop,
@@ -23,7 +23,7 @@ export function aiOpponent(seed: string, round: number): AiOpponent {
   for (let r = 1; r <= Math.min(round, MAX_ROUNDS); r++) {
     run = plan(run, focus);
     // Bots win every other round, for a middling economy.
-    if (r < round) run = nextRound(run, r % 2 === 0);
+    if (r < round) run = nextRound(withDrop(run), r % 2 === 0);
   }
   return { name: BOT_NAMES[rng(BOT_NAMES.length)], units: boardUnits(run) };
 }
@@ -97,5 +97,23 @@ function arrange(start: RunState, focus: TraitId): RunState {
     const cell = preferred.find((c) => !run.board[c]);
     if (cell !== undefined) run = move(run, { area: 'bench', index: pick.index }, { area: 'board', index: cell });
   }
-  return autoFill(run);
+  return equipItems(autoFill(run), focus);
+}
+
+/** Bots hand every item they have to their strongest creature without one. */
+function equipItems(start: RunState, focus: TraitId): RunState {
+  let run = start;
+  // Take items off the bench first: an item helps nobody sitting out the fight.
+  run.bench.forEach((unit, index) => {
+    if (unit?.item) run = unequip(run, { area: 'bench', index });
+  });
+  for (const item of [...run.bag]) {
+    const best = run.board
+      .map((unit, index) => ({ unit, index }))
+      .filter((slot) => slot.unit !== null && !slot.unit.item)
+      .sort((x, y) => value(y.unit!.unitId, y.unit!.star, focus) - value(x.unit!.unitId, x.unit!.star, focus) || x.index - y.index)[0];
+    if (!best) break;
+    run = equip(run, { area: 'board', index: best.index }, item);
+  }
+  return run;
 }
