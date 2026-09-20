@@ -4,6 +4,7 @@ import { CreatureChip } from '../components/CreatureChip';
 import { SoundToggle } from '../components/SoundToggle';
 import { Wordmark } from '../components/Wordmark';
 import { useRunStore } from '../runStore';
+import { dayId } from '../shared/constants';
 
 const PARADE = ['sparkmouse', 'bytebat', 'thunderstag', 'mirrorowl', 'glitchtoad'];
 
@@ -21,12 +22,12 @@ export function Home() {
     return () => clearTimeout(timer);
   }, [confirming]);
 
-  function newRun() {
+  function newRun(mode: 'run' | 'daily' = 'run') {
     if (inProgress && !confirming) {
       setConfirming(true);
       return;
     }
-    startRun();
+    startRun(mode);
     navigate('/run');
   }
 
@@ -70,15 +71,16 @@ export function Home() {
             <p className="muted continue-line">
               Round {run.round} · {run.hp} HP · {run.wins} wins
             </p>
-            <button className={confirming ? 'button danger' : 'button'} onClick={newRun}>
+            <button className={confirming ? 'button danger' : 'button'} onClick={() => newRun()}>
               {confirming ? 'Tap again to abandon this run' : 'New run'}
             </button>
           </>
         ) : (
-          <button className="button primary play-cta" onClick={newRun}>
+          <button className="button primary play-cta" onClick={() => newRun()}>
             Play
           </button>
         )}
+        <DailyCard onPlay={() => newRun('daily')} />
         <div className="menu-row">
           <Link className="button" to="/how">
             How to play
@@ -92,5 +94,26 @@ export function Home() {
         </div>
       </nav>
     </main>
+  );
+}
+
+/** The daily challenge: the same run for everyone, once a day. */
+function DailyCard({ onPlay }: { onPlay: () => void }) {
+  const run = useRunStore((s) => s.run);
+  const dailyDone = useRunStore((s) => s.dailyDone);
+  const playing = run !== null && !run.done && run.mode === 'daily';
+  const done = dailyDone(dayId()) && !playing;
+
+  return (
+    <button className={done ? 'daily-card done' : 'daily-card'} onClick={onPlay} disabled={done}>
+      <span className="daily-mark" aria-hidden="true" />
+      <span className="daily-text">
+        <strong>Daily challenge</strong>
+        <small className="muted">
+          {playing ? `In progress · round ${run.round}` : done ? 'Played today. Back tomorrow.' : 'The same run for everyone'}
+        </small>
+      </span>
+      <span className="daily-go">{playing ? 'Resume' : done ? '✓' : 'Play'}</span>
+    </button>
   );
 }

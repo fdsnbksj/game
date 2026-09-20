@@ -92,7 +92,7 @@ function Hud({ run }: { run: RunState }) {
         ←
       </Link>
       <div className="hud-round">
-        <span className="eyebrow">Round</span>
+        <span className="eyebrow">{run.mode === 'daily' ? 'Daily' : 'Round'}</span>
         <strong>
           {run.round}
           <small>/{MAX_ROUNDS}</small>
@@ -465,7 +465,7 @@ function Summary({ run }: { run: RunState }) {
           )}
         </p>
         <div className="menu">
-          <button className="button primary" disabled={blocked} onClick={startRun}>
+          <button className="button primary" disabled={blocked} onClick={() => startRun()}>
             New run
           </button>
           <button

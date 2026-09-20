@@ -132,6 +132,27 @@ function playRound(db: Firestore, uid: string, n: number, before: RunState, writ
   return batch.commit();
 }
 
+/** The daily challenge: one run per player per day, and no counter to bump. */
+function startDaily(db: Firestore, uid: string, runId = `${uid}_d${TODAY}`, overrides: Record<string, unknown> = {}) {
+  return setDoc(doc(db, 'runs', runId), {
+    uid,
+    name: 'Alice',
+    mode: 'daily',
+    day: TODAY,
+    v: BALANCE_VERSION,
+    rand: 7,
+    round: 0,
+    rounds: [],
+    boards: {},
+    hp: START_HP,
+    wins: 0,
+    done: false,
+    startedAt: serverTimestamp(),
+    lastAt: serverTimestamp(),
+    ...overrides,
+  });
+}
+
 beforeAll(async () => {
   env = await initializeTestEnvironment({
     projectId: 'demo-game',
@@ -404,6 +425,101 @@ describe('playing rounds', () => {
   it("lets signed-in players read other players' runs, to fight them", async () => {
     await seedRun('alice', 0, fresh);
     await assertSucceeds(getDoc(doc(dbFor('bob'), 'runs', 'alice_0')));
+  });
+});
+
+describe('the daily challenge', () => {
+  beforeEach(() => seedPlayer('alice', 1));
+
+  it("starts today's challenge without counting it as an ordinary run", async () => {
+    await assertSucceeds(startDaily(dbFor('alice'), 'alice'));
+  });
+
+  it('rejects a challenge filed under the wrong id or day', async () => {
+    const db = dbFor('alice');
+    await assertFails(startDaily(db, 'alice', 'alice_d1999-01-01', { day: '1999-01-01' }));
+    await assertFails(startDaily(db, 'alice', `alice_d${TODAY}`, { day: dayId(new Date(Date.now() - 7 * 86_400_000)) }));
+    await assertFails(startDaily(db, 'alice', 'alice_0'));
+  });
+
+  it("rejects starting someone else's challenge", async () => {
+    await assertFails(startDaily(dbFor('mallory'), 'alice'));
+  });
+
+  it('rejects a second challenge on the same day', async () => {
+    await assertSucceeds(startDaily(dbFor('alice'), 'alice'));
+    await assertFails(startDaily(dbFor('alice'), 'alice'));
+  });
+
+  it('files a finished challenge on the daily board, not the ordinary one', async () => {
+    const before = { round: 14, hp: 30, wins: 8 };
+    await asAdmin((db) =>
+      setDoc(doc(db, 'runs', `alice_d${TODAY}`), {
+        uid: 'alice', name: 'Alice', mode: 'daily', day: TODAY, v: BALANCE_VERSION, rand: 7,
+        round: before.round, rounds: rounds(before.round),
+        boards: Object.fromEntries(rounds(before.round).map((r) => [`r${r}`, board([['sparkmouse', 1]])])),
+        hp: before.hp, wins: before.wins, done: false, startedAt: hourAgo(), lastAt: hourAgo(),
+      }),
+    );
+    const db = dbFor('alice');
+    const finish = (collectionName: string) => {
+      const batch = writeBatch(db);
+      batch.update(doc(db, 'runs', `alice_d${TODAY}`), {
+        round: 15,
+        rounds: rounds(15),
+        'boards.r15': board([['sparkmouse', 1]]),
+        hp: 30,
+        wins: 9,
+        done: true,
+        lastAt: serverTimestamp(),
+      });
+      batch.set(doc(db, collectionName, TODAY, 'entries', 'alice'), {
+        score: 9030, wins: 9, hp: 30, runId: `alice_d${TODAY}`, displayName: 'Alice', submittedAt: serverTimestamp(),
+      });
+      return batch.commit();
+    };
+    await assertFails(finish('rankings'));
+    await assertSucceeds(finish('dailyRankings'));
+  });
+
+  it("rejects filing a challenge under a day that isn't its own", async () => {
+    const yesterday = dayId(new Date(Date.now() - 86_400_000));
+    await asAdmin((db) =>
+      setDoc(doc(db, 'runs', `alice_d${yesterday}`), {
+        uid: 'alice', name: 'Alice', mode: 'daily', day: yesterday, v: BALANCE_VERSION, rand: 7,
+        round: 14, rounds: rounds(14),
+        boards: Object.fromEntries(rounds(14).map((r) => [`r${r}`, board([['sparkmouse', 1]])])),
+        hp: 30, wins: 8, done: false, startedAt: hourAgo(), lastAt: hourAgo(),
+      }),
+    );
+    const db = dbFor('alice');
+    const fileUnder = (day: string) => {
+      const batch = writeBatch(db);
+      batch.update(doc(db, 'runs', `alice_d${yesterday}`), {
+        round: 15, rounds: rounds(15), 'boards.r15': board([['sparkmouse', 1]]), hp: 30, wins: 9, done: true, lastAt: serverTimestamp(),
+      });
+      batch.set(doc(db, 'dailyRankings', day, 'entries', 'alice'), {
+        score: 9030, wins: 9, hp: 30, runId: `alice_d${yesterday}`, displayName: 'Alice', submittedAt: serverTimestamp(),
+      });
+      return batch.commit();
+    };
+    // Yesterday's challenge belongs on yesterday's board, not today's.
+    await assertFails(fileUnder(TODAY));
+    await assertSucceeds(fileUnder(yesterday));
+  });
+
+  it('rejects filing an ordinary run on the daily board', async () => {
+    const before = { round: 14, hp: 30, wins: 8 };
+    await seedRun('alice', 0, before);
+    const db = dbFor('alice');
+    const batch = writeBatch(db);
+    batch.update(doc(db, 'runs', 'alice_0'), {
+      round: 15, rounds: rounds(15), 'boards.r15': board([['sparkmouse', 1]]), hp: 30, wins: 9, done: true, lastAt: serverTimestamp(),
+    });
+    batch.set(doc(db, 'dailyRankings', TODAY, 'entries', 'alice'), {
+      score: 9030, wins: 9, hp: 30, runId: 'alice_0', displayName: 'Alice', submittedAt: serverTimestamp(),
+    });
+    await assertFails(batch.commit());
   });
 });
 

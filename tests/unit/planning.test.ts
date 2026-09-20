@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { getUnit, REROLL_COST, XP_COST } from '../../src/sim/balance';
 import type { BattleResult } from '../../src/sim/combat';
-import { buy, buyXp, equip, finishRound, move, newRun, ownedUnits, reroll, sell, unequip, type RunState } from '../../src/sim/planning';
+import { buy, buyXp, dailySeed, equip, finishRound, move, newRun, ownedUnits, reroll, sell, unequip, type RunState } from '../../src/sim/planning';
 
 /** A run with a hand-picked shop and plenty of gold. */
 function runWith(shop: string[], gold = 50, extra: Partial<RunState> = {}): RunState {
@@ -168,5 +168,16 @@ describe('items', () => {
     expect(merged[0].star).toBe(2);
     expect(merged[0].item).toBe('mana_cell');
     expect(run.bag).toEqual(['volt_coil']);
+  });
+});
+
+describe('the daily challenge', () => {
+  it('gives everyone the same run for a day, and a different one tomorrow', () => {
+    const today = newRun(dailySeed('2026-09-20'), 'daily');
+    const same = newRun(dailySeed('2026-09-20'), 'daily');
+    const tomorrow = newRun(dailySeed('2026-09-21'), 'daily');
+    expect(today.mode).toBe('daily');
+    expect(today.shop).toEqual(same.shop);
+    expect(today.shop).not.toEqual(tomorrow.shop);
   });
 });

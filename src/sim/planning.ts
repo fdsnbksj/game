@@ -26,8 +26,12 @@ export interface RoundRecord {
   opponent: string;
 }
 
+export type RunMode = 'run' | 'daily';
+
 export interface RunState {
   seed: string;
+  /** The daily challenge is the same run for everyone that day. */
+  mode: RunMode;
   round: number;
   hp: number;
   wins: number;
@@ -50,9 +54,13 @@ export interface RunState {
 
 export type Slot = { area: 'board' | 'bench'; index: number };
 
-export function newRun(seed: string): RunState {
+/** Everyone gets the same daily challenge, so its seed is just the day. */
+export const dailySeed = (day: string) => `daily:${day}`;
+
+export function newRun(seed: string, mode: RunMode = 'run'): RunState {
   const run: RunState = {
     seed,
+    mode,
     round: 1,
     hp: START_HP,
     wins: 0,

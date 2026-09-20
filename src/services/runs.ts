@@ -6,6 +6,7 @@ import { BALANCE_VERSION, START_HP } from '../sim/balance';
 import type { BoardSnapshot } from '../sim/validate';
 import type { Player } from '../store';
 import { playerRef, rankingRef, runRef } from './refs';
+import type { RunMode } from '../sim/planning';
 import { invalidateRankings } from './rankings';
 
 // Writes a run to Firestore: one batch to start it, then one per round. firestore.rules
@@ -21,11 +22,17 @@ export interface RoundWrite {
   done: boolean;
 }
 
-/** Starts run `${uid}_${player.runsStarted}`, counting it on the player in the same batch. */
-export async function startOnlineRun(uid: string, player: Player, runId: string, rand: number) {
+/**
+ * Starts a run. An ordinary run is `${uid}_${player.runsStarted}` and is counted on the
+ * player in the same batch; the daily challenge is `${uid}_d${day}`, one per day, and
+ * stands alone.
+ */
+export async function startOnlineRun(uid: string, player: Player, runId: string, rand: number, mode: RunMode, day: string) {
   const batch = writeBatch(db);
-  batch.update(playerRef(uid), { runsStarted: player.runsStarted + 1, lastRunStartAt: serverTimestamp() });
+  if (mode === 'run') batch.update(playerRef(uid), { runsStarted: player.runsStarted + 1, lastRunStartAt: serverTimestamp() });
   batch.set(runRef(runId), {
+    mode,
+    day: mode === 'daily' ? day : '',
     uid,
     name: player.displayName,
     v: BALANCE_VERSION,
@@ -46,7 +53,7 @@ export async function startOnlineRun(uid: string, player: Player, runId: string,
  * Writes one round. The last round also files the run on today's rankings, if it beats
  * the player's best today (the rules only accept an improvement).
  */
-export async function writeRound(uid: string, player: Player, runId: string, write: RoundWrite) {
+export async function writeRound(uid: string, player: Player, runId: string, write: RoundWrite, mode: RunMode, day: string) {
   const batch = writeBatch(db);
   batch.update(runRef(runId), {
     round: write.round,
@@ -60,12 +67,13 @@ export async function writeRound(uid: string, player: Player, runId: string, wri
 
   let ranked = false;
   if (write.done) {
-    const day = dayId();
+    // The daily challenge is filed under its own day; an ordinary run under today's.
+    const board = mode === 'daily' ? day : dayId();
     const score = write.wins * 1000 + write.hp;
-    const best = await getDoc(rankingRef(day, uid)).catch(() => null);
+    const best = await getDoc(rankingRef(board, uid, mode)).catch(() => null);
     // Unknown (couldn't read it): skip rather than risk the rules rejecting the whole batch.
     if (best && (!best.exists() || score > (best.get('score') as number))) {
-      batch.set(rankingRef(day, uid), {
+      batch.set(rankingRef(board, uid, mode), {
         score,
         wins: write.wins,
         hp: write.hp,

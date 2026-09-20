@@ -143,13 +143,27 @@ service cloud.firestore {
         && existsAfter(/databases/$(database)/documents/runs/$(uid + '_' + string(before.runsStarted)));
     }
 
+    // Two kinds of run. A normal one is counted on the player, which is what spaces runs out
+    // and names it. The daily challenge is one per player per day, so its id is the day and
+    // creating it twice fails on its own. `mode` and `day` are optional: a client from before
+    // the daily challenge writes neither and starts a normal run, as it always did.
+    function isRightRunId(runId, run, player) {
+      return run.get('mode', 'run') == 'daily'
+        ? runId == request.auth.uid + '_d' + run.day
+          && isValidDay(run.day)
+          && isDayNearNow(run.day)
+        : runId == request.auth.uid + '_' + string(player.runsStarted - 1)
+          && player.lastRunStartAt == request.time;
+    }
+
     function isNewRun(runId) {
       let run = request.resource.data;
       let player = playerAfter(request.auth.uid);
-      return hasExactly(run, ['uid', 'name', 'v', 'rand', 'round', 'rounds', 'boards', 'hp', 'wins', 'done', 'startedAt', 'lastAt'])
+      return run.keys().hasAll(['uid', 'name', 'v', 'rand', 'round', 'rounds', 'boards', 'hp', 'wins', 'done', 'startedAt', 'lastAt'])
+        && run.keys().hasOnly(['uid', 'name', 'v', 'rand', 'round', 'rounds', 'boards', 'hp', 'wins', 'done', 'startedAt', 'lastAt', 'mode', 'day'])
+        && run.get('mode', 'run') in ['run', 'daily']
         && run.uid == request.auth.uid
-        && runId == request.auth.uid + '_' + string(player.runsStarted - 1)
-        && player.lastRunStartAt == request.time
+        && isRightRunId(runId, run, player)
         && run.name == player.displayName
         && run.v == balanceVersion()
         && run.rand is int && run.rand >= 0 && run.rand < 2147483648
@@ -184,10 +198,12 @@ service cloud.firestore {
     }
 
     // A finished run's result on a day's rankings, written in the same batch as its last round.
-    function isValidRanking(uid, day) {
+    function isValidRanking(uid, day, mode) {
       let entry = request.resource.data;
       let run = getAfter(/databases/$(database)/documents/runs/$(entry.runId)).data;
       return hasExactly(entry, ['score', 'wins', 'hp', 'runId', 'displayName', 'submittedAt'])
+        && run.get('mode', 'run') == mode
+        && (mode == 'run' || run.day == day)
         && run.uid == uid
         && run.done == true
         && run.lastAt == request.time
@@ -219,7 +235,13 @@ service cloud.firestore {
 
     match /rankings/{day}/entries/{uid} {
       allow read: if request.auth != null;
-      allow create, update: if isOwner(uid) && isValidRanking(uid, day);
+      allow create, update: if isOwner(uid) && isValidRanking(uid, day, 'run');
+    }
+
+    // The daily challenge: the same run for everyone that day, on its own board.
+    match /dailyRankings/{day}/entries/{uid} {
+      allow read: if request.auth != null;
+      allow create, update: if isOwner(uid) && isValidRanking(uid, day, 'daily');
     }
   }
 }

@@ -3,8 +3,9 @@ import { findGhost, type Ghost } from './services/opponents';
 import { isRetryable, startOnlineRun, writeRound, type RoundWrite } from './services/runs';
 import { aiOpponent } from './sim/ai';
 import { simulate, type BattleResult, type Placed } from './sim/combat';
-import { autoFill, boardUnits, finishRound, newRun, type RunState, type Slot } from './sim/planning';
+import { autoFill, boardUnits, dailySeed, finishRound, newRun, type RunMode, type RunState, type Slot } from './sim/planning';
 import { toSnapshot } from './sim/validate';
+import { dayId } from './shared/constants';
 import { useGameStore } from './store';
 
 // The run in progress, kept in localStorage so a reload picks it up where it was. A fight
@@ -17,6 +18,8 @@ import { useGameStore } from './store';
 const RUN_KEY = 'neon-brawl:run';
 const ONLINE_KEY = 'neon-brawl:online';
 const STATS_KEY = 'neon-brawl:stats';
+/** The last day whose challenge was finished on this device. */
+const DAILY_KEY = 'neon-brawl:daily';
 
 /** A little over the rules' minimums, so client and server clocks can disagree slightly. */
 const ROUND_SPACING_MS = 3500;
@@ -40,6 +43,8 @@ export interface Battle {
 
 export interface OnlineRun {
   runId: string;
+  /** The day a daily challenge belongs to; '' for an ordinary run. */
+  day: string;
   /** Random, for fair ghost picking; also part of the run's seed. */
   rand: number;
   /** Rounds wait here until Firestore has them. */
@@ -67,7 +72,9 @@ interface RunStore {
   /** A short message for the player, e.g. why a move didn't happen. */
   notice: { text: string; id: number } | null;
   stats: LocalStats;
-  startRun: () => void;
+  startRun: (mode?: RunMode) => void;
+  /** Whether today's daily challenge has been played on this device. */
+  dailyDone: (day: string) => boolean;
   /** Applies a planning change; shows `failure` if it changed nothing. */
   act: (change: (run: RunState) => RunState, failure?: string) => boolean;
   select: (slot: Slot | null) => void;
@@ -123,14 +130,17 @@ export const useRunStore = create<RunStore>()((set, get) => {
     notice: null,
     stats: load<LocalStats>(STATS_KEY, { runs: 0, bestWins: 0, bestRound: 0 }),
 
-    startRun: () => {
+    startRun: (mode: RunMode = 'run') => {
       const { uid, player } = useGameStore.getState();
       const rand = Math.floor(Math.random() * 2 ** 31);
+      const day = dayId();
       // Signed in, the run is named for its slot on the player (the rules require it), and its
       // seed includes a random part, so no one can work out a run's shops before it starts.
-      const runId = uid && player ? `${uid}_${player.runsStarted}` : null;
-      const run = newRun(runId ? `${runId}:${rand}` : `local:${Date.now().toString(36)}:${rand}`);
-      const online: OnlineRun | null = runId ? { runId, rand, pending: [], status: 'starting', lastWriteAt: 0 } : null;
+      // The daily challenge is the same run for everyone, so its seed is just the day.
+      const runId = uid && player ? (mode === 'daily' ? `${uid}_d${day}` : `${uid}_${player.runsStarted}`) : null;
+      const seed = mode === 'daily' ? dailySeed(day) : runId ? `${runId}:${rand}` : `local:${Date.now().toString(36)}:${rand}`;
+      const run = newRun(seed, mode);
+      const online: OnlineRun | null = runId ? { runId, day: mode === 'daily' ? day : '', rand, pending: [], status: 'starting', lastWriteAt: 0 } : null;
       save(RUN_KEY, run);
       save(ONLINE_KEY, online);
       set({ run, online, battle: null, selected: null, ghost: null });
@@ -195,6 +205,8 @@ export const useRunStore = create<RunStore>()((set, get) => {
         void get().sync();
       }
 
+      if (next.done && next.mode === 'daily') save(DAILY_KEY, dayId());
+
       // Counted now rather than after the replay, so a reload mid-replay can't skip it.
       if (next.done) {
         const stats = get().stats;
@@ -220,6 +232,8 @@ export const useRunStore = create<RunStore>()((set, get) => {
 
     notify: (text) => set({ notice: { text, id: Date.now() } }),
 
+    dailyDone: (day) => load<string | null>(DAILY_KEY, null) === day,
+
     sync: async () => {
       if (syncing) return;
       syncing = true;
@@ -231,19 +245,26 @@ export const useRunStore = create<RunStore>()((set, get) => {
           const runId = online.runId;
 
           try {
+            const mode = get().run?.mode ?? 'run';
             if (online.status === 'starting') {
-              await sleep(player.lastRunStartAt + RUN_START_SPACING_MS - Date.now());
-              // Another device may have started a run since this one was set up.
-              if (runId !== `${uid}_${player.runsStarted}`) throw new Error('Run slot taken');
-              await startOnlineRun(uid, player, runId, online.rand);
-              useGameStore.getState().setPlayer({ ...player, runsStarted: player.runsStarted + 1, lastRunStartAt: Date.now() });
+              // Ordinary runs are counted on the player and spaced out; the daily challenge is
+              // named for the day instead, so neither applies to it.
+              if (mode === 'run') {
+                await sleep(player.lastRunStartAt + RUN_START_SPACING_MS - Date.now());
+                // Another device may have started a run since this one was set up.
+                if (runId !== `${uid}_${player.runsStarted}`) throw new Error('Run slot taken');
+              }
+              await startOnlineRun(uid, player, runId, online.rand, mode, online.day);
+              if (mode === 'run') {
+                useGameStore.getState().setPlayer({ ...player, runsStarted: player.runsStarted + 1, lastRunStartAt: Date.now() });
+              }
               updateOnline(runId, { status: 'live', lastWriteAt: Date.now() });
               continue;
             }
             const write = online.pending[0];
             if (!write) return;
             await sleep(online.lastWriteAt + ROUND_SPACING_MS - Date.now());
-            await writeRound(uid, player, runId, write);
+            await writeRound(uid, player, runId, write, mode, online.day);
             updateOnline(runId, (current) => ({
               pending: current.pending.filter((pending) => pending.round !== write.round),
               lastWriteAt: Date.now(),

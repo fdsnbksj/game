@@ -1,5 +1,6 @@
 import { getDoc, getDocs, limit, orderBy, query } from 'firebase/firestore';
 import { rankingRef, rankingsCollection } from './refs';
+import type { RunMode } from '../sim/planning';
 
 export const RANKINGS_SIZE = 25;
 /** Rankings change slowly; re-reading them on every visit would eat the free read quota. */
@@ -15,15 +16,16 @@ export interface RankingEntry {
 
 export interface Rankings {
   day: string;
+  mode: RunMode;
   top: RankingEntry[];
   /** The player's own entry, whether or not it made the top. */
   mine: RankingEntry | null;
 }
 
-let cache: { rankings: Rankings; at: number } | null = null;
+const cache = new Map<string, { rankings: Rankings; at: number }>();
 
 export function invalidateRankings() {
-  cache = null;
+  cache.clear();
 }
 
 const toEntry = (uid: string, data: Record<string, unknown>): RankingEntry => ({
@@ -34,16 +36,18 @@ const toEntry = (uid: string, data: Record<string, unknown>): RankingEntry => ({
   score: data.score as number,
 });
 
-export async function fetchRankings(day: string, uid: string): Promise<Rankings> {
-  if (cache && cache.rankings.day === day && Date.now() - cache.at < CACHE_MS) return cache.rankings;
-  const snap = await getDocs(query(rankingsCollection(day), orderBy('score', 'desc'), limit(RANKINGS_SIZE)));
+export async function fetchRankings(day: string, uid: string, mode: RunMode = 'run'): Promise<Rankings> {
+  const key = `${mode}:${day}`;
+  const hit = cache.get(key);
+  if (hit && Date.now() - hit.at < CACHE_MS) return hit.rankings;
+  const snap = await getDocs(query(rankingsCollection(day, mode), orderBy('score', 'desc'), limit(RANKINGS_SIZE)));
   const top = snap.docs.map((doc) => toEntry(doc.id, doc.data()));
   let mine = top.find((entry) => entry.uid === uid) ?? null;
   if (!mine) {
-    const own = await getDoc(rankingRef(day, uid));
+    const own = await getDoc(rankingRef(day, uid, mode));
     if (own.exists()) mine = toEntry(uid, own.data());
   }
-  const rankings = { day, top, mine };
-  cache = { rankings, at: Date.now() };
+  const rankings = { day, mode, top, mine };
+  cache.set(key, { rankings, at: Date.now() });
   return rankings;
 }

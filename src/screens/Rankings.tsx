@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { fetchRankings, RANKINGS_SIZE, type Rankings as RankingsData } from '../services/rankings';
+import type { RunMode } from '../sim/planning';
 import { dayId } from '../shared/constants';
 import { useGameStore } from '../store';
 
@@ -10,13 +11,23 @@ const PODIUM = ['first', 'second', 'third'];
 
 export function Rankings() {
   const uid = useGameStore((s) => s.uid)!;
+  const [mode, setMode] = useState<RunMode>('run');
   const [rankings, setRankings] = useState<RankingsData | null>(null);
   const [failed, setFailed] = useState(false);
   const day = dayId();
 
   useEffect(() => {
-    fetchRankings(day, uid).then(setRankings, () => setFailed(true));
-  }, [day, uid]);
+    setRankings(null);
+    setFailed(false);
+    let current = true;
+    fetchRankings(day, uid, mode).then(
+      (next) => current && setRankings(next),
+      () => current && setFailed(true),
+    );
+    return () => {
+      current = false;
+    };
+  }, [day, uid, mode]);
 
   const onBoard = rankings?.top.some((entry) => entry.uid === uid) ?? false;
 
@@ -30,7 +41,19 @@ export function Rankings() {
         <span className="spacer" />
         <span className="muted">{DAY_FORMAT.format(new Date(`${day}T00:00:00Z`))}</span>
       </header>
-      <p className="muted small-print rankings-note">Each player's best finished run today. Resets at 00:00 UTC.</p>
+      <div className="tabs" role="tablist">
+        <button className="tab" role="tab" aria-selected={mode === 'run'} onClick={() => setMode('run')}>
+          Runs
+        </button>
+        <button className="tab" role="tab" aria-selected={mode === 'daily'} onClick={() => setMode('daily')}>
+          Daily challenge
+        </button>
+      </div>
+      <p className="muted small-print rankings-note">
+        {mode === 'daily'
+          ? "Today's challenge, the same run for everyone. Resets at 00:00 UTC."
+          : "Each player's best finished run today. Resets at 00:00 UTC."}
+      </p>
 
       {!rankings && !failed && <div className="spinner large" aria-label="Loading" />}
       {failed && <p className="error">Couldn't load the rankings.</p>}
