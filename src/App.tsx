@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router';
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router';
+import { Backdrop } from './components/Backdrop';
+import { TabBar } from './components/TabBar';
 import { Wordmark } from './components/Wordmark';
 import { Home } from './screens/Home';
 import { HowToPlay } from './screens/HowToPlay';
@@ -53,29 +55,38 @@ export function App() {
 
   if (error) {
     return (
-      <main className="screen center">
-        <Wordmark />
-        <p className="error">{error}</p>
-        <button className="button primary" onClick={() => void reloadFresh()}>
-          Reload
-        </button>
-      </main>
+      <>
+        <Backdrop />
+        <main className="screen center">
+          <div className="glass splash-card">
+            <Wordmark />
+            <p className="error">{error}</p>
+            <button className="button primary" onClick={() => void reloadFresh()}>
+              Reload
+            </button>
+          </div>
+        </main>
+      </>
     );
   }
 
   if (!ready) {
     return (
-      <main className="screen center" aria-busy="true">
-        <div className="brand-splash">
-          <Wordmark />
-          <div className="spinner large" aria-label="Loading" />
-        </div>
-      </main>
+      <>
+        <Backdrop />
+        <main className="screen center" aria-busy="true">
+          <div className="glass splash-card">
+            <Wordmark />
+            <div className="spinner large" aria-label="Loading" />
+          </div>
+        </main>
+      </>
     );
   }
 
   return (
     <BrowserRouter>
+      <Backdrop />
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/run" element={<Run />} />
@@ -84,6 +95,13 @@ export function App() {
         <Route path="/ranks" element={<Rankings />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      <Navigation />
     </BrowserRouter>
   );
+}
+
+/** The tab bar, everywhere but the battle, which needs the whole screen. */
+function Navigation() {
+  const { pathname } = useLocation();
+  return pathname === '/run' ? null : <TabBar />;
 }

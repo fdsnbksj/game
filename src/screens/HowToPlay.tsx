@@ -1,83 +1,99 @@
-import { Link } from 'react-router';
 import { CreatureChip } from '../components/CreatureChip';
-import {
-  getTrait,
-  MAX_INTEREST,
-  MAX_ROUNDS,
-  REROLL_COST,
-  START_HP,
-  TRAITS,
-  UNITS,
-  XP_COST,
-  XP_PER_BUY,
-} from '../sim/balance';
+import { ItemChip } from '../components/ItemChip';
+import { TraitIcon } from '../components/TraitIcon';
+import { ITEMS, MAX_INTEREST, MAX_ROUNDS, REROLL_COST, START_HP, TRAITS, UNITS, XP_COST, XP_PER_BUY } from '../sim/balance';
+
+const STEPS = [
+  { title: 'Buy', text: 'Tap a creature in the shop. It lands on your bench.' },
+  { title: 'Place', text: 'Drag it onto your hexes. Your level is how many can fight.' },
+  { title: 'Fight', text: 'Press Fight. The battle plays out on its own.' },
+];
 
 export function HowToPlay() {
   return (
-    <main className="screen">
-      <header className="topbar">
-        <Link className="button small" to="/">
-          ← Home
-        </Link>
-        <h2>How to play</h2>
+    <main className="screen with-tabs">
+      <header className="page-head">
+        <div>
+          <p className="micro">Guide</p>
+          <h1>How to play</h1>
+        </div>
       </header>
 
-      <section className="guide">
-        <h3>The goal</h3>
-        <p>
-          You start with {START_HP} HP. Each round your team fights a rival's, all on its own. Lose and you take damage;
-          survive all {MAX_ROUNDS} rounds, or win as many as you can before you're knocked out.
+      <section className="glass card-pad">
+        <p className="lead">
+          Start with {START_HP} HP. Each round your team fights a rival's by itself. Lose and you take damage; win as many of
+          the {MAX_ROUNDS} rounds as you can.
         </p>
-
-        <h3>Each round</h3>
-        <ol>
-          <li>
-            <b>Buy</b> creatures from the shop. They land on your bench.
-          </li>
-          <li>
-            <b>Drag</b> them onto your hexes. Your level is how many can fight.
-          </li>
-          <li>
-            <b>Fight.</b> The battle plays out by itself.
-          </li>
+        <ol className="steps">
+          {STEPS.map((step, i) => (
+            <li key={step.title}>
+              <span className="step-number">{i + 1}</span>
+              <span>
+                <strong>{step.title}</strong>
+                <span className="note">{step.text}</span>
+              </span>
+            </li>
+          ))}
         </ol>
+      </section>
 
-        <h3>Gold</h3>
-        <p>
-          You earn gold every round, plus 1 per 10 you've saved (up to {MAX_INTEREST}) and a bonus for a win. Reroll the
-          shop for {REROLL_COST}, or buy {XP_PER_BUY} XP for {XP_COST} to level up: higher levels field more creatures and
-          find rarer ones. Selling refunds the full price.
+      <section className="glass card-pad">
+        <p className="micro">Gold and levels</p>
+        <p className="body-text">
+          You earn gold every round, plus 1 for every 10 you've saved (up to {MAX_INTEREST}) and a bonus for a win. Reroll the
+          shop for {REROLL_COST}, or buy {XP_PER_BUY} XP for {XP_COST}: higher levels field more creatures and find rarer
+          ones. Selling refunds the full price. Three copies merge into ★★, three ★★ into ★★★.
         </p>
+      </section>
 
-        <h3>Stars</h3>
-        <p>Three copies of a creature merge into a stronger ★★. Three ★★ make a ★★★.</p>
-
-        <h3>Traits</h3>
-        <p>Field different creatures that share a trait to switch it on.</p>
-        <ul className="trait-lines">
+      <section className="glass card-pad">
+        <p className="micro">Traits</p>
+        <ul className="trait-guide">
           {TRAITS.map((trait) => (
             <li key={trait.id}>
-              <strong>{trait.name}</strong>{' '}
-              <span className="muted">
-                {trait.thresholds.map((t, i) => `(${t}) ${trait.description.replace('{v}', `${trait.values[i]}`)}`).join('  ')}
+              <TraitIcon trait={trait.id} size={22} />
+              <span>
+                <strong>{trait.name}</strong>
+                <span className="note">
+                  {trait.thresholds.map((t, i) => `${t}: ${trait.description.replace('{v}', `${trait.values[i]}`)}`).join(' · ')}
+                </span>
               </span>
             </li>
           ))}
         </ul>
       </section>
 
-      <section className="guide">
-        <h3>Creatures</h3>
-        <ul className="roster">
+      <section className="glass card-pad">
+        <p className="micro">Items</p>
+        <p className="note">One drops every few rounds. Tap a creature to give it one; each creature holds one.</p>
+        <ul className="item-guide">
+          {ITEMS.map((item) => (
+            <li key={item.id}>
+              <ItemChip itemId={item.id} size={24} />
+              <span>
+                <strong>{item.name}</strong>
+                <span className="note">{item.description}</span>
+              </span>
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      <section>
+        <p className="micro section-label">Creatures</p>
+        <ul className="creature-grid">
           {UNITS.map((unit) => (
-            <li key={unit.id} className={`cost-${unit.cost}`}>
-              <CreatureChip unitId={unit.id} size={48} />
-              <div>
-                <strong>{unit.name}</strong> <span className="roster-cost">{unit.cost}g</span>
-                <p className="muted">
-                  {getTrait(unit.origin).name} · {getTrait(unit.role).name} — <b>{unit.ability.name}</b>: {unit.ability.description}
-                </p>
-              </div>
+            <li key={unit.id} className={`glass creature-card cost-${unit.cost}`}>
+              <span className="cost-gem">{unit.cost}</span>
+              <CreatureChip unitId={unit.id} size={54} />
+              <strong>{unit.name}</strong>
+              <span className="creature-traits">
+                <TraitIcon trait={unit.origin} size={14} />
+                <TraitIcon trait={unit.role} size={14} />
+              </span>
+              <span className="note ability-note">
+                <b>{unit.ability.name}</b> {unit.ability.description}
+              </span>
             </li>
           ))}
         </ul>

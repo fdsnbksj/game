@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { Link } from 'react-router';
 import { useRunStore } from '../runStore';
 import { renamePlayer } from '../services/players';
 import { useGameStore } from '../store';
@@ -8,34 +7,37 @@ export function Profile() {
   const player = useGameStore((s) => s.player)!;
   const stats = useRunStore((s) => s.stats);
   return (
-    <main className="screen">
-      <header className="topbar">
-        <Link className="button small" to="/">
-          ← Home
-        </Link>
-        <h2>Profile</h2>
+    <main className="screen with-tabs">
+      <header className="page-head">
+        <div>
+          <p className="micro">Profile</p>
+          <h1>{player.displayName}</h1>
+        </div>
       </header>
 
-      <NameEditor name={player.displayName} />
+      <section className="glass card-pad">
+        <p className="micro">Display name</p>
+        <NameEditor name={player.displayName} />
+        <p className="note">Shown on the rankings, and to players who meet your teams as rivals.</p>
+      </section>
 
-      <dl className="stat-row">
-        <div className="stat">
-          <dt>Runs</dt>
-          <dd>{stats.runs}</dd>
-        </div>
-        <div className="stat">
-          <dt>Best wins</dt>
-          <dd>{stats.bestWins}</dd>
-        </div>
-        <div className="stat">
-          <dt>Best round</dt>
-          <dd>{stats.bestRound}</dd>
-        </div>
-      </dl>
-      <p className="muted small-print">
-        Your name shows on the rankings and to players who meet your teams as rivals. Runs, best wins and best round are
-        counted on this device.
-      </p>
+      <section className="glass tray" aria-label="Your stats">
+        <dl className="tray-stats">
+          <div>
+            <dd>{stats.runs}</dd>
+            <dt>Runs</dt>
+          </div>
+          <div>
+            <dd>{stats.bestWins}</dd>
+            <dt>Best wins</dt>
+          </div>
+          <div>
+            <dd>{stats.bestRound}</dd>
+            <dt>Best round</dt>
+          </div>
+        </dl>
+      </section>
+      <p className="note center-text">Stats are counted on this device.</p>
     </main>
   );
 }

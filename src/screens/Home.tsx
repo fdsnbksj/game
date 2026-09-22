@@ -1,12 +1,15 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { CreatureChip } from '../components/CreatureChip';
-import { SoundToggle } from '../components/SoundToggle';
+import { SettingsButton } from '../components/SettingsSheet';
+import { TraitIcon } from '../components/TraitIcon';
 import { Wordmark } from '../components/Wordmark';
 import { useRunStore } from '../runStore';
 import { dayId } from '../shared/constants';
+import { getTrait, UNITS } from '../sim/balance';
 
-const PARADE = ['sparkmouse', 'bytebat', 'thunderstag', 'mirrorowl', 'glitchtoad'];
+/** How long each creature takes the stage on Home. */
+const FEATURE_MS = 3200;
 
 export function Home() {
   const run = useRunStore((s) => s.run);
@@ -32,68 +35,85 @@ export function Home() {
   }
 
   return (
-    <main className="screen home">
-      <header className="topbar">
-        <span className="spacer" />
-        <SoundToggle />
+    <main className="screen home with-tabs">
+      <header className="home-top">
+        <span className="micro">Season 1</span>
+        <SettingsButton />
       </header>
-      <Wordmark />
-      <p className="tagline">Draft neon creatures. Build synergies. Outlast every rival.</p>
-      <div className="parade" aria-hidden="true">
-        {PARADE.map((unitId, i) => (
-          <span key={unitId} style={{ animationDelay: `${i * 160}ms` }}>
-            <CreatureChip unitId={unitId} size={i === 2 ? 72 : 52} />
-          </span>
-        ))}
+
+      <div className="home-brand">
+        <Wordmark />
+        <p className="tagline">Draft neon creatures. Build synergies. Outlast every rival.</p>
       </div>
 
-      <dl className="stat-row">
-        <div className="stat">
-          <dt>Runs</dt>
-          <dd>{stats.runs}</dd>
-        </div>
-        <div className="stat">
-          <dt>Best wins</dt>
-          <dd>{stats.bestWins}</dd>
-        </div>
-        <div className="stat">
-          <dt>Best round</dt>
-          <dd>{stats.bestRound}</dd>
-        </div>
-      </dl>
-
-      <nav className="menu">
+      <section className="glass hero">
+        <FeaturedCreature />
         {inProgress ? (
           <>
-            <Link className="button primary play-cta" to="/run">
+            <Link className="button primary big" to="/run">
               Continue
             </Link>
-            <p className="muted continue-line">
-              Round {run.round} · {run.hp} HP · {run.wins} wins
+            <p className="micro center-text">
+              {run.mode === 'daily' ? 'Daily challenge' : 'Run'} · round {run.round} · {run.hp} HP · {run.wins} wins
             </p>
-            <button className={confirming ? 'button danger' : 'button'} onClick={() => newRun()}>
-              {confirming ? 'Tap again to abandon this run' : 'New run'}
+            <button className={confirming ? 'button danger' : 'button ghost'} onClick={() => newRun()}>
+              {confirming ? 'Tap again to abandon this run' : 'Start a new run'}
             </button>
           </>
         ) : (
-          <button className="button primary play-cta" onClick={() => newRun()}>
+          <button className="button primary big" onClick={() => newRun()}>
             Play
           </button>
         )}
-        <DailyCard onPlay={() => newRun('daily')} />
-        <div className="menu-row">
-          <Link className="button" to="/how">
-            How to play
-          </Link>
-          <Link className="button" to="/profile">
-            Profile
-          </Link>
-          <Link className="button" to="/ranks">
-            Ranks
-          </Link>
-        </div>
-      </nav>
+      </section>
+
+      <DailyCard onPlay={() => newRun('daily')} />
+
+      <section className="glass tray" aria-label="Your stats">
+        {stats.runs === 0 ? (
+          <p className="tray-empty">Your first run awaits. Win rounds to climb today's rankings.</p>
+        ) : (
+          <dl className="tray-stats">
+            <div>
+              <dd>{stats.runs}</dd>
+              <dt>Runs</dt>
+            </div>
+            <div>
+              <dd>{stats.bestWins}</dd>
+              <dt>Best wins</dt>
+            </div>
+            <div>
+              <dd>{stats.bestRound}</dd>
+              <dt>Best round</dt>
+            </div>
+          </dl>
+        )}
+      </section>
     </main>
+  );
+}
+
+/** A creature on a lit pedestal, changing every few seconds. */
+function FeaturedCreature() {
+  const [index, setIndex] = useState(() => Math.floor(Math.random() * UNITS.length));
+  useEffect(() => {
+    const timer = setInterval(() => setIndex((i) => (i + 1) % UNITS.length), FEATURE_MS);
+    return () => clearInterval(timer);
+  }, []);
+  const unit = UNITS[index];
+  return (
+    <div className="featured">
+      <div className="featured-stage" key={unit.id}>
+        <CreatureChip unitId={unit.id} size={112} />
+      </div>
+      <div className="featured-name">
+        <strong>{unit.name}</strong>
+        <span className="featured-traits">
+          <TraitIcon trait={unit.origin} size={14} /> {getTrait(unit.origin).name}
+          <TraitIcon trait={unit.role} size={14} /> {getTrait(unit.role).name}
+        </span>
+      </div>
+    </div>
   );
 }
 
@@ -105,13 +125,11 @@ function DailyCard({ onPlay }: { onPlay: () => void }) {
   const done = dailyDone(dayId()) && !playing;
 
   return (
-    <button className={done ? 'daily-card done' : 'daily-card'} onClick={onPlay} disabled={done}>
+    <button className={done ? 'glass daily-card done' : 'glass daily-card'} onClick={onPlay} disabled={done}>
       <span className="daily-mark" aria-hidden="true" />
       <span className="daily-text">
-        <strong>Daily challenge</strong>
-        <small className="muted">
-          {playing ? `In progress · round ${run.round}` : done ? 'Played today. Back tomorrow.' : 'The same run for everyone'}
-        </small>
+        <span className="micro">Daily challenge</span>
+        <strong>{playing ? `In progress · round ${run.round}` : done ? 'Played today' : 'The same run for everyone'}</strong>
       </span>
       <span className="daily-go">{playing ? 'Resume' : done ? '✓' : 'Play'}</span>
     </button>
