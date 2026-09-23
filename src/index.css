@@ -445,21 +445,6 @@ body {
   box-shadow: none;
 }
 
-/* Still used by the battle screen's top bar until stage 2. */
-.sound-toggle {
-  display: flex;
-  gap: var(--sp-2);
-}
-
-.sound-toggle .button[aria-pressed='true'] {
-  color: var(--primary);
-  border-color: rgb(54 226 255 / 0.45);
-}
-
-.sound-toggle .button[aria-pressed='false'] {
-  color: var(--muted);
-}
-
 /* ---------- Tab bar ---------- */
 
 .tab-bar {
