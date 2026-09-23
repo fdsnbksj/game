@@ -1,26 +1,11 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="a game">
   <defs>
-    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#080b1c"/>
-      <stop offset="1" stop-color="#35194f"/>
+    <linearGradient id="tile" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#e8e8ed"/>
     </linearGradient>
-    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
-      <feGaussianBlur stdDeviation="10" result="b"/>
-      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
-    </filter>
   </defs>
-  <rect width="512" height="512" rx="112" fill="url(#sky)"/>
-  <g filter="url(#glow)" stroke-width="14" fill="#141a2b">
-    <rect x="88" y="-20" width="96" height="176" rx="6" stroke="#36e2ff"/>
-    <rect x="88" y="356" width="96" height="176" rx="6" stroke="#36e2ff"/>
-    <rect x="328" y="-20" width="96" height="136" rx="6" stroke="#ff3df0"/>
-    <rect x="328" y="316" width="96" height="216" rx="6" stroke="#ff3df0"/>
-  </g>
-  <g transform="translate(256 252) rotate(-14)">
-    <ellipse cx="0" cy="0" rx="78" ry="70" fill="#ffd23f"/>
-    <path d="M-44 6 C -84 -30, -30 -52, 4 -8 C -8 22, -30 26, -44 6 Z" fill="#ff8f1f"/>
-    <circle cx="30" cy="-20" r="20" fill="#fff"/>
-    <circle cx="36" cy="-18" r="10" fill="#10131a"/>
-    <path d="M62 4 L112 18 L62 34 Z" fill="#ffa42b"/>
-  </g>
+  <rect width="512" height="512" rx="114" fill="url(#tile)"/>
+  <rect x="0.5" y="0.5" width="511" height="511" rx="113.5" fill="none" stroke="#000000" stroke-opacity="0.06"/>
+  <text x="260" y="362" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', system-ui, sans-serif" font-size="413" font-weight="500" fill="#1c1c1e">a</text>
 </svg>
