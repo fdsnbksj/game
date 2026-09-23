@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { useRunStore, type Battle } from '../../runStore';
-import { COLORS, DISPLAY_FONT, HEX } from '../../shared/theme';
-import { BENCH_SIZE, getItem, MOVE_TICKS, OVERTIME_TICK, TICKS_PER_SECOND, type Star } from '../../sim/balance';
+import { DISPLAY_FONT, readBoardPalette, type BoardPalette } from '../../shared/theme';
+import { BENCH_SIZE, MOVE_TICKS, OVERTIME_TICK, TICKS_PER_SECOND, type Star } from '../../sim/balance';
 import type { BattleEvent, FighterInfo } from '../../sim/combat';
 import { COLS, ROWS, SIDE_CELLS, toBattleCell } from '../../sim/hex';
 import { move, type OwnedUnit, type Slot } from '../../sim/planning';
@@ -89,10 +89,19 @@ class UnitView extends Phaser.GameObjects.Container {
   star: Star = 1;
   item?: string;
 
-  constructor(scene: Phaser.Scene, x: number, y: number, unitId: string, star: Star, item?: string, side: 'a' | 'b' = 'a') {
+  constructor(
+    scene: Phaser.Scene,
+    x: number,
+    y: number,
+    unitId: string,
+    star: Star,
+    protected palette: BoardPalette,
+    item?: string,
+    readonly side: 'a' | 'b' = 'a',
+  ) {
     super(scene, x, y);
     this.ring = scene.add.graphics();
-    this.drawRing(side === 'a' ? HEX.cyan : HEX.magenta);
+    this.drawRing();
     this.image = scene.add.image(0, -4, creatureKey(unitId)).setScale(creatureScale(UNIT_SIZE));
     this.pips = scene.add.graphics();
     this.badge = scene.add.graphics();
@@ -103,13 +112,21 @@ class UnitView extends Phaser.GameObjects.Container {
     scene.add.existing(this);
   }
 
-  /** The pad of light a creature stands on, which also grounds it on the glass. */
-  private drawRing(color: number) {
+  /** The pad a creature stands on: what keeps a pale one off a pale board. */
+  private drawRing() {
+    const color = this.side === 'a' ? this.palette.mine : this.palette.rival;
     const y = UNIT_SIZE * 0.4;
     this.ring.clear();
-    this.ring.fillStyle(0x000000, 0.3).fillEllipse(0, y + 1.5, UNIT_SIZE * 0.74, 9);
-    this.ring.fillStyle(color, 0.22).fillEllipse(0, y, UNIT_SIZE * 0.8, 11);
-    this.ring.lineStyle(1.2, color, 0.75).strokeEllipse(0, y, UNIT_SIZE * 0.8, 11);
+    this.ring.fillStyle(this.palette.shadow, this.palette.shadowAlpha * 0.5).fillEllipse(0, y + 1, UNIT_SIZE * 0.66, 7);
+    this.ring.fillStyle(color, 0.16).fillEllipse(0, y, UNIT_SIZE * 0.5, 5);
+  }
+
+  /** Redraws everything that carries a colour, after the scheme changes. */
+  applyPalette(palette: BoardPalette) {
+    this.palette = palette;
+    this.drawRing();
+    this.setStar(this.star);
+    this.setItem(this.item);
   }
 
   /** A small mark in the corner when the creature is holding something. */
@@ -119,18 +136,19 @@ class UnitView extends Phaser.GameObjects.Container {
     if (!item) return;
     const x = -UNIT_SIZE / 2 + 5;
     const y = -UNIT_SIZE / 2 + 3;
-    this.badge.fillStyle(0x000000, 0.65).fillCircle(x, y, 5.5);
-    this.badge.fillStyle(getItem(item).color).fillCircle(x, y, 4);
+    this.badge.fillStyle(this.palette.badge, 1).fillCircle(x, y, 5.5);
+    this.badge.lineStyle(1, this.palette.edge, 0.5).strokeCircle(x, y, 5.5);
+    this.badge.fillStyle(this.palette.mine, 0.85).fillCircle(x, y, 2.6);
   }
 
   setStar(star: Star) {
     this.star = star;
-    const color = star === 3 ? HEX.gold : star === 2 ? 0xd9e2f2 : 0xe59a5c;
+    const color = this.palette.star[star - 1];
     const y = -UNIT_SIZE / 2 + 1;
     this.pips.clear();
     for (let i = 0; i < star; i++) {
       const x = (i - (star - 1) / 2) * 8;
-      this.pips.lineStyle(2.6, 0x000000, 0.55);
+      this.pips.lineStyle(2.6, this.palette.scrim, 0.7);
       this.pips.lineBetween(x - 3, y + 2, x, y - 1.5).lineBetween(x, y - 1.5, x + 3, y + 2);
       this.pips.lineStyle(1.4, color, 1);
       this.pips.lineBetween(x - 3, y + 2, x, y - 1.5).lineBetween(x, y - 1.5, x + 3, y + 2);
@@ -144,9 +162,9 @@ class FighterView extends UnitView {
   mana: number;
   private readonly bars: Phaser.GameObjects.Graphics;
 
-  constructor(scene: Phaser.Scene, readonly info: FighterInfo) {
+  constructor(scene: Phaser.Scene, readonly info: FighterInfo, palette: BoardPalette) {
     const { x, y } = cellCenter(info.cell);
-    super(scene, x, y, info.unitId, info.star, info.item, info.side);
+    super(scene, x, y, info.unitId, info.star, palette, info.item, info.side);
     this.hp = info.hp;
     this.mana = info.mana;
     this.bars = scene.add.graphics();
@@ -161,10 +179,10 @@ class FighterView extends UnitView {
     const total = this.info.maxHp + this.shield;
     const hpWidth = (width * this.hp) / total;
     this.bars.clear();
-    this.bars.fillStyle(0x000000, 0.7).fillRect(x - 1, y - 1, width + 2, 7);
-    this.bars.fillStyle(this.info.side === 'a' ? HEX.lime : HEX.danger).fillRect(x, y, hpWidth, 3);
-    if (this.shield > 0) this.bars.fillStyle(0xffffff).fillRect(x + hpWidth, y, (width * this.shield) / total, 3);
-    this.bars.fillStyle(HEX.cyan).fillRect(x, y + 4, (width * this.mana) / this.info.maxMana, 1.5);
+    this.bars.fillStyle(this.palette.track, this.palette.trackAlpha).fillRect(x - 1, y - 1, width + 2, 7);
+    this.bars.fillStyle(this.info.side === 'a' ? this.palette.hp : this.palette.hpRival).fillRect(x, y, hpWidth, 3);
+    if (this.shield > 0) this.bars.fillStyle(this.palette.shield).fillRect(x + hpWidth, y, (width * this.shield) / total, 3);
+    this.bars.fillStyle(this.palette.mana).fillRect(x, y + 4, (width * this.mana) / this.info.maxMana, 1.5);
   }
 }
 
@@ -187,6 +205,8 @@ export class BattleScene extends Phaser.Scene {
   private highlight!: Phaser.GameObjects.Graphics;
   /** Dims the rival's half while planning, so the eye goes to your own. */
   private rivalScrim!: Phaser.GameObjects.Graphics;
+  private board!: Phaser.GameObjects.Graphics;
+  private palette: BoardPalette = readBoardPalette();
   private effects!: Phaser.GameObjects.Layer;
   private lastHitSound = 0;
   /** The unit under the player's finger; sync leaves it where it is. */
@@ -208,9 +228,10 @@ export class BattleScene extends Phaser.Scene {
   create() {
     this.alive = true;
     this.textResolution = Math.max(1, Math.round(1 / (this.scale.zoom || 1)));
+    this.palette = readBoardPalette();
+    this.board = this.add.graphics().setDepth(0);
     this.rivalScrim = this.add.graphics().setDepth(2);
-    // Wider and taller than any camera view, so its edges never show.
-    this.rivalScrim.fillStyle(0x05060f, 0.42).fillRect(-BOARD_WIDTH, -BOARD_HEIGHT, 3 * BOARD_WIDTH, BOARD_HEIGHT + BOARD_Y + R + 3.5 * ROW_STEP);
+    this.drawScrim();
     this.showView('planning', false);
     this.scale.on(Phaser.Scale.Events.RESIZE, this.onResize, this);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.scale.off(Phaser.Scale.Events.RESIZE, this.onResize, this));
@@ -237,8 +258,15 @@ export class BattleScene extends Phaser.Scene {
     });
     // Leaving the screen destroys the game, which emits DESTROY rather than SHUTDOWN. Miss
     // that and this subscription outlives the scene and throws on the next store change.
+    // A phone flips scheme on its own at sunset, mid-fight included, so the board
+    // repaints in place rather than restarting the scene. One frame later: the change
+    // event can land before the style recalc that updates the custom properties.
+    const dark = window.matchMedia('(prefers-color-scheme: dark)');
+    const onScheme = () => requestAnimationFrame(() => this.applyPalette());
+    dark.addEventListener('change', onScheme);
     const stop = () => {
       this.alive = false;
+      dark.removeEventListener('change', onScheme);
       unsubscribe();
     };
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, stop);
@@ -285,48 +313,55 @@ export class BattleScene extends Phaser.Scene {
     camera.zoomTo(zoom, VIEW_TWEEN_MS, 'Cubic.easeInOut');
   }
 
+  /** Redrawn whenever the colour scheme changes, so it holds no colour of its own. */
   private drawBoard() {
-    const g = this.add.graphics().setDepth(0);
+    const p = this.palette;
     const midY = BOARD_Y + R + 3.5 * ROW_STEP;
-
-    // A pool of light under each half, so the glass tiles have something to sit on.
-    for (const half of [0, 1]) {
-      const mine = half === 1;
-      this.add
-        .ellipse(BOARD_WIDTH / 2, midY + (mine ? 1 : -1) * 1.9 * ROW_STEP, 8.4 * HEX_W, 5.2 * ROW_STEP, mine ? HEX.cyan : HEX.magenta, mine ? 0.12 : 0.07)
-        .setDepth(-2);
-    }
+    this.board.clear();
 
     for (let cell = 0; cell < ROWS * COLS; cell++) {
       const { x, y } = cellCenter(cell);
       const mine = cell >= SIDE_CELLS;
-      const color = mine ? HEX.cyan : HEX.magenta;
       const outer = hexPoints(x, y, R - 1.5);
-      g.fillStyle(0xffffff, mine ? 0.07 : 0.045);
-      g.fillPoints(outer, true);
-      g.lineStyle(1, color, mine ? 0.5 : 0.28);
-      g.strokePoints(outer, true);
-      // A brighter top edge, the way a lit pane of glass catches the light.
-      g.lineStyle(1, 0xffffff, mine ? 0.22 : 0.12);
-      g.lineBetween(outer[4].x!, outer[4].y!, outer[5].x!, outer[5].y!);
-      g.lineBetween(outer[5].x!, outer[5].y!, outer[0].x!, outer[0].y!);
+      this.board.fillStyle(p.cell, mine ? p.cellAlpha : p.cellRivalAlpha);
+      this.board.fillPoints(outer, true);
+      this.board.lineStyle(1, p.edge, mine ? p.edgeAlpha : p.edgeRivalAlpha);
+      this.board.strokePoints(outer, true);
     }
 
-    // The line where the two halves meet, brightest in the middle.
-    for (let i = 0; i < 3; i++) {
-      const inset = i * 0.9 * HEX_W;
-      g.lineStyle(i === 2 ? 1.6 : 1, HEX.magenta, 0.16 + i * 0.16);
-      g.lineBetween(BOARD_X + inset, midY, BOARD_WIDTH - BOARD_X - inset, midY);
-    }
+    // The line where the two halves meet.
+    this.board.lineStyle(1, p.edge, p.edgeAlpha);
+    this.board.lineBetween(BOARD_X, midY, BOARD_WIDTH - BOARD_X, midY);
 
     for (let i = 0; i < BENCH_SIZE; i++) {
       const { x, y } = slotCenter({ area: 'bench', index: i });
       const left = x - BENCH_SLOT / 2;
       const top = y - BENCH_SLOT / 2 - 3;
-      g.fillStyle(0xffffff, 0.06).fillRoundedRect(left, top, BENCH_SLOT, BENCH_SLOT + 6, 8);
-      g.lineStyle(1, 0xffffff, 0.14).strokeRoundedRect(left, top, BENCH_SLOT, BENCH_SLOT + 6, 8);
-      g.lineStyle(1, 0xffffff, 0.22).lineBetween(left + 6, top + 0.5, left + BENCH_SLOT - 6, top + 0.5);
+      this.board.fillStyle(p.cell, p.cellRivalAlpha).fillRoundedRect(left, top, BENCH_SLOT, BENCH_SLOT + 6, 8);
+      this.board.lineStyle(1, p.edge, p.edgeRivalAlpha).strokeRoundedRect(left, top, BENCH_SLOT, BENCH_SLOT + 6, 8);
     }
+  }
+
+  private drawScrim() {
+    // Wider and taller than any camera view, so its edges never show.
+    this.rivalScrim.clear();
+    this.rivalScrim
+      .fillStyle(this.palette.scrim, this.palette.scrimAlpha)
+      .fillRect(-BOARD_WIDTH, -BOARD_HEIGHT, 3 * BOARD_WIDTH, BOARD_HEIGHT + BOARD_Y + R + 3.5 * ROW_STEP);
+  }
+
+  /** The scheme changed: re-read the stylesheet and repaint everything that has a colour. */
+  private applyPalette() {
+    if (!this.alive) return;
+    this.palette = readBoardPalette();
+    this.drawBoard();
+    this.drawScrim();
+    for (const view of this.views.values()) view.applyPalette(this.palette);
+    for (const fighter of this.fighters) {
+      fighter.applyPalette(this.palette);
+      fighter.drawBars();
+    }
+    this.syncPlanning();
   }
 
   // ---------- Planning ----------
@@ -379,7 +414,7 @@ export class BattleScene extends Phaser.Scene {
     this.highlight.clear();
     if (!slot) return;
     const { x, y } = slotCenter(slot);
-    this.highlight.fillStyle(HEX.cyan, 0.22).lineStyle(2, HEX.cyan, 0.95);
+    this.highlight.fillStyle(this.palette.mine, 0.12).lineStyle(2, this.palette.mine, 0.9);
     if (slot.area === 'board') {
       this.highlight.fillPoints(hexPoints(x, y, R - 2), true);
       this.highlight.strokePoints(hexPoints(x, y, R - 2), true);
@@ -401,7 +436,7 @@ export class BattleScene extends Phaser.Scene {
       const target = slotCenter(slot);
       let view = this.views.get(unit.uid);
       if (!view) {
-        view = new UnitView(this, target.x, target.y, unit.unitId, unit.star, unit.item).setDepth(10);
+        view = new UnitView(this, target.x, target.y, unit.unitId, unit.star, this.palette, unit.item).setDepth(10);
         view.setInteractive({ draggable: true, useHandCursor: true });
         view.on('pointerup', (pointer: Phaser.Input.Pointer) => {
           if (pointer.getDistance() < 6) useRunStore.getState().select(view!.getData('slot') as Slot);
@@ -415,7 +450,7 @@ export class BattleScene extends Phaser.Scene {
       if (view.star !== unit.star) {
         view.setStar(unit.star);
         this.tweens.add({ targets: view, scale: { from: 1.5, to: 1 }, duration: 380, ease: 'Back.easeOut' });
-        this.burst(target.x, target.y, unit.star === 3 ? HEX.cyan : 0xffffff);
+        this.burst(target.x, target.y, unit.star === 3 ? this.palette.star[2] : this.palette.mine);
         sfx.combine();
       }
       view.setData('slot', slot);
@@ -425,7 +460,8 @@ export class BattleScene extends Phaser.Scene {
         this.tweens.add({ targets: view, x: target.x, y: target.y, duration: 160, ease: 'Quad.easeOut' });
       }
       const isSelected = selected?.area === slot.area && selected.index === slot.index;
-      view.image.setTint(isSelected ? 0xbff6ff : 0xffffff);
+      // A ring marks the selection; tinting the art washes it out on a light board.
+      view.setScale(isSelected ? 1.08 : 1);
     };
     run?.board.forEach((unit, index) => place(unit, { area: 'board', index }));
     run?.bench.forEach((unit, index) => place(unit, { area: 'bench', index }));
@@ -442,7 +478,7 @@ export class BattleScene extends Phaser.Scene {
     this.highlight.clear();
     if (!slot) return;
     const { x, y } = slotCenter(slot);
-    this.highlight.lineStyle(2, HEX.cyan, 1);
+    this.highlight.lineStyle(2, this.palette.mine, 1);
     if (slot.area === 'board') this.highlight.strokePoints(hexPoints(x, y, R - 3), true);
     else this.highlight.strokeRoundedRect(x - BENCH_SLOT / 2, y - BENCH_SLOT / 2 - 3, BENCH_SLOT, BENCH_SLOT + 6, 6);
   }
@@ -455,7 +491,7 @@ export class BattleScene extends Phaser.Scene {
     this.showView('fight', true);
     for (const view of this.views.values()) view.setVisible(false);
     this.highlight.clear();
-    this.fighters = battle.result.fighters.map((info) => new FighterView(this, info).setDepth(10));
+    this.fighters = battle.result.fighters.map((info) => new FighterView(this, info, this.palette).setDepth(10));
     for (const fighter of this.fighters) {
       fighter.setScale(0);
       this.tweens.add({ targets: fighter, scale: 1, duration: 260, delay: fighter.info.side === 'b' ? 120 : 0, ease: 'Back.easeOut' });
@@ -484,11 +520,11 @@ export class BattleScene extends Phaser.Scene {
     while (replay.next < events.length && events[replay.next].t <= tick) this.apply(events[replay.next++], speed);
     if (!replay.overtimeShown && tick > OVERTIME_TICK && tick <= ticks) {
       replay.overtimeShown = true;
-      this.banner('OVERTIME', COLORS.gold, true);
+      this.banner('OVERTIME', this.palette.currency, true);
     }
     if (!replay.bannerShown && tick > ticks) {
       replay.bannerShown = true;
-      this.banner(winner === 'a' ? 'VICTORY' : winner === 'b' ? 'DEFEAT' : 'DRAW', winner === 'a' ? COLORS.lime : winner === 'b' ? COLORS.danger : COLORS.muted);
+      this.banner(winner === 'a' ? 'Won' : winner === 'b' ? 'Lost' : 'Draw', winner === 'a' ? this.palette.success : winner === 'b' ? this.palette.danger : this.palette.muted);
       if (winner === 'a') {
         sfx.reward();
         vibrate(20);
@@ -515,7 +551,7 @@ export class BattleScene extends Phaser.Scene {
         fighter.drawBars();
         if (!target) break;
         if (Phaser.Math.Distance.Between(fighter.x, fighter.y, target.x, target.y) > HEX_W * 1.5) {
-          const bolt = this.add.circle(fighter.x, fighter.y - 4, 2.5, fighter.info.side === 'a' ? HEX.cyan : HEX.magenta);
+          const bolt = this.add.circle(fighter.x, fighter.y - 4, 2.5, fighter.info.side === 'a' ? this.palette.mine : this.palette.rival);
           this.effects.add(bolt);
           this.tweens.add({ targets: bolt, x: target.x, y: target.y - 4, duration: 180 / speed, onComplete: () => bolt.destroy() });
         } else {
@@ -530,8 +566,8 @@ export class BattleScene extends Phaser.Scene {
         fighter.shield = event.shield;
         fighter.mana = event.mana;
         fighter.drawBars();
-        this.floatText(fighter, `${event.amount}`, event.ability ? COLORS.magenta : COLORS.text, event.ability ? 13 : 10);
-        fighter.image.setTintFill(0xffffff);
+        this.floatText(fighter, `${event.amount}`, event.ability ? this.palette.danger : this.palette.label, event.ability ? 13 : 10);
+        fighter.image.setTintFill(this.palette.shield);
         this.time.delayedCall(60, () => fighter.image.clearTint());
         if (this.time.now - this.lastHitSound > 60) {
           this.lastHitSound = this.time.now;
@@ -539,27 +575,27 @@ export class BattleScene extends Phaser.Scene {
         }
         break;
       case 'dodge':
-        this.floatText(fighter, 'MISS', COLORS.muted, 9);
+        this.floatText(fighter, 'Miss', this.palette.muted, 9);
         break;
       case 'heal':
         fighter.hp = event.hp;
         fighter.drawBars();
-        this.floatText(fighter, `+${event.amount}`, COLORS.lime, 12);
+        this.floatText(fighter, `+${event.amount}`, this.palette.success, 12);
         break;
       case 'shield':
         fighter.shield = event.shield;
         fighter.drawBars();
-        this.floatText(fighter, 'SHIELD', '#ffffff', 9);
+        this.floatText(fighter, 'Shield', this.palette.label, 9);
         break;
       case 'stun':
-        fighter.image.setTint(0x8a93b8);
-        this.floatText(fighter, 'STUN', COLORS.gold, 9);
+        fighter.image.setTint(this.palette.rival);
+        this.floatText(fighter, 'Stun', this.palette.currency, 9);
         this.time.delayedCall((event.ticks * MS_PER_TICK) / speed, () => fighter.active && fighter.image.clearTint());
         break;
       case 'cast': {
         fighter.mana = 0;
         fighter.drawBars();
-        const color = fighter.info.side === 'a' ? HEX.cyan : HEX.magenta;
+        const color = fighter.info.side === 'a' ? this.palette.mine : this.palette.rival;
         for (const cell of event.cells) {
           const { x, y } = cellCenter(cell);
           const flash = this.add.graphics().fillStyle(color, 0.45).fillPoints(hexPoints(x, y, R - 3), true);
@@ -572,7 +608,7 @@ export class BattleScene extends Phaser.Scene {
       }
       case 'death':
         this.tweens.add({ targets: fighter, alpha: 0, scale: 0.5, duration: 260 / speed });
-        this.burst(fighter.x, fighter.y, fighter.info.side === 'a' ? HEX.cyan : HEX.magenta);
+        this.burst(fighter.x, fighter.y, fighter.info.side === 'a' ? this.palette.mine : this.palette.rival);
         sfx.faint();
         break;
     }
@@ -583,9 +619,9 @@ export class BattleScene extends Phaser.Scene {
       .text(at.x + Phaser.Math.Between(-6, 6), at.y - 14, text, {
         fontFamily: DISPLAY_FONT,
         fontSize: `${size}px`,
-        fontStyle: '800',
+        fontStyle: '600',
         color,
-        stroke: '#000000',
+        stroke: this.palette.halo,
         strokeThickness: 3,
       })
       .setResolution(this.textResolution)
@@ -604,16 +640,14 @@ export class BattleScene extends Phaser.Scene {
     const label = this.add
       .text(BOARD_WIDTH / 2, BOARD_Y + R + 3.5 * ROW_STEP, text, {
         fontFamily: DISPLAY_FONT,
-        fontSize: '34px',
-        fontStyle: '900',
+        fontSize: '30px',
+        fontStyle: '700',
         color,
-        stroke: '#000000',
-        strokeThickness: 6,
+        stroke: this.palette.halo,
+        strokeThickness: 5,
       })
       .setResolution(this.textResolution)
       .setOrigin(0.5)
-      .setLetterSpacing(4)
-      .setShadow(0, 0, color, 14, false, true)
       .setScale(0.6)
       .setAlpha(0);
     this.effects.add(label);

@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { useEffect, useRef } from 'react';
-import { COLORS } from '../shared/theme';
+import { cssColor } from '../shared/theme';
 
 interface PhaserGameProps {
   /** Pass a module-level array: a new array recreates the game. */
@@ -45,7 +45,7 @@ export function PhaserGame({ scenes, responsive = false, width = 100, height = 1
       width: responsive ? Math.max(1, Math.round(box.width * dpr)) : width,
       height: responsive ? Math.max(1, Math.round(box.height * dpr)) : height,
       transparent,
-      backgroundColor: COLORS.bg,
+      backgroundColor: cssColor('--board-scrim'),
       banner: false,
       scale: responsive
         ? { mode: Phaser.Scale.NONE, zoom: 1 / dpr }

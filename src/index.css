@@ -1294,6 +1294,9 @@ a {
   flex: 1 1 auto;
   min-height: 120px;
   overflow: hidden;
+  /* The canvas is transparent, so the board's colours are tuned against this surface. */
+  border-radius: var(--r-lg);
+  background: var(--surface);
 }
 
 .board-canvas canvas {
@@ -1484,7 +1487,6 @@ a {
   align-items: center;
   gap: var(--sp-2);
   padding: 6px 8px;
-  border: var(--hairline) solid var(--currency);
   border-radius: var(--r-md);
   background: var(--currency-soft);
 }
