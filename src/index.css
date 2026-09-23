@@ -1139,7 +1139,8 @@ body {
   border: 1px solid var(--glass-border);
   border-top-color: var(--glass-edge);
   border-radius: 22px;
-  background: linear-gradient(180deg, rgb(255 255 255 / 0.1), rgb(255 255 255 / 0.04));
+  /* Nearly opaque: the fading overlay stops its blur from reaching the board behind. */
+  background: linear-gradient(180deg, rgb(255 255 255 / 0.1), rgb(255 255 255 / 0.04)), rgb(16 20 40 / 0.94);
   box-shadow: var(--shadow-panel);
   text-align: center;
   -webkit-backdrop-filter: blur(18px) saturate(140%);
@@ -1189,16 +1190,23 @@ body {
 .run {
   height: 100dvh;
   gap: var(--sp-2);
-  padding-inline: var(--sp-2);
+  padding: max(var(--sp-2), env(safe-area-inset-top)) var(--sp-2) max(var(--sp-2), env(safe-area-inset-bottom));
   overflow: hidden;
 }
 
 .run-hud {
-  align-self: stretch;
   display: grid;
   grid-template-columns: auto auto 1fr auto auto;
   align-items: center;
   gap: var(--sp-3);
+  padding: 6px 8px;
+  border-radius: var(--r-md);
+}
+
+.run-hud .icon-button {
+  width: 36px;
+  height: 36px;
+  min-height: 36px;
 }
 
 .hud-round,
@@ -1206,7 +1214,7 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  line-height: 1.1;
+  line-height: 1.05;
 }
 
 .hud-round strong,
@@ -1234,12 +1242,12 @@ body {
   flex: 1;
   overflow: hidden;
   border-radius: var(--r-pill);
-  background: var(--bg-raised);
+  background: rgb(0 0 0 / 0.3);
+  box-shadow: inset 0 0 0 1px var(--hairline);
 }
 
 .hp-bar {
-  height: 10px;
-  box-shadow: inset 0 0 0 1px var(--line);
+  height: 8px;
 }
 
 .hp-bar span,
@@ -1255,32 +1263,53 @@ body {
   box-shadow: 0 0 10px rgb(92 255 135 / 0.6);
 }
 
+/* The canvas is taken out of flow: its own size is set from this box, so leaving it in
+   flow would let it push the box taller and never shrink back. */
 .board-canvas {
-  align-self: stretch;
+  position: relative;
   flex: 1 1 auto;
-  min-height: 200px;
+  min-height: 120px;
+  overflow: hidden;
 }
 
-.trait-bar {
-  align-self: stretch;
+.board-canvas canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: block;
+}
+
+/* ---------- Trait rail ---------- */
+
+.trait-rail-wrap {
+  position: relative;
+  flex: none;
+}
+
+.trait-rail {
   display: flex;
   align-items: center;
   gap: 6px;
-  min-height: 30px;
+  min-height: 32px;
+  padding: 0 10px;
   overflow-x: auto;
   scrollbar-width: none;
+  /* Fades at both ends, so a rail that runs on doesn't look cut off. */
+  -webkit-mask-image: linear-gradient(90deg, transparent, black 12px, black calc(100% - 12px), transparent);
+  mask-image: linear-gradient(90deg, transparent, black 12px, black calc(100% - 12px), transparent);
 }
 
-.trait-bar::-webkit-scrollbar {
+.trait-rail::-webkit-scrollbar {
   display: none;
 }
 
 .board-count,
 .versus {
   flex: none;
-  padding: 3px 10px;
+  padding: 4px 10px;
+  border: 1px solid var(--hairline);
   border-radius: var(--r-pill);
-  background: var(--bg-raised);
+  background: rgb(255 255 255 / 0.06);
   font-family: var(--font-display);
   font-size: var(--fs-sm);
   font-weight: 700;
@@ -1288,91 +1317,131 @@ body {
 
 .versus {
   color: var(--magenta);
+  border-color: rgb(255 61 240 / 0.4);
   text-shadow: 0 0 8px rgb(255 61 240 / 0.6);
 }
 
 .hint {
+  flex: none;
+  color: var(--muted);
   font-size: var(--fs-sm);
   white-space: nowrap;
 }
 
 .trait-chip {
   flex: none;
-  padding: 3px 10px;
-  border: 1px solid var(--line);
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border: 1px solid var(--hairline);
   border-radius: var(--r-pill);
-  background: var(--panel);
+  background: rgb(255 255 255 / 0.05);
   color: var(--muted);
   font: inherit;
   font-size: var(--fs-xs);
-  font-weight: 600;
+  font-weight: 650;
   cursor: pointer;
 }
 
 .trait-chip b {
   color: var(--text);
+  font-variant-numeric: tabular-nums;
 }
 
-.trait-chip small {
-  color: var(--muted);
+.trait-chip.tier-0 .trait-icon {
+  opacity: 0.55;
 }
 
 .trait-chip.tier-1 {
-  border-color: var(--cyan);
+  border-color: rgb(54 226 255 / 0.55);
+  background: rgb(54 226 255 / 0.1);
   color: var(--text);
-  box-shadow: 0 0 10px rgb(54 226 255 / 0.35);
 }
 
 .trait-chip.tier-2 {
-  border-color: var(--gold);
+  border-color: rgb(255 200 61 / 0.7);
+  background: rgb(255 200 61 / 0.12);
   color: var(--text);
-  box-shadow: 0 0 12px rgb(255 200 61 / 0.5);
+  box-shadow: 0 0 12px rgb(255 200 61 / 0.35);
+}
+
+.trait-pop {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 8px;
+  right: 8px;
+  z-index: 12;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 14px;
+  border-radius: var(--r-md);
+  cursor: pointer;
+  animation: pop-in var(--dur) var(--ease-back) both;
+}
+
+/* ---------- Command tray ---------- */
+
+/* The tray and the fight bar share a cell: the board never changes size mid-round. */
+.dock {
+  flex: none;
+  display: grid;
+}
+
+.dock-layer {
+  grid-area: 1 / 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  transition: opacity var(--dur) var(--ease);
+}
+
+.dock-layer.inactive {
+  visibility: hidden;
+}
+
+.tray-dock,
+.fight-bar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  padding: 10px;
 }
 
 .controls {
-  align-self: stretch;
   display: grid;
   grid-template-columns: auto 1fr auto auto;
   align-items: center;
   gap: var(--sp-2);
 }
 
-.gold,
-.card-cost {
+.gold {
   display: inline-flex;
   align-items: center;
   gap: 5px;
   color: var(--gold);
   font-family: var(--font-display);
+  font-size: var(--fs-lg);
   font-weight: 800;
   font-variant-numeric: tabular-nums;
-}
-
-.gold {
-  min-width: 3.5rem;
-  font-size: var(--fs-xl);
-  text-shadow: 0 0 10px rgb(255 200 61 / 0.5);
+  text-shadow: 0 0 12px rgb(255 200 61 / 0.45);
 }
 
 .coin {
-  display: inline-block;
-  width: 0.8em;
-  height: 0.8em;
+  width: 14px;
+  height: 14px;
   flex: none;
   border-radius: 50%;
-  background: radial-gradient(circle at 35% 30%, #fff1b0, var(--gold) 55%, #b57d00);
-  box-shadow: 0 0 6px rgb(255 200 61 / 0.6);
-  vertical-align: -0.05em;
+  background: radial-gradient(circle at 35% 30%, #fff1b0, var(--gold) 60%, #b57d00);
+  box-shadow: 0 0 8px rgb(255 200 61 / 0.5);
 }
 
 .level {
   display: flex;
-  align-items: center;
-  gap: var(--sp-2);
-  font-family: var(--font-display);
-  font-size: var(--fs-sm);
-  font-weight: 700;
-  white-space: nowrap;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
 }
 
 .xp-bar {
@@ -1380,8 +1449,7 @@ body {
 }
 
 .xp-bar span {
-  background: var(--cyan);
-  box-shadow: 0 0 8px rgb(54 226 255 / 0.6);
+  background: linear-gradient(90deg, var(--cyan), var(--violet));
 }
 
 .price {
@@ -1390,30 +1458,40 @@ body {
   font-weight: 800;
 }
 
+.bag {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 6px 8px;
+  border: 1px solid rgb(255 200 61 / 0.3);
+  border-radius: var(--r-md);
+  background: rgb(255 200 61 / 0.07);
+}
+
 .shop {
-  align-self: stretch;
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 6px;
 }
 
 .shop-card {
-  --cost-color: var(--muted);
+  --tier: rgb(255 255 255 / 0.35);
   position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 1px;
+  gap: 3px;
   min-width: 0;
-  padding: 6px 3px 5px;
-  border: 1.5px solid var(--cost-color);
+  min-height: 100px;
+  padding: 16px 3px 8px;
+  border: 1px solid var(--tier);
   border-radius: var(--r-md);
-  background: linear-gradient(180deg, rgb(255 255 255 / 0.05), transparent 50%), var(--panel);
+  background: linear-gradient(180deg, rgb(255 255 255 / 0.09), rgb(255 255 255 / 0.03));
   color: var(--text);
   font: inherit;
   cursor: pointer;
-  transition: transform var(--dur-fast) var(--ease), opacity var(--dur) var(--ease);
-  animation: pop-in var(--dur-slow) var(--ease-back) both;
+  animation: pop-in var(--dur) var(--ease-back) both;
+  transition: transform var(--dur-fast) var(--ease), filter var(--dur-fast) var(--ease);
 }
 
 .shop-card:nth-child(2) { animation-delay: 30ms; }
@@ -1421,148 +1499,253 @@ body {
 .shop-card:nth-child(4) { animation-delay: 90ms; }
 .shop-card:nth-child(5) { animation-delay: 120ms; }
 
-.shop-card:active {
+.shop-card:active:not(.sold) {
   transform: scale(0.95);
+  filter: brightness(1.2);
 }
 
-.shop-card.cost-2 { --cost-color: var(--lime); }
-.shop-card.cost-3 { --cost-color: var(--cyan); }
-.shop-card.cost-4 { --cost-color: var(--violet); box-shadow: 0 0 12px rgb(183 124 255 / 0.4); }
-.shop-card.cost-5 { --cost-color: var(--gold); box-shadow: 0 0 14px rgb(255 200 61 / 0.5); }
+.shop-card.cost-2 { --tier: rgb(92 255 135 / 0.6); }
+.shop-card.cost-3 { --tier: rgb(54 226 255 / 0.6); }
+.shop-card.cost-4 { --tier: rgb(183 124 255 / 0.75); box-shadow: 0 0 14px rgb(183 124 255 / 0.3); }
+.shop-card.cost-5 { --tier: rgb(255 200 61 / 0.8); box-shadow: 0 0 16px rgb(255 200 61 / 0.35); }
 
 .shop-card.poor {
   opacity: 0.45;
 }
 
 .shop-card.sold {
-  min-height: 96px;
   border-style: dashed;
-  border-color: var(--line-soft);
-  background: none;
-  animation: none;
+  border-color: var(--hairline);
+  background: rgb(255 255 255 / 0.02);
+  box-shadow: none;
+}
+
+/* The third copy completes a merge, so it gets a pull. */
+.shop-card.combines:not(.poor) {
+  animation: pop-in var(--dur) var(--ease-back) both, combine-shimmer 1.8s ease-in-out infinite;
 }
 
 .card-name {
-  max-width: 100%;
-  overflow: hidden;
-  font-size: 0.7rem;
+  font-size: 0.64rem;
   font-weight: 700;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.15;
+  text-align: center;
+  /* A long name hyphenates rather than snapping mid-word. */
+  hyphens: auto;
+  overflow-wrap: break-word;
 }
 
 .card-traits {
-  max-width: 100%;
-  overflow: hidden;
-  color: var(--muted);
-  font-size: 0.55rem;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  display: flex;
+  gap: 3px;
+  margin-top: auto;
+  padding-top: 2px;
 }
 
-.card-cost {
-  font-size: var(--fs-sm);
+.shop-card .cost-gem {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border: 1px solid var(--tier);
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--tier) 25%, rgb(6 9 26 / 0.8));
+  color: var(--text);
+  font-family: var(--font-display);
+  font-size: 0.66rem;
+  font-weight: 800;
+  line-height: 1;
 }
 
 .owned-badge {
   position: absolute;
-  top: -7px;
-  right: -4px;
+  top: 3px;
+  right: 3px;
   padding: 1px 5px;
   border-radius: var(--r-pill);
-  background: var(--cyan);
+  background: rgb(54 226 255 / 0.9);
   color: var(--on-neon);
+  font-family: var(--font-display);
   font-size: 0.6rem;
   font-weight: 800;
 }
 
 .fight-button {
-  align-self: stretch;
-  font-family: var(--font-display);
-  font-size: var(--fs-lg);
-  font-weight: 900;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  margin-bottom: max(0px, env(safe-area-inset-bottom));
+  width: 100%;
 }
 
 .fight-button:not(:disabled) {
-  background: linear-gradient(180deg, #ff8af6, var(--magenta));
-  border-color: var(--magenta);
-  color: #1a0418;
-  box-shadow: 0 0 14px rgb(255 61 240 / 0.55), 0 0 36px rgb(255 61 240 / 0.25);
-  animation: fight-pulse 2s var(--ease) infinite;
+  background: linear-gradient(135deg, #ff6ad5 0%, #b77cff 50%, #43e9ff 100%);
+  box-shadow: 0 10px 26px rgb(255 61 240 / 0.3), inset 0 1px 0 rgb(255 255 255 / 0.5);
+  animation: fight-pulse 2.4s ease-in-out infinite;
 }
 
-.dock {
-  align-self: stretch;
-  display: grid;
+@media (max-height: 700px) {
+  .shop-card {
+    min-height: 88px;
+    padding-top: 15px;
+  }
+
+  .tray-dock {
+    gap: 6px;
+    padding: 8px;
+  }
+
+  .run .button.big {
+    min-height: 48px;
+    font-size: 1rem;
+  }
 }
 
-.dock-layer {
-  grid-area: 1 / 1;
+/* ---------- Fight ---------- */
+
+.fight-bar {
+  flex: 1;
+  justify-content: space-evenly;
+  gap: var(--sp-3);
+  padding: var(--sp-4);
+}
+
+.strength-block {
   display: flex;
   flex-direction: column;
-  gap: var(--sp-2);
+  gap: 6px;
 }
 
-.dock-layer.inactive {
-  visibility: hidden;
-  pointer-events: none;
+.strength-names {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  font-size: var(--fs-sm);
+  font-weight: 650;
 }
 
-.dock-layer.replay {
-  justify-content: flex-end;
+.strength-names .mine-name {
+  color: var(--cyan);
 }
 
-.replay-controls {
+.strength-names .rival-name {
+  overflow: hidden;
+  color: var(--magenta);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.strength {
+  display: flex;
+  height: 8px;
+  overflow: hidden;
+  border-radius: var(--r-pill);
+  background: linear-gradient(90deg, rgb(255 61 240 / 0.55), rgb(255 61 240 / 0.8));
+}
+
+.strength .mine {
+  height: 100%;
+  border-right: 1px solid rgb(255 255 255 / 0.5);
+  background: linear-gradient(90deg, rgb(54 226 255 / 0.9), rgb(54 226 255 / 0.55));
+  transition: width var(--dur-slow) var(--ease);
+}
+
+.fight-buttons {
   display: grid;
   grid-template-columns: 1fr 1fr 1.4fr;
   gap: var(--sp-2);
-  margin-bottom: max(0px, env(safe-area-inset-bottom));
 }
 
-.replay-controls .button[aria-pressed='true'] {
-  border-color: var(--cyan);
-  color: var(--cyan);
-  box-shadow: 0 0 10px rgb(54 226 255 / 0.3);
-}
-
-.button.danger {
-  border-color: rgb(255 90 95 / 0.6);
-  color: var(--danger);
+.fight-buttons .button[aria-pressed='true'] {
+  border-color: rgb(54 226 255 / 0.6);
+  background: rgb(54 226 255 / 0.15);
+  color: var(--text);
 }
 
 .rival-kind {
   margin-left: 6px;
   padding: 1px 6px;
   border-radius: var(--r-pill);
-  background: var(--line);
-  color: var(--muted);
+  background: rgb(255 255 255 / 0.12);
+  color: var(--text);
   font-family: var(--font-body);
-  font-size: 0.6rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
+  font-size: 0.62rem;
+  font-weight: 650;
+  letter-spacing: 0.04em;
   text-shadow: none;
   text-transform: uppercase;
-  vertical-align: 2px;
 }
 
 .rival-kind.ghost {
-  background: var(--magenta);
-  color: #1a0418;
+  background: rgb(54 226 255 / 0.25);
 }
 
+/* ---------- Round result ---------- */
 
-/* ---------- Items ---------- */
-
-.bag {
-  align-self: stretch;
+/* Over the canvas, where blur can't reach and costs the most: near-opaque glass instead. */
+.round-result {
+  position: absolute;
+  background: linear-gradient(180deg, rgb(26 32 60 / 0.96), rgb(14 18 38 / 0.96));
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  top: 38%;
+  left: 50%;
+  z-index: 15;
   display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 210px;
+  padding: 14px 20px;
+  border-radius: var(--r-lg);
+  text-align: center;
+  cursor: pointer;
+  transform: translate(-50%, -50%);
+  animation: result-in var(--dur-slow) var(--ease-back) both;
+}
+
+.round-result strong {
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  white-space: nowrap;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.round-result.won {
+  border-color: rgb(92 255 135 / 0.6);
+  box-shadow: var(--shadow-panel), 0 0 30px rgb(92 255 135 / 0.25);
+}
+
+.round-result.won strong {
+  color: var(--lime);
+  text-shadow: 0 0 14px rgb(92 255 135 / 0.6);
+}
+
+.round-result.lost {
+  border-color: rgb(255 90 95 / 0.6);
+  box-shadow: var(--shadow-panel), 0 0 30px rgb(255 90 95 / 0.22);
+}
+
+.round-result.lost strong {
+  color: var(--danger);
+  text-shadow: 0 0 14px rgb(255 90 95 / 0.55);
+}
+
+.round-result .drop {
+  display: inline-flex;
   align-items: center;
   gap: 6px;
-  min-height: 26px;
+  margin-top: 6px;
+  padding: 4px 10px;
+  border-radius: var(--r-pill);
+  background: rgb(255 200 61 / 0.14);
+  color: var(--gold);
+  font-size: var(--fs-sm);
+  font-weight: 650;
 }
+
+/* ---------- Items ---------- */
 
 .item-chip {
   display: block;
@@ -1576,7 +1759,7 @@ body {
   gap: 6px;
 }
 
-.item-section .eyebrow {
+.item-section .micro {
   margin-bottom: -2px;
 }
 
@@ -1665,9 +1848,21 @@ body {
   font-size: var(--fs-lg);
 }
 
-.sheet-head p {
-  margin: 2px 0 0;
+.sheet-traits {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin: 4px 0 0;
+  color: var(--muted);
   font-size: var(--fs-sm);
+}
+
+.sheet-traits .trait-icon:nth-of-type(2) {
+  margin-left: 6px;
+}
+
+.sheet-traits .coin {
+  margin-left: 6px;
 }
 
 .stars {
@@ -1687,7 +1882,8 @@ body {
   flex-direction: column;
   padding: 6px 10px;
   border-radius: var(--r-sm);
-  background: var(--bg-raised);
+  background: rgb(255 255 255 / 0.05);
+  box-shadow: inset 0 0 0 1px var(--hairline);
 }
 
 .sheet-stats dt {
@@ -1709,11 +1905,22 @@ body {
 .trait-lines {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
   margin: 0;
   padding: 0;
   list-style: none;
   font-size: var(--fs-sm);
+}
+
+.trait-lines li {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: start;
+  gap: var(--sp-2);
+}
+
+.trait-lines .trait-icon {
+  margin-top: 2px;
 }
 
 .sheet-actions {
@@ -1724,7 +1931,7 @@ body {
 
 .notice {
   position: fixed;
-  top: max(64px, calc(env(safe-area-inset-top) + 56px));
+  top: max(104px, calc(env(safe-area-inset-top) + 96px));
   left: 50%;
   z-index: 30;
   max-width: min(90vw, 420px);
@@ -1832,6 +2039,19 @@ body {
 @keyframes fight-pulse {
   50% {
     box-shadow: 0 0 20px rgb(255 61 240 / 0.8), 0 0 48px rgb(255 61 240 / 0.4);
+  }
+}
+
+@keyframes result-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -30%) scale(0.85);
+  }
+}
+
+@keyframes combine-shimmer {
+  50% {
+    box-shadow: 0 0 18px rgb(54 226 255 / 0.55);
   }
 }
 
