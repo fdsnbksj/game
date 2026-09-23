@@ -9,6 +9,7 @@ export interface AudioPrefs {
 }
 
 // Named for the game's old title; kept so players' sound settings carry over.
+// A historical name, kept so players don't lose the preference they already set.
 const PREFS_KEY = 'neon-flap:audio';
 const DEFAULT_PREFS: AudioPrefs = { sound: true, music: false };
 

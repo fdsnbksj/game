@@ -15,6 +15,8 @@ import { useGameStore } from './store';
 // Online, each round is also queued for Firestore and written in order, spaced out the
 // way the rules require. The queue is saved with the run, so a reload carries on writing.
 
+// Historical names: the game was called Neon Brawl. Renaming them would wipe every
+// in-progress run and lifetime stat on devices that already have one.
 const RUN_KEY = 'neon-brawl:run';
 const ONLINE_KEY = 'neon-brawl:online';
 const STATS_KEY = 'neon-brawl:stats';

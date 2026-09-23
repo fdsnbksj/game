@@ -8,7 +8,6 @@
   --bg: #f2f2f7;
   --surface: #ffffff;
   --surface-2: #ffffff;
-  --surface-sunken: #e9e9ee;
   --material: rgb(255 255 255 / 0.72);
   --scrim: rgb(0 0 0 / 0.2);
 
@@ -29,7 +28,6 @@
   --accent: #1c1c1e;
   --accent-soft: rgb(0 0 0 / 0.06);
   --success: #34c759;
-  --success-text: #1d7f36;
   --success-soft: rgb(52 199 89 / 0.14);
   --danger: #ff3b30;
   --danger-text: #d70015;
@@ -87,7 +85,6 @@
   --fs-base: 0.9375rem;
   --fs-md: 1.0625rem;
   --fs-lg: 1.25rem;
-  --fs-xl: 1.375rem;
   --fs-2xl: 1.75rem;
   --fs-3xl: 2.125rem;
 
@@ -95,7 +92,6 @@
   --sp-2: 8px;
   --sp-3: 12px;
   --sp-4: 16px;
-  --sp-5: 20px;
   --sp-6: 24px;
 
   --r-sm: 8px;
@@ -121,7 +117,6 @@
     --bg: #000000;
     --surface: #1c1c1e;
     --surface-2: #2c2c2e;
-    --surface-sunken: #0d0d0f;
     --material: rgb(30 30 32 / 0.72);
     --scrim: rgb(0 0 0 / 0.4);
 
@@ -139,7 +134,6 @@
     --accent: #ffffff;
     --accent-soft: rgb(255 255 255 / 0.12);
     --success: #30d158;
-    --success-text: #30d158;
     --success-soft: rgb(48 209 88 / 0.18);
     --danger: #ff453a;
     --danger-text: #ff6961;
@@ -942,7 +936,6 @@ a {
 .podium-wins small {
   margin-left: 3px;
   color: var(--label-2);
-  font-family: var(--font-body);
   font-size: var(--fs-xs);
   font-weight: 500;
 }
@@ -1002,7 +995,6 @@ a {
 
 .rank-list .wins small {
   color: var(--label-2);
-  font-family: var(--font-body);
   font-size: var(--fs-xs);
   font-weight: 500;
 }

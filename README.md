@@ -1,8 +1,8 @@
-# Neon Brawl
+# a game
 
-A neon auto-battler for your phone. Buy creatures from the shop, drag them onto a hex board, and watch them fight. Three copies merge into a stronger ★★, creatures that share a trait power each other up, items drop as you go, and a run lasts up to 15 rounds on 100 HP. Each round you fight another player's saved team from the same round, or a bot if there isn't one, and finished runs go on a daily ranking. There's also a daily challenge: the same run for everyone that day, on its own board.
+An auto-battler for your phone. Buy creatures from the shop, drag them onto a hex board, and watch them fight. Three copies merge into a stronger ★★, creatures that share a trait power each other up, items drop as you go, and a run lasts up to 15 rounds on 100 HP. Each round you fight another player's saved team from the same round, or a bot if there isn't one, and finished runs go on a daily ranking. There's also a daily challenge: the same run for everyone that day, on its own board.
 
-React handles the screens, Phaser 3 runs the board and fight replays, and Firebase (free Spark plan) provides auth, data and hosting. All art is drawn in code, so there are no image assets. The game replaced Neon Flap, a flappy-bird game.
+React handles the screens, Phaser 3 runs the board and fight replays, and Firebase (free Spark plan) provides auth, data and hosting. Creatures are drawn in code, so the only image assets are the app icons in `public/`. The game replaced Neon Flap, a flappy-bird game.
 
 ## Requirements
 
