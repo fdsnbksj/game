@@ -211,11 +211,6 @@ body {
   text-shadow: 0 0 18px rgb(54 226 255 / 0.55), 0 0 44px rgb(123 140 255 / 0.35);
 }
 
-.title span {
-  color: var(--magenta);
-  text-shadow: 0 0 18px rgb(255 61 240 / 0.55), 0 0 44px rgb(255 61 240 / 0.3);
-}
-
 .micro,
 .eyebrow {
   margin: 0;

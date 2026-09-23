@@ -9,9 +9,9 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['icon.svg', 'apple-touch-icon.png', 'fonts/*.woff2'],
       manifest: {
-        name: 'Neon Brawl',
-        short_name: 'Neon Brawl',
-        description: 'Draft neon creatures, build synergies, outlast every rival.',
+        name: 'a game',
+        short_name: 'a game',
+        description: 'Draft creatures, build a team, outlast every rival.',
         theme_color: '#080b14',
         background_color: '#080b14',
         display: 'standalone',

@@ -43,7 +43,7 @@ export function Home() {
 
       <div className="home-brand">
         <Wordmark />
-        <p className="tagline">Draft neon creatures. Build synergies. Outlast every rival.</p>
+        <p className="tagline">Draft creatures. Build a team. Outlast every rival.</p>
       </div>
 
       <section className="glass hero">
