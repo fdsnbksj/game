@@ -1,7 +1,5 @@
 import { getItem } from '../sim/balance';
 
-const hex = (color: number) => `#${color.toString(16).padStart(6, '0')}`;
-
 /** A simple glyph per item, so they're told apart at a glance. */
 const GLYPHS: Record<string, string> = {
   heavy_plate: 'M12 3l7 3v6c0 4-3 7-7 9-4-2-7-5-7-9V6z',
@@ -16,8 +14,8 @@ export function ItemChip({ itemId, size = 22 }: { itemId: string; size?: number 
   const item = getItem(itemId);
   return (
     <svg className="item-chip" viewBox="0 0 24 24" width={size} height={size} role="img" aria-label={item.name}>
-      <rect x="1" y="1" width="22" height="22" rx="6" fill={hex(item.color)} opacity="0.18" />
-      <path d={GLYPHS[itemId]} fill={hex(item.color)} />
+      <rect x="1" y="1" width="22" height="22" rx="6" className="item-chip-tile" />
+      <path d={GLYPHS[itemId]} fill="currentColor" />
     </svg>
   );
 }

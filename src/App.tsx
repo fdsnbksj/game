@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router';
-import { Backdrop } from './components/Backdrop';
 import { TabBar } from './components/TabBar';
 import { Wordmark } from './components/Wordmark';
 import { Home } from './screens/Home';
@@ -55,38 +54,31 @@ export function App() {
 
   if (error) {
     return (
-      <>
-        <Backdrop />
-        <main className="screen center">
-          <div className="glass splash-card">
-            <Wordmark />
-            <p className="error">{error}</p>
-            <button className="button primary" onClick={() => void reloadFresh()}>
-              Reload
-            </button>
-          </div>
-        </main>
-      </>
+      <main className="screen center">
+        <div className="glass splash-card">
+          <Wordmark />
+          <p className="error">{error}</p>
+          <button className="button primary" onClick={() => void reloadFresh()}>
+            Reload
+          </button>
+        </div>
+      </main>
     );
   }
 
   if (!ready) {
     return (
-      <>
-        <Backdrop />
-        <main className="screen center" aria-busy="true">
-          <div className="glass splash-card">
-            <Wordmark />
-            <div className="spinner large" aria-label="Loading" />
-          </div>
-        </main>
-      </>
+      <main className="screen center" aria-busy="true">
+        <div className="glass splash-card">
+          <Wordmark />
+          <div className="spinner large" aria-label="Loading" />
+        </div>
+      </main>
     );
   }
 
   return (
     <BrowserRouter>
-      <Backdrop />
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/run" element={<Run />} />

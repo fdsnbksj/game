@@ -4,7 +4,7 @@ import { AnimatedNumber } from '../components/AnimatedNumber';
 import { CreatureChip } from '../components/CreatureChip';
 import { ItemChip } from '../components/ItemChip';
 import { SettingsButton } from '../components/SettingsSheet';
-import { TraitIcon, traitColor } from '../components/TraitIcon';
+import { TraitIcon } from '../components/TraitIcon';
 import { setMusicLevel, sfx, startMusic, stopMusic } from '../game/audio';
 import { PhaserGame } from '../game/PhaserGame';
 import { BattleScene } from '../game/scenes/BattleScene';
@@ -164,7 +164,7 @@ function TraitRail({ run, opponent }: { run: RunState; opponent?: { name: string
       </div>
       {shown && (
         <div className="glass trait-pop" role="dialog" onClick={() => setOpen(null)}>
-          <strong style={{ color: traitColor(shown.id) }}>{shown.name}</strong>
+          <strong>{shown.name}</strong>
           <span className="note">
             {shown.thresholds.map((threshold, index) => `${threshold}: ${shown.description.replace('{v}', `${shown.values[index]}`)}`).join(' · ')}
           </span>
