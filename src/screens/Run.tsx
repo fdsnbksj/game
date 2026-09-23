@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
+import { AnimatedNumber } from '../components/AnimatedNumber';
 import { CreatureChip } from '../components/CreatureChip';
 import { ItemChip } from '../components/ItemChip';
 import { SettingsButton } from '../components/SettingsSheet';
@@ -103,10 +104,14 @@ function Hud({ run }: { run: RunState }) {
         <div className="hp-bar">
           <span style={{ width: `${run.hp}%` }} />
         </div>
-        <strong>{run.hp}</strong>
+        <strong>
+          <AnimatedNumber value={run.hp} />
+        </strong>
       </div>
       <div className="hud-wins" aria-label={`${run.wins} wins`}>
-        <strong>{run.wins}</strong>
+        <strong>
+          <AnimatedNumber value={run.wins} />
+        </strong>
         <span className="micro">Wins</span>
       </div>
       <SettingsButton>
@@ -182,7 +187,7 @@ function Tray({ run }: { run: RunState }) {
       <div className="controls">
         <div className="gold" aria-label={`${run.gold} gold`}>
           <span className="coin" aria-hidden="true" />
-          {run.gold}
+          <AnimatedNumber value={run.gold} />
         </div>
         <div className="level">
           <span className="micro">Lv {run.level}</span>
@@ -218,7 +223,7 @@ function Tray({ run }: { run: RunState }) {
         {run.shop.map((unitId, index) =>
           unitId ? (
             <ShopCard
-              key={index}
+              key={`${index}-${unitId}`}
               unitId={unitId}
               owned={ownedUnits(run).filter((u) => u.unitId === unitId && u.star === 1).length}
               affordable={run.gold >= getUnit(unitId).cost}
@@ -229,7 +234,7 @@ function Tray({ run }: { run: RunState }) {
               }}
             />
           ) : (
-            <div key={index} className="shop-card sold" aria-hidden="true" />
+            <div key={`${index}-sold`} className="shop-card sold" aria-hidden="true" />
           ),
         )}
       </div>
@@ -521,7 +526,9 @@ function Summary({ run }: { run: RunState }) {
     <div className="overlay">
       <div className="panel">
         <p className="micro">{survived ? 'Run complete' : 'Knocked out'}</p>
-        <p className="big-score">{run.wins}</p>
+        <p className="big-score">
+          <AnimatedNumber value={run.wins} from={0} />
+        </p>
         <p className="note">wins in {run.history.length} rounds</p>
         {run.wins >= stats.bestWins && run.wins > 0 && <p className="highlight">Best run yet!</p>}
         <ol className="round-strip" aria-label="Round results">

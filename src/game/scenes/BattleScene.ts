@@ -194,12 +194,19 @@ export class BattleScene extends Phaser.Scene {
   private view: 'planning' | 'fight' = 'planning';
   /** Device pixels per world pixel, so text is baked at the screen's density. */
   private textResolution = 2;
+  /**
+   * False once the scene has been shut down or destroyed. The store subscription can outlive
+   * the scene, so everything it reaches guards on this. `sys.isActive()` can't do the job:
+   * it's still false during create(), where the first sync has to run.
+   */
+  private alive = false;
 
   constructor() {
     super('battle');
   }
 
   create() {
+    this.alive = true;
     this.textResolution = Math.max(1, Math.round(1 / (this.scale.zoom || 1)));
     this.rivalScrim = this.add.graphics().setDepth(2);
     // Wider and taller than any camera view, so its edges never show.
@@ -230,8 +237,12 @@ export class BattleScene extends Phaser.Scene {
     });
     // Leaving the screen destroys the game, which emits DESTROY rather than SHUTDOWN. Miss
     // that and this subscription outlives the scene and throws on the next store change.
-    this.events.once(Phaser.Scenes.Events.SHUTDOWN, unsubscribe);
-    this.events.once(Phaser.Scenes.Events.DESTROY, unsubscribe);
+    const stop = () => {
+      this.alive = false;
+      unsubscribe();
+    };
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, stop);
+    this.events.once(Phaser.Scenes.Events.DESTROY, stop);
 
     const { battle } = useRunStore.getState();
     if (battle) this.startReplay(battle);
@@ -239,7 +250,7 @@ export class BattleScene extends Phaser.Scene {
   }
 
   private onResize() {
-    if (!this.sys || !this.sys.isActive()) return;
+    if (!this.alive) return;
     this.textResolution = Math.max(1, Math.round(1 / (this.scale.zoom || 1)));
     this.showView(this.view, false);
   }
@@ -250,7 +261,7 @@ export class BattleScene extends Phaser.Scene {
    * and lifts the dimming. The camera tweens between the two, which is the reveal.
    */
   private showView(view: 'planning' | 'fight', animate: boolean) {
-    if (!this.sys || !this.sys.isActive()) return;
+    if (!this.alive) return;
     this.view = view;
     const rect = view === 'planning' ? planningRect() : fightRect();
     const camera = this.cameras.main;
@@ -380,7 +391,7 @@ export class BattleScene extends Phaser.Scene {
 
   /** Makes the sprites match the run: new units pop in, moved ones slide, sold ones fade. */
   private syncPlanning() {
-    if (!this.sys || !this.sys.isActive()) return;
+    if (!this.alive) return;
     const { run, battle, selected } = useRunStore.getState();
     const planning = !battle;
     const seen = new Set<number>();
@@ -439,7 +450,7 @@ export class BattleScene extends Phaser.Scene {
   // ---------- Combat replay ----------
 
   private startReplay(battle: Battle) {
-    if (!this.sys || !this.sys.isActive()) return;
+    if (!this.alive) return;
     this.stopReplay();
     this.showView('fight', true);
     for (const view of this.views.values()) view.setVisible(false);
@@ -455,7 +466,7 @@ export class BattleScene extends Phaser.Scene {
 
   private stopReplay() {
     this.replay = null;
-    if (!this.sys || !this.sys.isActive()) return;
+    if (!this.alive) return;
     this.showView('planning', true);
     this.tweens.killTweensOf(this.fighters);
     for (const fighter of this.fighters) fighter.destroy();

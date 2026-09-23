@@ -488,9 +488,14 @@ body {
   box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.08);
 }
 
+.tab-link svg {
+  transition: transform var(--dur) var(--ease-back);
+}
+
 .tab-link.active svg {
   color: var(--cyan);
   filter: drop-shadow(0 0 6px rgb(54 226 255 / 0.6));
+  transform: translateY(-1px) scale(1.12);
 }
 
 /* ---------- Settings ---------- */
@@ -1220,6 +1225,10 @@ body {
   display: flex;
   align-items: center;
   gap: var(--sp-2);
+}
+
+.hud-hp:has(.tally.down) .hp-bar {
+  animation: hp-hit var(--dur-slow) var(--ease);
 }
 
 .hp-bar,
@@ -1959,7 +1968,63 @@ body {
 }
 
 
+/* Panels arrive one after another, so a screen assembles rather than snapping in. */
+.screen:not(.run) > * {
+  animation: panel-rise var(--dur-slow) var(--ease) both;
+}
+
+.screen:not(.run) > *:nth-child(2) { animation-delay: 40ms; }
+.screen:not(.run) > *:nth-child(3) { animation-delay: 80ms; }
+.screen:not(.run) > *:nth-child(4) { animation-delay: 120ms; }
+.screen:not(.run) > *:nth-child(n + 5) { animation-delay: 160ms; }
+
+/* ---------- Counting numbers ---------- */
+
+.tally {
+  display: inline-block;
+  font-variant-numeric: tabular-nums;
+  transition: color var(--dur) var(--ease), text-shadow var(--dur) var(--ease);
+}
+
+.tally.up {
+  color: var(--lime);
+  text-shadow: 0 0 12px rgb(92 255 135 / 0.6);
+  animation: tally-bump var(--dur-slow) var(--ease-back);
+}
+
+.tally.down {
+  color: var(--danger);
+  text-shadow: 0 0 12px rgb(255 90 95 / 0.55);
+  animation: tally-bump var(--dur-slow) var(--ease-back);
+}
+
+/* Gold is already gold: it only pulses, so a spend doesn't read as damage. */
+.gold .tally.up,
+.gold .tally.down {
+  color: inherit;
+  text-shadow: 0 0 14px rgb(255 200 61 / 0.7);
+}
+
 /* ---------- Motion ---------- */
+
+@keyframes panel-rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+}
+
+@keyframes hp-hit {
+  30% {
+    box-shadow: 0 0 0 3px rgb(255 90 95 / 0.35);
+  }
+}
+
+@keyframes tally-bump {
+  40% {
+    transform: scale(1.25);
+  }
+}
 
 @keyframes screen-in {
   from {
