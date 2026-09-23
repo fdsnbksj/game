@@ -1,23 +1,3 @@
-@font-face {
-  font-family: 'Orbitron';
-  font-style: normal;
-  font-weight: 400 900;
-  font-display: swap;
-  src: url('/fonts/orbitron-var-latin.woff2') format('woff2');
-}
-
-/* Orbitron's zero is slashed, and a lone 0 reads as a "none" icon. Its digits come
-   from Chakra Petch instead. Declared later with the same descriptors, so it wins
-   for 0-9 wherever Orbitron is used, the Phaser HUD included. */
-@font-face {
-  font-family: 'Orbitron';
-  font-style: normal;
-  font-weight: 400 900;
-  font-display: swap;
-  src: url('/fonts/chakra-petch-digits.woff2') format('woff2');
-  unicode-range: U+0030-0039;
-}
-
 /* Glassy sci-fi: frosted panels over one backdrop scene, hairline dividers, and accents
    used only to signal state. Colors mirror COLORS in src/shared/theme.ts. */
 :root {
@@ -53,8 +33,10 @@
   --line: var(--glass-border);
   --line-soft: var(--hairline);
 
-  --font-display: 'Orbitron', system-ui, sans-serif;
-  --font-body: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  /* -apple-system first: Phaser passes this straight into the canvas font. */
+  --font: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, system-ui, sans-serif;
+  --font-body: var(--font);
+  --font-display: var(--font);
 
   --fs-xs: 0.75rem;
   --fs-sm: 0.875rem;
@@ -200,13 +182,10 @@ body {
 
 .title {
   margin: 0;
-  font-family: var(--font-display);
   font-size: clamp(1.8rem, 9.2vw, var(--fs-2xl));
   font-weight: 900;
-  letter-spacing: 0.06em;
   white-space: nowrap;
   line-height: 1;
-  text-transform: uppercase;
   color: var(--text);
   text-shadow: 0 0 18px rgb(54 226 255 / 0.55), 0 0 44px rgb(123 140 255 / 0.35);
 }
@@ -217,8 +196,6 @@ body {
   color: var(--muted);
   font-size: 0.68rem;
   font-weight: 650;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
 }
 
 .note {
@@ -256,11 +233,8 @@ body {
 .highlight {
   margin: 0;
   color: var(--gold);
-  font-family: var(--font-display);
   font-size: var(--fs-sm);
   font-weight: 700;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
   text-shadow: 0 0 12px rgb(255 200 61 / 0.55);
 }
 
@@ -313,10 +287,8 @@ body {
 
 .page-head h1 {
   margin: 2px 0 0;
-  font-family: var(--font-display);
   font-size: 1.7rem;
   font-weight: 800;
-  letter-spacing: 0.03em;
 }
 
 .section-label {
@@ -390,11 +362,8 @@ body {
 
 .button.big {
   min-height: 58px;
-  font-family: var(--font-display);
   font-size: 1.1rem;
   font-weight: 900;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
 }
 
 .button.ghost {
@@ -472,7 +441,6 @@ body {
   color: var(--muted);
   font-size: 0.68rem;
   font-weight: 650;
-  letter-spacing: 0.05em;
   text-decoration: none;
   transition: color var(--dur) var(--ease), background-color var(--dur) var(--ease);
 }
@@ -621,9 +589,7 @@ body {
 }
 
 .featured-name strong {
-  font-family: var(--font-display);
   font-size: var(--fs-md);
-  letter-spacing: 0.04em;
 }
 
 .featured-traits {
@@ -693,7 +659,6 @@ body {
 
 .daily-go {
   color: var(--gold);
-  font-family: var(--font-display);
   font-size: var(--fs-sm);
   font-weight: 800;
 }
@@ -734,7 +699,7 @@ body {
 
 .tray-stats dd {
   margin: 0;
-  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
   font-size: 1.45rem;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
@@ -744,8 +709,6 @@ body {
   color: var(--muted);
   font-size: 0.66rem;
   font-weight: 650;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
 }
 
 /* Short phones: keep Play above the fold. */
@@ -879,7 +842,7 @@ body {
   height: 30px;
   border: 1px solid var(--rim);
   border-radius: 50%;
-  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
   font-weight: 900;
 }
 
@@ -897,7 +860,7 @@ body {
 }
 
 .podium-wins {
-  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
   font-size: 1.35rem;
   font-weight: 800;
 }
@@ -942,7 +905,7 @@ body {
 
 .rank-list .rank {
   color: var(--muted);
-  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
@@ -958,7 +921,7 @@ body {
 }
 
 .rank-list .wins {
-  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
 }
@@ -1029,7 +992,6 @@ body {
   border: 1px solid rgb(54 226 255 / 0.5);
   border-radius: 50%;
   color: var(--cyan);
-  font-family: var(--font-display);
   font-weight: 800;
   box-shadow: 0 0 12px rgb(54 226 255 / 0.25);
 }
@@ -1093,7 +1055,7 @@ body {
   background: color-mix(in srgb, var(--tier) 22%, transparent);
   border: 1px solid var(--tier);
   color: var(--text);
-  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
   font-size: 0.7rem;
   font-weight: 800;
   line-height: 1;
@@ -1138,7 +1100,7 @@ body {
 }
 
 .big-score {
-  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
   font-size: var(--fs-3xl);
   font-weight: 900;
   line-height: 1;
@@ -1205,7 +1167,7 @@ body {
 .hud-round strong,
 .hud-wins strong,
 .hud-hp strong {
-  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
   font-size: var(--fs-lg);
   font-weight: 800;
   font-variant-numeric: tabular-nums;
@@ -1299,7 +1261,6 @@ body {
   border: 1px solid var(--hairline);
   border-radius: var(--r-pill);
   background: rgb(255 255 255 / 0.06);
-  font-family: var(--font-display);
   font-size: var(--fs-sm);
   font-weight: 700;
 }
@@ -1410,7 +1371,7 @@ body {
   align-items: center;
   gap: 5px;
   color: var(--gold);
-  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
   font-size: var(--fs-lg);
   font-weight: 800;
   font-variant-numeric: tabular-nums;
@@ -1443,7 +1404,7 @@ body {
 
 .price {
   color: var(--gold);
-  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
   font-weight: 800;
 }
 
@@ -1543,7 +1504,7 @@ body {
   border-radius: 5px;
   background: color-mix(in srgb, var(--tier) 25%, rgb(6 9 26 / 0.8));
   color: var(--text);
-  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
   font-size: 0.66rem;
   font-weight: 800;
   line-height: 1;
@@ -1557,7 +1518,7 @@ body {
   border-radius: var(--r-pill);
   background: rgb(54 226 255 / 0.9);
   color: var(--on-neon);
-  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
   font-size: 0.6rem;
   font-weight: 800;
 }
@@ -1659,9 +1620,7 @@ body {
   font-family: var(--font-body);
   font-size: 0.62rem;
   font-weight: 650;
-  letter-spacing: 0.04em;
   text-shadow: none;
-  text-transform: uppercase;
 }
 
 .rival-kind.ghost {
@@ -1693,12 +1652,9 @@ body {
 }
 
 .round-result strong {
-  font-family: var(--font-display);
   font-size: 1.1rem;
   white-space: nowrap;
   font-weight: 900;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
 }
 
 .round-result.won {
@@ -1833,7 +1789,6 @@ body {
 
 .sheet-head h3 {
   margin: 0;
-  font-family: var(--font-display);
   font-size: var(--fs-lg);
 }
 
@@ -1882,7 +1837,7 @@ body {
 
 .sheet-stats dd {
   margin: 0;
-  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
   font-weight: 700;
 }
 

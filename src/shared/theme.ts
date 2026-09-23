@@ -40,6 +40,6 @@ export const RARITY_COLORS = {
   epic: COLORS.violet,
 } as const;
 
-/** Loaded from public/fonts, preloaded in index.html. Wordmark and numbers only. */
-export const DISPLAY_FONT = "'Orbitron', system-ui, sans-serif";
-export const BODY_FONT = "system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif";
+/** The system face, matching --font in src/index.css. Phaser puts it straight into
+    the canvas font, where '-apple-system' is the spelling Safari wants first. */
+export const DISPLAY_FONT = "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, system-ui, sans-serif";
