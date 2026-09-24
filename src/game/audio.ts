@@ -57,8 +57,9 @@ export function setAudioPrefs(change: Partial<AudioPrefs>) {
 // ---------- Audio graph ----------
 //
 // Everything runs through one gentle compressor, so stacked hits glue together, then a
-// limiter, so they never clip. Each bus (effects, music) has a dry path and a send into its own short reverb,
-// and both sit behind the player's on/off gain, so muting silences the tails too.
+// limiter, so they never clip. Effects have a dry path and a send into a short reverb; the
+// soundtrack goes straight in. Each sits behind the player's on/off gain, so muting silences
+// the tails too.
 
 interface Bus {
   dry: AudioNode;
@@ -69,7 +70,6 @@ let ctx: AudioContext | null = null;
 let sfxGain: GainNode;
 let musicGain: GainNode;
 let sfxBus: Bus;
-let musicBus: Bus;
 let noise: AudioBuffer;
 
 /** A small room: 1.6 s of stereo noise, fading out and darkening as it goes. */
@@ -136,7 +136,6 @@ export function unlockAudio() {
 
     const impulse = makeImpulse(ctx);
     sfxBus = makeBus(ctx, sfxGain, impulse);
-    musicBus = makeBus(ctx, musicGain, impulse);
 
     noise = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
     const samples = noise.getChannelData(0);
@@ -456,66 +455,75 @@ export function vibrate(pattern: number | number[]) {
 
 // ---------- Music ----------
 
-const BPM = 112;
-const SIXTEENTH = 60 / BPM / 4;
-const BAR = SIXTEENTH * 16;
-/** Am, F, C, G as MIDI triads, one bar each. */
-const CHORDS = [
-  [57, 60, 64],
-  [53, 57, 60],
-  [48, 52, 55],
-  [55, 59, 62],
-];
-const ARPEGGIO = [0, 1, 2, 1];
+/** The run's soundtrack, in public/audio. Fetched the first time it's wanted, then kept. */
+const TRACK_URL = '/audio/bgm.mp3';
+/** Held back while planning, so the fight's arrival is felt. */
+const PLANNING_LEVEL = 0.55;
+/** How much the low end is lifted once a fight starts, in dB. */
+const FIGHT_BASS_DB = 7;
 
 let wantMusic = false;
-/** 0 pad and bass only, 1 adds the arpeggio, 2 shakers, 3 kick. */
+/** 0 while planning; above 0 once a fight is on. */
 let level = 0;
-let timer: ReturnType<typeof setInterval> | undefined;
-let nextStepAt = 0;
-let step = 0;
+let track: AudioBuffer | null = null;
+let loading: Promise<void> | null = null;
+let source: AudioBufferSourceNode | null = null;
+let trackGain: GainNode | null = null;
+let bass: BiquadFilterNode | null = null;
 
-function scheduleStep(index: number, t: number) {
-  const chord = CHORDS[Math.floor(index / 16) % CHORDS.length];
-  const beat = index % 16;
-  if (beat === 0) {
-    pad(musicBus, chord, t, { level: 0.1, wet: 0.5 }, BAR * 1.05, 0.4, 1400);
-    pluck(musicBus, midi(chord[0] - 24), t, { level: 0.35, wet: 0.1 }, SIXTEENTH * 7, 600);
-  }
-  if (beat === 8) pluck(musicBus, midi(chord[0] - 24), t, { level: 0.28, wet: 0.1 }, SIXTEENTH * 6, 600);
-  if (level >= 1) {
-    const note = chord[ARPEGGIO[beat % 4]] + 12 + (beat >= 8 ? 12 : 0);
-    pluck(musicBus, midi(note), t, { level: 0.09, wet: 0.35, pan: beat % 2 ? 0.2 : -0.2 }, SIXTEENTH * 1.6, 2600);
-  }
-  if (level >= 2 && beat % 4 === 2) whoosh(musicBus, t, { level: 0.1, pan: 0.3 }, 7000, 6000, 0.06, 0.01, 1.5);
-  if (level >= 3 && beat % 8 === 0) thump(musicBus, t, { level: 0.5 }, 120, 42, 0.22);
+function loadTrack(audio: AudioContext) {
+  loading ??= fetch(TRACK_URL)
+    .then((response) => response.arrayBuffer())
+    .then((data) => audio.decodeAudioData(data))
+    .then((buffer) => {
+      track = buffer;
+      updateMusic();
+    })
+    .catch(() => {
+      // No soundtrack is better than a broken game; try again next time it's wanted.
+      loading = null;
+    });
 }
 
-function tick() {
-  const audio = ready();
-  if (!audio) return;
-  // After a stall (a background tab), start fresh rather than playing the backlog at once.
-  if (nextStepAt < audio.currentTime) nextStepAt = audio.currentTime + 0.05;
-  while (nextStepAt < audio.currentTime + 0.12) {
-    scheduleStep(step, nextStepAt);
-    nextStepAt += SIXTEENTH;
-    step += 1;
-  }
+/** Planning or fighting: the volume and the bass glide over half a second. */
+function applyLevel() {
+  if (!ctx || !trackGain || !bass) return;
+  const now = ctx.currentTime;
+  trackGain.gain.cancelScheduledValues(now);
+  trackGain.gain.setTargetAtTime(level > 0 ? 1 : PLANNING_LEVEL, now, 0.15);
+  bass.gain.cancelScheduledValues(now);
+  bass.gain.setTargetAtTime(level > 0 ? FIGHT_BASS_DB : 0, now, 0.15);
 }
 
 function updateMusic() {
   const shouldPlay = ctx !== null && wantMusic && prefs.music;
-  if (shouldPlay && timer === undefined) {
-    step = 0;
-    nextStepAt = 0;
-    timer = setInterval(tick, 25);
-  } else if (!shouldPlay && timer !== undefined) {
-    clearInterval(timer);
-    timer = undefined;
+  if (shouldPlay && !source) {
+    if (!track) {
+      loadTrack(ctx!);
+      return;
+    }
+    const audio = ctx!;
+    trackGain = audio.createGain();
+    trackGain.gain.value = level > 0 ? 1 : PLANNING_LEVEL;
+    bass = audio.createBiquadFilter();
+    bass.type = 'lowshelf';
+    bass.frequency.value = 110;
+    bass.gain.value = level > 0 ? FIGHT_BASS_DB : 0;
+    source = audio.createBufferSource();
+    source.buffer = track;
+    source.loop = true;
+    source.connect(bass).connect(trackGain).connect(musicGain);
+    source.start();
+  } else if (!shouldPlay && source) {
+    source.stop();
+    source.disconnect();
+    source = null;
+    trackGain = null;
+    bass = null;
   }
 }
 
-/** The Play screen holds the music; it only sounds if the player turned it on. */
+/** The run screen holds the music; it only sounds if the player turned it on. */
 export function startMusic() {
   wantMusic = true;
   updateMusic();
@@ -527,6 +535,8 @@ export function stopMusic() {
   updateMusic();
 }
 
+/** 0 while planning; anything higher once a fight starts, which brings the bass in. */
 export function setMusicLevel(next: number) {
   level = next;
+  applyLevel();
 }
