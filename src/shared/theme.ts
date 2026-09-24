@@ -90,7 +90,7 @@ export function readBoardPalette(): BoardPalette {
     success: read(style, '--board-hp'),
     danger: read(style, '--board-hp-rival'),
     currency: read(style, '--board-star-3'),
-    muted: read(style, '--board-rival'),
+    muted: read(style, '--board-muted'),
   };
 }
 

@@ -1,5 +1,7 @@
 import Phaser from 'phaser';
 import { CREATURE_SHAPES, CREATURE_SIZE, type Shape } from '../../shared/creatureShapes';
+import { ITEM_GLYPHS, itemColors } from '../../shared/itemGlyphs';
+import { ITEMS } from '../../sim/balance';
 
 /** Creatures are drawn at this multiple of their 48px grid so they stay sharp on the 2x canvas. */
 const SCALE = 3;
@@ -46,3 +48,43 @@ export function ensureCreatureTextures(scene: Phaser.Scene) {
 
 /** Display scale that makes a creature texture `size` world pixels wide. */
 export const creatureScale = (size: number) => size / (CREATURE_SIZE * SCALE);
+
+export const itemKey = (itemId: string) => `item-${itemId}`;
+
+/** Item tiles: the same glyph and colours as ItemChip, drawn once per game. */
+export function ensureItemTextures(scene: Phaser.Scene) {
+  const size = 24 * SCALE;
+  for (const item of ITEMS) {
+    const key = itemKey(item.id);
+    if (scene.textures.exists(key)) continue;
+    const texture = scene.textures.createCanvas(key, size, size);
+    if (!texture) continue;
+    const ctx = texture.context;
+    const { tile, glyph } = itemColors(item.id);
+    ctx.scale(SCALE, SCALE);
+    ctx.beginPath();
+    roundedRect(ctx, 1, 1, 22, 22, 6);
+    ctx.fillStyle = tile;
+    ctx.fill();
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = 'rgba(28, 28, 30, 0.35)';
+    ctx.stroke();
+    ctx.translate(4.8, 4.8);
+    ctx.scale(0.6, 0.6);
+    ctx.fillStyle = glyph;
+    ctx.fill(new Path2D(ITEM_GLYPHS[item.id]));
+    texture.refresh();
+  }
+}
+
+/** Display scale that makes an item texture `size` world pixels wide. */
+export const itemScale = (size: number) => size / (24 * SCALE);
+
+function roundedRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}

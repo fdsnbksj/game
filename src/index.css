@@ -37,6 +37,19 @@
   --currency-soft: rgb(255 184 0 / 0.16);
   --silver: #aeaeb2;
   --bronze: #a2845e;
+  --on-danger: #ffffff;
+
+  /* Colour that carries meaning: which team, how rare a creature is. */
+  --team-mine: #007aff;
+  --team-rival: #ff3b30;
+  --tier-1: #8e8e93;
+  --tier-2: #34c759;
+  --tier-3: #007aff;
+  --tier-4: #af52de;
+  --tier-5: #ffb800;
+
+  /* Something held under a finger. */
+  --ghost-shadow: drop-shadow(0 6px 10px rgb(0 0 0 / 0.25));
 
   /* Some creatures are white or near-white, so on a light surface they get an edge
      and a tinted pad to stand on. Neither is needed on a dark one. */
@@ -45,23 +58,24 @@
 
   /* the board, read by src/shared/theme.ts: plain #rrggbb, alphas as their own numbers */
   --board-cell: #78788c;
-  --board-cell-a: 0.1;
-  --board-cell-rival-a: 0.05;
+  --board-cell-a: 0.16;
+  --board-cell-rival-a: 0.09;
   --board-edge: #3c3c43;
-  --board-edge-a: 0.22;
-  --board-edge-rival-a: 0.12;
+  --board-edge-a: 0.3;
+  --board-edge-rival-a: 0.16;
   --board-pool: #78788c;
   --board-pool-a: 0.05;
   --board-scrim: #ffffff;
   --board-scrim-a: 0.62;
   --board-shadow: #3c3c43;
   --board-shadow-a: 0.22;
-  --board-mine: #1c1c1e;
-  --board-rival: #8e8e93;
+  --board-mine: #007aff;
+  --board-rival: #ff3b30;
+  --board-muted: #8e8e93;
   --board-hp: #34c759;
   --board-hp-rival: #ff3b30;
   --board-shield: #ffffff;
-  --board-mana: #8e8e93;
+  --board-mana: #5ac8fa;
   --board-track: #3c3c43;
   --board-track-a: 0.28;
   --board-star-3: #ffb800;
@@ -144,27 +158,38 @@
     --silver: #d1d1d6;
     --bronze: #ac8e68;
 
+    --team-mine: #0a84ff;
+    --team-rival: #ff453a;
+    --tier-1: #98989d;
+    --tier-2: #30d158;
+    --tier-3: #0a84ff;
+    --tier-4: #bf5af2;
+    --tier-5: #ffd60a;
+
+    --ghost-shadow: drop-shadow(0 6px 12px rgb(0 0 0 / 0.6));
+
     --chip-shadow: none;
     --chip-pad: none;
 
     --board-cell: #7c7c85;
-    --board-cell-a: 0.2;
-    --board-cell-rival-a: 0.1;
+    --board-cell-a: 0.26;
+    --board-cell-rival-a: 0.15;
     --board-edge: #ebebf5;
-    --board-edge-a: 0.18;
-    --board-edge-rival-a: 0.1;
+    --board-edge-a: 0.26;
+    --board-edge-rival-a: 0.14;
     --board-pool: #ebebf5;
     --board-pool-a: 0.05;
     --board-scrim: #000000;
     --board-scrim-a: 0.5;
     --board-shadow: #000000;
     --board-shadow-a: 0.45;
-    --board-mine: #ffffff;
-    --board-rival: #98989d;
+    --board-mine: #0a84ff;
+    --board-rival: #ff453a;
+    --board-muted: #98989d;
     --board-hp: #30d158;
     --board-hp-rival: #ff453a;
     --board-shield: #ffffff;
-    --board-mana: #98989d;
+    --board-mana: #64d2ff;
     --board-track: #000000;
     --board-track-a: 0.5;
     --board-star-3: #ffd60a;
@@ -702,7 +727,6 @@ a {
   height: 30px;
   border-radius: 50%;
   background: var(--currency);
-  box-shadow: 0 0 16px var(--currency-soft);
 }
 
 .daily-card.done .daily-mark {
@@ -1082,7 +1106,7 @@ a {
 }
 
 .creature-card {
-  --tier: var(--separator);
+  --tier: var(--tier-1);
   position: relative;
   display: flex;
   flex-direction: column;
@@ -1093,10 +1117,10 @@ a {
   text-align: center;
 }
 
-.creature-card.cost-2 { --tier: var(--separator); }
-.creature-card.cost-3 { --tier: var(--label-3); }
-.creature-card.cost-4 { --tier: var(--label-2); }
-.creature-card.cost-5 { --tier: var(--currency); }
+.creature-card.cost-2 { --tier: var(--tier-2); }
+.creature-card.cost-3 { --tier: var(--tier-3); }
+.creature-card.cost-4 { --tier: var(--tier-4); }
+.creature-card.cost-5 { --tier: var(--tier-5); }
 
 .creature-card strong {
   font-size: 0.78rem;
@@ -1233,7 +1257,6 @@ a {
 .hud-round strong,
 .hud-wins strong,
 .hud-hp strong {
-  font-variant-numeric: tabular-nums;
   font-size: var(--fs-lg);
   font-weight: 800;
   font-variant-numeric: tabular-nums;
@@ -1255,11 +1278,12 @@ a {
 }
 
 .hp-bar,
-.xp-bar {
+.xp-bar,
+.team-bar {
   flex: 1;
   overflow: hidden;
   border-radius: var(--r-pill);
-  background: var(--fill-4);
+  background: var(--fill-3);
 }
 
 .hp-bar {
@@ -1267,7 +1291,8 @@ a {
 }
 
 .hp-bar span,
-.xp-bar span {
+.xp-bar span,
+.team-bar span {
   display: block;
   height: 100%;
   border-radius: inherit;
@@ -1276,15 +1301,20 @@ a {
 
 .hp-bar span {
   background: var(--success);
-  box-shadow: 0 0 10px var(--success-soft);
+}
+
+/* The board fills the stage; the dock floats over its bottom edge. */
+.stage {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 200px;
 }
 
 /* The canvas is taken out of flow: its own size is set from this box, so leaving it in
    flow would let it push the box taller and never shrink back. */
 .board-canvas {
-  position: relative;
-  flex: 1 1 auto;
-  min-height: 120px;
+  position: absolute;
+  inset: 0;
   overflow: hidden;
   /* The canvas is transparent, so the board's colours are tuned against this surface. */
   border-radius: var(--r-lg);
@@ -1296,6 +1326,8 @@ a {
   top: 0;
   left: 0;
   display: block;
+  /* Drags are the board's own: no scrolling or zooming under a finger. */
+  touch-action: none;
 }
 
 /* ---------- Trait rail ---------- */
@@ -1309,33 +1341,28 @@ a {
   display: flex;
   align-items: center;
   gap: 6px;
-  min-height: 32px;
+  min-height: 36px;
   padding: 0 10px;
   overflow-x: auto;
   scrollbar-width: none;
   /* Fades at both ends, so a rail that runs on doesn't look cut off. */
-  -webkit-mask-image: linear-gradient(90deg, transparent, black 12px, black calc(100% - 12px), transparent);
-  mask-image: linear-gradient(90deg, transparent, black 12px, black calc(100% - 12px), transparent);
+  -webkit-mask-image: linear-gradient(90deg, transparent, black 10px, black calc(100% - 10px), transparent);
+  mask-image: linear-gradient(90deg, transparent, black 10px, black calc(100% - 10px), transparent);
 }
 
 .trait-rail::-webkit-scrollbar {
   display: none;
 }
 
-.board-count,
-.versus {
+.board-count {
   flex: none;
-  padding: 4px 10px;
-  border: 1px solid var(--separator);
+  padding: 5px 10px;
   border-radius: var(--r-pill);
-  background: var(--fill-4);
+  background: var(--accent);
+  color: var(--on-accent);
   font-size: var(--fs-sm);
   font-weight: 700;
-}
-
-.versus {
-  color: var(--label-2);
-  border-color: var(--separator);
+  font-variant-numeric: tabular-nums;
 }
 
 .hint {
@@ -1350,14 +1377,15 @@ a {
   display: inline-flex;
   align-items: center;
   gap: 5px;
+  min-height: 30px;
   padding: 4px 10px;
   border: 1px solid var(--separator);
   border-radius: var(--r-pill);
-  background: var(--fill-4);
+  background: transparent;
   color: var(--label-2);
   font: inherit;
-  font-size: var(--fs-xs);
-  font-weight: 650;
+  font-size: var(--fs-cap);
+  font-weight: 600;
   cursor: pointer;
 }
 
@@ -1366,13 +1394,22 @@ a {
   font-variant-numeric: tabular-nums;
 }
 
-.trait-chip.tier-0 .trait-icon {
-  opacity: 0.55;
+.trait-chip small {
+  color: var(--label-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.trait-chip .trait-icon {
+  color: var(--label-2);
 }
 
 .trait-chip.tier-1 {
-  border-color: var(--accent-soft);
-  background: var(--fill-3);
+  border-color: transparent;
+  background: var(--fill-2);
+  color: var(--label);
+}
+
+.trait-chip.tier-1 .trait-icon {
   color: var(--label);
 }
 
@@ -1380,7 +1417,14 @@ a {
   border-color: var(--currency);
   background: var(--currency-soft);
   color: var(--label);
-  box-shadow: 0 0 12px var(--currency-soft);
+}
+
+.trait-chip.tier-2 .trait-icon {
+  color: var(--currency-text);
+}
+
+.trait-name {
+  color: var(--label);
 }
 
 .trait-pop {
@@ -1394,36 +1438,129 @@ a {
   gap: 2px;
   padding: 10px 14px;
   border-radius: var(--r-md);
+  box-shadow: var(--shadow-2);
   cursor: pointer;
   animation: pop-in var(--dur) var(--ease-back) both;
 }
 
-/* ---------- Command tray ---------- */
+/* ---------- Versus header ---------- */
 
-/* The tray and the fight bar share a cell: the board never changes size mid-round. */
-.dock {
+.versus-header {
   flex: none;
   display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: var(--sp-3);
+  min-height: 36px;
+  padding: 0 10px;
+  animation: fade-in var(--dur) var(--ease) both;
+}
+
+.team {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.team.rival {
+  align-items: flex-end;
+}
+
+.team-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  min-width: 0;
+  font-size: var(--fs-sm);
+  font-weight: 700;
+}
+
+.team.mine .team-name {
+  color: var(--team-mine);
+}
+
+.team.rival .team-name {
+  color: var(--team-rival);
+}
+
+.rival-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.team-bar {
+  flex: none;
+  width: 100%;
+  height: 6px;
+}
+
+.team.mine .team-bar span {
+  background: var(--team-mine);
+}
+
+/* The rival's bar drains toward the middle, mirroring yours. */
+.team.rival .team-bar {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.team.rival .team-bar span {
+  background: var(--team-rival);
+}
+
+.vs {
+  color: var(--label-2);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+
+.rival-kind {
+  flex: none;
+  padding: 1px 6px;
+  border-radius: var(--r-pill);
+  background: var(--fill-3);
+  color: var(--label-2);
+  font-size: 0.62rem;
+  font-weight: 650;
+}
+
+/* ---------- Dock ---------- */
+
+.dock {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: grid;
+  align-items: end;
+  pointer-events: none;
 }
 
 .dock-layer {
   grid-area: 1 / 1;
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  transition: opacity var(--dur) var(--ease);
+  pointer-events: auto;
+  transition:
+    transform var(--dur-slow) var(--ease),
+    opacity var(--dur) var(--ease);
 }
 
 .dock-layer.inactive {
-  visibility: hidden;
+  opacity: 0;
+  transform: translateY(calc(100% + var(--sp-4)));
+  pointer-events: none;
 }
 
-.tray-dock,
-.fight-bar {
+.tray-dock {
   display: flex;
   flex-direction: column;
   gap: var(--sp-2);
   padding: 10px;
+  box-shadow: var(--shadow-2), inset 0 0 0 var(--hairline) var(--separator);
 }
 
 .controls {
@@ -1437,20 +1574,20 @@ a {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  color: var(--currency);
-  font-variant-numeric: tabular-nums;
+  color: var(--currency-text);
   font-size: var(--fs-lg);
   font-weight: 800;
   font-variant-numeric: tabular-nums;
 }
 
 .coin {
+  display: inline-block;
   width: 14px;
   height: 14px;
   flex: none;
   border-radius: 50%;
   background: var(--currency);
-  box-shadow: 0 0 8px var(--currency-soft);
+  box-shadow: inset 0 0 0 1.5px var(--currency-text);
 }
 
 .level {
@@ -1465,22 +1602,80 @@ a {
 }
 
 .xp-bar span {
-  background: linear-gradient(90deg, var(--accent), var(--label-2));
+  background: var(--accent);
 }
 
 .price {
-  color: var(--currency);
+  color: var(--currency-text);
   font-variant-numeric: tabular-nums;
   font-weight: 800;
+}
+
+/* ---------- Items bag ---------- */
+
+.bag-wrap {
+  position: relative;
 }
 
 .bag {
   display: flex;
   align-items: center;
   gap: var(--sp-2);
-  padding: 6px 8px;
+  padding: 4px 6px;
   border-radius: var(--r-md);
-  background: var(--currency-soft);
+  background: var(--fill-4);
+}
+
+.bag-item {
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: grab;
+  touch-action: none;
+  transition: transform var(--dur-fast) var(--ease), opacity var(--dur-fast) var(--ease);
+}
+
+.bag-item:active {
+  transform: scale(0.94);
+}
+
+/* Its ghost is under the finger; the slot it came from stays as a faint placeholder. */
+.bag-item.lifted {
+  opacity: 0.3;
+}
+
+.item-pop {
+  top: auto;
+  bottom: calc(100% + 6px);
+}
+
+.drag-ghost {
+  position: fixed;
+  z-index: 40;
+  pointer-events: none;
+  /* Above the finger, so it isn't hidden under it. */
+  transform: translate(-50%, -80%) scale(1.1);
+  filter: var(--ghost-shadow);
+}
+
+.drag-ghost.returning {
+  transition:
+    left var(--dur) var(--ease),
+    top var(--dur) var(--ease),
+    opacity var(--dur) var(--ease);
+  opacity: 0;
+}
+
+.drag-ghost.unit {
+  transform: translate(-50%, -60%) scale(1.15);
+}
+
+/* ---------- Shop ---------- */
+
+.shop-wrap {
+  position: relative;
 }
 
 .shop {
@@ -1490,23 +1685,24 @@ a {
 }
 
 .shop-card {
-  --tier: var(--separator);
+  --tier: var(--tier-1);
   position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 3px;
+  gap: 2px;
   min-width: 0;
-  min-height: 100px;
-  padding: 16px 3px 8px;
-  border: 1px solid var(--tier);
+  min-height: 112px;
+  padding: 8px 3px 0;
+  overflow: hidden;
+  border: 1.5px solid var(--tier);
   border-radius: var(--r-md);
   background: var(--surface);
   color: var(--label);
   font: inherit;
   cursor: pointer;
   animation: pop-in var(--dur) var(--ease-back) both;
-  transition: transform var(--dur-fast) var(--ease), filter var(--dur-fast) var(--ease);
+  transition: transform var(--dur-fast) var(--ease), opacity var(--dur-fast) var(--ease);
 }
 
 .shop-card:nth-child(2) { animation-delay: 30ms; }
@@ -1516,32 +1712,42 @@ a {
 
 .shop-card:active:not(.sold) {
   transform: scale(0.95);
-  filter: brightness(1.2);
 }
 
-.shop-card.cost-2 { --tier: var(--success-soft); }
-.shop-card.cost-3 { --tier: var(--label-3); }
-.shop-card.cost-4 { --tier: var(--label-2); }
-.shop-card.cost-5 { --tier: var(--currency); }
+.shop-card.cost-2 { --tier: var(--tier-2); }
+.shop-card.cost-3 { --tier: var(--tier-3); }
+.shop-card.cost-4 { --tier: var(--tier-4); }
+.shop-card.cost-5 { --tier: var(--tier-5); }
 
 .shop-card.poor {
-  opacity: 0.45;
+  opacity: 0.4;
 }
 
 .shop-card.sold {
-  border-style: dashed;
-  border-color: var(--separator);
+  border: 1.5px dashed var(--separator);
   background: transparent;
-  box-shadow: none;
 }
 
-/* The third copy completes a merge, so it gets a pull. */
+/* The third copy completes a merge, so it gets a second ring. */
 .shop-card.combines:not(.poor) {
+  box-shadow: 0 0 0 2px var(--surface), 0 0 0 3.5px var(--tier);
+}
+
+.card-traits {
+  display: flex;
+  gap: 4px;
+}
+
+.card-traits .trait-icon {
+  color: var(--label);
 }
 
 .card-name {
+  display: grid;
+  place-items: center;
+  min-height: 2.3em;
   font-size: 0.64rem;
-  font-weight: 700;
+  font-weight: 650;
   line-height: 1.15;
   text-align: center;
   /* A long name hyphenates rather than snapping mid-word. */
@@ -1549,56 +1755,78 @@ a {
   overflow-wrap: break-word;
 }
 
-.card-traits {
+/* The price sits on a strip of the tier's colour, as the card's footer. */
+.card-cost {
   display: flex;
-  gap: 3px;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  align-self: stretch;
   margin-top: auto;
-  padding-top: 2px;
+  padding: 3px 0 4px;
+  background: color-mix(in srgb, var(--tier) 22%, transparent);
+  border-top: 1.5px solid var(--tier);
+  font-size: var(--fs-cap);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
 }
 
-.shop-card .cost-gem {
-  position: absolute;
-  top: 3px;
-  left: 3px;
-  display: grid;
-  place-items: center;
-  width: 18px;
-  height: 18px;
-  border: var(--hairline) solid var(--tier);
-  border-radius: 5px;
-  background: var(--surface);
-  color: var(--label-2);
-  font-variant-numeric: tabular-nums;
-  font-size: var(--fs-xs);
-  font-weight: 590;
-  line-height: 1;
+.card-cost .coin {
+  width: 11px;
+  height: 11px;
 }
 
 .owned-badge {
   position: absolute;
-  top: 3px;
-  right: 3px;
+  top: 4px;
+  right: 4px;
   padding: 1px 5px;
   border-radius: var(--r-pill);
   background: var(--accent);
   color: var(--on-accent);
-  font-variant-numeric: tabular-nums;
   font-size: 0.6rem;
   font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Drag a unit here to sell it: the shop turns into the drop target. */
+.sell-zone {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 2px dashed var(--danger);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  color: var(--danger-text);
+  font-size: var(--fs-md);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  animation: fade-in var(--dur-fast) var(--ease) both;
+  transition: background-color var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+}
+
+.sell-zone.over {
+  border-style: solid;
+  background: var(--danger);
+  color: var(--on-danger);
 }
 
 .fight-button {
   width: 100%;
 }
 
-.fight-button:not(:disabled) {
-  background: var(--accent);
-}
-
 @media (max-height: 700px) {
   .shop-card {
-    min-height: 88px;
-    padding-top: 15px;
+    min-height: 100px;
+    padding-top: 6px;
+  }
+
+  .shop-card .creature-chip {
+    width: 38px;
+    height: 38px;
   }
 
   .tray-dock {
@@ -1615,83 +1843,54 @@ a {
 /* ---------- Fight ---------- */
 
 .fight-bar {
-  flex: 1;
-  justify-content: space-evenly;
-  gap: var(--sp-3);
-  padding: var(--sp-4);
-}
-
-.strength-block {
   display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.strength-names {
-  display: flex;
+  align-items: center;
   justify-content: space-between;
   gap: var(--sp-3);
-  font-size: var(--fs-sm);
-  font-weight: 650;
+  padding: 8px;
+  box-shadow: var(--shadow-2), inset 0 0 0 var(--hairline) var(--separator);
 }
 
-.strength-names .mine-name {
-  color: var(--accent);
-}
-
-.strength-names .rival-name {
-  overflow: hidden;
-  color: var(--label-2);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.strength {
-  display: flex;
-  height: 8px;
-  overflow: hidden;
-  border-radius: var(--r-pill);
-  background: var(--fill-2);
-}
-
-.strength .mine {
-  height: 100%;
-  background: var(--accent);
-  transition: width var(--dur-slow) var(--ease);
-}
-
-.fight-buttons {
+.speed {
   display: grid;
-  grid-template-columns: 1fr 1fr 1.4fr;
-  gap: var(--sp-2);
-}
-
-.fight-buttons .button[aria-pressed='true'] {
-  background: var(--fill-2);
-  color: var(--label);
-}
-
-.rival-kind {
-  margin-left: 6px;
-  padding: 1px 6px;
+  grid-template-columns: 1fr 1fr;
+  gap: 2px;
+  padding: 2px;
   border-radius: var(--r-pill);
   background: var(--fill-3);
-  color: var(--label);
-  font-size: 0.62rem;
-  font-weight: 650;
 }
 
-.rival-kind.ghost {
-  background: var(--fill-2);
+.speed button {
+  min-width: 52px;
+  min-height: 32px;
+  border: none;
+  border-radius: var(--r-pill);
+  background: none;
+  color: var(--label-2);
+  font: inherit;
+  font-size: var(--fs-sm);
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition: background-color var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+
+.speed button[aria-pressed='true'] {
+  background: var(--surface-2);
+  color: var(--label);
+  box-shadow: var(--shadow-1);
+}
+
+.skip {
+  min-width: 88px;
 }
 
 /* ---------- Round result ---------- */
 
-/* Over the canvas, where blur can't reach and costs the most: near-opaque glass instead. */
+/* Over the canvas, where blur can't reach and costs the most: an opaque card instead. */
 .round-result {
   position: absolute;
-  background: var(--surface-2);
-  top: 38%;
+  top: 40%;
   left: 50%;
   z-index: 15;
   display: flex;
@@ -1699,8 +1898,10 @@ a {
   align-items: center;
   gap: 2px;
   min-width: 210px;
-  padding: 14px 20px;
+  padding: 16px 22px;
   border-radius: var(--r-lg);
+  background: var(--surface-2);
+  box-shadow: var(--shadow-3), inset 0 0 0 var(--hairline) var(--separator);
   text-align: center;
   cursor: pointer;
   transform: translate(-50%, -50%);
@@ -1708,37 +1909,29 @@ a {
 }
 
 .round-result strong {
-  font-size: 1.1rem;
+  font-size: var(--fs-2xl);
+  font-weight: 800;
+  letter-spacing: -0.01em;
   white-space: nowrap;
-  font-weight: 900;
-}
-
-.round-result.won {
-  border-color: var(--success-soft);
-  box-shadow: var(--shadow-3);
 }
 
 .round-result.won strong {
   color: var(--success);
 }
 
-.round-result.lost {
-  box-shadow: var(--shadow-3);
-}
-
 .round-result.lost strong {
-  color: var(--danger);
+  color: var(--danger-text);
 }
 
 .round-result .drop {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  margin-top: 6px;
-  padding: 4px 10px;
+  margin-top: 8px;
+  padding: 4px 10px 4px 4px;
   border-radius: var(--r-pill);
-  background: var(--currency-soft);
-  color: var(--currency);
+  background: var(--fill-4);
+  color: var(--label);
   font-size: var(--fs-sm);
   font-weight: 650;
 }
@@ -1752,7 +1945,8 @@ a {
 }
 
 .item-chip-tile {
-  fill: var(--fill-3);
+  stroke: var(--separator);
+  stroke-width: 1;
 }
 
 .item-section {
@@ -1963,7 +2157,6 @@ a {
 
 .round-strip .won {
   background: var(--success);
-  box-shadow: 0 0 6px var(--success-soft);
 }
 
 .round-strip .lost {

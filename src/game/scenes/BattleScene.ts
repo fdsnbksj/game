@@ -4,9 +4,10 @@ import { DISPLAY_FONT, readBoardPalette, type BoardPalette } from '../../shared/
 import { BENCH_SIZE, MOVE_TICKS, OVERTIME_TICK, TICKS_PER_SECOND, type Star } from '../../sim/balance';
 import type { BattleEvent, FighterInfo } from '../../sim/combat';
 import { COLS, ROWS, SIDE_CELLS, toBattleCell } from '../../sim/hex';
-import { move, type OwnedUnit, type Slot } from '../../sim/planning';
+import { move, sell, type OwnedUnit, type Slot } from '../../sim/planning';
 import { sfx, vibrate } from '../audio';
-import { creatureKey, creatureScale, ensureCreatureTextures } from '../battle/textures';
+import { creatureKey, creatureScale, ensureCreatureTextures, ensureItemTextures, itemKey, itemScale } from '../battle/textures';
+import { getBottomInset, isOverSellZone, onInsetChange, registerSlotAt } from '../boardBridge';
 
 // The board and bench, in world units. The canvas is sized to its container in device
 // pixels and the camera zooms to fit, so these are a layout grid rather than a size.
@@ -24,6 +25,7 @@ const BENCH_X = (BOARD_WIDTH - (BENCH_SIZE * BENCH_SLOT + (BENCH_SIZE - 1) * BEN
 const BENCH_Y = BOARD_Y + 7 * ROW_STEP + 2 * R + 12 + BENCH_SLOT / 2;
 
 const UNIT_SIZE = 42;
+const ITEM_SIZE = 15;
 /** Breathing room around whichever part of the board the camera is showing. */
 const VIEW_PAD = 6;
 /** How long the camera takes to reveal the rival's half, and to come back. */
@@ -32,12 +34,16 @@ const MS_PER_TICK = 1000 / TICKS_PER_SECOND;
 /** Pause on the final frame before handing back to planning. */
 const END_PAUSE_TICKS = 30;
 
+/** The bench is a little wider than the board, so the planning view fits whichever is wider. */
+const PLAN_LEFT = Math.min(BOARD_X, BENCH_X);
+const PLAN_WIDTH = BOARD_WIDTH - 2 * PLAN_LEFT;
+
 /** Rows 4-7 and the bench: what the camera shows while planning. */
 function planningRect() {
   return new Phaser.Geom.Rectangle(
-    BOARD_X - VIEW_PAD,
+    PLAN_LEFT - VIEW_PAD,
     BOARD_Y + 4 * ROW_STEP - VIEW_PAD,
-    7.5 * HEX_W + 2 * VIEW_PAD,
+    PLAN_WIDTH + 2 * VIEW_PAD,
     BENCH_Y + BENCH_SLOT / 2 + 2 * VIEW_PAD - (BOARD_Y + 4 * ROW_STEP),
   );
 }
@@ -80,12 +86,12 @@ function hexPoints(cx: number, cy: number, radius: number) {
   return points;
 }
 
-/** A creature on a lit ring, with a chevron per star; fighters also get health and mana bars. */
+/** A creature on a team-coloured base, with star pips under it and its item in the corner. */
 class UnitView extends Phaser.GameObjects.Container {
   readonly image: Phaser.GameObjects.Image;
   private ring: Phaser.GameObjects.Graphics;
   private pips: Phaser.GameObjects.Graphics;
-  private badge: Phaser.GameObjects.Graphics;
+  private badge: Phaser.GameObjects.Image;
   star: Star = 1;
   item?: string;
 
@@ -104,7 +110,7 @@ class UnitView extends Phaser.GameObjects.Container {
     this.drawRing();
     this.image = scene.add.image(0, -4, creatureKey(unitId)).setScale(creatureScale(UNIT_SIZE));
     this.pips = scene.add.graphics();
-    this.badge = scene.add.graphics();
+    this.badge = scene.add.image(UNIT_SIZE / 2 - 5, -UNIT_SIZE / 2 + 7, '__DEFAULT').setVisible(false);
     this.add([this.ring, this.image, this.pips, this.badge]);
     this.setStar(star);
     this.setItem(item);
@@ -112,13 +118,15 @@ class UnitView extends Phaser.GameObjects.Container {
     scene.add.existing(this);
   }
 
-  /** The pad a creature stands on: what keeps a pale one off a pale board. */
+  /** The base a creature stands on, in its team's colour: it keeps a pale creature off a
+      pale board, and tells the two sides apart in a fight. */
   private drawRing() {
     const color = this.side === 'a' ? this.palette.mine : this.palette.rival;
-    const y = UNIT_SIZE * 0.4;
+    const y = UNIT_SIZE * 0.36;
     this.ring.clear();
-    this.ring.fillStyle(this.palette.shadow, this.palette.shadowAlpha * 0.5).fillEllipse(0, y + 1, UNIT_SIZE * 0.66, 7);
-    this.ring.fillStyle(color, 0.16).fillEllipse(0, y, UNIT_SIZE * 0.5, 5);
+    this.ring.fillStyle(this.palette.shadow, this.palette.shadowAlpha).fillEllipse(0, y + 1.5, UNIT_SIZE * 0.78, 11);
+    this.ring.fillStyle(color, 0.22).fillEllipse(0, y, UNIT_SIZE * 0.74, 10);
+    this.ring.lineStyle(1.75, color, 0.95).strokeEllipse(0, y, UNIT_SIZE * 0.74, 10);
   }
 
   /** Redraws everything that carries a colour, after the scheme changes. */
@@ -126,34 +134,39 @@ class UnitView extends Phaser.GameObjects.Container {
     this.palette = palette;
     this.drawRing();
     this.setStar(this.star);
-    this.setItem(this.item);
   }
 
-  /** A small mark in the corner when the creature is holding something. */
+  /** The held item's own tile, top right. */
   setItem(item?: string) {
     this.item = item;
-    this.badge.clear();
-    if (!item) return;
-    const x = -UNIT_SIZE / 2 + 5;
-    const y = -UNIT_SIZE / 2 + 3;
-    this.badge.fillStyle(this.palette.badge, 1).fillCircle(x, y, 5.5);
-    this.badge.lineStyle(1, this.palette.edge, 0.5).strokeCircle(x, y, 5.5);
-    this.badge.fillStyle(this.palette.mine, 0.85).fillCircle(x, y, 2.6);
+    if (!item) {
+      this.badge.setVisible(false);
+      return;
+    }
+    this.badge.setTexture(itemKey(item)).setScale(itemScale(ITEM_SIZE)).setVisible(true);
   }
 
+  /** One star per level on a dark pill, in bronze, silver or gold. */
   setStar(star: Star) {
     this.star = star;
     const color = this.palette.star[star - 1];
-    const y = -UNIT_SIZE / 2 + 1;
+    const y = UNIT_SIZE / 2 - 1;
+    const width = star * 8 + 4;
     this.pips.clear();
-    for (let i = 0; i < star; i++) {
-      const x = (i - (star - 1) / 2) * 8;
-      this.pips.lineStyle(2.6, this.palette.scrim, 0.7);
-      this.pips.lineBetween(x - 3, y + 2, x, y - 1.5).lineBetween(x, y - 1.5, x + 3, y + 2);
-      this.pips.lineStyle(1.4, color, 1);
-      this.pips.lineBetween(x - 3, y + 2, x, y - 1.5).lineBetween(x, y - 1.5, x + 3, y + 2);
-    }
+    this.pips.fillStyle(this.palette.track, 0.85).fillRoundedRect(-width / 2, y - 5, width, 10, 5);
+    this.pips.fillStyle(color, 1);
+    for (let i = 0; i < star; i++) this.pips.fillPoints(starPoints((i - (star - 1) / 2) * 8, y, 3.4), true);
   }
+}
+
+function starPoints(cx: number, cy: number, radius: number) {
+  const points: Phaser.Types.Math.Vector2Like[] = [];
+  for (let i = 0; i < 10; i++) {
+    const r = i % 2 === 0 ? radius : radius * 0.45;
+    const angle = Phaser.Math.DegToRad(-90 + 36 * i);
+    points.push({ x: cx + r * Math.cos(angle), y: cy + r * Math.sin(angle) });
+  }
+  return points;
 }
 
 class FighterView extends UnitView {
@@ -173,24 +186,25 @@ class FighterView extends UnitView {
   }
 
   drawBars() {
-    const width = 30;
+    const width = 36;
     const x = -width / 2;
-    const y = -UNIT_SIZE / 2 - 7;
+    const y = -UNIT_SIZE / 2 - 9;
     const total = this.info.maxHp + this.shield;
     const hpWidth = (width * this.hp) / total;
     this.bars.clear();
-    this.bars.fillStyle(this.palette.track, this.palette.trackAlpha).fillRect(x - 1, y - 1, width + 2, 7);
-    this.bars.fillStyle(this.info.side === 'a' ? this.palette.hp : this.palette.hpRival).fillRect(x, y, hpWidth, 3);
-    if (this.shield > 0) this.bars.fillStyle(this.palette.shield).fillRect(x + hpWidth, y, (width * this.shield) / total, 3);
-    this.bars.fillStyle(this.palette.mana).fillRect(x, y + 4, (width * this.mana) / this.info.maxMana, 1.5);
+    this.bars.fillStyle(this.palette.track, 0.85).fillRoundedRect(x - 1.5, y - 1.5, width + 3, 9, 2.5);
+    this.bars.fillStyle(this.info.side === 'a' ? this.palette.hp : this.palette.hpRival).fillRect(x, y, hpWidth, 4);
+    if (this.shield > 0) this.bars.fillStyle(this.palette.shield).fillRect(x + hpWidth, y, (width * this.shield) / total, 4);
+    this.bars.fillStyle(this.palette.mana).fillRect(x, y + 5, (width * this.mana) / this.info.maxMana, 1.5);
   }
 }
+
 
 interface Replay {
   battle: Battle;
   elapsed: number;
   next: number;
-  bannerShown: boolean;
+  finished: boolean;
   overtimeShown: boolean;
 }
 
@@ -211,6 +225,10 @@ export class BattleScene extends Phaser.Scene {
   private lastHitSound = 0;
   /** The unit under the player's finger; sync leaves it where it is. */
   private dragging: UnitView | null = null;
+  /** Ends the window listener that follows a unit drag, including off the canvas. */
+  private stopFollowing: (() => void) | null = null;
+  /** Where the finger was last seen during a unit drag, in client pixels. */
+  private dragClient = { x: 0, y: 0 };
   private view: 'planning' | 'fight' = 'planning';
   /** Device pixels per world pixel, so text is baked at the screen's density. */
   private textResolution = 2;
@@ -236,6 +254,7 @@ export class BattleScene extends Phaser.Scene {
     this.scale.on(Phaser.Scale.Events.RESIZE, this.onResize, this);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.scale.off(Phaser.Scale.Events.RESIZE, this.onResize, this));
     ensureCreatureTextures(this);
+    ensureItemTextures(this);
     this.drawBoard();
     this.highlight = this.add.graphics().setDepth(1);
     this.effects = this.add.layer().setDepth(40);
@@ -247,15 +266,21 @@ export class BattleScene extends Phaser.Scene {
     });
 
     const unsubscribe = useRunStore.subscribe((state, previous) => {
-      if (state.battle !== previous.battle) {
+      // Compared by result: marking a fight over makes a new battle object for the same fight.
+      const battleChanged = state.battle?.result !== previous.battle?.result;
+      if (battleChanged) {
         if (state.battle) this.startReplay(state.battle);
         else this.stopReplay();
       }
       // Ending a replay changes only the battle, but the planning units have to reappear.
-      if (state.battle !== previous.battle || state.run !== previous.run || state.selected !== previous.selected) {
+      if (battleChanged || state.run !== previous.run || state.selected !== previous.selected || state.itemTarget !== previous.itemTarget) {
         this.syncPlanning();
       }
     });
+    // The dock over the bottom of the canvas changes height between planning and a fight;
+    // the camera refits to what's left, mid-tween included.
+    const stopInset = onInsetChange(() => this.showView(this.view, this.cameras.main.panEffect.isRunning));
+    const stopSlotAt = registerSlotAt((x, y) => this.unitSlotAtClient(x, y));
     // Leaving the screen destroys the game, which emits DESTROY rather than SHUTDOWN. Miss
     // that and this subscription outlives the scene and throws on the next store change.
     // A phone flips scheme on its own at sunset, mid-fight included, so the board
@@ -267,6 +292,9 @@ export class BattleScene extends Phaser.Scene {
     const stop = () => {
       this.alive = false;
       dark.removeEventListener('change', onScheme);
+      this.stopFollowing?.();
+      stopInset();
+      stopSlotAt();
       unsubscribe();
     };
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, stop);
@@ -284,24 +312,31 @@ export class BattleScene extends Phaser.Scene {
   }
 
   /**
-   * Planning sits the player's half and the bench at the bottom of the canvas, as large as
-   * its width allows, with the rival's half dimmed above; a fight recentres on both halves
-   * and lifts the dimming. The camera tweens between the two, which is the reveal.
+   * Planning sits the player's half and the bench just above the dock, as large as the
+   * width allows, with the rival's half dimmed above; a fight recentres on both halves and
+   * lifts the dimming. The camera tweens between the two, which is the reveal. The dock
+   * covers the bottom of the canvas, so everything is fitted into the part above it.
    */
   private showView(view: 'planning' | 'fight', animate: boolean) {
     if (!this.alive) return;
     this.view = view;
     const rect = view === 'planning' ? planningRect() : fightRect();
     const camera = this.cameras.main;
-    const zoom = Math.min(camera.width / rect.width, camera.height / rect.height);
-    const visibleHeight = camera.height / zoom;
+    const inset = Math.min(camera.height * 0.8, getBottomInset() / (this.scale.zoom || 1));
+    const available = camera.height - inset;
+    const zoom = Math.min(camera.width / rect.width, available / rect.height);
+    const visibleHeight = available / zoom;
     const cx = rect.centerX;
     // The board is wider than a phone, so the camera fits its width and there's height to
     // spare. While planning, the spare height goes above the player's half, keeping the
     // bench within thumb reach; once everything fits, it's centred instead.
     const content = contentRect();
-    const cy =
-      view === 'fight' || visibleHeight >= content.height ? (view === 'fight' ? rect.centerY : content.centerY) : rect.bottom - visibleHeight / 2;
+    const visibleCenter =
+      view === 'fight' ? rect.centerY : visibleHeight >= content.height ? content.centerY : rect.bottom - visibleHeight / 2;
+    // centerOn() puts a point at the middle of the whole canvas, which is half the inset
+    // below the middle of the part that shows.
+    const cy = visibleCenter + inset / 2 / zoom;
+    this.tweens.killTweensOf(this.rivalScrim);
     this.tweens.add({ targets: this.rivalScrim, alpha: view === 'planning' ? 1 : 0, duration: animate ? VIEW_TWEEN_MS : 0 });
     camera.panEffect.reset();
     camera.zoomEffect.reset();
@@ -330,15 +365,15 @@ export class BattleScene extends Phaser.Scene {
     }
 
     // The line where the two halves meet.
-    this.board.lineStyle(1, p.edge, p.edgeAlpha);
+    this.board.lineStyle(1.5, p.edge, p.edgeAlpha);
     this.board.lineBetween(BOARD_X, midY, BOARD_WIDTH - BOARD_X, midY);
 
     for (let i = 0; i < BENCH_SIZE; i++) {
       const { x, y } = slotCenter({ area: 'bench', index: i });
       const left = x - BENCH_SLOT / 2;
       const top = y - BENCH_SLOT / 2 - 3;
-      this.board.fillStyle(p.cell, p.cellRivalAlpha).fillRoundedRect(left, top, BENCH_SLOT, BENCH_SLOT + 6, 8);
-      this.board.lineStyle(1, p.edge, p.edgeRivalAlpha).strokeRoundedRect(left, top, BENCH_SLOT, BENCH_SLOT + 6, 8);
+      this.board.fillStyle(p.cell, p.cellAlpha).fillRoundedRect(left, top, BENCH_SLOT, BENCH_SLOT + 6, 8);
+      this.board.lineStyle(1, p.edge, p.edgeAlpha).strokeRoundedRect(left, top, BENCH_SLOT, BENCH_SLOT + 6, 8);
     }
   }
 
@@ -366,23 +401,77 @@ export class BattleScene extends Phaser.Scene {
 
   // ---------- Planning ----------
 
+  /** A point on the screen, in world units. */
+  private clientToWorld(clientX: number, clientY: number) {
+    const rect = this.game.canvas.getBoundingClientRect();
+    const x = ((clientX - rect.left) * this.scale.width) / rect.width;
+    const y = ((clientY - rect.top) * this.scale.height) / rect.height;
+    return { point: this.cameras.main.getWorldPoint(x, y), inside: clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom };
+  }
+
+  /** Which of the player's creatures is under a point on the screen; for dropping items. */
+  private unitSlotAtClient(clientX: number, clientY: number): Slot | null {
+    const { run, battle } = useRunStore.getState();
+    if (!this.alive || !run || battle) return null;
+    const { point, inside } = this.clientToWorld(clientX, clientY);
+    if (!inside) return null;
+    const slot = this.dropSlot(point.x, point.y);
+    if (!slot) return null;
+    return (slot.area === 'board' ? run.board : run.bench)[slot.index] ? slot : null;
+  }
+
+  /**
+   * Phaser only hears the pointer over the canvas, but a unit can be dragged down onto the
+   * shop to sell it, so the drag follows window events and moves the sprite itself.
+   */
   private setUpDragging() {
-    this.input.on('dragstart', (_pointer: Phaser.Input.Pointer, view: UnitView) => {
+    this.input.on('dragstart', (pointer: Phaser.Input.Pointer, view: UnitView) => {
       this.dragging = view;
       view.setDepth(30).setScale(1.15);
-      useRunStore.getState().select(null);
-    });
-    this.input.on('drag', (_pointer: Phaser.Input.Pointer, view: UnitView, x: number, y: number) => {
-      view.setPosition(x, y);
-      this.drawHighlight(this.dropSlot(x, y));
+      const store = useRunStore.getState();
+      store.select(null);
+      const slot = view.getData('slot') as Slot;
+      useRunStore.setState({ unitDrag: { slot, overSell: false, outside: null } });
+
+      const rect = this.game.canvas.getBoundingClientRect();
+      this.dragClient = { x: rect.left + (pointer.x * rect.width) / this.scale.width, y: rect.top + (pointer.y * rect.height) / this.scale.height };
+      const follow = (event: PointerEvent) => {
+        if (!this.alive || this.dragging !== view) return;
+        const last = { x: event.clientX, y: event.clientY };
+        this.dragClient = last;
+        const { point, inside } = this.clientToWorld(last.x, last.y);
+        view.setPosition(point.x, point.y).setVisible(inside);
+        this.drawHighlight(inside ? this.dropSlot(point.x, point.y) : null);
+        const overSell = isOverSellZone(last.x, last.y);
+        const current = useRunStore.getState().unitDrag;
+        // The finger's position only matters to React once the canvas can't draw the unit.
+        const outside = inside ? null : last;
+        if (current && (current.overSell !== overSell || (current.outside === null) !== (outside === null) || outside)) {
+          useRunStore.setState({ unitDrag: { ...current, overSell, outside } });
+        }
+      };
+      window.addEventListener('pointermove', follow);
+      this.stopFollowing = () => {
+        window.removeEventListener('pointermove', follow);
+        this.stopFollowing = null;
+        useRunStore.setState({ unitDrag: null });
+      };
     });
     this.input.on('dragend', (_pointer: Phaser.Input.Pointer, view: UnitView) => {
+      const last = this.dragClient;
       this.dragging = null;
-      view.setDepth(10).setScale(1);
+      this.stopFollowing?.();
+      view.setDepth(10).setScale(1).setVisible(true);
       this.highlight.clear();
       const from = view.getData('slot') as Slot;
-      const to = this.dropSlot(view.x, view.y);
       const store = useRunStore.getState();
+      if (isOverSellZone(last.x, last.y)) {
+        if (store.act((run) => sell(run, from))) sfx.sell();
+        this.syncPlanning();
+        return;
+      }
+      const { point, inside } = this.clientToWorld(last.x, last.y);
+      const to = inside ? this.dropSlot(point.x, point.y) : null;
       const level = store.run?.level ?? 1;
       if (to && (to.area !== from.area || to.index !== from.index)) {
         store.act((run) => move(run, from, to), `Level ${level} fits ${level} unit${level === 1 ? '' : 's'} on the board`);
@@ -414,7 +503,7 @@ export class BattleScene extends Phaser.Scene {
     this.highlight.clear();
     if (!slot) return;
     const { x, y } = slotCenter(slot);
-    this.highlight.fillStyle(this.palette.mine, 0.12).lineStyle(2, this.palette.mine, 0.9);
+    this.highlight.fillStyle(this.palette.mine, 0.14).lineStyle(2, this.palette.mine, 0.95);
     if (slot.area === 'board') {
       this.highlight.fillPoints(hexPoints(x, y, R - 2), true);
       this.highlight.strokePoints(hexPoints(x, y, R - 2), true);
@@ -427,7 +516,7 @@ export class BattleScene extends Phaser.Scene {
   /** Makes the sprites match the run: new units pop in, moved ones slide, sold ones fade. */
   private syncPlanning() {
     if (!this.alive) return;
-    const { run, battle, selected } = useRunStore.getState();
+    const { run, battle, selected, itemTarget } = useRunStore.getState();
     const planning = !battle;
     const seen = new Set<number>();
     const place = (unit: OwnedUnit | null, slot: Slot) => {
@@ -446,6 +535,10 @@ export class BattleScene extends Phaser.Scene {
         this.views.set(unit.uid, view);
       } else if (view.item !== unit.item) {
         view.setItem(unit.item);
+        if (unit.item) {
+          this.tweens.add({ targets: view, scale: { from: 1.25, to: 1 }, duration: 320, ease: 'Back.easeOut' });
+          this.burst(target.x, target.y, this.palette.mine);
+        }
       }
       if (view.star !== unit.star) {
         view.setStar(unit.star);
@@ -460,8 +553,9 @@ export class BattleScene extends Phaser.Scene {
         this.tweens.add({ targets: view, x: target.x, y: target.y, duration: 160, ease: 'Quad.easeOut' });
       }
       const isSelected = selected?.area === slot.area && selected.index === slot.index;
+      const isTarget = itemTarget?.area === slot.area && itemTarget.index === slot.index;
       // A ring marks the selection; tinting the art washes it out on a light board.
-      view.setScale(isSelected ? 1.08 : 1);
+      if (!this.tweens.isTweening(view)) view.setScale(isTarget ? 1.15 : isSelected ? 1.08 : 1);
     };
     run?.board.forEach((unit, index) => place(unit, { area: 'board', index }));
     run?.bench.forEach((unit, index) => place(unit, { area: 'bench', index }));
@@ -471,7 +565,8 @@ export class BattleScene extends Phaser.Scene {
       view.disableInteractive();
       this.tweens.add({ targets: view, alpha: 0, scale: 0.3, duration: 180, onComplete: () => view.destroy() });
     }
-    this.drawSelection(planning ? selected : null);
+    if (planning && itemTarget) this.drawHighlight(itemTarget);
+    else this.drawSelection(planning ? selected : null);
   }
 
   private drawSelection(slot: Slot | null) {
@@ -496,8 +591,9 @@ export class BattleScene extends Phaser.Scene {
       fighter.setScale(0);
       this.tweens.add({ targets: fighter, scale: 1, duration: 260, delay: fighter.info.side === 'b' ? 120 : 0, ease: 'Back.easeOut' });
     }
+    this.publishTeamHp();
     // Opponents sit on the half that was empty during planning; let them land before anything moves.
-    this.replay = { battle, elapsed: -500, next: 0, bannerShown: false, overtimeShown: false };
+    this.replay = { battle, elapsed: -500, next: 0, finished: false, overtimeShown: false };
   }
 
   private stopReplay() {
@@ -510,6 +606,21 @@ export class BattleScene extends Phaser.Scene {
     this.effects.removeAll(true);
   }
 
+  /** Each side's health left, for the versus header over the board. */
+  private publishTeamHp() {
+    const hp = { a: 0, b: 0, maxA: 0, maxB: 0 };
+    for (const fighter of this.fighters) {
+      if (fighter.info.side === 'a') {
+        hp.a += fighter.hp;
+        hp.maxA += fighter.info.maxHp;
+      } else {
+        hp.b += fighter.hp;
+        hp.maxB += fighter.info.maxHp;
+      }
+    }
+    useRunStore.setState({ teamHp: hp });
+  }
+
   update(_time: number, delta: number) {
     const replay = this.replay;
     if (!replay) return;
@@ -517,14 +628,17 @@ export class BattleScene extends Phaser.Scene {
     replay.elapsed += delta * speed;
     const tick = Math.floor(replay.elapsed / MS_PER_TICK);
     const { events, ticks, winner } = replay.battle.result;
-    while (replay.next < events.length && events[replay.next].t <= tick) this.apply(events[replay.next++], speed);
+    let changed = false;
+    while (replay.next < events.length && events[replay.next].t <= tick) changed = this.apply(events[replay.next++], speed) || changed;
+    if (changed) this.publishTeamHp();
     if (!replay.overtimeShown && tick > OVERTIME_TICK && tick <= ticks) {
       replay.overtimeShown = true;
-      this.banner('OVERTIME', this.palette.currency, true);
+      this.banner('Overtime', this.palette.currency);
     }
-    if (!replay.bannerShown && tick > ticks) {
-      replay.bannerShown = true;
-      this.banner(winner === 'a' ? 'Won' : winner === 'b' ? 'Lost' : 'Draw', winner === 'a' ? this.palette.success : winner === 'b' ? this.palette.danger : this.palette.muted);
+    if (!replay.finished && tick > ticks) {
+      replay.finished = true;
+      // The result card over the board says who won; the scene only plays the sting.
+      useRunStore.getState().finishReplay();
       if (winner === 'a') {
         sfx.reward();
         vibrate(20);
@@ -536,90 +650,94 @@ export class BattleScene extends Phaser.Scene {
     if (tick > ticks + END_PAUSE_TICKS) useRunStore.getState().endReplay();
   }
 
-  private apply(event: BattleEvent, speed: number) {
+  /** Plays one event; true if it changed anyone's health. */
+  private apply(event: BattleEvent, speed: number): boolean {
     const fighter = this.fighters[event.id];
-    if (!fighter) return;
+    if (!fighter) return false;
     switch (event.k) {
       case 'move': {
         const { x, y } = cellCenter(event.cell);
         this.tweens.add({ targets: fighter, x, y, duration: (MOVE_TICKS * MS_PER_TICK) / speed, ease: 'Sine.easeInOut' });
-        break;
+        return false;
       }
       case 'attack': {
         const target = this.fighters[event.target];
         fighter.mana = event.mana;
         fighter.drawBars();
-        if (!target) break;
+        if (!target) return false;
         if (Phaser.Math.Distance.Between(fighter.x, fighter.y, target.x, target.y) > HEX_W * 1.5) {
-          const bolt = this.add.circle(fighter.x, fighter.y - 4, 2.5, fighter.info.side === 'a' ? this.palette.mine : this.palette.rival);
+          const bolt = this.add.circle(fighter.x, fighter.y - 4, 3, fighter.info.side === 'a' ? this.palette.mine : this.palette.rival);
           this.effects.add(bolt);
           this.tweens.add({ targets: bolt, x: target.x, y: target.y - 4, duration: 180 / speed, onComplete: () => bolt.destroy() });
         } else {
           const dx = (target.x - fighter.x) * 0.2;
           const dy = (target.y - fighter.y) * 0.2;
-          this.tweens.add({ targets: fighter.image, x: dx, y: dy - 2, duration: 70 / speed, yoyo: true });
+          this.tweens.add({ targets: fighter.image, x: dx, y: dy - 6, duration: 70 / speed, yoyo: true });
         }
-        break;
+        return false;
       }
       case 'hit':
         fighter.hp = event.hp;
         fighter.shield = event.shield;
         fighter.mana = event.mana;
         fighter.drawBars();
-        this.floatText(fighter, `${event.amount}`, event.ability ? this.palette.danger : this.palette.label, event.ability ? 13 : 10);
+        this.floatText(fighter, `${event.amount}`, event.ability ? this.palette.danger : this.palette.label, event.ability ? 16 : 12);
         fighter.image.setTintFill(this.palette.shield);
         this.time.delayedCall(60, () => fighter.image.clearTint());
         if (this.time.now - this.lastHitSound > 60) {
           this.lastHitSound = this.time.now;
           sfx.hit();
         }
-        break;
+        return true;
       case 'dodge':
-        this.floatText(fighter, 'Miss', this.palette.muted, 9);
-        break;
+        this.floatText(fighter, 'Miss', this.palette.muted, 11);
+        return false;
       case 'heal':
         fighter.hp = event.hp;
         fighter.drawBars();
-        this.floatText(fighter, `+${event.amount}`, this.palette.success, 12);
-        break;
+        this.floatText(fighter, `+${event.amount}`, this.palette.success, 13);
+        return true;
       case 'shield':
         fighter.shield = event.shield;
         fighter.drawBars();
-        this.floatText(fighter, 'Shield', this.palette.label, 9);
-        break;
+        this.floatText(fighter, 'Shield', this.palette.label, 11);
+        return false;
       case 'stun':
-        fighter.image.setTint(this.palette.rival);
-        this.floatText(fighter, 'Stun', this.palette.currency, 9);
+        fighter.image.setTint(this.palette.star[2]);
+        this.floatText(fighter, 'Stun', this.palette.currency, 11);
         this.time.delayedCall((event.ticks * MS_PER_TICK) / speed, () => fighter.active && fighter.image.clearTint());
-        break;
+        return false;
       case 'cast': {
         fighter.mana = 0;
         fighter.drawBars();
         const color = fighter.info.side === 'a' ? this.palette.mine : this.palette.rival;
         for (const cell of event.cells) {
           const { x, y } = cellCenter(cell);
-          const flash = this.add.graphics().fillStyle(color, 0.45).fillPoints(hexPoints(x, y, R - 3), true);
+          const flash = this.add.graphics().fillStyle(color, 0.35).fillPoints(hexPoints(x, y, R - 3), true);
           this.effects.add(flash);
           this.tweens.add({ targets: flash, alpha: 0, duration: 420 / speed, onComplete: () => flash.destroy() });
         }
         this.tweens.add({ targets: fighter, scale: { from: 1.25, to: 1 }, duration: 240 / speed });
         sfx.cast();
-        break;
+        return false;
       }
       case 'death':
+        fighter.hp = 0;
         this.tweens.add({ targets: fighter, alpha: 0, scale: 0.5, duration: 260 / speed });
         this.burst(fighter.x, fighter.y, fighter.info.side === 'a' ? this.palette.mine : this.palette.rival);
         sfx.faint();
-        break;
+        return true;
+      default:
+        return false;
     }
   }
 
   private floatText(at: Phaser.GameObjects.Container, text: string, color: string, size: number) {
     const label = this.add
-      .text(at.x + Phaser.Math.Between(-6, 6), at.y - 14, text, {
+      .text(at.x + Phaser.Math.Between(-6, 6), at.y - 16, text, {
         fontFamily: DISPLAY_FONT,
         fontSize: `${size}px`,
-        fontStyle: '600',
+        fontStyle: '700',
         color,
         stroke: this.palette.halo,
         strokeThickness: 3,
@@ -627,7 +745,7 @@ export class BattleScene extends Phaser.Scene {
       .setResolution(this.textResolution)
       .setOrigin(0.5);
     this.effects.add(label);
-    this.tweens.add({ targets: label, y: label.y - 18, alpha: 0, duration: 650, ease: 'Quad.easeOut', onComplete: () => label.destroy() });
+    this.tweens.add({ targets: label, y: label.y - 20, alpha: 0, duration: 700, ease: 'Quad.easeOut', onComplete: () => label.destroy() });
   }
 
   private burst(x: number, y: number, color: number) {
@@ -636,11 +754,12 @@ export class BattleScene extends Phaser.Scene {
     this.tweens.add({ targets: ring, radius: 26, alpha: 0, duration: 360, ease: 'Quad.easeOut', onComplete: () => ring.destroy() });
   }
 
-  private banner(text: string, color: string, brief = false) {
+  /** A short word across the middle of the board, e.g. when overtime starts. */
+  private banner(text: string, color: string) {
     const label = this.add
       .text(BOARD_WIDTH / 2, BOARD_Y + R + 3.5 * ROW_STEP, text, {
         fontFamily: DISPLAY_FONT,
-        fontSize: '30px',
+        fontSize: '20px',
         fontStyle: '700',
         color,
         stroke: this.palette.halo,
@@ -652,9 +771,6 @@ export class BattleScene extends Phaser.Scene {
       .setAlpha(0);
     this.effects.add(label);
     this.tweens.add({ targets: label, scale: 1, alpha: 1, duration: 260, ease: 'Back.easeOut' });
-    if (brief) {
-      label.setFontSize(22);
-      this.tweens.add({ targets: label, alpha: 0, delay: 900, duration: 400, onComplete: () => label.destroy() });
-    }
+    this.tweens.add({ targets: label, alpha: 0, delay: 900, duration: 400, onComplete: () => label.destroy() });
   }
 }

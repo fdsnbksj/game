@@ -41,6 +41,25 @@ export interface Battle {
   round: number;
   /** The run as it was when the fight started, for the replay's HUD. */
   before: RunState;
+  /** The last unit has fallen and the replay is only pausing on the final frame. */
+  over?: boolean;
+}
+
+/** Health each side has left during a replay, for the versus header. */
+export interface TeamHp {
+  a: number;
+  b: number;
+  maxA: number;
+  maxB: number;
+}
+
+/** A unit being dragged on the board, so the shop can turn into a sell zone. */
+export interface UnitDrag {
+  slot: Slot;
+  /** Over the shop: letting go sells it. */
+  overSell: boolean;
+  /** Where the finger is, once it has left the canvas and the scene can't draw the unit. */
+  outside: { x: number; y: number } | null;
 }
 
 export interface OnlineRun {
@@ -71,6 +90,10 @@ interface RunStore {
   battle: Battle | null;
   speed: ReplaySpeed;
   selected: Slot | null;
+  /** The creature an item is being dragged over. */
+  itemTarget: Slot | null;
+  unitDrag: UnitDrag | null;
+  teamHp: TeamHp | null;
   /** A short message for the player, e.g. why a move didn't happen. */
   notice: { text: string; id: number } | null;
   stats: LocalStats;
@@ -85,6 +108,8 @@ interface RunStore {
   fight: () => void;
   setSpeed: (speed: ReplaySpeed) => void;
   endReplay: () => void;
+  /** The replay reached the end of the fight; the result can show. */
+  finishReplay: () => void;
   leaveRun: () => void;
   notify: (text: string) => void;
   /** Writes whatever is waiting. Safe to call any time; runs one write at a time. */
@@ -129,6 +154,9 @@ export const useRunStore = create<RunStore>()((set, get) => {
     battle: null,
     speed: 1,
     selected: null,
+    itemTarget: null,
+    unitDrag: null,
+    teamHp: null,
     notice: null,
     stats: load<LocalStats>(STATS_KEY, { runs: 0, bestWins: 0, bestRound: 0 }),
 
@@ -224,7 +252,12 @@ export const useRunStore = create<RunStore>()((set, get) => {
 
     setSpeed: (speed) => set({ speed }),
 
-    endReplay: () => set({ battle: null }),
+    endReplay: () => set({ battle: null, teamHp: null }),
+
+    finishReplay: () => {
+      const battle = get().battle;
+      if (battle && !battle.over) set({ battle: { ...battle, over: true } });
+    },
 
     leaveRun: () => {
       save(RUN_KEY, null);

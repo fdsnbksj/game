@@ -6,6 +6,7 @@ import { ITEMS, MAX_INTEREST, MAX_ROUNDS, REROLL_COST, START_HP, TRAITS, UNITS, 
 const STEPS = [
   { title: 'Buy', text: 'Tap a creature in the shop. It lands on your bench.' },
   { title: 'Place', text: 'Drag it onto your hexes. Your level is how many can fight.' },
+  { title: 'Sell', text: 'Drag a creature onto the shop to sell it.' },
   { title: 'Fight', text: 'Press Fight. The battle plays out on its own.' },
 ];
 
@@ -65,7 +66,7 @@ export function HowToPlay() {
 
       <section className="glass card-pad">
         <p className="micro">Items</p>
-        <p className="note">One drops every few rounds. Tap a creature to give it one; each creature holds one.</p>
+        <p className="note">One drops every few rounds. Drag it onto a creature; each holds one.</p>
         <ul className="item-guide">
           {ITEMS.map((item) => (
             <li key={item.id}>

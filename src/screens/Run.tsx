@@ -7,6 +7,7 @@ import { SettingsButton } from '../components/SettingsSheet';
 import { TraitIcon } from '../components/TraitIcon';
 import { setMusicLevel, sfx, startMusic, stopMusic } from '../game/audio';
 import { PhaserGame } from '../game/PhaserGame';
+import { registerSellZone, setBottomInset, unitSlotAtClient } from '../game/boardBridge';
 import { BattleScene } from '../game/scenes/BattleScene';
 import { useRunStore, type Battle } from '../runStore';
 import {
@@ -53,6 +54,7 @@ export function Run() {
 
   const result = useRoundResult();
   useOnlineSync();
+  const { stage, tray, fightBar } = useDockInset(battle !== null);
 
   if (!run) return null;
   // During the replay, show the run as it was when the fight began.
@@ -61,26 +63,50 @@ export function Run() {
   return (
     <main className={battle ? 'screen run fighting' : 'screen run'}>
       <Hud run={shown} />
-      <TraitRail run={shown} opponent={battle ? { name: battle.opponent, kind: battle.opponentKind } : undefined} />
-      {/* The board takes whatever height the panels leave, and the camera fits itself to it. */}
-      <PhaserGame className="board-canvas" scenes={SCENES} responsive transparent />
-      {/* Both panels share one grid cell, so the board keeps its size when a fight starts. */}
-      <div className="dock">
-        <div className={battle ? 'dock-layer inactive' : 'dock-layer'} aria-hidden={battle ? true : undefined}>
-          <Tray run={run} />
-        </div>
-        {battle && (
-          <div className="dock-layer">
-            <FightBar battle={battle} />
+      {battle ? <VersusHeader battle={battle} /> : <TraitRail run={shown} />}
+      {/* The board fills the stage and the dock floats over its bottom edge. The canvas never
+          resizes between planning and a fight; the camera refits to the part left showing. */}
+      <div className="stage" ref={stage}>
+        <PhaserGame className="board-canvas" scenes={SCENES} responsive transparent />
+        <div className="dock">
+          <div ref={tray} className={battle ? 'dock-layer tray-layer inactive' : 'dock-layer tray-layer'} aria-hidden={battle ? true : undefined}>
+            <Tray run={run} />
           </div>
-        )}
+          <div ref={fightBar} className={battle ? 'dock-layer fight-layer' : 'dock-layer fight-layer inactive'} aria-hidden={battle ? undefined : true}>
+            {battle && <FightBar />}
+          </div>
+        </div>
+        {result && <RoundResult result={result} />}
       </div>
-      {result && <RoundResult result={result} />}
+      <UnitGhost />
       <UnitSheet />
       <Notice />
       {run.done && !battle && <Summary run={run} />}
     </main>
   );
+}
+
+/** Tells the board how much of the canvas the dock covers, as the dock changes. */
+function useDockInset(fighting: boolean) {
+  const stage = useRef<HTMLDivElement>(null);
+  const tray = useRef<HTMLDivElement>(null);
+  const fightBar = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    // Measured by height rather than position: the layers slide in and out with transforms.
+    const report = () => {
+      const layer = fighting ? fightBar.current : tray.current;
+      const dock = layer?.parentElement;
+      if (!stage.current || !layer || !dock) return;
+      const gap = stage.current.getBoundingClientRect().bottom - dock.getBoundingClientRect().bottom;
+      setBottomInset(Math.round(layer.offsetHeight + gap));
+    };
+    report();
+    const observer = new ResizeObserver(report);
+    for (const element of [stage.current, tray.current, fightBar.current]) if (element) observer.observe(element);
+    return () => observer.disconnect();
+  }, [fighting]);
+  useEffect(() => () => setBottomInset(0), []);
+  return { stage, tray, fightBar };
 }
 
 function Hud({ run }: { run: RunState }) {
@@ -132,8 +158,8 @@ function Hud({ run }: { run: RunState }) {
   );
 }
 
-/** Active traits first, then the rest, with a popover for whichever one is tapped. */
-function TraitRail({ run, opponent }: { run: RunState; opponent?: { name: string; kind: 'ghost' | 'bot' } }) {
+/** Active traits first, named, then the rest as icons, with a popover for whichever one is tapped. */
+function TraitRail({ run }: { run: RunState }) {
   const [open, setOpen] = useState<TraitId | null>(null);
   const traits = activeTraits(run.board.flatMap((unit) => (unit ? [unit.unitId] : [])))
     .filter((entry) => entry.count > 0)
@@ -143,24 +169,18 @@ function TraitRail({ run, opponent }: { run: RunState; opponent?: { name: string
   return (
     <div className="trait-rail-wrap">
       <div className="trait-rail">
-        {opponent ? (
-          <span className="versus">
-            vs {opponent.name}
-            <small className={`rival-kind ${opponent.kind}`}>{opponent.kind === 'ghost' ? 'player' : 'bot'}</small>
-          </span>
-        ) : (
-          <span className="board-count">
-            {boardCount(run)}/{run.level}
-          </span>
-        )}
+        <span className="board-count" aria-label={`${boardCount(run)} of ${run.level} on the board`}>
+          {boardCount(run)}/{run.level}
+        </span>
         {traits.map(({ trait, count, tier }) => (
           <button key={trait.id} className={`trait-chip tier-${tier}`} onClick={() => setOpen(open === trait.id ? null : trait.id)}>
-            <TraitIcon trait={trait.id} size={14} muted={tier === 0} />
+            <TraitIcon trait={trait.id} size={16} />
+            {tier > 0 && <span className="trait-name">{trait.name}</span>}
             <b>{count}</b>
             <small>/{count >= trait.thresholds[0] ? trait.thresholds[1] : trait.thresholds[0]}</small>
           </button>
         ))}
-        {traits.length === 0 && !opponent && <span className="hint">Drag units from the bench onto your hexes</span>}
+        {traits.length === 0 && <span className="hint">Drag units from the bench onto your hexes</span>}
       </div>
       {shown && (
         <div className="glass trait-pop" role="dialog" onClick={() => setOpen(null)}>
@@ -174,13 +194,41 @@ function TraitRail({ run, opponent }: { run: RunState; opponent?: { name: string
   );
 }
 
+/** During a fight: both teams, with the health each has left. */
+function VersusHeader({ battle }: { battle: Battle }) {
+  const teamHp = useRunStore((s) => s.teamHp);
+  const share = (hp: number, max: number) => (max > 0 ? `${(hp / max) * 100}%` : '0%');
+  return (
+    <div className="versus-header" aria-label={`You versus ${battle.opponent}`}>
+      <div className="team mine">
+        <span className="team-name">You</span>
+        <div className="team-bar">
+          <span style={{ width: share(teamHp?.a ?? 1, teamHp?.maxA ?? 1) }} />
+        </div>
+      </div>
+      <span className="vs">vs</span>
+      <div className="team rival">
+        <span className="team-name">
+          <span className="rival-name">{battle.opponent}</span>
+          <small className="rival-kind">{battle.opponentKind === 'ghost' ? 'player' : 'bot'}</small>
+        </span>
+        <div className="team-bar">
+          <span style={{ width: share(teamHp?.b ?? 1, teamHp?.maxB ?? 1) }} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function Tray({ run }: { run: RunState }) {
   const act = useRunStore((s) => s.act);
   const notify = useRunStore((s) => s.notify);
   const fight = useRunStore((s) => s.fight);
+  const unitDrag = useRunStore((s) => s.unitDrag);
   const xpInto = run.xp - LEVEL_XP[run.level];
   const xpNeeded = run.level < MAX_LEVEL ? LEVEL_XP[run.level + 1] - LEVEL_XP[run.level] : 0;
   const empty = boardCount(run) === 0 && ownedUnits(run).length === 0;
+  const dragged = unitDrag ? (unitDrag.slot.area === 'board' ? run.board : run.bench)[unitDrag.slot.index] : null;
 
   return (
     <section className="glass tray-dock">
@@ -210,32 +258,33 @@ function Tray({ run }: { run: RunState }) {
         </button>
       </div>
 
-      {run.bag.length > 0 && (
-        <div className="bag" aria-label="Items to give out">
-          {run.bag.map((itemId, index) => (
-            <ItemChip key={`${itemId}-${index}`} itemId={itemId} />
-          ))}
-          <span className="hint">Tap a creature to give it one</span>
-        </div>
-      )}
+      {run.bag.length > 0 && <Bag bag={run.bag} />}
 
-      <div className="shop" aria-label="Shop">
-        {run.shop.map((unitId, index) =>
-          unitId ? (
-            <ShopCard
-              key={`${index}-${unitId}`}
-              unitId={unitId}
-              owned={ownedUnits(run).filter((u) => u.unitId === unitId && u.star === 1).length}
-              affordable={run.gold >= getUnit(unitId).cost}
-              onBuy={() => {
-                const reason = whyNotBuy(run, index);
-                if (reason) notify(reason);
-                else if (act((r) => buy(r, index))) sfx.buy();
-              }}
-            />
-          ) : (
-            <div key={`${index}-sold`} className="shop-card sold" aria-hidden="true" />
-          ),
+      <div className="shop-wrap" ref={registerSellZone}>
+        <div className="shop" aria-label="Shop" aria-hidden={dragged ? true : undefined}>
+          {run.shop.map((unitId, index) =>
+            unitId ? (
+              <ShopCard
+                key={`${index}-${unitId}`}
+                unitId={unitId}
+                owned={ownedUnits(run).filter((u) => u.unitId === unitId && u.star === 1).length}
+                affordable={run.gold >= getUnit(unitId).cost}
+                onBuy={() => {
+                  const reason = whyNotBuy(run, index);
+                  if (reason) notify(reason);
+                  else if (act((r) => buy(r, index))) sfx.buy();
+                }}
+              />
+            ) : (
+              <div key={`${index}-sold`} className="shop-card sold" aria-hidden="true" />
+            ),
+          )}
+        </div>
+        {dragged && (
+          <div className={unitDrag?.overSell ? 'sell-zone over' : 'sell-zone'} role="status">
+            Sell for <span className="coin" aria-hidden="true" />
+            {sellValue(getUnit(dragged.unitId).cost, dragged.star)}
+          </div>
         )}
       </div>
 
@@ -246,59 +295,163 @@ function Tray({ run }: { run: RunState }) {
   );
 }
 
+/** A little movement before a press becomes a drag, so a tap still opens the item's card. */
+const DRAG_START = 6;
+
+interface ItemDrag {
+  index: number;
+  itemId: string;
+  start: { x: number; y: number };
+  at: { x: number; y: number };
+  moving: boolean;
+  /** Dropped away from a creature: the ghost glides back before it goes. */
+  returning: boolean;
+}
+
+/** Items waiting to be given out. Drag one onto a creature to give it; tap to read it. */
+function Bag({ bag }: { bag: string[] }) {
+  const act = useRunStore((s) => s.act);
+  // The drag lives in a ref, so a quick flick's up event sees its own move; state only draws it.
+  const live = useRef<ItemDrag | null>(null);
+  const [drag, setDragState] = useState<ItemDrag | null>(null);
+  const [open, setOpen] = useState<number | null>(null);
+  const target = useRef<Slot | null>(null);
+
+  const setDrag = (next: ItemDrag | null) => {
+    live.current = next;
+    setDragState(next);
+  };
+  const setTarget = (slot: Slot | null) => {
+    const same = slot && target.current && slot.area === target.current.area && slot.index === target.current.index;
+    if (same || slot === target.current) return;
+    target.current = slot;
+    useRunStore.setState({ itemTarget: slot });
+  };
+  const end = () => {
+    setTarget(null);
+    setDrag(null);
+  };
+  useEffect(() => () => void useRunStore.setState({ itemTarget: null }), []);
+
+  const shownItem = open !== null && open < bag.length ? getItem(bag[open]) : null;
+
+  return (
+    <div className="bag-wrap">
+      <div className="bag" aria-label="Items to give out">
+        {bag.map((itemId, index) => (
+          <button
+            key={`${itemId}-${index}`}
+            className={drag?.index === index && drag.moving ? 'bag-item lifted' : 'bag-item'}
+            aria-label={`${getItem(itemId).name}: drag onto a creature`}
+            onPointerDown={(event) => {
+              if (live.current?.returning) return;
+              event.currentTarget.setPointerCapture(event.pointerId);
+              const point = { x: event.clientX, y: event.clientY };
+              setDrag({ index, itemId, start: point, at: point, moving: false, returning: false });
+            }}
+            onPointerMove={(event) => {
+              const current = live.current;
+              if (!current || current.index !== index || current.returning) return;
+              const at = { x: event.clientX, y: event.clientY };
+              const moving = current.moving || Math.hypot(at.x - current.start.x, at.y - current.start.y) > DRAG_START;
+              if (!moving) return;
+              if (!current.moving) setOpen(null);
+              setDrag({ ...current, at, moving });
+              setTarget(unitSlotAtClient(at.x, at.y));
+            }}
+            onPointerUp={(event) => {
+              const current = live.current;
+              if (!current || current.index !== index || current.returning) return;
+              const at = { x: event.clientX, y: event.clientY };
+              if (!current.moving && Math.hypot(at.x - current.start.x, at.y - current.start.y) <= DRAG_START) {
+                setOpen(open === index ? null : index);
+                end();
+                return;
+              }
+              const slot = unitSlotAtClient(at.x, at.y);
+              if (slot && act((run) => equip(run, slot, itemId))) {
+                sfx.buy();
+                end();
+                return;
+              }
+              setTarget(null);
+              setDrag({ ...current, at: current.start, moving: true, returning: true });
+              setTimeout(() => setDrag(null), 200);
+            }}
+            onPointerCancel={end}
+          >
+            <ItemChip itemId={itemId} size={34} />
+          </button>
+        ))}
+        <span className="hint">Drag onto a creature</span>
+      </div>
+      {shownItem && (
+        <div className="glass trait-pop item-pop" role="dialog" onClick={() => setOpen(null)}>
+          <strong>{shownItem.name}</strong>
+          <span className="note">{shownItem.description}</span>
+        </div>
+      )}
+      {drag?.moving && (
+        <div className={drag.returning ? 'drag-ghost returning' : 'drag-ghost'} style={{ left: drag.at.x, top: drag.at.y }} aria-hidden="true">
+          <ItemChip itemId={drag.itemId} size={40} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** A unit dragged off the canvas (toward the shop, to sell it) is drawn here instead. */
+function UnitGhost() {
+  const unitDrag = useRunStore((s) => s.unitDrag);
+  const run = useRunStore((s) => s.run);
+  if (!unitDrag?.outside || !run) return null;
+  const unit = (unitDrag.slot.area === 'board' ? run.board : run.bench)[unitDrag.slot.index];
+  if (!unit) return null;
+  return (
+    <div className="drag-ghost unit" style={{ left: unitDrag.outside.x, top: unitDrag.outside.y }} aria-hidden="true">
+      <CreatureChip unitId={unit.unitId} size={52} />
+    </div>
+  );
+}
+
 function ShopCard({ unitId, owned, affordable, onBuy }: { unitId: string; owned: number; affordable: boolean; onBuy: () => void }) {
   const unit = getUnit(unitId);
   return (
     <button className={`shop-card cost-${unit.cost}${affordable ? '' : ' poor'}${owned === 2 ? ' combines' : ''}`} onClick={onBuy}>
-      <span className="cost-gem" aria-label={`${unit.cost} gold`}>
-        {unit.cost}
-      </span>
       {owned > 0 && <span className="owned-badge">{owned}/3</span>}
-      <CreatureChip unitId={unitId} size={46} />
-      <span className="card-name">{unit.name}</span>
+      <CreatureChip unitId={unitId} size={44} />
       <span className="card-traits">
-        <TraitIcon trait={unit.origin} size={13} />
-        <TraitIcon trait={unit.role} size={13} />
+        <TraitIcon trait={unit.origin} size={14} />
+        <TraitIcon trait={unit.role} size={14} />
+      </span>
+      <span className="card-name">{unit.name}</span>
+      <span className="card-cost" aria-label={`${unit.cost} gold`}>
+        <span className="coin" aria-hidden="true" />
+        {unit.cost}
       </span>
     </button>
   );
 }
 
-/** Replay speed, skip, and how the two teams' strength compares. */
-function FightBar({ battle }: { battle: Battle }) {
+/** Replay speed and skip; the teams are in the header above the board. */
+function FightBar() {
   const speed = useRunStore((s) => s.speed);
   const setSpeed = useRunStore((s) => s.setSpeed);
   const endReplay = useRunStore((s) => s.endReplay);
-  // Total health each side brings: the one number both teams can be compared on.
-  const strength = (side: 'a' | 'b') =>
-    battle.result.fighters.filter((fighter) => fighter.side === side).reduce((sum, fighter) => sum + fighter.maxHp, 0);
-  const mine = strength('a');
-  const theirs = strength('b');
-  const share = mine + theirs > 0 ? (mine / (mine + theirs)) * 100 : 50;
 
   return (
     <section className="glass fight-bar">
-      <p className="micro center-text">Round {battle.round} of {MAX_ROUNDS}</p>
-      <div className="strength-block">
-        <div className="strength-names">
-          <span className="mine-name">Your team</span>
-          <span className="rival-name">{battle.opponent}</span>
-        </div>
-        <div className="strength" aria-label={`Team strength ${Math.round(share)}% yours`}>
-          <span className="mine" style={{ width: `${share}%` }} />
-        </div>
-      </div>
-      <div className="fight-buttons">
-        <button className="button small" aria-pressed={speed === 1} onClick={() => setSpeed(1)}>
-          ×1
+      <div className="speed" role="group" aria-label="Replay speed">
+        <button aria-pressed={speed === 1} onClick={() => setSpeed(1)}>
+          1×
         </button>
-        <button className="button small" aria-pressed={speed === 2} onClick={() => setSpeed(2)}>
-          ×2
-        </button>
-        <button className="button small" onClick={endReplay}>
-          Skip ⏭
+        <button aria-pressed={speed === 2} onClick={() => setSpeed(2)}>
+          2×
         </button>
       </div>
+      <button className="button small skip" onClick={endReplay}>
+        Skip
+      </button>
     </section>
   );
 }
@@ -393,7 +546,7 @@ function UnitSheet() {
           </p>
         </div>
         <TraitLines traits={[def.origin, def.role]} />
-        <ItemSection slot={selected} held={unit.item} bag={run.bag} />
+        <ItemSection slot={selected} held={unit.item} />
         <div className="sheet-actions">
           <button
             className="button danger"
@@ -414,33 +567,21 @@ function UnitSheet() {
   );
 }
 
-/** The item a creature holds, and the ones waiting to be given out. */
-function ItemSection({ slot, held, bag }: { slot: Slot; held?: string; bag: string[] }) {
+/** The item a creature holds; new ones are dragged on from the bag. */
+function ItemSection({ slot, held }: { slot: Slot; held?: string }) {
   const act = useRunStore((s) => s.act);
-  if (!held && bag.length === 0) return null;
+  if (!held) return null;
   return (
     <div className="item-section">
       <p className="micro">Item</p>
-      {held && (
-        <button className="item-row held" onClick={() => act((run) => unequip(run, slot))}>
-          <ItemChip itemId={held} size={26} />
-          <span>
-            <strong>{getItem(held).name}</strong>
-            <small className="note">{getItem(held).description}</small>
-          </span>
-          <span className="take-off">Take off</span>
-        </button>
-      )}
-      {bag.map((itemId, index) => (
-        <button key={`${itemId}-${index}`} className="item-row" onClick={() => act((run) => equip(run, slot, itemId))}>
-          <ItemChip itemId={itemId} size={26} />
-          <span>
-            <strong>{getItem(itemId).name}</strong>
-            <small className="note">{getItem(itemId).description}</small>
-          </span>
-          <span className="take-off">{held ? 'Swap' : 'Give'}</span>
-        </button>
-      ))}
+      <button className="item-row held" onClick={() => act((run) => unequip(run, slot))}>
+        <ItemChip itemId={held} size={28} />
+        <span>
+          <strong>{getItem(held).name}</strong>
+          <small className="note">{getItem(held).description}</small>
+        </span>
+        <span className="take-off">Take off</span>
+      </button>
     </div>
   );
 }
@@ -483,25 +624,28 @@ function Notice() {
   );
 }
 
-/** What the round just did to the run, for the card over the board. */
+/** What the round just did to the run, for the card over the board. Shown as soon as the
+    last unit falls; the run was already advanced when the fight began. */
 function useRoundResult() {
-  const battle = useRunStore((s) => s.battle);
+  const over = useRunStore((s) => s.battle?.over ?? false);
+  const fighting = useRunStore((s) => s.battle !== null);
   const [result, setResult] = useState<RoundOutcome | null>(null);
-  const wasFighting = useRef(false);
+  // Skipping ends the replay before it's marked over, so the end of a fight counts too.
+  const pending = useRef(false);
   useEffect(() => {
-    if (battle) {
-      wasFighting.current = true;
+    if (fighting && !over) {
+      pending.current = true;
       setResult(null);
       return;
     }
-    if (!wasFighting.current) return;
-    wasFighting.current = false;
+    if (!pending.current) return;
+    pending.current = false;
     const run = useRunStore.getState().run;
     const last = run?.history.at(-1);
     if (!run || !last || run.done) return;
     const dropped = run.bag.length > 0 && ITEM_ROUNDS.includes(last.round) ? run.bag[run.bag.length - 1] : undefined;
     setResult({ id: last.round, won: last.won, draw: last.draw, round: last.round, damage: last.damage, item: dropped });
-  }, [battle]);
+  }, [fighting, over]);
   return result;
 }
 
