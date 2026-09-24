@@ -1,53 +1,66 @@
 import Phaser from 'phaser';
-import { CREATURE_SHAPES, CREATURE_SIZE, type Shape } from '../../shared/creatureShapes';
+import { CREATURE_ART, CREATURE_SIZE, GLOSS, INK, OUTLINE, glossEllipse, shadeEllipse } from '../../shared/creatureArt';
 import { ITEM_GLYPHS, itemColors } from '../../shared/itemGlyphs';
 import { ITEMS } from '../../sim/balance';
 
-/** Creatures are drawn at this multiple of their 48px grid so they stay sharp on the 2x canvas. */
-const SCALE = 3;
-
-function draw(g: Phaser.GameObjects.Graphics, shapes: readonly Shape[]) {
-  for (const shape of shapes) {
-    switch (shape.type) {
-      case 'circle':
-        g.fillStyle(shape.color).fillCircle(shape.x, shape.y, shape.r);
-        break;
-      case 'ellipse':
-        g.fillStyle(shape.color).fillEllipse(shape.x, shape.y, shape.width, shape.height);
-        break;
-      case 'polygon': {
-        const points: Phaser.Types.Math.Vector2Like[] = [];
-        for (let i = 0; i < shape.points.length; i += 2) points.push({ x: shape.points[i], y: shape.points[i + 1] });
-        g.fillStyle(shape.color).fillPoints(points, true);
-        break;
-      }
-      case 'rect':
-        g.fillStyle(shape.color).fillRect(shape.x, shape.y, shape.width, shape.height);
-        break;
-      case 'line':
-        g.lineStyle(shape.width, shape.color).lineBetween(shape.x1, shape.y1, shape.x2, shape.y2);
-        break;
-    }
-  }
-}
+/** Creatures are baked at this multiple of their 48px grid so they stay sharp when scaled up. */
+const SCALE = 4;
 
 export const creatureKey = (unitId: string) => `creature-${unitId}`;
 
-/** Bakes every creature once per game. */
+/** Bakes every creature once per game: the same parts, in the same order, as CreatureChip. */
 export function ensureCreatureTextures(scene: Phaser.Scene) {
-  for (const [unitId, shapes] of Object.entries(CREATURE_SHAPES)) {
+  const size = CREATURE_SIZE * SCALE;
+  for (const [unitId, art] of Object.entries(CREATURE_ART)) {
     const key = creatureKey(unitId);
     if (scene.textures.exists(key)) continue;
-    const g = scene.make.graphics({}, false);
-    g.scaleCanvas(SCALE, SCALE);
-    draw(g, shapes);
-    g.generateTexture(key, CREATURE_SIZE * SCALE, CREATURE_SIZE * SCALE);
-    g.destroy();
+    const texture = scene.textures.createCanvas(key, size, size);
+    if (!texture) continue;
+    const ctx = texture.context;
+    ctx.scale(SCALE, SCALE);
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    for (const part of art.parts) {
+      const path = new Path2D(part.d);
+      ctx.globalAlpha = part.opacity ?? 1;
+      if (part.fill) {
+        ctx.fillStyle = part.fill;
+        ctx.fill(path);
+      }
+      if (part.shade || part.gloss) {
+        ctx.save();
+        ctx.clip(path);
+        if (part.shade) fillEllipse(ctx, shadeEllipse(part.box), part.shade);
+        if (part.gloss) fillEllipse(ctx, glossEllipse(part.box), GLOSS);
+        ctx.restore();
+      }
+      if (part.line) {
+        ctx.strokeStyle = part.line.color;
+        ctx.lineWidth = part.line.width;
+        ctx.stroke(path);
+      }
+      if (part.outline) {
+        ctx.strokeStyle = INK;
+        ctx.lineWidth = OUTLINE;
+        ctx.stroke(path);
+      }
+    }
+    texture.refresh();
   }
+}
+
+function fillEllipse(ctx: CanvasRenderingContext2D, e: { cx: number; cy: number; rx: number; ry: number }, color: string) {
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.ellipse(e.cx, e.cy, e.rx, e.ry, 0, 0, Math.PI * 2);
+  ctx.fill();
 }
 
 /** Display scale that makes a creature texture `size` world pixels wide. */
 export const creatureScale = (size: number) => size / (CREATURE_SIZE * SCALE);
+
+/** How far the top of a creature's head is from the bottom of its texture, as a share of its size. */
+export const creatureHeight = (unitId: string) => 1 - (CREATURE_ART[unitId]?.top ?? 0) / CREATURE_SIZE;
 
 export const itemKey = (itemId: string) => `item-${itemId}`;
 
@@ -66,8 +79,8 @@ export function ensureItemTextures(scene: Phaser.Scene) {
     roundedRect(ctx, 1, 1, 22, 22, 6);
     ctx.fillStyle = tile;
     ctx.fill();
-    ctx.lineWidth = 1;
-    ctx.strokeStyle = 'rgba(28, 28, 30, 0.35)';
+    ctx.lineWidth = 1.2;
+    ctx.strokeStyle = INK;
     ctx.stroke();
     ctx.translate(4.8, 4.8);
     ctx.scale(0.6, 0.6);

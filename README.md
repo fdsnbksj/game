@@ -37,7 +37,7 @@ npm run build       # type-check + production build
 | `src/game/scenes/BattleScene.ts` | The board: drag and drop, and replaying fights from the sim's event log |
 | `src/runStore.ts` | The run in progress, saved to localStorage |
 | `src/screens/` | React screens: Home, Run, How to play, Profile |
-| `src/shared/creatureShapes.ts` | Every creature as shape data, drawn by Phaser and as SVG |
+| `src/shared/creatureArt.ts` | Every creature as layered path art, baked for Phaser and drawn as SVG |
 | `src/services/` | Firestore reads and writes: players, runs, ghost opponents, rankings |
 | `tests/unit/`, `tests/rules/` | Game logic tests, and Firestore rules tests |
 | `firestore.rules` | The only server-side validation (Spark has no Cloud Functions) |

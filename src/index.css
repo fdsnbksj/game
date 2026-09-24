@@ -54,7 +54,8 @@
   /* Some creatures are white or near-white, so on a light surface they get an edge
      and a tinted pad to stand on. Neither is needed on a dark one. */
   --chip-shadow: drop-shadow(0 1px 1.5px rgb(0 0 0 / 0.28));
-  --chip-pad: radial-gradient(circle at 50% 52%, var(--fill-4) 58%, transparent 72%);
+  /* The ink that outlines creatures and item tiles; the same in both schemes. */
+  --art-ink: #1d1f2b;
 
   /* the board, read by src/shared/theme.ts: plain #rrggbb, alphas as their own numbers */
   --board-cell: #78788c;
@@ -162,7 +163,6 @@
     --ghost-shadow: drop-shadow(0 6px 12px rgb(0 0 0 / 0.6));
 
     --chip-shadow: none;
-    --chip-pad: none;
 
     --board-cell: #7c7c85;
     --board-cell-a: 0.26;
@@ -250,16 +250,9 @@ body {
   padding: var(--sp-4);
 }
 
-/* Creature art is the only colour in the app; on a light surface it needs an edge. */
+/* Creatures carry their own ink outline; a soft shadow stands them on the surface. */
 .creature-chip {
   filter: var(--chip-shadow);
-}
-
-.featured-stage,
-.shop-card .creature-chip,
-.creature-card .creature-chip,
-.sheet-head .creature-chip {
-  background: var(--chip-pad);
 }
 
 /* ---------- Type ---------- */
@@ -1933,8 +1926,8 @@ a {
 }
 
 .item-chip-tile {
-  stroke: var(--separator);
-  stroke-width: 1;
+  stroke: var(--art-ink);
+  stroke-width: 1.2;
 }
 
 .item-section {
