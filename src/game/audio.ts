@@ -1,6 +1,9 @@
-// Every sound in the game, synthesized with Web Audio: no files to download or cache.
+// Every sound effect in the game, synthesized with Web Audio, and the soundtrack: a file
+// or a tune from songs.ts, played the same way.
 // Browsers only start audio from a user gesture, so nothing plays until unlockAudio()
 // has run inside one (App wires it to every pointerdown).
+
+import { renderSong, SONGS, type Song } from './songs';
 
 export interface AudioPrefs {
   sound: boolean;
@@ -456,10 +459,12 @@ export function vibrate(pattern: number | number[]) {
 // ---------- Music ----------
 
 /**
- * The soundtracks, in public/audio. Each run picks one at random (never the last one twice
- * running); each is fetched the first time it's picked, then kept. Add a file here to add it.
+ * The soundtracks: files in public/audio, and the tunes in songs.ts, which are played into
+ * a buffer here. Each run picks one at random (never the last one twice running); each is
+ * loaded the first time it's picked, then kept. Add a file or a song here to add it.
  */
-const TRACKS = ['/audio/bgm.mp3'];
+type Track = { url: string } | { song: Song };
+const TRACKS: readonly Track[] = [{ url: '/audio/bgm.mp3' }, ...SONGS.map((song) => ({ song }))];
 /** Held back while planning, so the fight's arrival is felt. */
 const PLANNING_LEVEL = 0.55;
 /** How much the low end is lifted once a fight starts, in dB. */
@@ -468,32 +473,42 @@ const FIGHT_BASS_DB = 7;
 let wantMusic = false;
 /** 0 while planning; above 0 once a fight is on. */
 let level = 0;
-let current = TRACKS[0];
-const tracks = new Map<string, AudioBuffer>();
-const loading = new Set<string>();
+/** Chosen when the first run starts, so any track can be first. */
+let current: Track = TRACKS[Math.floor(Math.random() * TRACKS.length)];
+let picked = false;
+const tracks = new Map<Track, AudioBuffer>();
+const loading = new Set<Track>();
 let source: AudioBufferSourceNode | null = null;
 let trackGain: GainNode | null = null;
 let bass: BiquadFilterNode | null = null;
 
-function loadTrack(audio: AudioContext, url: string) {
-  if (loading.has(url)) return;
-  loading.add(url);
-  fetch(url)
-    .then((response) => response.arrayBuffer())
-    .then((data) => audio.decodeAudioData(data))
-    .then((buffer) => {
-      tracks.set(url, buffer);
+function loadTrack(audio: AudioContext, track: Track) {
+  if (loading.has(track)) return;
+  loading.add(track);
+  const buffer =
+    'song' in track
+      ? renderSong(track.song)
+      : fetch(track.url)
+          .then((response) => response.arrayBuffer())
+          .then((data) => audio.decodeAudioData(data));
+  buffer
+    .then((loaded) => {
+      tracks.set(track, loaded);
       updateMusic();
     })
     .catch(() => {
       // No soundtrack is better than a broken game; try again next time it's wanted.
     })
-    .finally(() => loading.delete(url));
+    .finally(() => loading.delete(track));
 }
 
 /** A different track from the one just played, when there's more than one. */
 function pickTrack() {
-  const others = TRACKS.filter((url) => url !== current);
+  if (!picked) {
+    picked = true;
+    return;
+  }
+  const others = TRACKS.filter((track) => track !== current);
   current = others.length > 0 ? others[Math.floor(Math.random() * others.length)] : current;
 }
 
