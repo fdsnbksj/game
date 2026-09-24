@@ -84,6 +84,9 @@
   --board-star-1: #a2845e;
   --board-label: #1c1c1e;
   --board-halo: #ffffff;
+  /* Outlines effects in the creatures' own ink; the same in both schemes. */
+  --board-ink: #1d1f2b;
+  --board-on-ink: #ffffff;
 
   /* elevation: light lifts with shadow, dark lifts with surface */
   --shadow-1: 0 1px 2px rgb(0 0 0 / 0.06), 0 1px 1px rgb(0 0 0 / 0.04);

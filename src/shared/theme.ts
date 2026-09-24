@@ -33,6 +33,12 @@ export interface BoardPalette {
   /** Phaser text styles take strings, not ints. */
   label: string;
   halo: string;
+  /** The creatures' outline colour, for effects drawn in their style. */
+  ink: string;
+  inkInt: number;
+  /** What's drawn inside that ink: numbers, sparks. */
+  onInk: string;
+  onInkInt: number;
   success: string;
   danger: string;
   currency: string;
@@ -81,6 +87,10 @@ export function readBoardPalette(): BoardPalette {
     star: [int(style, '--board-star-1'), int(style, '--board-star-2'), int(style, '--board-star-3')],
     label: read(style, '--board-label'),
     halo: read(style, '--board-halo'),
+    ink: read(style, '--board-ink'),
+    inkInt: int(style, '--board-ink'),
+    onInk: read(style, '--board-on-ink'),
+    onInkInt: int(style, '--board-on-ink'),
     success: read(style, '--board-hp'),
     danger: read(style, '--board-hp-rival'),
     currency: read(style, '--board-star-3'),

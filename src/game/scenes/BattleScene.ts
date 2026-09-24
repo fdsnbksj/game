@@ -162,6 +162,11 @@ class UnitView extends Phaser.GameObjects.Container {
   private readonly size: number;
   private readonly stand: number;
   depth3d = 1;
+  /** A hit squashes the creature (positive) and a cast stretches it (negative); tweened back to 0. */
+  squash = 0;
+  /** So creatures side by side don't breathe in step. */
+  private readonly phase = Math.random() * Math.PI * 2;
+  private readonly baseScale: number;
   star: Star = 1;
   item?: string;
 
@@ -181,7 +186,8 @@ class UnitView extends Phaser.GameObjects.Container {
     this.stand = creatureHeight(unitId) * this.size;
     this.ring = scene.add.graphics();
     this.drawRing();
-    this.image = scene.add.image(0, 0, creatureKey(unitId)).setOrigin(0.5, FEET_ORIGIN).setScale(creatureScale(this.size));
+    this.baseScale = creatureScale(this.size);
+    this.image = scene.add.image(0, 0, creatureKey(unitId)).setOrigin(0.5, FEET_ORIGIN).setScale(this.baseScale);
     this.figure = scene.add.container(0, 0, [this.ring, this.image]);
     this.add(this.figure);
     this.stars = scene.add.graphics();
@@ -193,7 +199,7 @@ class UnitView extends Phaser.GameObjects.Container {
     // The hit box covers the body, which stands above the feet this sits on.
     this.setSize(UNIT_SIZE, UNIT_SIZE + 6);
     scene.add.existing(this);
-    this.follow();
+    this.follow(0, false);
   }
 
   /** The hit area for dragging: the body above the feet (see setSize). */
@@ -210,9 +216,12 @@ class UnitView extends Phaser.GameObjects.Container {
   }
 
   /** Sizes the creature for where it stands and keeps its plate over its head; every frame. */
-  follow() {
+  follow(now: number, motion: boolean) {
     this.depth3d = depthScale(this.y);
     this.figure.setScale(this.depth3d);
+    // A slow breath, and any squash or stretch, pivoting on the feet.
+    const breath = motion ? Math.sin(now / 420 + this.phase) * 0.018 : 0;
+    this.image.setScale(this.baseScale * (1 + this.squash * 0.08), this.baseScale * (1 + breath - this.squash * 0.14));
     this.plate
       .setPosition(this.x, this.y - this.headHeight - PLATE_LIFT)
       .setVisible(this.visible)
@@ -806,9 +815,10 @@ export class BattleScene extends Phaser.Scene {
     useRunStore.setState({ teamHp: hp });
   }
 
-  update(_time: number, delta: number) {
-    for (const view of this.views.values()) view.follow();
-    for (const fighter of this.fighters) fighter.follow();
+  update(time: number, delta: number) {
+    const motion = !prefersReducedMotion();
+    for (const view of this.views.values()) view.follow(time, motion);
+    for (const fighter of this.fighters) fighter.follow(time, motion);
     const replay = this.replay;
     if (!replay) return;
     const speed = useRunStore.getState().speed;
@@ -853,9 +863,7 @@ export class BattleScene extends Phaser.Scene {
         fighter.drawBars();
         if (!target) return false;
         if (Phaser.Math.Distance.Between(fighter.x, fighter.y, target.x, target.y) > HEX_W * 1.3) {
-          const bolt = this.add.circle(fighter.x, fighter.bodyY, 3, fighter.info.side === 'a' ? this.palette.mine : this.palette.rival);
-          this.effects.add(bolt);
-          this.tweens.add({ targets: bolt, x: target.x, y: target.bodyY, duration: 180 / speed, onComplete: () => bolt.destroy() });
+          this.projectile(fighter, target, speed);
         } else {
           const dx = (target.x - fighter.x) * 0.25;
           const dy = (target.y - fighter.y) * 0.25;
@@ -868,9 +876,9 @@ export class BattleScene extends Phaser.Scene {
         fighter.shield = event.shield;
         fighter.mana = event.mana;
         fighter.drawBars();
-        this.floatText(fighter, `${event.amount}`, event.ability ? this.palette.danger : this.palette.label, event.ability ? 14 : 11);
-        // A white flash vanishes on a light board, so a hit is a quick blink instead.
-        this.tweens.add({ targets: fighter.image, alpha: { from: 0.45, to: 1 }, duration: 140 });
+        this.floatText(fighter, `${event.amount}`, event.ability ? this.palette.danger : this.palette.onInk, event.ability ? 15 : 12);
+        this.spark(fighter.x, fighter.bodyY);
+        this.tweens.add({ targets: fighter, squash: { from: 1, to: 0 }, duration: 200, ease: 'Quad.easeOut' });
         if (this.time.now - this.lastHitSound > 60) {
           this.lastHitSound = this.time.now;
           sfx.hit(event.ability);
@@ -878,16 +886,17 @@ export class BattleScene extends Phaser.Scene {
         return true;
       case 'dodge':
         this.floatText(fighter, 'Miss', this.palette.muted, 11);
+        this.tweens.add({ targets: fighter.figure, x: { from: 0, to: 6 }, duration: 90, yoyo: true });
         return false;
       case 'heal':
         fighter.hp = event.hp;
         fighter.drawBars();
-        this.floatText(fighter, `+${event.amount}`, this.palette.success, 13);
+        this.floatText(fighter, `+${event.amount}`, this.palette.success, 12);
         return true;
       case 'shield':
         fighter.shield = event.shield;
         fighter.drawBars();
-        this.floatText(fighter, 'Shield', this.palette.label, 11);
+        this.floatText(fighter, 'Shield', this.palette.onInk, 11);
         return false;
       case 'stun':
         fighter.image.setTint(this.palette.star[2]);
@@ -903,35 +912,91 @@ export class BattleScene extends Phaser.Scene {
           this.effects.add(flash);
           this.tweens.add({ targets: flash, alpha: 0, duration: 420 / speed, onComplete: () => flash.destroy() });
         }
-        this.tweens.add({ targets: fighter, scale: { from: 1.25, to: 1 }, duration: 240 / speed });
+        this.tweens.add({ targets: fighter, squash: { from: -1.4, to: 0 }, duration: 320 / speed, ease: 'Back.easeOut' });
         sfx.cast();
         return false;
       }
-      case 'death':
+      case 'death': {
         fighter.hp = 0;
-        this.tweens.add({ targets: fighter, alpha: 0, scale: 0.5, duration: 260 / speed });
-        this.burst(fighter.x, fighter.bodyY, fighter.info.side === 'a' ? this.palette.mine : this.palette.rival);
+        // Tips over away from the middle, sinks, and goes in a puff.
+        const away = fighter.x < BOARD_WIDTH / 2 ? -1 : 1;
+        this.tweens.add({ targets: fighter.figure, angle: 24 * away, y: 4, duration: 240 / speed, ease: 'Quad.easeIn' });
+        this.tweens.add({ targets: fighter, alpha: 0, delay: 160 / speed, duration: 200 / speed });
+        this.puff(fighter.x, fighter.y - 6 * fighter.depth3d);
         sfx.faint();
         return true;
+      }
       default:
         return false;
     }
   }
 
+  /** A number or word over a creature, in bold with an ink edge: it pops, then rises away. */
   private floatText(over: UnitView, text: string, color: string, size: number) {
     const label = this.add
-      .text(over.x + Phaser.Math.Between(-6, 6), over.y - over.headHeight * 0.6, text, {
+      .text(over.x + Phaser.Math.Between(-7, 7), over.y - over.headHeight * 0.7, text, {
         fontFamily: DISPLAY_FONT,
         fontSize: `${size}px`,
-        fontStyle: '700',
+        fontStyle: '800',
         color,
-        stroke: this.palette.halo,
-        strokeThickness: 2,
+        stroke: this.palette.ink,
+        strokeThickness: 3.5,
       })
       .setResolution(this.textResolution)
-      .setOrigin(0.5);
+      .setOrigin(0.5)
+      .setScale(0.5);
     this.effects.add(label);
-    this.tweens.add({ targets: label, y: label.y - 16, alpha: 0, duration: 700, ease: 'Quad.easeOut', onComplete: () => label.destroy() });
+    this.tweens.add({ targets: label, scale: 1, duration: 160, ease: 'Back.easeOut' });
+    this.tweens.add({ targets: label, y: label.y - 18, alpha: 0, delay: 260, duration: 520, ease: 'Quad.easeIn', onComplete: () => label.destroy() });
+  }
+
+  /** A shot from a ranged attacker: a small ball on a short arc to its target. */
+  private projectile(from: FighterView, to: FighterView, speed: number) {
+    const color = from.info.side === 'a' ? this.palette.mine : this.palette.rival;
+    const ball = this.add.circle(from.x, from.bodyY, 3.2, color).setStrokeStyle(1.5, this.palette.inkInt);
+    this.effects.add(ball);
+    const start = { x: from.x, y: from.bodyY };
+    const end = { x: to.x, y: to.bodyY };
+    const lift = Phaser.Math.Distance.Between(start.x, start.y, end.x, end.y) * 0.3;
+    this.tweens.addCounter({
+      from: 0,
+      to: 1,
+      duration: 220 / speed,
+      onUpdate: (tween) => {
+        const t = tween.getValue() ?? 0;
+        ball.setPosition(start.x + (end.x - start.x) * t, start.y + (end.y - start.y) * t - Math.sin(Math.PI * t) * lift);
+      },
+      onComplete: () => ball.destroy(),
+    });
+  }
+
+  /** A little four-point star where a blow lands. */
+  private spark(x: number, y: number) {
+    const points: Phaser.Types.Math.Vector2Like[] = [];
+    for (let i = 0; i < 8; i++) {
+      const r = i % 2 === 0 ? 7 : 2.4;
+      const angle = (Math.PI / 4) * i;
+      points.push({ x: Math.cos(angle) * r, y: Math.sin(angle) * r });
+    }
+    const star = this.add
+      .graphics({ x: x + Phaser.Math.Between(-5, 5), y: y + Phaser.Math.Between(-5, 3) })
+      .fillStyle(this.palette.onInkInt, 1)
+      .lineStyle(1.5, this.palette.inkInt, 1)
+      .fillPoints(points, true)
+      .strokePoints(points, true)
+      .setScale(0.4)
+      .setAngle(Phaser.Math.Between(0, 45));
+    this.effects.add(star);
+    this.tweens.add({ targets: star, scale: 1.1, alpha: 0, duration: 200, ease: 'Quad.easeOut', onComplete: () => star.destroy() });
+  }
+
+  /** A few soft rings of dust where a creature fell. */
+  private puff(x: number, y: number) {
+    for (let i = 0; i < 3; i++) {
+      const dot = this.add.circle(x + (i - 1) * 9, y - (i === 1 ? 6 : 0), 5, this.palette.shadow, this.palette.shadowAlpha * 1.4);
+      this.effects.add(dot);
+      this.tweens.add({ targets: dot, radius: 11, y: dot.y - 8, alpha: 0, delay: 180, duration: 420, ease: 'Quad.easeOut', onComplete: () => dot.destroy() });
+    }
   }
 
   private burst(x: number, y: number, color: number) {
@@ -945,10 +1010,10 @@ export class BattleScene extends Phaser.Scene {
     const label = this.add
       .text(BOARD_WIDTH / 2, MID_Y, text, {
         fontFamily: DISPLAY_FONT,
-        fontSize: '20px',
-        fontStyle: '700',
+        fontSize: '22px',
+        fontStyle: '800',
         color,
-        stroke: this.palette.halo,
+        stroke: this.palette.ink,
         strokeThickness: 5,
       })
       .setResolution(this.textResolution)
