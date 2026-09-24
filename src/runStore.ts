@@ -51,6 +51,9 @@ export interface TeamHp {
   b: number;
   maxA: number;
   maxB: number;
+  /** Units still standing on each side. */
+  aliveA: number;
+  aliveB: number;
 }
 
 /** A unit being dragged on the board, so the shop can turn into a sell zone. */

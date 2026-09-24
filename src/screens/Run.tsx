@@ -9,7 +9,7 @@ import { setMusicLevel, sfx, startMusic, stopMusic } from '../game/audio';
 import { PhaserGame } from '../game/PhaserGame';
 import { registerSellZone, setBottomInset, unitSlotAtClient } from '../game/boardBridge';
 import { BattleScene } from '../game/scenes/BattleScene';
-import { useRunStore, type Battle } from '../runStore';
+import { useRunStore } from '../runStore';
 import {
   getItem,
   getTrait,
@@ -63,7 +63,11 @@ export function Run() {
   return (
     <main className={battle ? 'screen run fighting' : 'screen run'}>
       <Hud run={shown} />
-      {battle ? <VersusHeader battle={battle} /> : <TraitRail run={shown} />}
+      {battle ? (
+        <TeamStrip side="rival" name={battle.opponent} tag={battle.opponentKind === 'ghost' ? 'player' : 'bot'} />
+      ) : (
+        <TraitRail run={shown} />
+      )}
       {/* The board fills the stage and the dock floats over its bottom edge. The canvas never
           resizes between planning and a fight; the camera refits to the part left showing. */}
       <div className="stage" ref={stage}>
@@ -194,27 +198,22 @@ function TraitRail({ run }: { run: RunState }) {
   );
 }
 
-/** During a fight: both teams, with the health each has left. */
-function VersusHeader({ battle }: { battle: Battle }) {
+/** One team's name, units left and health, beside its half of the board. */
+function TeamStrip({ side, name, tag }: { side: 'mine' | 'rival'; name: string; tag?: string }) {
   const teamHp = useRunStore((s) => s.teamHp);
-  const share = (hp: number, max: number) => (max > 0 ? `${(hp / max) * 100}%` : '0%');
+  const mine = side === 'mine';
+  const hp = mine ? teamHp?.a : teamHp?.b;
+  const max = mine ? teamHp?.maxA : teamHp?.maxB;
+  const alive = mine ? teamHp?.aliveA : teamHp?.aliveB;
   return (
-    <div className="versus-header" aria-label={`You versus ${battle.opponent}`}>
-      <div className="team mine">
-        <span className="team-name">You</span>
-        <div className="team-bar">
-          <span style={{ width: share(teamHp?.a ?? 1, teamHp?.maxA ?? 1) }} />
-        </div>
+    <div className={`team-strip ${side}`} aria-label={alive !== undefined ? `${name}: ${alive} left` : name}>
+      <div className="team-row">
+        <span className="team-name">{name}</span>
+        {tag && <small className="rival-kind">{tag}</small>}
+        {alive !== undefined && <span className="team-left">{alive} left</span>}
       </div>
-      <span className="vs">vs</span>
-      <div className="team rival">
-        <span className="team-name">
-          <span className="rival-name">{battle.opponent}</span>
-          <small className="rival-kind">{battle.opponentKind === 'ghost' ? 'player' : 'bot'}</small>
-        </span>
-        <div className="team-bar">
-          <span style={{ width: share(teamHp?.b ?? 1, teamHp?.maxB ?? 1) }} />
-        </div>
+      <div className="team-bar">
+        <span style={{ width: hp !== undefined && max ? `${(hp / max) * 100}%` : '100%' }} />
       </div>
     </div>
   );
@@ -472,7 +471,7 @@ function ShopCard({ unitId, owned, affordable, onBuy }: { unitId: string; owned:
   );
 }
 
-/** Replay speed and skip; the teams are in the header above the board. */
+/** Your team under your half, then replay speed and skip; the rival is above the board. */
 function FightBar() {
   const speed = useRunStore((s) => s.speed);
   const setSpeed = useRunStore((s) => s.setSpeed);
@@ -480,17 +479,20 @@ function FightBar() {
 
   return (
     <section className="glass fight-bar">
-      <div className="speed" role="group" aria-label="Replay speed">
-        <button aria-pressed={speed === 1} onClick={() => setSpeed(1)}>
-          1×
-        </button>
-        <button aria-pressed={speed === 2} onClick={() => setSpeed(2)}>
-          2×
+      <TeamStrip side="mine" name="You" />
+      <div className="fight-controls">
+        <div className="speed" role="group" aria-label="Replay speed">
+          <button aria-pressed={speed === 1} onClick={() => setSpeed(1)}>
+            1×
+          </button>
+          <button aria-pressed={speed === 2} onClick={() => setSpeed(2)}>
+            2×
+          </button>
+        </div>
+        <button className="button small skip" onClick={endReplay}>
+          Skip
         </button>
       </div>
-      <button className="button small skip" onClick={endReplay}>
-        Skip
-      </button>
     </section>
   );
 }

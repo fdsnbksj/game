@@ -18,14 +18,31 @@ const R = 26;
 const HEX_W = Math.sqrt(3) * R;
 const ROW_STEP = 1.5 * R;
 const BOARD_X = (BOARD_WIDTH - 7.5 * HEX_W) / 2;
-const BOARD_Y = 6;
+/** Room above the top row for the nameplates of the units standing in it. */
+const BOARD_Y = 16;
+/** The two halves sit this far apart, so the gap marks the line between them. */
+const HALF_GAP = 8;
+/** Hexes are drawn this much smaller than the grid, so the gaps between them do the outlining. */
+const CELL_R = R - 2.5;
 const BENCH_SLOT = 38;
-const BENCH_GAP = 1;
+const BENCH_GAP = 2;
 const BENCH_X = (BOARD_WIDTH - (BENCH_SIZE * BENCH_SLOT + (BENCH_SIZE - 1) * BENCH_GAP)) / 2;
-const BENCH_Y = BOARD_Y + 7 * ROW_STEP + 2 * R + 12 + BENCH_SLOT / 2;
+const BENCH_Y = BOARD_Y + 7 * ROW_STEP + 2 * R + HALF_GAP + 14 + BENCH_SLOT / 2;
+/** Where the two halves meet. */
+const MID_Y = BOARD_Y + R + 3.5 * ROW_STEP + HALF_GAP / 2;
 
 const UNIT_SIZE = 42;
-const ITEM_SIZE = 15;
+// The nameplate over a unit's head: stars, then health with the item beside it, then mana.
+const PLATE_W = 30;
+const HP_H = 5;
+const MANA_H = 2;
+const PLATE_GAP = 1.5;
+const ITEM_SIZE = 11;
+const ITEM_GAP = 2;
+/** Top of the health bar, relative to the unit's centre. */
+const HP_Y = -UNIT_SIZE / 2 - 12;
+/** How far a nameplate reaches above the top of its hex, for fitting the camera. */
+const PLATE_ABOVE = -(HP_Y - 8) - R;
 /** Breathing room around whichever part of the board the camera is showing. */
 const VIEW_PAD = 6;
 /** How long the camera takes to reveal the rival's half, and to come back. */
@@ -37,14 +54,16 @@ const END_PAUSE_TICKS = 30;
 /** The bench is a little wider than the board, so the planning view fits whichever is wider. */
 const PLAN_LEFT = Math.min(BOARD_X, BENCH_X);
 const PLAN_WIDTH = BOARD_WIDTH - 2 * PLAN_LEFT;
+/** Top of the player's half: the first row past the gap. */
+const MINE_TOP = BOARD_Y + 4 * ROW_STEP + HALF_GAP;
 
 /** Rows 4-7 and the bench: what the camera shows while planning. */
 function planningRect() {
   return new Phaser.Geom.Rectangle(
     PLAN_LEFT - VIEW_PAD,
-    BOARD_Y + 4 * ROW_STEP - VIEW_PAD,
+    MINE_TOP - PLATE_ABOVE - VIEW_PAD,
     PLAN_WIDTH + 2 * VIEW_PAD,
-    BENCH_Y + BENCH_SLOT / 2 + 2 * VIEW_PAD - (BOARD_Y + 4 * ROW_STEP),
+    BENCH_Y + BENCH_SLOT / 2 + 2 * VIEW_PAD - (MINE_TOP - PLATE_ABOVE),
   );
 }
 
@@ -52,9 +71,9 @@ function planningRect() {
 function fightRect() {
   return new Phaser.Geom.Rectangle(
     BOARD_X - VIEW_PAD,
-    BOARD_Y - VIEW_PAD,
+    BOARD_Y - PLATE_ABOVE - VIEW_PAD,
     7.5 * HEX_W + 2 * VIEW_PAD,
-    7 * ROW_STEP + 2 * R + 2 * VIEW_PAD,
+    7 * ROW_STEP + 2 * R + HALF_GAP + PLATE_ABOVE + 2 * VIEW_PAD,
   );
 }
 
@@ -69,7 +88,8 @@ const prefersReducedMotion = () => window.matchMedia?.('(prefers-reduced-motion:
 function cellCenter(battleCell: number) {
   const row = Math.floor(battleCell / COLS);
   const col = battleCell % COLS;
-  return { x: BOARD_X + HEX_W * (col + 0.5 * (row & 1)) + HEX_W / 2, y: BOARD_Y + R + row * ROW_STEP };
+  const gap = row >= ROWS / 2 ? HALF_GAP : 0;
+  return { x: BOARD_X + HEX_W * (col + 0.5 * (row & 1)) + HEX_W / 2, y: BOARD_Y + R + row * ROW_STEP + gap };
 }
 
 function slotCenter(slot: Slot) {
@@ -86,11 +106,15 @@ function hexPoints(cx: number, cy: number, radius: number) {
   return points;
 }
 
-/** A creature on a team-coloured base, with star pips under it and its item in the corner. */
+/**
+ * A creature on a flat team-coloured disc, with one nameplate over its head: its stars
+ * (from 2★), then the health bar with the held item beside it, then mana. Planning shows
+ * the same plate without the bars, so the stars and item don't move when a fight starts.
+ */
 class UnitView extends Phaser.GameObjects.Container {
   readonly image: Phaser.GameObjects.Image;
-  private ring: Phaser.GameObjects.Graphics;
-  private pips: Phaser.GameObjects.Graphics;
+  private disc: Phaser.GameObjects.Graphics;
+  private stars: Phaser.GameObjects.Graphics;
   private badge: Phaser.GameObjects.Image;
   star: Star = 1;
   item?: string;
@@ -106,56 +130,63 @@ class UnitView extends Phaser.GameObjects.Container {
     readonly side: 'a' | 'b' = 'a',
   ) {
     super(scene, x, y);
-    this.ring = scene.add.graphics();
-    this.drawRing();
+    this.disc = scene.add.graphics();
+    this.drawDisc();
     this.image = scene.add.image(0, -4, creatureKey(unitId)).setScale(creatureScale(UNIT_SIZE));
-    this.pips = scene.add.graphics();
-    this.badge = scene.add.image(UNIT_SIZE / 2 - 5, -UNIT_SIZE / 2 + 7, '__DEFAULT').setVisible(false);
-    this.add([this.ring, this.image, this.pips, this.badge]);
+    this.stars = scene.add.graphics();
+    this.badge = scene.add.image(0, HP_Y + (HP_H + PLATE_GAP + MANA_H) / 2, '__DEFAULT').setVisible(false);
+    this.add([this.disc, this.image, this.stars, this.badge]);
     this.setStar(star);
     this.setItem(item);
     this.setSize(UNIT_SIZE, UNIT_SIZE);
     scene.add.existing(this);
   }
 
-  /** The base a creature stands on, in its team's colour: it keeps a pale creature off a
+  /** Left edge of the health bar. The plate is centred as a whole, item included. */
+  protected get plateLeft() {
+    return -(PLATE_W + (this.item ? ITEM_GAP + ITEM_SIZE : 0)) / 2;
+  }
+
+  /** The disc a creature stands on, in its team's colour: it keeps a pale creature off a
       pale board, and tells the two sides apart in a fight. */
-  private drawRing() {
+  private drawDisc() {
     const color = this.side === 'a' ? this.palette.mine : this.palette.rival;
     const y = UNIT_SIZE * 0.36;
-    this.ring.clear();
-    this.ring.fillStyle(this.palette.shadow, this.palette.shadowAlpha).fillEllipse(0, y + 1.5, UNIT_SIZE * 0.78, 11);
-    this.ring.fillStyle(color, 0.22).fillEllipse(0, y, UNIT_SIZE * 0.74, 10);
-    this.ring.lineStyle(1.75, color, 0.95).strokeEllipse(0, y, UNIT_SIZE * 0.74, 10);
+    this.disc.clear();
+    this.disc.fillStyle(this.palette.shadow, this.palette.shadowAlpha).fillEllipse(0, y + 1, UNIT_SIZE * 0.76, 10);
+    this.disc.fillStyle(color, 0.28).fillEllipse(0, y, UNIT_SIZE * 0.72, 9);
   }
 
   /** Redraws everything that carries a colour, after the scheme changes. */
   applyPalette(palette: BoardPalette) {
     this.palette = palette;
-    this.drawRing();
-    this.setStar(this.star);
+    this.drawDisc();
+    this.layoutPlate();
   }
 
-  /** The held item's own tile, top right. */
   setItem(item?: string) {
     this.item = item;
-    if (!item) {
-      this.badge.setVisible(false);
-      return;
-    }
-    this.badge.setTexture(itemKey(item)).setScale(itemScale(ITEM_SIZE)).setVisible(true);
+    if (item) this.badge.setTexture(itemKey(item)).setScale(itemScale(ITEM_SIZE));
+    this.badge.setVisible(item !== undefined);
+    this.layoutPlate();
   }
 
-  /** One star per level on a dark pill, in bronze, silver or gold. */
   setStar(star: Star) {
     this.star = star;
-    const color = this.palette.star[star - 1];
-    const y = UNIT_SIZE / 2 - 1;
-    const width = star * 8 + 4;
-    this.pips.clear();
-    this.pips.fillStyle(this.palette.track, 0.85).fillRoundedRect(-width / 2, y - 5, width, 10, 5);
-    this.pips.fillStyle(color, 1);
-    for (let i = 0; i < star; i++) this.pips.fillPoints(starPoints((i - (star - 1) / 2) * 8, y, 3.4), true);
+    this.layoutPlate();
+  }
+
+  /** Places the item and stars around the health bar; a fighter also redraws its bars. */
+  protected layoutPlate() {
+    const left = this.plateLeft;
+    this.badge.setX(left + PLATE_W + ITEM_GAP + ITEM_SIZE / 2);
+    // A 1★ unit is the default and shows nothing; 2★ and 3★ show silver or gold stars.
+    this.stars.clear();
+    if (this.star > 1) {
+      this.stars.fillStyle(this.palette.star[this.star - 1], 1);
+      const cx = left + PLATE_W / 2;
+      for (let i = 0; i < this.star; i++) this.stars.fillPoints(starPoints(cx + (i - (this.star - 1) / 2) * 7, HP_Y - 5, 3.2), true);
+    }
   }
 }
 
@@ -185,20 +216,32 @@ class FighterView extends UnitView {
     this.drawBars();
   }
 
+  protected layoutPlate() {
+    super.layoutPlate();
+    this.drawBars();
+  }
+
+  /** Health in the team's colour with any shield after it, and mana in a line below. */
   drawBars() {
-    const width = 36;
-    const x = -width / 2;
-    const y = -UNIT_SIZE / 2 - 9;
+    // The base constructor lays out the plate before this one has made its bars.
+    if (!this.bars) return;
+    const x = this.plateLeft;
     const total = this.info.maxHp + this.shield;
-    const hpWidth = (width * this.hp) / total;
+    const hpWidth = (PLATE_W * this.hp) / total;
+    const manaY = HP_Y + HP_H + PLATE_GAP;
+    const p = this.palette;
     this.bars.clear();
-    this.bars.fillStyle(this.palette.track, 0.85).fillRoundedRect(x - 1.5, y - 1.5, width + 3, 9, 2.5);
-    this.bars.fillStyle(this.info.side === 'a' ? this.palette.hp : this.palette.hpRival).fillRect(x, y, hpWidth, 4);
-    if (this.shield > 0) this.bars.fillStyle(this.palette.shield).fillRect(x + hpWidth, y, (width * this.shield) / total, 4);
-    this.bars.fillStyle(this.palette.mana).fillRect(x, y + 5, (width * this.mana) / this.info.maxMana, 1.5);
+    this.bars.fillStyle(p.track, p.trackAlpha).fillRoundedRect(x, HP_Y, PLATE_W, HP_H, HP_H / 2);
+    this.bars.fillRoundedRect(x, manaY, PLATE_W, MANA_H, MANA_H / 2);
+    if (this.shield > 0) {
+      this.bars.fillStyle(p.shield).fillRoundedRect(x, HP_Y, Math.min(PLATE_W, hpWidth + (PLATE_W * this.shield) / total), HP_H, HP_H / 2);
+    }
+    if (this.hp > 0) this.bars.fillStyle(this.side === 'a' ? p.mine : p.rival).fillRoundedRect(x, HP_Y, Math.max(HP_H, hpWidth), HP_H, HP_H / 2);
+    if (this.mana > 0) {
+      this.bars.fillStyle(p.mana).fillRoundedRect(x, manaY, Math.max(MANA_H, (PLATE_W * this.mana) / this.info.maxMana), MANA_H, MANA_H / 2);
+    }
   }
 }
-
 
 interface Replay {
   battle: Battle;
@@ -220,6 +263,8 @@ export class BattleScene extends Phaser.Scene {
   /** Dims the rival's half while planning, so the eye goes to your own. */
   private rivalScrim!: Phaser.GameObjects.Graphics;
   private board!: Phaser.GameObjects.Graphics;
+  /** Drawn apart from the board so it can fade out while a fight is on. */
+  private bench!: Phaser.GameObjects.Graphics;
   private palette: BoardPalette = readBoardPalette();
   private effects!: Phaser.GameObjects.Layer;
   private lastHitSound = 0;
@@ -248,6 +293,7 @@ export class BattleScene extends Phaser.Scene {
     this.textResolution = Math.max(1, Math.round(1 / (this.scale.zoom || 1)));
     this.palette = readBoardPalette();
     this.board = this.add.graphics().setDepth(0);
+    this.bench = this.add.graphics().setDepth(0);
     this.rivalScrim = this.add.graphics().setDepth(2);
     this.drawScrim();
     this.showView('planning', false);
@@ -336,8 +382,10 @@ export class BattleScene extends Phaser.Scene {
     // centerOn() puts a point at the middle of the whole canvas, which is half the inset
     // below the middle of the part that shows.
     const cy = visibleCenter + inset / 2 / zoom;
-    this.tweens.killTweensOf(this.rivalScrim);
-    this.tweens.add({ targets: this.rivalScrim, alpha: view === 'planning' ? 1 : 0, duration: animate ? VIEW_TWEEN_MS : 0 });
+    // The rival's half lights up and the bench steps back while a fight is on.
+    this.tweens.killTweensOf([this.rivalScrim, this.bench]);
+    const duration = animate ? VIEW_TWEEN_MS : 0;
+    this.tweens.add({ targets: [this.rivalScrim, this.bench], alpha: view === 'planning' ? 1 : 0, duration });
     camera.panEffect.reset();
     camera.zoomEffect.reset();
     if (!animate || prefersReducedMotion()) {
@@ -348,32 +396,19 @@ export class BattleScene extends Phaser.Scene {
     camera.zoomTo(zoom, VIEW_TWEEN_MS, 'Cubic.easeInOut');
   }
 
-  /** Redrawn whenever the colour scheme changes, so it holds no colour of its own. */
+  /** Redrawn whenever the colour scheme changes, so it holds no colour of its own. Cells
+      are flat fills a little smaller than the grid; the gaps between them are the lines. */
   private drawBoard() {
     const p = this.palette;
-    const midY = BOARD_Y + R + 3.5 * ROW_STEP;
-    this.board.clear();
-
+    this.board.clear().fillStyle(p.cell, p.cellAlpha);
     for (let cell = 0; cell < ROWS * COLS; cell++) {
       const { x, y } = cellCenter(cell);
-      const mine = cell >= SIDE_CELLS;
-      const outer = hexPoints(x, y, R - 1.5);
-      this.board.fillStyle(p.cell, mine ? p.cellAlpha : p.cellRivalAlpha);
-      this.board.fillPoints(outer, true);
-      this.board.lineStyle(1, p.edge, mine ? p.edgeAlpha : p.edgeRivalAlpha);
-      this.board.strokePoints(outer, true);
+      this.board.fillPoints(hexPoints(x, y, CELL_R), true);
     }
-
-    // The line where the two halves meet.
-    this.board.lineStyle(1.5, p.edge, p.edgeAlpha);
-    this.board.lineBetween(BOARD_X, midY, BOARD_WIDTH - BOARD_X, midY);
-
+    this.bench.clear().fillStyle(p.cell, p.cellAlpha);
     for (let i = 0; i < BENCH_SIZE; i++) {
       const { x, y } = slotCenter({ area: 'bench', index: i });
-      const left = x - BENCH_SLOT / 2;
-      const top = y - BENCH_SLOT / 2 - 3;
-      this.board.fillStyle(p.cell, p.cellAlpha).fillRoundedRect(left, top, BENCH_SLOT, BENCH_SLOT + 6, 8);
-      this.board.lineStyle(1, p.edge, p.edgeAlpha).strokeRoundedRect(left, top, BENCH_SLOT, BENCH_SLOT + 6, 8);
+      this.bench.fillRoundedRect(x - BENCH_SLOT / 2, y - BENCH_SLOT / 2 - 3, BENCH_SLOT, BENCH_SLOT + 6, 8);
     }
   }
 
@@ -382,7 +417,7 @@ export class BattleScene extends Phaser.Scene {
     this.rivalScrim.clear();
     this.rivalScrim
       .fillStyle(this.palette.scrim, this.palette.scrimAlpha)
-      .fillRect(-BOARD_WIDTH, -BOARD_HEIGHT, 3 * BOARD_WIDTH, BOARD_HEIGHT + BOARD_Y + R + 3.5 * ROW_STEP);
+      .fillRect(-BOARD_WIDTH, -BOARD_HEIGHT, 3 * BOARD_WIDTH, BOARD_HEIGHT + MID_Y);
   }
 
   /** The scheme changed: re-read the stylesheet and repaint everything that has a colour. */
@@ -521,8 +556,8 @@ export class BattleScene extends Phaser.Scene {
     const color = refused ? this.palette.rival : this.palette.mine;
     this.highlight.fillStyle(color, 0.14).lineStyle(2, color, 0.95);
     if (slot.area === 'board') {
-      this.highlight.fillPoints(hexPoints(x, y, R - 2), true);
-      this.highlight.strokePoints(hexPoints(x, y, R - 2), true);
+      this.highlight.fillPoints(hexPoints(x, y, CELL_R), true);
+      this.highlight.strokePoints(hexPoints(x, y, CELL_R), true);
     } else {
       this.highlight.fillRoundedRect(x - BENCH_SLOT / 2, y - BENCH_SLOT / 2 - 3, BENCH_SLOT, BENCH_SLOT + 6, 8);
       this.highlight.strokeRoundedRect(x - BENCH_SLOT / 2, y - BENCH_SLOT / 2 - 3, BENCH_SLOT, BENCH_SLOT + 6, 8);
@@ -590,7 +625,7 @@ export class BattleScene extends Phaser.Scene {
     if (!slot) return;
     const { x, y } = slotCenter(slot);
     this.highlight.lineStyle(2, this.palette.mine, 1);
-    if (slot.area === 'board') this.highlight.strokePoints(hexPoints(x, y, R - 3), true);
+    if (slot.area === 'board') this.highlight.strokePoints(hexPoints(x, y, CELL_R - 0.5), true);
     else this.highlight.strokeRoundedRect(x - BENCH_SLOT / 2, y - BENCH_SLOT / 2 - 3, BENCH_SLOT, BENCH_SLOT + 6, 6);
   }
 
@@ -623,16 +658,19 @@ export class BattleScene extends Phaser.Scene {
     this.effects.removeAll(true);
   }
 
-  /** Each side's health left, for the versus header over the board. */
+  /** Each side's health and units left, for the team strips above and below the board. */
   private publishTeamHp() {
-    const hp = { a: 0, b: 0, maxA: 0, maxB: 0 };
+    const hp = { a: 0, b: 0, maxA: 0, maxB: 0, aliveA: 0, aliveB: 0 };
     for (const fighter of this.fighters) {
+      const alive = fighter.hp > 0 ? 1 : 0;
       if (fighter.info.side === 'a') {
         hp.a += fighter.hp;
         hp.maxA += fighter.info.maxHp;
+        hp.aliveA += alive;
       } else {
         hp.b += fighter.hp;
         hp.maxB += fighter.info.maxHp;
+        hp.aliveB += alive;
       }
     }
     useRunStore.setState({ teamHp: hp });
@@ -698,9 +736,9 @@ export class BattleScene extends Phaser.Scene {
         fighter.shield = event.shield;
         fighter.mana = event.mana;
         fighter.drawBars();
-        this.floatText(fighter, `${event.amount}`, event.ability ? this.palette.danger : this.palette.label, event.ability ? 16 : 12);
-        fighter.image.setTintFill(this.palette.shield);
-        this.time.delayedCall(60, () => fighter.image.clearTint());
+        this.floatText(fighter, `${event.amount}`, event.ability ? this.palette.danger : this.palette.label, event.ability ? 14 : 11);
+        // A white flash vanishes on a light board, so a hit is a quick blink instead.
+        this.tweens.add({ targets: fighter.image, alpha: { from: 0.45, to: 1 }, duration: 140 });
         if (this.time.now - this.lastHitSound > 60) {
           this.lastHitSound = this.time.now;
           sfx.hit(event.ability);
@@ -730,7 +768,7 @@ export class BattleScene extends Phaser.Scene {
         const color = fighter.info.side === 'a' ? this.palette.mine : this.palette.rival;
         for (const cell of event.cells) {
           const { x, y } = cellCenter(cell);
-          const flash = this.add.graphics().fillStyle(color, 0.35).fillPoints(hexPoints(x, y, R - 3), true);
+          const flash = this.add.graphics().fillStyle(color, 0.35).fillPoints(hexPoints(x, y, CELL_R), true);
           this.effects.add(flash);
           this.tweens.add({ targets: flash, alpha: 0, duration: 420 / speed, onComplete: () => flash.destroy() });
         }
@@ -757,12 +795,12 @@ export class BattleScene extends Phaser.Scene {
         fontStyle: '700',
         color,
         stroke: this.palette.halo,
-        strokeThickness: 3,
+        strokeThickness: 2,
       })
       .setResolution(this.textResolution)
       .setOrigin(0.5);
     this.effects.add(label);
-    this.tweens.add({ targets: label, y: label.y - 20, alpha: 0, duration: 700, ease: 'Quad.easeOut', onComplete: () => label.destroy() });
+    this.tweens.add({ targets: label, y: label.y - 16, alpha: 0, duration: 700, ease: 'Quad.easeOut', onComplete: () => label.destroy() });
   }
 
   private burst(x: number, y: number, color: number) {
@@ -774,7 +812,7 @@ export class BattleScene extends Phaser.Scene {
   /** A short word across the middle of the board, e.g. when overtime starts. */
   private banner(text: string, color: string) {
     const label = this.add
-      .text(BOARD_WIDTH / 2, BOARD_Y + R + 3.5 * ROW_STEP, text, {
+      .text(BOARD_WIDTH / 2, MID_Y, text, {
         fontFamily: DISPLAY_FONT,
         fontSize: '20px',
         fontStyle: '700',

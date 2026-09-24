@@ -59,12 +59,6 @@
   /* the board, read by src/shared/theme.ts: plain #rrggbb, alphas as their own numbers */
   --board-cell: #78788c;
   --board-cell-a: 0.16;
-  --board-cell-rival-a: 0.09;
-  --board-edge: #3c3c43;
-  --board-edge-a: 0.3;
-  --board-edge-rival-a: 0.16;
-  --board-pool: #78788c;
-  --board-pool-a: 0.05;
   --board-scrim: #ffffff;
   --board-scrim-a: 0.62;
   --board-shadow: #3c3c43;
@@ -77,13 +71,12 @@
   --board-shield: #ffffff;
   --board-mana: #5ac8fa;
   --board-track: #3c3c43;
-  --board-track-a: 0.28;
+  --board-track-a: 0.2;
   --board-star-3: #ffb800;
-  --board-star-2: #aeaeb2;
+  --board-star-2: #8e8e93;
   --board-star-1: #a2845e;
   --board-label: #1c1c1e;
   --board-halo: #ffffff;
-  --board-badge: #ffffff;
 
   /* elevation: light lifts with shadow, dark lifts with surface */
   --shadow-1: 0 1px 2px rgb(0 0 0 / 0.06), 0 1px 1px rgb(0 0 0 / 0.04);
@@ -173,12 +166,6 @@
 
     --board-cell: #7c7c85;
     --board-cell-a: 0.26;
-    --board-cell-rival-a: 0.15;
-    --board-edge: #ebebf5;
-    --board-edge-a: 0.26;
-    --board-edge-rival-a: 0.14;
-    --board-pool: #ebebf5;
-    --board-pool-a: 0.05;
     --board-scrim: #000000;
     --board-scrim-a: 0.5;
     --board-shadow: #000000;
@@ -190,14 +177,13 @@
     --board-hp-rival: #ff453a;
     --board-shield: #ffffff;
     --board-mana: #64d2ff;
-    --board-track: #000000;
-    --board-track-a: 0.5;
+    --board-track: #ebebf5;
+    --board-track-a: 0.2;
     --board-star-3: #ffd60a;
     --board-star-2: #d1d1d6;
     --board-star-1: #ac8e68;
     --board-label: #ffffff;
     --board-halo: #000000;
-    --board-badge: #2c2c2e;
 
     --shadow-1: none;
     --shadow-2: 0 10px 30px rgb(0 0 0 / 0.5);
@@ -1447,52 +1433,48 @@ a {
   animation: pop-in var(--dur) var(--ease-back) both;
 }
 
-/* ---------- Versus header ---------- */
+/* ---------- Team strips ---------- */
 
-.versus-header {
+/* A fight puts each team's name, units left and health beside its half: the rival's above
+   the board, in the trait rail's place, and yours in the dock below. */
+.team-strip {
   flex: none;
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
-  align-items: center;
-  gap: var(--sp-3);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 5px;
+  min-width: 0;
+}
+
+.run > .team-strip {
+  /* The trait rail's height, so the board doesn't jump when a fight starts. */
   min-height: 36px;
   padding: 0 10px;
   animation: fade-in var(--dur) var(--ease) both;
 }
 
-.team {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  min-width: 0;
-}
-
-.team.rival {
-  align-items: flex-end;
-}
-
-.team-name {
+.team-row {
   display: flex;
   align-items: center;
   gap: 6px;
-  max-width: 100%;
   min-width: 0;
   font-size: var(--fs-sm);
-  font-weight: 700;
+  line-height: 1.2;
 }
 
-.team.mine .team-name {
-  color: var(--team-mine);
-}
-
-.team.rival .team-name {
-  color: var(--team-rival);
-}
-
-.rival-name {
+.team-name {
   overflow: hidden;
+  font-weight: 700;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.team-left {
+  flex: none;
+  margin-left: auto;
+  color: var(--label-2);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
 
 .team-bar {
@@ -1501,24 +1483,12 @@ a {
   height: 6px;
 }
 
-.team.mine .team-bar span {
+.team-strip.mine .team-bar span {
   background: var(--team-mine);
 }
 
-/* The rival's bar drains toward the middle, mirroring yours. */
-.team.rival .team-bar {
-  display: flex;
-  justify-content: flex-end;
-}
-
-.team.rival .team-bar span {
+.team-strip.rival .team-bar span {
   background: var(--team-rival);
-}
-
-.vs {
-  color: var(--label-2);
-  font-size: var(--fs-sm);
-  font-weight: 600;
 }
 
 .rival-kind {
@@ -1852,11 +1822,21 @@ a {
 
 .fight-bar {
   display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px;
+  box-shadow: var(--shadow-2), inset 0 0 0 var(--hairline) var(--separator);
+}
+
+.fight-bar .team-strip {
+  padding: 0 2px;
+}
+
+.fight-controls {
+  display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--sp-3);
-  padding: 8px;
-  box-shadow: var(--shadow-2), inset 0 0 0 var(--hairline) var(--separator);
 }
 
 .speed {

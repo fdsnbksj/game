@@ -11,27 +11,18 @@ export const DISPLAY_FONT = "-apple-system, BlinkMacSystemFont, 'SF Pro Text', '
 export interface BoardPalette {
   cell: number;
   cellAlpha: number;
-  cellRivalAlpha: number;
-  edge: number;
-  edgeAlpha: number;
-  edgeRivalAlpha: number;
-  pool: number;
-  poolAlpha: number;
   scrim: number;
   scrimAlpha: number;
   shadow: number;
   shadowAlpha: number;
   mine: number;
   rival: number;
-  hp: number;
-  hpRival: number;
   shield: number;
   mana: number;
   track: number;
   trackAlpha: number;
   /** One per star level, 1 to 3. */
   star: [number, number, number];
-  badge: number;
   /** Phaser text styles take strings, not ints. */
   label: string;
   halo: string;
@@ -65,26 +56,17 @@ export function readBoardPalette(): BoardPalette {
   return {
     cell: int(style, '--board-cell'),
     cellAlpha: alpha(style, '--board-cell-a'),
-    cellRivalAlpha: alpha(style, '--board-cell-rival-a'),
-    edge: int(style, '--board-edge'),
-    edgeAlpha: alpha(style, '--board-edge-a'),
-    edgeRivalAlpha: alpha(style, '--board-edge-rival-a'),
-    pool: int(style, '--board-pool'),
-    poolAlpha: alpha(style, '--board-pool-a'),
     scrim: int(style, '--board-scrim'),
     scrimAlpha: alpha(style, '--board-scrim-a'),
     shadow: int(style, '--board-shadow'),
     shadowAlpha: alpha(style, '--board-shadow-a'),
     mine: int(style, '--board-mine'),
     rival: int(style, '--board-rival'),
-    hp: int(style, '--board-hp'),
-    hpRival: int(style, '--board-hp-rival'),
     shield: int(style, '--board-shield'),
     mana: int(style, '--board-mana'),
     track: int(style, '--board-track'),
     trackAlpha: alpha(style, '--board-track-a'),
     star: [int(style, '--board-star-1'), int(style, '--board-star-2'), int(style, '--board-star-3')],
-    badge: int(style, '--board-badge'),
     label: read(style, '--board-label'),
     halo: read(style, '--board-halo'),
     success: read(style, '--board-hp'),
