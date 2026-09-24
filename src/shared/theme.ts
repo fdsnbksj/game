@@ -18,8 +18,6 @@ export interface BoardPalette {
   tileAlpha: number;
   /** How strongly each half's tiles take its team's colour. */
   tintAlpha: number;
-  scrim: number;
-  scrimAlpha: number;
   shadow: number;
   shadowAlpha: number;
   mine: number;
@@ -74,8 +72,6 @@ export function readBoardPalette(): BoardPalette {
     tile: int(style, '--board-tile'),
     tileAlpha: alpha(style, '--board-tile-a'),
     tintAlpha: alpha(style, '--board-tint-a'),
-    scrim: int(style, '--board-scrim'),
-    scrimAlpha: alpha(style, '--board-scrim-a'),
     shadow: int(style, '--board-shadow'),
     shadowAlpha: alpha(style, '--board-shadow-a'),
     mine: int(style, '--board-mine'),

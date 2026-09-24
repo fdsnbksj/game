@@ -81,6 +81,8 @@ const HP_Y = -(HP_H + PLATE_GAP + MANA_H);
 /** Space between the top of a head and its nameplate. */
 const PLATE_LIFT = 5;
 
+/** How long a press on a creature has to be held to peek at it. */
+const LONG_PRESS_MS = 380;
 /** Breathing room around whichever part of the board the camera is showing. */
 const VIEW_PAD = 6;
 /** How long the camera takes to reveal the rival's half, and to come back. */
@@ -360,8 +362,10 @@ export class BattleScene extends Phaser.Scene {
   private fighters: FighterView[] = [];
   private replay: Replay | null = null;
   private highlight!: Phaser.GameObjects.Graphics;
-  /** Dims the rival's half while planning, so the eye goes to your own. */
-  private rivalScrim!: Phaser.GameObjects.Graphics;
+  /** A press being held on a creature, which becomes a peek at its essentials. */
+  private holding: Phaser.Time.TimerEvent | null = null;
+  /** The press that just peeked, so letting go of it doesn't also open the sheet. */
+  private peeked = false;
   private board!: Phaser.GameObjects.Graphics;
   /** Drawn apart from the board so it can fade out while a fight is on. */
   private bench!: Phaser.GameObjects.Graphics;
@@ -396,8 +400,6 @@ export class BattleScene extends Phaser.Scene {
     this.palette = readBoardPalette();
     this.board = this.add.graphics().setDepth(0);
     this.bench = this.add.graphics().setDepth(0);
-    this.rivalScrim = this.add.graphics().setDepth(2);
-    this.drawScrim();
     this.showView('planning', false);
     this.scale.on(Phaser.Scale.Events.RESIZE, this.onResize, this);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.scale.off(Phaser.Scale.Events.RESIZE, this.onResize, this));
@@ -413,6 +415,7 @@ export class BattleScene extends Phaser.Scene {
     this.input.on('pointerdown', (_pointer: Phaser.Input.Pointer, over: Phaser.GameObjects.GameObject[]) => {
       if (over.length === 0) useRunStore.getState().select(null);
     });
+    this.input.on('pointerup', () => this.letGo());
 
     const unsubscribe = useRunStore.subscribe((state, previous) => {
       // Compared by result: marking a fight over makes a new battle object for the same fight.
@@ -486,9 +489,9 @@ export class BattleScene extends Phaser.Scene {
     // below the middle of the part that shows.
     const cy = visibleCenter + inset / 2 / zoom;
     // The rival's half lights up and the bench steps back while a fight is on.
-    this.tweens.killTweensOf([this.rivalScrim, this.bench]);
+    this.tweens.killTweensOf(this.bench);
     const duration = animate ? VIEW_TWEEN_MS : 0;
-    this.tweens.add({ targets: [this.rivalScrim, this.bench], alpha: view === 'planning' ? 1 : 0, duration });
+    this.tweens.add({ targets: this.bench, alpha: view === 'planning' ? 1 : 0, duration });
     camera.panEffect.reset();
     camera.zoomEffect.reset();
     if (!animate || prefersReducedMotion()) {
@@ -550,20 +553,11 @@ export class BattleScene extends Phaser.Scene {
     }
   }
 
-  private drawScrim() {
-    // Wider and taller than any camera view, so its edges never show.
-    this.rivalScrim.clear();
-    this.rivalScrim
-      .fillStyle(this.palette.scrim, this.palette.scrimAlpha)
-      .fillRect(-BOARD_WIDTH, -BOARD_HEIGHT, 3 * BOARD_WIDTH, BOARD_HEIGHT + MID_Y);
-  }
-
   /** The scheme changed: re-read the stylesheet and repaint everything that has a colour. */
   private applyPalette() {
     if (!this.alive) return;
     this.palette = readBoardPalette();
     this.drawBoard();
-    this.drawScrim();
     for (const view of this.views.values()) view.applyPalette(this.palette);
     for (const fighter of this.fighters) {
       fighter.applyPalette(this.palette);
@@ -602,6 +596,9 @@ export class BattleScene extends Phaser.Scene {
    */
   private setUpDragging() {
     this.input.on('dragstart', (pointer: Phaser.Input.Pointer, view: UnitView) => {
+      this.letGo();
+      this.peeked = false;
+      useRunStore.setState({ peek: null });
       this.dragging = view;
       // A pop-in, slide or item bump still running would keep pulling the unit back.
       this.tweens.killTweensOf(view);
@@ -681,6 +678,39 @@ export class BattleScene extends Phaser.Scene {
     return best;
   }
 
+  /**
+   * Starts timing a press on a creature. Held still long enough, it shows the creature's
+   * essentials in a bubble over it instead of opening the sheet.
+   */
+  private holdFor(view: UnitView) {
+    this.letGo();
+    this.peeked = false;
+    this.holding = this.time.delayedCall(LONG_PRESS_MS, () => {
+      this.holding = null;
+      const slot = view.getData('slot') as Slot | undefined;
+      const run = useRunStore.getState().run;
+      const unit = slot && run ? (slot.area === 'board' ? run.board : run.bench)[slot.index] : null;
+      if (!this.alive || !unit || this.dragging) return;
+      this.peeked = true;
+      vibrate(10);
+      const at = this.worldToClient(view.x, view.y - view.headHeight);
+      useRunStore.setState({ peek: { unitId: unit.unitId, star: unit.star, x: at.x, y: at.y } });
+    });
+  }
+
+  private letGo() {
+    this.holding?.remove();
+    this.holding = null;
+  }
+
+  /** A world point, in client pixels. */
+  private worldToClient(x: number, y: number) {
+    const rect = this.game.canvas.getBoundingClientRect();
+    const camera = this.cameras.main;
+    const px = rect.width / this.scale.width;
+    return { x: rect.left + (x - camera.worldView.x) * camera.zoom * px, y: rect.top + (y - camera.worldView.y) * camera.zoom * px };
+  }
+
   /** Whether a unit could go there: the board holds no more units than the level. */
   private canMove(from: Slot, to: Slot) {
     const run = useRunStore.getState().run;
@@ -718,8 +748,15 @@ export class BattleScene extends Phaser.Scene {
       if (!view) {
         view = new UnitView(this, target.x, target.y, unit.unitId, unit.star, this.palette, this.plates, unit.item);
         view.setInteractive({ hitArea: UnitView.HIT, hitAreaCallback: Phaser.Geom.Rectangle.Contains, draggable: true, useHandCursor: true });
+        const held = view;
+        view.on('pointerdown', () => this.holdFor(held));
         view.on('pointerup', (pointer: Phaser.Input.Pointer) => {
-          if (pointer.getDistance() < 6) useRunStore.getState().select(view!.getData('slot') as Slot);
+          this.letGo();
+          if (this.peeked) {
+            this.peeked = false;
+            return;
+          }
+          if (pointer.getDistance() < 6) useRunStore.getState().select(held.getData('slot') as Slot);
         });
         view.setScale(0.4);
         this.tweens.add({ targets: view, scale: 1, duration: 220, ease: 'Back.easeOut' });

@@ -13,10 +13,17 @@ const GLYPHS: Record<TraitId, string> = {
   support: 'M9 3h6v6h6v6h-6v6H9v-6H3V9h6z',
 };
 
-/** Takes its colour from whatever contains it, so both schemes work with no JS. */
+/** In the trait's own colour, from the stylesheet, so both schemes work with no JS. */
 export function TraitIcon({ trait, size = 16, muted = false }: { trait: TraitId; size?: number; muted?: boolean }) {
   return (
-    <svg className={muted ? 'trait-icon muted' : 'trait-icon'} viewBox="0 0 24 24" width={size} height={size} aria-hidden="true">
+    <svg
+      className={muted ? 'trait-icon muted' : 'trait-icon'}
+      viewBox="0 0 24 24"
+      width={size}
+      height={size}
+      aria-hidden="true"
+      style={{ color: `var(--trait-${trait})` }}
+    >
       <path d={GLYPHS[trait]} fill="currentColor" fillRule="evenodd" />
     </svg>
   );

@@ -1,4 +1,4 @@
-import { BENCH_SIZE, getUnit, ITEM_ROUNDS, MAX_LEVEL, MAX_ROUNDS, REROLL_COST, START_HP, XP_COST, XP_PER_BUY, XP_PER_ROUND, type Star } from './balance';
+import { BENCH_SIZE, getUnit, ITEM_ROUNDS, MAX_LEVEL, MAX_ROUNDS, REROLL_COST, START_HP, XP_COST, XP_PER_BUY, XP_PER_ROUND, type Role, type Star } from './balance';
 import type { BattleResult, Placed } from './combat';
 import { copies, income, levelForXp, lossDamage, sellValue } from './economy';
 import { SIDE_CELLS } from './hex';
@@ -218,6 +218,43 @@ export function equip(run: RunState, slot: Slot, itemId: string): RunState {
   const next = [...area];
   next[slot.index] = { ...unit, item: itemId };
   return { ...run, [slot.area]: next, bag };
+}
+
+/** The roles an item suits, best first. */
+const ITEM_ROLES: Record<string, readonly Role[]> = {
+  heavy_plate: ['bruiser'],
+  mirror_shard: ['bruiser'],
+  razor_fang: ['striker', 'bruiser'],
+  volt_coil: ['striker', 'bruiser'],
+  siphon_core: ['striker', 'bruiser'],
+  mana_cell: ['caster', 'support'],
+};
+
+/**
+ * Up to three of the player's creatures an item would suit: ones holding nothing, those
+ * whose role it fits first, then the strongest. Board before bench, since those fight.
+ */
+export function suggestHolders(run: RunState, itemId: string): { slot: Slot; unit: OwnedUnit }[] {
+  const roles = ITEM_ROLES[itemId] ?? [];
+  const fit = (unit: OwnedUnit) => {
+    const at = roles.indexOf(getUnit(unit.unitId).role);
+    return at < 0 ? roles.length : at;
+  };
+  const free: { slot: Slot; unit: OwnedUnit }[] = [];
+  run.board.forEach((unit, index) => unit && !unit.item && free.push({ slot: { area: 'board', index }, unit }));
+  run.bench.forEach((unit, index) => unit && !unit.item && free.push({ slot: { area: 'bench', index }, unit }));
+  return free
+    .map((entry, order) => ({ entry, order }))
+    .sort(
+      (a, b) =>
+        fit(a.entry.unit) - fit(b.entry.unit) ||
+        (a.entry.slot.area === 'board' ? 0 : 1) - (b.entry.slot.area === 'board' ? 0 : 1) ||
+        b.entry.unit.star - a.entry.unit.star ||
+        getUnit(b.entry.unit.unitId).cost - getUnit(a.entry.unit.unitId).cost ||
+        a.order - b.order,
+    )
+    .slice(0, 3)
+    .map(({ entry }) => entry);
 }
 
 /** Takes an item back off a creature. */

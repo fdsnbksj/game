@@ -1,11 +1,11 @@
-import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type CSSProperties, type RefObject, type PointerEvent as ReactPointerEvent } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { AnimatedNumber } from '../components/AnimatedNumber';
 import { CreatureChip } from '../components/CreatureChip';
 import { ItemChip } from '../components/ItemChip';
 import { SettingsButton } from '../components/SettingsSheet';
 import { TraitIcon } from '../components/TraitIcon';
-import { setMusicLevel, sfx, startMusic, stopMusic } from '../game/audio';
+import { setMusicLevel, sfx, startMusic, stopMusic, vibrate } from '../game/audio';
 import { PhaserGame } from '../game/PhaserGame';
 import { registerSellZone, setBottomInset, unitSlotAtClient } from '../game/boardBridge';
 import { BattleScene } from '../game/scenes/BattleScene';
@@ -16,6 +16,7 @@ import {
   ITEM_ROUNDS,
   getUnit,
   LEVEL_XP,
+  UNITS,
   MAX_LEVEL,
   MAX_ROUNDS,
   REROLL_COST,
@@ -25,7 +26,7 @@ import {
   type TraitId,
 } from '../sim/balance';
 import { sellValue } from '../sim/economy';
-import { boardCount, buy, buyXp, equip, ownedUnits, reroll, sell, unequip, whyNotBuy, type RunState, type Slot } from '../sim/planning';
+import { boardCount, buy, buyXp, equip, ownedUnits, reroll, sell, suggestHolders, unequip, whyNotBuy, type RunState, type Slot } from '../sim/planning';
 import { activeTraits } from '../sim/traits';
 
 const SCENES = [BattleScene];
@@ -83,11 +84,24 @@ export function Run() {
         {result && <RoundResult result={result} />}
       </div>
       <UnitGhost />
+      <UnitBubble />
       <UnitSheet />
       <Notice />
       {run.done && !battle && <Summary run={run} />}
     </main>
   );
+}
+
+/** Closes a popover on a press anywhere outside `inside`. */
+function useDismiss(open: boolean, inside: RefObject<HTMLElement | null>, close: () => void) {
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (event: PointerEvent) => {
+      if (!(event.target instanceof Node) || !inside.current?.contains(event.target)) close();
+    };
+    window.addEventListener('pointerdown', onDown);
+    return () => window.removeEventListener('pointerdown', onDown);
+  }, [open, inside, close]);
 }
 
 /** Tells the board how much of the canvas the dock covers, as the dock changes. */
@@ -162,24 +176,38 @@ function Hud({ run }: { run: RunState }) {
   );
 }
 
-/** Active traits first, named, then the rest as icons, with a popover for whichever one is tapped. */
+/**
+ * Your traits as coloured icons with a count, strongest first. Tapping one names it, says
+ * what it does, and shows every creature that has it, dimming the ones you don't own.
+ */
 function TraitRail({ run }: { run: RunState }) {
   const [open, setOpen] = useState<TraitId | null>(null);
-  const traits = activeTraits(run.board.flatMap((unit) => (unit ? [unit.unitId] : [])))
+  const wrap = useRef<HTMLDivElement>(null);
+  const close = useCallback(() => setOpen(null), []);
+  useDismiss(open !== null, wrap, close);
+  const onBoard = run.board.flatMap((unit) => (unit ? [unit.unitId] : []));
+  const benched = new Set(run.bench.flatMap((unit) => (unit ? [unit.unitId] : [])));
+  const traits = activeTraits(onBoard)
     .filter((entry) => entry.count > 0)
     .sort((a, b) => b.tier - a.tier || b.count - a.count);
   const shown = open ? getTrait(open) : null;
+  const roster = open ? UNITS.filter((unit) => unit.origin === open || unit.role === open).sort((a, b) => a.cost - b.cost) : [];
 
   return (
-    <div className="trait-rail-wrap">
+    <div className="trait-rail-wrap" ref={wrap}>
       <div className="trait-rail">
         <span className="board-count" aria-label={`${boardCount(run)} of ${run.level} on the board`}>
           {boardCount(run)}/{run.level}
         </span>
         {traits.map(({ trait, count, tier }) => (
-          <button key={trait.id} className={`trait-chip tier-${tier}`} onClick={() => setOpen(open === trait.id ? null : trait.id)}>
+          <button
+            key={trait.id}
+            className={`trait-chip tier-${tier}`}
+            style={{ '--trait': `var(--trait-${trait.id})` } as CSSProperties}
+            aria-label={`${trait.name} ${count}`}
+            onClick={() => setOpen(open === trait.id ? null : trait.id)}
+          >
             <TraitIcon trait={trait.id} size={16} />
-            {tier > 0 && <span className="trait-name">{trait.name}</span>}
             <b>{count}</b>
             <small>/{count >= trait.thresholds[0] ? trait.thresholds[1] : trait.thresholds[0]}</small>
           </button>
@@ -188,10 +216,24 @@ function TraitRail({ run }: { run: RunState }) {
       </div>
       {shown && (
         <div className="glass trait-pop" role="dialog" onClick={() => setOpen(null)}>
-          <strong>{shown.name}</strong>
+          <strong>
+            <TraitIcon trait={shown.id} size={14} /> {shown.name}
+          </strong>
           <span className="note">
             {shown.thresholds.map((threshold, index) => `${threshold}: ${shown.description.replace('{v}', `${shown.values[index]}`)}`).join(' · ')}
           </span>
+          <ul className="trait-roster" aria-label={`Creatures with ${shown.name}`}>
+            {roster.map((unit) => (
+              <li key={unit.id} className={onBoard.includes(unit.id) ? 'fielded' : benched.has(unit.id) ? 'benched' : 'unowned'}>
+                <CreatureChip unitId={unit.id} size={36} />
+                <span>{unit.name}</span>
+                <small>
+                  <span className="coin" aria-hidden="true" />
+                  {unit.cost}
+                </small>
+              </li>
+            ))}
+          </ul>
         </div>
       )}
     </div>
@@ -330,6 +372,9 @@ function Bag({ bag, nextDrop }: { bag: string[]; nextDrop?: number }) {
   const act = useRunStore((s) => s.act);
   const [drag, setDrag] = useState<ItemDrag | null>(null);
   const [open, setOpen] = useState<number | null>(null);
+  const wrap = useRef<HTMLDivElement>(null);
+  const close = useCallback(() => setOpen(null), []);
+  useDismiss(open !== null, wrap, close);
   const target = useRef<Slot | null>(null);
   const stopListening = useRef<(() => void) | null>(null);
 
@@ -407,7 +452,7 @@ function Bag({ bag, nextDrop }: { bag: string[]; nextDrop?: number }) {
   const shownItem = open !== null && open < bag.length ? getItem(bag[open]) : null;
 
   return (
-    <div className="bag-wrap">
+    <div className="bag-wrap" ref={wrap}>
       <div className="bag" aria-label="Items to give out">
         {bag.map((itemId, index) => (
           <button
@@ -423,15 +468,44 @@ function Bag({ bag, nextDrop }: { bag: string[]; nextDrop?: number }) {
           {bag.length > 0 ? 'Drag onto a creature' : nextDrop ? `Next item after round ${nextDrop}` : 'No more items this run'}
         </span>
       </div>
-      {shownItem && (
-        <div className="glass trait-pop item-pop" role="dialog" onClick={() => setOpen(null)}>
-          <strong>{shownItem.name}</strong>
-          <span className="note">{shownItem.description}</span>
-        </div>
-      )}
+      {shownItem && open !== null && <ItemPop itemId={bag[open]} onClose={() => setOpen(null)} />}
       {drag?.moving && (
         <div className={drag.returning ? 'drag-ghost returning' : 'drag-ghost'} style={{ left: drag.at.x, top: drag.at.y }} aria-hidden="true">
           <ItemChip itemId={drag.itemId} size={40} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** What an item does, and which of your creatures it would suit; tap one to give it. */
+function ItemPop({ itemId, onClose }: { itemId: string; onClose: () => void }) {
+  const run = useRunStore((s) => s.run);
+  const act = useRunStore((s) => s.act);
+  const item = getItem(itemId);
+  const holders = run ? suggestHolders(run, itemId) : [];
+  return (
+    <div className="glass trait-pop item-pop" role="dialog" onClick={onClose}>
+      <strong>{item.name}</strong>
+      <span className="note">{item.description}</span>
+      {holders.length > 0 && (
+        <div className="good-on">
+          <span className="micro">Good on</span>
+          {holders.map(({ slot, unit }) => (
+            <button
+              key={unit.uid}
+              className="good-on-unit"
+              aria-label={`Give ${item.name} to ${getUnit(unit.unitId).name}`}
+              onClick={(event) => {
+                event.stopPropagation();
+                if (act((r) => equip(r, slot, itemId))) sfx.equip();
+                onClose();
+              }}
+            >
+              <CreatureChip unitId={unit.unitId} size={30} />
+              <span>{getUnit(unit.unitId).name}</span>
+            </button>
+          ))}
         </div>
       )}
     </div>
@@ -452,11 +526,48 @@ function UnitGhost() {
   );
 }
 
+/** How long a press has to be held to peek at a creature instead of tapping it. */
+const LONG_PRESS_MS = 380;
+
 function ShopCard({ unitId, owned, affordable, onBuy }: { unitId: string; owned: number; affordable: boolean; onBuy: () => void }) {
   const unit = getUnit(unitId);
+  const timer = useRef<number | undefined>(undefined);
+  const start = useRef({ x: 0, y: 0 });
+  // A long press peeks; the click that ends it mustn't also buy.
+  const peeked = useRef(false);
+  const cancel = () => window.clearTimeout(timer.current);
+  useEffect(() => cancel, []);
+
   return (
-    <button className={`shop-card cost-${unit.cost}${affordable ? '' : ' poor'}${owned === 2 ? ' combines' : ''}`} onClick={onBuy}>
-      {owned > 0 && <span className="owned-badge">{owned}/3</span>}
+    <button
+      className={`shop-card cost-${unit.cost}${affordable ? '' : ' poor'}${owned >= 2 ? ' combines' : owned === 1 ? ' owned' : ''}`}
+      aria-label={owned > 0 ? `${unit.name}, you have ${owned}` : unit.name}
+      onPointerDown={(event) => {
+        peeked.current = false;
+        start.current = { x: event.clientX, y: event.clientY };
+        const card = event.currentTarget.getBoundingClientRect();
+        cancel();
+        timer.current = window.setTimeout(() => {
+          peeked.current = true;
+          vibrate(10);
+          useRunStore.setState({ peek: { unitId, star: 1, x: card.left + card.width / 2, y: card.top } });
+        }, LONG_PRESS_MS);
+      }}
+      onPointerMove={(event) => {
+        if (Math.hypot(event.clientX - start.current.x, event.clientY - start.current.y) > 8) cancel();
+      }}
+      onPointerUp={cancel}
+      onPointerCancel={cancel}
+      onPointerLeave={cancel}
+      onContextMenu={(event) => event.preventDefault()}
+      onClick={() => {
+        if (peeked.current) {
+          peeked.current = false;
+          return;
+        }
+        onBuy();
+      }}
+    >
       <CreatureChip unitId={unitId} size={44} />
       <span className="card-traits">
         <TraitIcon trait={unit.origin} size={14} />
@@ -468,6 +579,68 @@ function ShopCard({ unitId, owned, affordable, onBuy }: { unitId: string; owned:
         {unit.cost}
       </span>
     </button>
+  );
+}
+
+/** A held-down creature's essentials, in a bubble over it, until the next touch. */
+function UnitBubble() {
+  const peek = useRunStore((s) => s.peek);
+  useEffect(() => {
+    if (!peek) return;
+    const close = () => useRunStore.setState({ peek: null });
+    // Added after this press has ended, so only the next one closes it.
+    const timer = window.setTimeout(() => window.addEventListener('pointerdown', close, { once: true }), 0);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener('pointerdown', close);
+    };
+  }, [peek]);
+  if (!peek) return null;
+
+  const def = getUnit(peek.unitId);
+  const scale = (value: number) => Math.floor((value * STAR_PERCENT[peek.star]) / 100);
+  const ability = def.ability;
+  const amount = ability.damage ? `${ability.damage[peek.star - 1]} damage` : ability.heal ? `${ability.heal[peek.star - 1]} healing` : ability.shield ? `${ability.shield[peek.star - 1]} shield` : null;
+  const width = 244;
+  const left = Math.min(window.innerWidth - width / 2 - 10, Math.max(width / 2 + 10, peek.x));
+  // Near the top of the screen there's no room above, so it hangs below instead.
+  const below = peek.y < 190;
+
+  return (
+    <div className={below ? 'unit-bubble below' : 'unit-bubble'} role="tooltip" style={{ left, top: peek.y, width }}>
+      <div className="bubble-head">
+        <CreatureChip unitId={def.id} size={36} />
+        <div>
+          <strong>
+            {def.name} {peek.star > 1 && <span className="stars">{'★'.repeat(peek.star)}</span>}
+          </strong>
+          <span className="bubble-traits">
+            <TraitIcon trait={def.origin} size={13} />
+            <TraitIcon trait={def.role} size={13} />
+            <span className="coin" aria-hidden="true" />
+            {def.cost}
+          </span>
+        </div>
+      </div>
+      <p className="bubble-ability">
+        <b>{ability.name}</b> {ability.description}
+        {amount && <span className="bubble-amount"> {amount}</span>}
+      </p>
+      <dl className="bubble-stats">
+        <div>
+          <dt>Health</dt>
+          <dd>{scale(def.hp)}</dd>
+        </div>
+        <div>
+          <dt>Damage</dt>
+          <dd>{scale(def.damage)}</dd>
+        </div>
+        <div>
+          <dt>Range</dt>
+          <dd>{def.range}</dd>
+        </div>
+      </dl>
+    </div>
   );
 }
 

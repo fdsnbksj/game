@@ -45,7 +45,7 @@ export function PhaserGame({ scenes, responsive = false, width = 100, height = 1
       width: responsive ? Math.max(1, Math.round(box.width * dpr)) : width,
       height: responsive ? Math.max(1, Math.round(box.height * dpr)) : height,
       transparent,
-      backgroundColor: cssColor('--board-scrim'),
+      backgroundColor: cssColor('--board-stage'),
       banner: false,
       scale: responsive
         ? { mode: Phaser.Scale.NONE, zoom: 1 / dpr }

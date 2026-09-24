@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { getUnit, REROLL_COST, XP_COST } from '../../src/sim/balance';
 import type { BattleResult } from '../../src/sim/combat';
-import { buy, buyXp, dailySeed, equip, finishRound, move, newRun, ownedUnits, reroll, sell, unequip, type RunState } from '../../src/sim/planning';
+import { buy, buyXp, dailySeed, equip, finishRound, move, newRun, ownedUnits, reroll, sell, suggestHolders, unequip, type RunState } from '../../src/sim/planning';
 
 /** A run with a hand-picked shop and plenty of gold. */
 function runWith(shop: string[], gold = 50, extra: Partial<RunState> = {}): RunState {
@@ -168,6 +168,33 @@ describe('items', () => {
     expect(merged[0].star).toBe(2);
     expect(merged[0].item).toBe('mana_cell');
     expect(run.bag).toEqual(['volt_coil']);
+  });
+});
+
+describe('item suggestions', () => {
+  // chromeshell is a bruiser, sparkmouse a striker, glitchtoad a caster, sporecat a support.
+  const team = (): RunState => ({
+    ...runWith([]),
+    bench: [
+      { uid: 1, unitId: 'sparkmouse', star: 1 },
+      { uid: 2, unitId: 'chromeshell', star: 1 },
+      { uid: 3, unitId: 'glitchtoad', star: 1 },
+      { uid: 4, unitId: 'sporecat', star: 1 },
+      { uid: 5, unitId: 'chromeshell', star: 2, item: 'razor_fang' },
+      null, null, null, null,
+    ],
+  });
+  const ids = (run: RunState, item: string) => suggestHolders(run, item).map(({ unit }) => unit.uid);
+
+  it('puts the creatures the item suits first', () => {
+    expect(ids(team(), 'heavy_plate')[0]).toBe(2);
+    expect(ids(team(), 'razor_fang').slice(0, 2)).toEqual([1, 2]);
+    expect(ids(team(), 'mana_cell').slice(0, 2).sort()).toEqual([3, 4]);
+  });
+
+  it('skips creatures already holding something, and suggests at most three', () => {
+    expect(ids(team(), 'heavy_plate')).not.toContain(5);
+    expect(ids(team(), 'volt_coil')).toHaveLength(3);
   });
 });
 

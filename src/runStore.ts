@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { findGhost, type Ghost } from './services/opponents';
 import { isRetryable, startOnlineRun, writeRound, type RoundWrite } from './services/runs';
 import { aiOpponent } from './sim/ai';
+import type { Star } from './sim/balance';
 import { simulate, type BattleResult, type Placed } from './sim/combat';
 import { autoFill, boardUnits, dailySeed, finishRound, newRun, type RunMode, type RunState, type Slot } from './sim/planning';
 import { toSnapshot } from './sim/validate';
@@ -85,6 +86,14 @@ export interface OnlineRun {
 
 export type ReplaySpeed = 1 | 2;
 
+export interface Peek {
+  unitId: string;
+  star: Star;
+  /** Where the creature is, in client pixels; the bubble sits above it. */
+  x: number;
+  y: number;
+}
+
 interface RunStore {
   run: RunState | null;
   online: OnlineRun | null;
@@ -97,6 +106,8 @@ interface RunStore {
   itemTarget: Slot | null;
   unitDrag: UnitDrag | null;
   teamHp: TeamHp | null;
+  /** A creature held down for a look: its essentials show in a bubble at this screen point. */
+  peek: Peek | null;
   /** A short message for the player, e.g. why a move didn't happen. */
   notice: { text: string; id: number } | null;
   stats: LocalStats;
@@ -160,6 +171,7 @@ export const useRunStore = create<RunStore>()((set, get) => {
     itemTarget: null,
     unitDrag: null,
     teamHp: null,
+    peek: null,
     notice: null,
     stats: load<LocalStats>(STATS_KEY, { runs: 0, bestWins: 0, bestRound: 0 }),
 

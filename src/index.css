@@ -47,6 +47,15 @@
   --tier-3: #007aff;
   --tier-4: #af52de;
   --tier-5: #ffb800;
+  --trait-voltage: #f2a900;
+  --trait-glitch: #d63fb8;
+  --trait-chrome: #5f7ea8;
+  --trait-toxin: #3fae3a;
+  --trait-prism: #9a6bff;
+  --trait-striker: #ff453a;
+  --trait-bruiser: #ff8a00;
+  --trait-caster: #007aff;
+  --trait-support: #00a7a0;
 
   /* Something held under a finger. */
   --ghost-shadow: drop-shadow(0 6px 10px rgb(0 0 0 / 0.25));
@@ -66,8 +75,6 @@
   --board-tile: #ffffff;
   --board-tile-a: 0.62;
   --board-tint-a: 0.1;
-  --board-scrim: #ffffff;
-  --board-scrim-a: 0.62;
   --board-shadow: #3c3c43;
   --board-shadow-a: 0.22;
   --board-mine: #007aff;
@@ -168,6 +175,15 @@
     --tier-3: #0a84ff;
     --tier-4: #bf5af2;
     --tier-5: #ffd60a;
+    --trait-voltage: #ffc93c;
+    --trait-glitch: #f06bd8;
+    --trait-chrome: #9db4d8;
+    --trait-toxin: #6fdc5a;
+    --trait-prism: #b99bff;
+    --trait-striker: #ff6961;
+    --trait-bruiser: #ffa94d;
+    --trait-caster: #409cff;
+    --trait-support: #3fd6ce;
 
     --ghost-shadow: drop-shadow(0 6px 12px rgb(0 0 0 / 0.6));
 
@@ -180,8 +196,6 @@
     --board-tile: #ffffff;
     --board-tile-a: 0.08;
     --board-tint-a: 0.16;
-    --board-scrim: #000000;
-    --board-scrim-a: 0.5;
     --board-shadow: #000000;
     --board-shadow-a: 0.45;
     --board-mine: #0a84ff;
@@ -1396,32 +1410,74 @@ a {
   font-variant-numeric: tabular-nums;
 }
 
-.trait-chip .trait-icon {
-  color: var(--label-2);
+/* Each chip is tinted in its trait's colour: faintly while building, fully once active. */
+.trait-chip {
+  --trait: var(--label-2);
 }
 
 .trait-chip.tier-1 {
   border-color: transparent;
-  background: var(--fill-2);
-  color: var(--label);
-}
-
-.trait-chip.tier-1 .trait-icon {
+  background: color-mix(in srgb, var(--trait) 16%, transparent);
   color: var(--label);
 }
 
 .trait-chip.tier-2 {
-  border-color: var(--currency);
-  background: var(--currency-soft);
+  border-color: var(--trait);
+  background: color-mix(in srgb, var(--trait) 26%, transparent);
   color: var(--label);
 }
 
-.trait-chip.tier-2 .trait-icon {
-  color: var(--currency-text);
+.trait-pop strong {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
-.trait-name {
+.bubble-amount {
   color: var(--label);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.trait-roster {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.trait-roster li {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  width: 50px;
+  font-size: 0.66rem;
+  font-weight: 650;
+}
+
+/* Not in your team yet: shown, but stepped back. */
+.trait-roster li.unowned {
+  opacity: 0.4;
+}
+
+.trait-roster li.benched .creature-chip {
+  outline: 1.5px dashed var(--separator);
+  outline-offset: 1px;
+  border-radius: var(--r-sm);
+}
+
+.trait-roster small {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  color: var(--label-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.trait-roster .coin {
+  width: 8px;
+  height: 8px;
 }
 
 .trait-pop {
@@ -1636,6 +1692,33 @@ a {
   bottom: calc(100% + 6px);
 }
 
+.good-on {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.good-on-unit {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 10px 2px 2px;
+  border: 1px solid var(--separator);
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  color: var(--label);
+  font: inherit;
+  font-size: var(--fs-cap);
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.good-on-unit:active {
+  transform: scale(0.96);
+}
+
 .drag-ghost {
   position: fixed;
   z-index: 40;
@@ -1677,7 +1760,7 @@ a {
   align-items: center;
   gap: 2px;
   min-width: 0;
-  min-height: 112px;
+  min-height: 100px;
   padding: 8px 3px 0;
   overflow: hidden;
   border: 1.5px solid var(--tier);
@@ -1713,9 +1796,26 @@ a {
   background: transparent;
 }
 
-/* The third copy completes a merge, so it gets a second ring. */
+/* One you already have glows gold; a third copy, which merges, glows brighter. */
+.shop-card.owned:not(.poor) {
+  box-shadow: 0 0 12px 2px color-mix(in srgb, var(--currency) 60%, transparent);
+}
+
 .shop-card.combines:not(.poor) {
-  box-shadow: 0 0 0 2px var(--surface), 0 0 0 3.5px var(--tier);
+  box-shadow:
+    0 0 0 1.5px var(--currency),
+    0 0 16px 3px color-mix(in srgb, var(--currency) 80%, transparent);
+  animation:
+    pop-in var(--dur) var(--ease-back) both,
+    owned-glow 1.6s ease-in-out infinite alternate;
+}
+
+@keyframes owned-glow {
+  to {
+    box-shadow:
+      0 0 0 1.5px var(--currency),
+      0 0 24px 6px color-mix(in srgb, var(--currency) 55%, transparent);
+  }
 }
 
 .card-traits {
@@ -1730,8 +1830,8 @@ a {
 .card-name {
   display: grid;
   place-items: center;
-  min-height: 2.3em;
-  font-size: 0.64rem;
+  min-height: 1.3em;
+  font-size: 0.72rem;
   font-weight: 650;
   line-height: 1.15;
   text-align: center;
@@ -1759,19 +1859,6 @@ a {
 .card-cost .coin {
   width: 11px;
   height: 11px;
-}
-
-.owned-badge {
-  position: absolute;
-  top: 4px;
-  right: 4px;
-  padding: 1px 5px;
-  border-radius: var(--r-pill);
-  background: var(--accent);
-  color: var(--on-accent);
-  font-size: 0.6rem;
-  font-weight: 800;
-  font-variant-numeric: tabular-nums;
 }
 
 /* Drag a unit here to sell it: the shop turns into the drop target. */
@@ -1805,7 +1892,7 @@ a {
 
 @media (max-height: 700px) {
   .shop-card {
-    min-height: 100px;
+    min-height: 90px;
     padding-top: 6px;
   }
 
@@ -1878,6 +1965,91 @@ a {
 
 .skip {
   min-width: 88px;
+}
+
+/* ---------- Long-press bubble ---------- */
+
+/* Over the canvas, like the round result: an opaque card, no blur. */
+.unit-bubble {
+  position: fixed;
+  z-index: 45;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: var(--r-lg);
+  background: var(--surface-2);
+  box-shadow: var(--shadow-3), inset 0 0 0 var(--hairline) var(--separator);
+  pointer-events: none;
+  transform: translate(-50%, calc(-100% - 10px));
+  animation: fade-in var(--dur-fast) var(--ease) both;
+}
+
+.unit-bubble.below {
+  transform: translate(-50%, 56px);
+}
+
+.bubble-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.bubble-head strong {
+  display: block;
+  font-size: var(--fs-md);
+}
+
+.bubble-traits {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--label-2);
+  font-size: var(--fs-cap);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.bubble-traits .coin {
+  width: 11px;
+  height: 11px;
+  margin-left: 4px;
+}
+
+.bubble-ability {
+  margin: 0;
+  color: var(--label-2);
+  font-size: var(--fs-sm);
+  line-height: 1.35;
+}
+
+.bubble-ability b {
+  color: var(--label);
+}
+
+.bubble-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  margin: 0;
+}
+
+.bubble-stats div {
+  padding: 5px 8px;
+  border-radius: var(--r-sm);
+  background: var(--fill-4);
+}
+
+.bubble-stats dt {
+  color: var(--label-2);
+  font-size: var(--fs-xs);
+}
+
+.bubble-stats dd {
+  margin: 0;
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
 }
 
 /* ---------- Round result ---------- */
