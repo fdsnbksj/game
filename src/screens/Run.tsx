@@ -43,10 +43,12 @@ export function Run() {
     if (!useRunStore.getState().run) startRun();
   }, [startRun]);
 
+  // A new run, including one started from the summary, gets a new track.
+  const seed = run?.seed;
   useEffect(() => {
     startMusic();
     return stopMusic;
-  }, []);
+  }, [seed]);
 
   useEffect(() => {
     if (!run) return;

@@ -455,8 +455,11 @@ export function vibrate(pattern: number | number[]) {
 
 // ---------- Music ----------
 
-/** The run's soundtrack, in public/audio. Fetched the first time it's wanted, then kept. */
-const TRACK_URL = '/audio/bgm.mp3';
+/**
+ * The soundtracks, in public/audio. Each run picks one at random (never the last one twice
+ * running); each is fetched the first time it's picked, then kept. Add a file here to add it.
+ */
+const TRACKS = ['/audio/bgm.mp3'];
 /** Held back while planning, so the fight's arrival is felt. */
 const PLANNING_LEVEL = 0.55;
 /** How much the low end is lifted once a fight starts, in dB. */
@@ -465,24 +468,33 @@ const FIGHT_BASS_DB = 7;
 let wantMusic = false;
 /** 0 while planning; above 0 once a fight is on. */
 let level = 0;
-let track: AudioBuffer | null = null;
-let loading: Promise<void> | null = null;
+let current = TRACKS[0];
+const tracks = new Map<string, AudioBuffer>();
+const loading = new Set<string>();
 let source: AudioBufferSourceNode | null = null;
 let trackGain: GainNode | null = null;
 let bass: BiquadFilterNode | null = null;
 
-function loadTrack(audio: AudioContext) {
-  loading ??= fetch(TRACK_URL)
+function loadTrack(audio: AudioContext, url: string) {
+  if (loading.has(url)) return;
+  loading.add(url);
+  fetch(url)
     .then((response) => response.arrayBuffer())
     .then((data) => audio.decodeAudioData(data))
     .then((buffer) => {
-      track = buffer;
+      tracks.set(url, buffer);
       updateMusic();
     })
     .catch(() => {
       // No soundtrack is better than a broken game; try again next time it's wanted.
-      loading = null;
-    });
+    })
+    .finally(() => loading.delete(url));
+}
+
+/** A different track from the one just played, when there's more than one. */
+function pickTrack() {
+  const others = TRACKS.filter((url) => url !== current);
+  current = others.length > 0 ? others[Math.floor(Math.random() * others.length)] : current;
 }
 
 /** Planning or fighting: the volume and the bass glide over half a second. */
@@ -498,8 +510,9 @@ function applyLevel() {
 function updateMusic() {
   const shouldPlay = ctx !== null && wantMusic && prefs.music;
   if (shouldPlay && !source) {
+    const track = tracks.get(current);
     if (!track) {
-      loadTrack(ctx!);
+      loadTrack(ctx!, current);
       return;
     }
     const audio = ctx!;
@@ -523,8 +536,12 @@ function updateMusic() {
   }
 }
 
-/** The run screen holds the music; it only sounds if the player turned it on. */
+/** The run screen holds the music; it only sounds if the player turned it on. Each call
+    starts a freshly picked track. */
 export function startMusic() {
+  wantMusic = false;
+  updateMusic();
+  pickTrack();
   wantMusic = true;
   updateMusic();
 }
