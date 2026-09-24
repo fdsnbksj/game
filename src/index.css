@@ -1306,6 +1306,10 @@ a {
 /* The board fills the stage; the dock floats over its bottom edge. */
 .stage {
   position: relative;
+  /* A long press on iOS would otherwise start a selection or callout and cancel the drag. */
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
   flex: 1 1 auto;
   min-height: 200px;
 }
@@ -1621,6 +1625,8 @@ a {
   display: flex;
   align-items: center;
   gap: var(--sp-2);
+  /* The same height empty or full, so the tray never changes size. */
+  min-height: 42px;
   padding: 4px 6px;
   border-radius: var(--r-md);
   background: var(--fill-4);
@@ -1634,6 +1640,8 @@ a {
   background: none;
   cursor: grab;
   touch-action: none;
+  -webkit-touch-callout: none;
+  user-select: none;
   transition: transform var(--dur-fast) var(--ease), opacity var(--dur-fast) var(--ease);
 }
 
@@ -1903,7 +1911,7 @@ a {
   background: var(--surface-2);
   box-shadow: var(--shadow-3), inset 0 0 0 var(--hairline) var(--separator);
   text-align: center;
-  cursor: pointer;
+  pointer-events: none;
   transform: translate(-50%, -50%);
   animation: result-in var(--dur-slow) var(--ease-back) both;
 }

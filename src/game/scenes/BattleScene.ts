@@ -406,7 +406,10 @@ export class BattleScene extends Phaser.Scene {
     const rect = this.game.canvas.getBoundingClientRect();
     const x = ((clientX - rect.left) * this.scale.width) / rect.width;
     const y = ((clientY - rect.top) * this.scale.height) / rect.height;
-    return { point: this.cameras.main.getWorldPoint(x, y), inside: clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom };
+    // The dock covers the bottom of the canvas, so the board only shows above it.
+    const visibleBottom = rect.bottom - getBottomInset();
+    const inside = clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= visibleBottom;
+    return { point: this.cameras.main.getWorldPoint(x, y), inside };
   }
 
   /** Which of the player's creatures is under a point on the screen; for dropping items. */
@@ -427,7 +430,10 @@ export class BattleScene extends Phaser.Scene {
   private setUpDragging() {
     this.input.on('dragstart', (pointer: Phaser.Input.Pointer, view: UnitView) => {
       this.dragging = view;
-      view.setDepth(30).setScale(1.15);
+      // A pop-in, slide or item bump still running would keep pulling the unit back.
+      this.tweens.killTweensOf(view);
+      view.setDepth(30).setScale(1.15).setAlpha(1);
+      sfx.pickUp();
       const store = useRunStore.getState();
       store.select(null);
       const slot = view.getData('slot') as Slot;
@@ -441,7 +447,8 @@ export class BattleScene extends Phaser.Scene {
         this.dragClient = last;
         const { point, inside } = this.clientToWorld(last.x, last.y);
         view.setPosition(point.x, point.y).setVisible(inside);
-        this.drawHighlight(inside ? this.dropSlot(point.x, point.y) : null);
+        const to = inside ? this.dropSlot(point.x, point.y) : null;
+        this.drawHighlight(to, to !== null && !this.canMove(slot, to));
         const overSell = isOverSellZone(last.x, last.y);
         const current = useRunStore.getState().unitDrag;
         // The finger's position only matters to React once the canvas can't draw the unit.
@@ -474,7 +481,7 @@ export class BattleScene extends Phaser.Scene {
       const to = inside ? this.dropSlot(point.x, point.y) : null;
       const level = store.run?.level ?? 1;
       if (to && (to.area !== from.area || to.index !== from.index)) {
-        store.act((run) => move(run, from, to), `Level ${level} fits ${level} unit${level === 1 ? '' : 's'} on the board`);
+        if (store.act((run) => move(run, from, to), `Level ${level} fits ${level} unit${level === 1 ? '' : 's'} on the board`)) sfx.drop();
       }
       this.syncPlanning();
     });
@@ -499,11 +506,20 @@ export class BattleScene extends Phaser.Scene {
     return best;
   }
 
-  private drawHighlight(slot: Slot | null) {
+  /** Whether a unit could go there: the board holds no more units than the level. */
+  private canMove(from: Slot, to: Slot) {
+    const run = useRunStore.getState().run;
+    if (!run || (from.area === to.area && from.index === to.index)) return true;
+    return move(run, from, to) !== run;
+  }
+
+  /** The slot a drag would land in; red when the move would be refused. */
+  private drawHighlight(slot: Slot | null, refused = false) {
     this.highlight.clear();
     if (!slot) return;
     const { x, y } = slotCenter(slot);
-    this.highlight.fillStyle(this.palette.mine, 0.14).lineStyle(2, this.palette.mine, 0.95);
+    const color = refused ? this.palette.rival : this.palette.mine;
+    this.highlight.fillStyle(color, 0.14).lineStyle(2, color, 0.95);
     if (slot.area === 'board') {
       this.highlight.fillPoints(hexPoints(x, y, R - 2), true);
       this.highlight.strokePoints(hexPoints(x, y, R - 2), true);
@@ -592,6 +608,7 @@ export class BattleScene extends Phaser.Scene {
       this.tweens.add({ targets: fighter, scale: 1, duration: 260, delay: fighter.info.side === 'b' ? 120 : 0, ease: 'Back.easeOut' });
     }
     this.publishTeamHp();
+    sfx.fightStart();
     // Opponents sit on the half that was empty during planning; let them land before anything moves.
     this.replay = { battle, elapsed: -500, next: 0, finished: false, overtimeShown: false };
   }
@@ -686,7 +703,7 @@ export class BattleScene extends Phaser.Scene {
         this.time.delayedCall(60, () => fighter.image.clearTint());
         if (this.time.now - this.lastHitSound > 60) {
           this.lastHitSound = this.time.now;
-          sfx.hit();
+          sfx.hit(event.ability);
         }
         return true;
       case 'dodge':

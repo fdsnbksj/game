@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { AnimatedNumber } from '../components/AnimatedNumber';
 import { CreatureChip } from '../components/CreatureChip';
@@ -248,17 +248,27 @@ function Tray({ run }: { run: RunState }) {
           disabled={run.gold < XP_COST || run.level >= MAX_LEVEL}
           onClick={() => {
             const before = run.level;
-            if (act(buyXp) && useRunStore.getState().run!.level > before) sfx.levelUp();
+            if (!act(buyXp)) return;
+            if (useRunStore.getState().run!.level > before) sfx.levelUp();
+            else sfx.xp();
           }}
         >
           XP <span className="price">{XP_COST}</span>
         </button>
-        <button className="button small" disabled={run.gold < REROLL_COST} onClick={() => act(reroll)} aria-label={`Reroll for ${REROLL_COST} gold`}>
+        <button
+          className="button small"
+          disabled={run.gold < REROLL_COST}
+          onClick={() => {
+            if (act(reroll)) sfx.reroll();
+          }}
+          aria-label={`Reroll for ${REROLL_COST} gold`}
+        >
           ↻ <span className="price">{REROLL_COST}</span>
         </button>
       </div>
 
-      {run.bag.length > 0 && <Bag bag={run.bag} />}
+      {/* Always there, even empty, so the tray (and the board above it) never changes height. */}
+      <Bag bag={run.bag} nextDrop={ITEM_ROUNDS.find((round) => round >= run.round)} />
 
       <div className="shop-wrap" ref={registerSellZone}>
         <div className="shop" aria-label="Shop" aria-hidden={dragged ? true : undefined}>
@@ -297,41 +307,103 @@ function Tray({ run }: { run: RunState }) {
 
 /** A little movement before a press becomes a drag, so a tap still opens the item's card. */
 const DRAG_START = 6;
+/** Under a finger the dragged item rides this far above it, so it stays in view; the drop
+    lands where the item is drawn, not under the fingertip. A mouse pointer hides nothing. */
+const touchLift = (event: PointerEvent) => (event.pointerType === 'mouse' ? 0 : 28);
 
 interface ItemDrag {
   index: number;
   itemId: string;
   start: { x: number; y: number };
+  /** Where the item is drawn and where it would land. */
   at: { x: number; y: number };
   moving: boolean;
   /** Dropped away from a creature: the ghost glides back before it goes. */
   returning: boolean;
 }
 
-/** Items waiting to be given out. Drag one onto a creature to give it; tap to read it. */
-function Bag({ bag }: { bag: string[] }) {
+/**
+ * Items waiting to be given out. Drag one onto a creature to give it; tap to read it.
+ * The drag follows window events rather than pointer capture on the chip, which some
+ * browsers drop mid-gesture.
+ */
+function Bag({ bag, nextDrop }: { bag: string[]; nextDrop?: number }) {
   const act = useRunStore((s) => s.act);
-  // The drag lives in a ref, so a quick flick's up event sees its own move; state only draws it.
-  const live = useRef<ItemDrag | null>(null);
-  const [drag, setDragState] = useState<ItemDrag | null>(null);
+  const [drag, setDrag] = useState<ItemDrag | null>(null);
   const [open, setOpen] = useState<number | null>(null);
   const target = useRef<Slot | null>(null);
+  const stopListening = useRef<(() => void) | null>(null);
 
-  const setDrag = (next: ItemDrag | null) => {
-    live.current = next;
-    setDragState(next);
-  };
   const setTarget = (slot: Slot | null) => {
     const same = slot && target.current && slot.area === target.current.area && slot.index === target.current.index;
     if (same || slot === target.current) return;
     target.current = slot;
     useRunStore.setState({ itemTarget: slot });
   };
-  const end = () => {
-    setTarget(null);
-    setDrag(null);
+  useEffect(
+    () => () => {
+      stopListening.current?.();
+      useRunStore.setState({ itemTarget: null });
+    },
+    [],
+  );
+
+  const begin = (event: ReactPointerEvent, index: number, itemId: string) => {
+    if (event.button !== 0 && event.pointerType === 'mouse') return;
+    stopListening.current?.();
+    const start = { x: event.clientX, y: event.clientY };
+    let current: ItemDrag = { index, itemId, start, at: start, moving: false, returning: false };
+    setDrag(current);
+
+    const move = (e: PointerEvent) => {
+      if (e.pointerId !== event.pointerId) return;
+      const moving = current.moving || Math.hypot(e.clientX - start.x, e.clientY - start.y) > DRAG_START;
+      if (!moving) return;
+      if (!current.moving) {
+        setOpen(null);
+        sfx.pickUp();
+      }
+      current = { ...current, at: { x: e.clientX, y: e.clientY - touchLift(e) }, moving };
+      setDrag(current);
+      setTarget(unitSlotAtClient(current.at.x, current.at.y));
+    };
+    const up = (e: PointerEvent) => {
+      if (e.pointerId !== event.pointerId) return;
+      stop();
+      if (!current.moving) {
+        setOpen((shown) => (shown === index ? null : index));
+        setDrag(null);
+        return;
+      }
+      const at = { x: e.clientX, y: e.clientY - touchLift(e) };
+      const slot = unitSlotAtClient(at.x, at.y);
+      setTarget(null);
+      if (slot && act((run) => equip(run, slot, itemId))) {
+        sfx.equip();
+        setDrag(null);
+        return;
+      }
+      // Purely visual: the next press can start a new drag straight away.
+      setDrag({ ...current, at: start, returning: true });
+      setTimeout(() => setDrag((shown) => (shown?.returning ? null : shown)), 200);
+    };
+    const cancel = (e: PointerEvent) => {
+      if (e.pointerId !== event.pointerId) return;
+      stop();
+      setTarget(null);
+      setDrag(null);
+    };
+    const stop = () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      window.removeEventListener('pointercancel', cancel);
+      stopListening.current = null;
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+    window.addEventListener('pointercancel', cancel);
+    stopListening.current = stop;
   };
-  useEffect(() => () => void useRunStore.setState({ itemTarget: null }), []);
 
   const shownItem = open !== null && open < bag.length ? getItem(bag[open]) : null;
 
@@ -341,49 +413,16 @@ function Bag({ bag }: { bag: string[] }) {
         {bag.map((itemId, index) => (
           <button
             key={`${itemId}-${index}`}
-            className={drag?.index === index && drag.moving ? 'bag-item lifted' : 'bag-item'}
+            className={drag?.index === index && drag.moving && !drag.returning ? 'bag-item lifted' : 'bag-item'}
             aria-label={`${getItem(itemId).name}: drag onto a creature`}
-            onPointerDown={(event) => {
-              if (live.current?.returning) return;
-              event.currentTarget.setPointerCapture(event.pointerId);
-              const point = { x: event.clientX, y: event.clientY };
-              setDrag({ index, itemId, start: point, at: point, moving: false, returning: false });
-            }}
-            onPointerMove={(event) => {
-              const current = live.current;
-              if (!current || current.index !== index || current.returning) return;
-              const at = { x: event.clientX, y: event.clientY };
-              const moving = current.moving || Math.hypot(at.x - current.start.x, at.y - current.start.y) > DRAG_START;
-              if (!moving) return;
-              if (!current.moving) setOpen(null);
-              setDrag({ ...current, at, moving });
-              setTarget(unitSlotAtClient(at.x, at.y));
-            }}
-            onPointerUp={(event) => {
-              const current = live.current;
-              if (!current || current.index !== index || current.returning) return;
-              const at = { x: event.clientX, y: event.clientY };
-              if (!current.moving && Math.hypot(at.x - current.start.x, at.y - current.start.y) <= DRAG_START) {
-                setOpen(open === index ? null : index);
-                end();
-                return;
-              }
-              const slot = unitSlotAtClient(at.x, at.y);
-              if (slot && act((run) => equip(run, slot, itemId))) {
-                sfx.buy();
-                end();
-                return;
-              }
-              setTarget(null);
-              setDrag({ ...current, at: current.start, moving: true, returning: true });
-              setTimeout(() => setDrag(null), 200);
-            }}
-            onPointerCancel={end}
+            onPointerDown={(event) => begin(event, index, itemId)}
           >
             <ItemChip itemId={itemId} size={34} />
           </button>
         ))}
-        <span className="hint">Drag onto a creature</span>
+        <span className="hint">
+          {bag.length > 0 ? 'Drag onto a creature' : nextDrop ? `Next item after round ${nextDrop}` : 'No more items this run'}
+        </span>
       </div>
       {shownItem && (
         <div className="glass trait-pop item-pop" role="dialog" onClick={() => setOpen(null)}>
@@ -471,13 +510,20 @@ function RoundResult({ result }: { result: RoundOutcome }) {
   useEffect(() => {
     setGone(false);
     const timer = setTimeout(() => setGone(true), 2600);
-    return () => clearTimeout(timer);
+    // It never takes a touch (the player is usually about to drag something under it);
+    // the first press anywhere just clears it away.
+    const dismiss = () => setGone(true);
+    window.addEventListener('pointerdown', dismiss);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('pointerdown', dismiss);
+    };
   }, [result.id]);
   if (gone) return null;
   const tone = result.won ? 'won' : result.draw ? 'draw' : 'lost';
 
   return (
-    <div className={`glass round-result ${tone}`} role="status" onClick={() => setGone(true)}>
+    <div className={`glass round-result ${tone}`} role="status">
       <strong>{result.won ? 'Round won' : result.draw ? 'Round drawn' : 'Round lost'}</strong>
       <span className="note">{result.damage > 0 ? `−${result.damage} HP` : `Round ${result.round} of ${MAX_ROUNDS}`}</span>
       {result.item && (
