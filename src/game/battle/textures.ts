@@ -59,8 +59,14 @@ function fillEllipse(ctx: CanvasRenderingContext2D, e: { cx: number; cy: number;
 /** Display scale that makes a creature texture `size` world pixels wide. */
 export const creatureScale = (size: number) => size / (CREATURE_SIZE * SCALE);
 
-/** How far the top of a creature's head is from the bottom of its texture, as a share of its size. */
-export const creatureHeight = (unitId: string) => 1 - (CREATURE_ART[unitId]?.top ?? 0) / CREATURE_SIZE;
+/** Where the creatures' feet touch the ground, down their 48-unit grid. */
+const FEET = 46;
+
+/** The texture origin that stands a creature on its feet. */
+export const FEET_ORIGIN = FEET / CREATURE_SIZE;
+
+/** How tall a creature stands above its feet, as a share of its drawn size. */
+export const creatureHeight = (unitId: string) => (FEET - (CREATURE_ART[unitId]?.top ?? 0)) / CREATURE_SIZE;
 
 export const itemKey = (itemId: string) => `item-${itemId}`;
 

@@ -58,8 +58,14 @@
   --art-ink: #1d1f2b;
 
   /* the board, read by src/shared/theme.ts: plain #rrggbb, alphas as their own numbers */
-  --board-cell: #78788c;
-  --board-cell-a: 0.16;
+  /* The arena: a tilted table on a quiet stage. */
+  --board-stage: #eceef4;
+  --board-ground: #dde1ea;
+  --board-floor: #c5ccdc;
+  --board-rim: #9ba4b9;
+  --board-tile: #ffffff;
+  --board-tile-a: 0.62;
+  --board-tint-a: 0.1;
   --board-scrim: #ffffff;
   --board-scrim-a: 0.62;
   --board-shadow: #3c3c43;
@@ -164,8 +170,13 @@
 
     --chip-shadow: none;
 
-    --board-cell: #7c7c85;
-    --board-cell-a: 0.26;
+    --board-stage: #101115;
+    --board-ground: #181a20;
+    --board-floor: #2b2f3b;
+    --board-rim: #0c0d10;
+    --board-tile: #ffffff;
+    --board-tile-a: 0.08;
+    --board-tint-a: 0.16;
     --board-scrim: #000000;
     --board-scrim-a: 0.5;
     --board-shadow: #000000;
@@ -1301,7 +1312,7 @@ a {
   overflow: hidden;
   /* The canvas is transparent, so the board's colours are tuned against this surface. */
   border-radius: var(--r-lg);
-  background: var(--surface);
+  background: var(--board-stage);
 }
 
 .board-canvas canvas {

@@ -1,48 +1,86 @@
 import Phaser from 'phaser';
 import { useRunStore, type Battle } from '../../runStore';
 import { DISPLAY_FONT, readBoardPalette, type BoardPalette } from '../../shared/theme';
-import { BENCH_SIZE, MOVE_TICKS, OVERTIME_TICK, TICKS_PER_SECOND, type Star } from '../../sim/balance';
+import { BENCH_SIZE, getUnit, MOVE_TICKS, OVERTIME_TICK, TICKS_PER_SECOND, type Star } from '../../sim/balance';
 import type { BattleEvent, FighterInfo } from '../../sim/combat';
 import { COLS, ROWS, SIDE_CELLS, toBattleCell } from '../../sim/hex';
 import { move, sell, type OwnedUnit, type Slot } from '../../sim/planning';
 import { sfx, vibrate } from '../audio';
-import { creatureKey, creatureScale, ensureCreatureTextures, ensureItemTextures, itemKey, itemScale } from '../battle/textures';
+import { project, projectHex, scaleAtScreenY, unproject, type Tilt } from '../battle/projection';
+import {
+  creatureHeight,
+  creatureKey,
+  creatureScale,
+  ensureCreatureTextures,
+  ensureItemTextures,
+  FEET_ORIGIN,
+  itemKey,
+  itemScale,
+} from '../battle/textures';
 import { getBottomInset, isOverSellZone, onInsetChange, registerSlotAt } from '../boardBridge';
 
-// The board and bench, in world units. The canvas is sized to its container in device
-// pixels and the camera zooms to fit, so these are a layout grid rather than a size.
+// World units. The canvas is sized to its container in device pixels and the camera zooms
+// to fit, so these are a layout grid rather than a size.
 export const BOARD_WIDTH = 360;
 export const BOARD_HEIGHT = 400;
 
+// The table, laid out flat: a top-down hex grid in the sim's shape. It's drawn tilted away
+// from the viewer through TILT, so these are the table's own units, not the screen's.
 const R = 26;
 const HEX_W = Math.sqrt(3) * R;
 const ROW_STEP = 1.5 * R;
 const BOARD_X = (BOARD_WIDTH - 7.5 * HEX_W) / 2;
-/** Room above the top row for the nameplates of the units standing in it. */
-const BOARD_Y = 16;
+const BOARD_Y = 0;
 /** The two halves sit this far apart, so the gap marks the line between them. */
-const HALF_GAP = 8;
-/** Hexes are drawn this much smaller than the grid, so the gaps between them do the outlining. */
+const HALF_GAP = 6;
+/** Tiles are drawn this much smaller than the grid, so the floor shows between them. */
 const CELL_R = R - 2.5;
+/** The floor reaches this far past the outermost tiles. */
+const FLOOR_PAD = 10;
+const FLAT_MID = BOARD_Y + R + 3.5 * ROW_STEP + HALF_GAP / 2;
+
+/** Room above the far edge for the far row's creatures and nameplates. */
+const HEADROOM = 66;
+const TILT: Tilt = {
+  cx: BOARD_WIDTH / 2,
+  top: BOARD_Y - FLOOR_PAD,
+  bottom: BOARD_Y + 7 * ROW_STEP + 2 * R + HALF_GAP + FLOOR_PAD,
+  screenTop: HEADROOM,
+  far: 0.76,
+  squash: 0.8,
+};
+const at = (x: number, y: number) => project(TILT, x, y);
+
+/** The table's front edge, and how thick it looks. */
+const FLOOR_BOTTOM = at(TILT.cx, TILT.bottom).y;
+const RIM = 9;
+/** Where the two halves meet, on screen. */
+const MID_Y = at(TILT.cx, FLAT_MID).y;
+
+// The bench is a straight shelf in front of the table, at the near edge's scale.
 const BENCH_SLOT = 38;
 const BENCH_GAP = 2;
 const BENCH_X = (BOARD_WIDTH - (BENCH_SIZE * BENCH_SLOT + (BENCH_SIZE - 1) * BENCH_GAP)) / 2;
-const BENCH_Y = BOARD_Y + 7 * ROW_STEP + 2 * R + HALF_GAP + 14 + BENCH_SLOT / 2;
-/** Where the two halves meet. */
-const MID_Y = BOARD_Y + R + 3.5 * ROW_STEP + HALF_GAP / 2;
+const BENCH_Y = FLOOR_BOTTOM + RIM + 16 + BENCH_SLOT / 2;
+/** Where a benched creature's feet go: low on its pad, so it stands on it. */
+const BENCH_FEET = BENCH_Y + BENCH_SLOT / 2 - 7;
 
-const UNIT_SIZE = 42;
-// The nameplate over a unit's head: stars, then health with the item beside it, then mana.
+/** A 1-cost creature's drawn size at the near edge; dearer ones are a little bigger. */
+const UNIT_SIZE = 54;
+const unitSize = (unitId: string) => UNIT_SIZE * (1 + (getUnit(unitId).cost - 1) * 0.05);
+
+// The nameplate over a creature's head: stars, then health with the item beside it, then
+// mana. Its own origin is the bottom of the mana line.
 const PLATE_W = 30;
 const HP_H = 5;
 const MANA_H = 2;
 const PLATE_GAP = 1.5;
 const ITEM_SIZE = 11;
 const ITEM_GAP = 2;
-/** Top of the health bar, relative to the unit's centre. */
-const HP_Y = -UNIT_SIZE / 2 - 12;
-/** How far a nameplate reaches above the top of its hex, for fitting the camera. */
-const PLATE_ABOVE = -(HP_Y - 8) - R;
+const HP_Y = -(HP_H + PLATE_GAP + MANA_H);
+/** Space between the top of a head and its nameplate. */
+const PLATE_LIFT = 5;
+
 /** Breathing room around whichever part of the board the camera is showing. */
 const VIEW_PAD = 6;
 /** How long the camera takes to reveal the rival's half, and to come back. */
@@ -51,33 +89,23 @@ const MS_PER_TICK = 1000 / TICKS_PER_SECOND;
 /** Pause on the final frame before handing back to planning. */
 const END_PAUSE_TICKS = 30;
 
-/** The bench is a little wider than the board, so the planning view fits whichever is wider. */
-const PLAN_LEFT = Math.min(BOARD_X, BENCH_X);
-const PLAN_WIDTH = BOARD_WIDTH - 2 * PLAN_LEFT;
-/** Top of the player's half: the first row past the gap. */
-const MINE_TOP = BOARD_Y + 4 * ROW_STEP + HALF_GAP;
+const TABLE_LEFT = at(BOARD_X - FLOOR_PAD, TILT.bottom).x;
+const VIEW_LEFT = Math.min(TABLE_LEFT, BENCH_X) - VIEW_PAD;
+const VIEW_WIDTH = BOARD_WIDTH - 2 * VIEW_LEFT;
 
-/** Rows 4-7 and the bench: what the camera shows while planning. */
+/** The near half and the bench: what the camera shows while planning. */
 function planningRect() {
-  return new Phaser.Geom.Rectangle(
-    PLAN_LEFT - VIEW_PAD,
-    MINE_TOP - PLATE_ABOVE - VIEW_PAD,
-    PLAN_WIDTH + 2 * VIEW_PAD,
-    BENCH_Y + BENCH_SLOT / 2 + 2 * VIEW_PAD - (MINE_TOP - PLATE_ABOVE),
-  );
+  const top = MID_Y - 64;
+  return new Phaser.Geom.Rectangle(VIEW_LEFT, top, VIEW_WIDTH, BENCH_Y + BENCH_SLOT / 2 + VIEW_PAD - top);
 }
 
-/** Both halves, without the bench: what the camera shows during a fight. */
+/** The whole table, without the bench: what the camera shows during a fight. */
 function fightRect() {
-  return new Phaser.Geom.Rectangle(
-    BOARD_X - VIEW_PAD,
-    BOARD_Y - PLATE_ABOVE - VIEW_PAD,
-    7.5 * HEX_W + 2 * VIEW_PAD,
-    7 * ROW_STEP + 2 * R + HALF_GAP + PLATE_ABOVE + 2 * VIEW_PAD,
-  );
+  const top = 6;
+  return new Phaser.Geom.Rectangle(VIEW_LEFT, top, VIEW_WIDTH, FLOOR_BOTTOM + RIM + VIEW_PAD - top);
 }
 
-/** Everything there is to show: both halves and the bench. */
+/** Everything there is to show: the table and the bench. */
 function contentRect() {
   const board = fightRect();
   return new Phaser.Geom.Rectangle(board.x, board.y, board.width, BENCH_Y + BENCH_SLOT / 2 + VIEW_PAD - board.y);
@@ -85,37 +113,55 @@ function contentRect() {
 
 const prefersReducedMotion = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
 
-function cellCenter(battleCell: number) {
+/** A cell's centre on the flat table. */
+function flatCell(battleCell: number) {
   const row = Math.floor(battleCell / COLS);
   const col = battleCell % COLS;
   const gap = row >= ROWS / 2 ? HALF_GAP : 0;
   return { x: BOARD_X + HEX_W * (col + 0.5 * (row & 1)) + HEX_W / 2, y: BOARD_Y + R + row * ROW_STEP + gap };
 }
 
-function slotCenter(slot: Slot) {
-  if (slot.area === 'board') return cellCenter(toBattleCell(slot.index, 'a'));
-  return { x: BENCH_X + slot.index * (BENCH_SLOT + BENCH_GAP) + BENCH_SLOT / 2, y: BENCH_Y };
+/** Where a creature standing on a cell has its feet, on screen. */
+function cellPoint(battleCell: number) {
+  const { x, y } = flatCell(battleCell);
+  return at(x, y);
 }
 
-function hexPoints(cx: number, cy: number, radius: number) {
-  const points: Phaser.Types.Math.Vector2Like[] = [];
-  for (let i = 0; i < 6; i++) {
-    const angle = Phaser.Math.DegToRad(60 * i - 30);
-    points.push({ x: cx + radius * Math.cos(angle), y: cy + radius * Math.sin(angle) });
-  }
-  return points;
+function slotCenter(slot: Slot) {
+  if (slot.area === 'board') return cellPoint(toBattleCell(slot.index, 'a'));
+  return { x: BENCH_X + slot.index * (BENCH_SLOT + BENCH_GAP) + BENCH_SLOT / 2, y: BENCH_FEET, scale: 1 };
 }
+
+/** A cell's tile as it lies on the tilted table. */
+function tilePoints(battleCell: number, radius = CELL_R) {
+  const { x, y } = flatCell(battleCell);
+  return projectHex(TILT, x, y, radius);
+}
+
+/** Benched creatures are drawn a little smaller, to fit their pads. */
+const BENCH_SCALE = 0.78;
+
+/** How big a creature is drawn where it stands: shrinking up the table, and smaller on the bench. */
+const depthScale = (y: number) => (y > FLOOR_BOTTOM + RIM ? BENCH_SCALE : Phaser.Math.Clamp(scaleAtScreenY(TILT, y), TILT.far, 1));
 
 /**
- * A creature on a flat team-coloured disc, with one nameplate over its head: its stars
- * (from 2★), then the health bar with the held item beside it, then mana. Planning shows
- * the same plate without the bars, so the stars and item don't move when a fight starts.
+ * A creature standing on the table, with its team's ring on the floor under it and one
+ * nameplate over its head: its stars (from 2★), then the health bar with the held item
+ * beside it, then mana. Planning shows the same plate without the bars, so the stars and
+ * item don't move when a fight starts. The plate lives above every creature, so a nearer
+ * one never hides a farther one's health; follow() keeps it over this one's head.
  */
 class UnitView extends Phaser.GameObjects.Container {
   readonly image: Phaser.GameObjects.Image;
-  private disc: Phaser.GameObjects.Graphics;
+  /** The creature and its ring, scaled for how far up the table it stands. */
+  readonly figure: Phaser.GameObjects.Container;
+  protected readonly plate: Phaser.GameObjects.Container;
+  private ring: Phaser.GameObjects.Graphics;
   private stars: Phaser.GameObjects.Graphics;
   private badge: Phaser.GameObjects.Image;
+  private readonly size: number;
+  private readonly stand: number;
+  depth3d = 1;
   star: Star = 1;
   item?: string;
 
@@ -126,20 +172,54 @@ class UnitView extends Phaser.GameObjects.Container {
     unitId: string,
     star: Star,
     protected palette: BoardPalette,
+    plates: Phaser.GameObjects.Layer,
     item?: string,
     readonly side: 'a' | 'b' = 'a',
   ) {
     super(scene, x, y);
-    this.disc = scene.add.graphics();
-    this.drawDisc();
-    this.image = scene.add.image(0, -4, creatureKey(unitId)).setScale(creatureScale(UNIT_SIZE));
+    this.size = unitSize(unitId);
+    this.stand = creatureHeight(unitId) * this.size;
+    this.ring = scene.add.graphics();
+    this.drawRing();
+    this.image = scene.add.image(0, 0, creatureKey(unitId)).setOrigin(0.5, FEET_ORIGIN).setScale(creatureScale(this.size));
+    this.figure = scene.add.container(0, 0, [this.ring, this.image]);
+    this.add(this.figure);
     this.stars = scene.add.graphics();
     this.badge = scene.add.image(0, HP_Y + (HP_H + PLATE_GAP + MANA_H) / 2, '__DEFAULT').setVisible(false);
-    this.add([this.disc, this.image, this.stars, this.badge]);
+    this.plate = scene.add.container(0, 0, [this.stars, this.badge]);
+    plates.add(this.plate);
     this.setStar(star);
     this.setItem(item);
-    this.setSize(UNIT_SIZE, UNIT_SIZE);
+    // The hit box covers the body, which stands above the feet this sits on.
+    this.setSize(UNIT_SIZE, UNIT_SIZE + 6);
     scene.add.existing(this);
+    this.follow();
+  }
+
+  /** The hit area for dragging: the body above the feet (see setSize). */
+  static readonly HIT = new Phaser.Geom.Rectangle(0, -UNIT_SIZE / 2 - 3, UNIT_SIZE, UNIT_SIZE + 6);
+
+  /** How high the top of the head is above the feet, as drawn now. */
+  get headHeight() {
+    return this.stand * this.depth3d * this.scaleY;
+  }
+
+  /** The middle of the body, for things that fly to or from it. */
+  get bodyY() {
+    return this.y - this.headHeight / 2;
+  }
+
+  /** Sizes the creature for where it stands and keeps its plate over its head; every frame. */
+  follow() {
+    this.depth3d = depthScale(this.y);
+    this.figure.setScale(this.depth3d);
+    this.plate
+      .setPosition(this.x, this.y - this.headHeight - PLATE_LIFT)
+      .setVisible(this.visible)
+      .setAlpha(this.alpha)
+      .setScale(Math.min(1, this.scaleX));
+    // Nearer creatures stand in front of farther ones.
+    if (this.depth < 30) this.setDepth(10 + this.y / 100);
   }
 
   /** Left edge of the health bar. The plate is centred as a whole, item included. */
@@ -147,20 +227,21 @@ class UnitView extends Phaser.GameObjects.Container {
     return -(PLATE_W + (this.item ? ITEM_GAP + ITEM_SIZE : 0)) / 2;
   }
 
-  /** The disc a creature stands on, in its team's colour: it keeps a pale creature off a
-      pale board, and tells the two sides apart in a fight. */
-  private drawDisc() {
+  /** A soft shadow at the feet, and a ring round it in the team's colour. */
+  private drawRing() {
     const color = this.side === 'a' ? this.palette.mine : this.palette.rival;
-    const y = UNIT_SIZE * 0.36;
-    this.disc.clear();
-    this.disc.fillStyle(this.palette.shadow, this.palette.shadowAlpha).fillEllipse(0, y + 1, UNIT_SIZE * 0.76, 10);
-    this.disc.fillStyle(color, 0.28).fillEllipse(0, y, UNIT_SIZE * 0.72, 9);
+    const w = this.size * 0.7;
+    const h = this.size * 0.24;
+    this.ring.clear();
+    this.ring.fillStyle(this.palette.shadow, this.palette.shadowAlpha).fillEllipse(0, 0, w * 0.86, h * 0.8);
+    this.ring.fillStyle(color, 0.16).fillEllipse(0, 0, w, h);
+    this.ring.lineStyle(2, color, 0.9).strokeEllipse(0, 0, w, h);
   }
 
   /** Redraws everything that carries a colour, after the scheme changes. */
   applyPalette(palette: BoardPalette) {
     this.palette = palette;
-    this.drawDisc();
+    this.drawRing();
     this.layoutPlate();
   }
 
@@ -183,10 +264,18 @@ class UnitView extends Phaser.GameObjects.Container {
     // A 1★ unit is the default and shows nothing; 2★ and 3★ show silver or gold stars.
     this.stars.clear();
     if (this.star > 1) {
-      this.stars.fillStyle(this.palette.star[this.star - 1], 1);
+      this.stars.fillStyle(this.palette.star[this.star - 1], 1).lineStyle(1, this.palette.shadow, 0.5);
       const cx = left + PLATE_W / 2;
-      for (let i = 0; i < this.star; i++) this.stars.fillPoints(starPoints(cx + (i - (this.star - 1) / 2) * 7, HP_Y - 5, 3.2), true);
+      for (let i = 0; i < this.star; i++) {
+        const points = starPoints(cx + (i - (this.star - 1) / 2) * 8, HP_Y - 6, 3.6);
+        this.stars.fillPoints(points, true).strokePoints(points, true);
+      }
     }
+  }
+
+  destroy(fromScene?: boolean) {
+    this.plate.destroy(fromScene);
+    super.destroy(fromScene);
   }
 }
 
@@ -206,13 +295,13 @@ class FighterView extends UnitView {
   mana: number;
   private readonly bars: Phaser.GameObjects.Graphics;
 
-  constructor(scene: Phaser.Scene, readonly info: FighterInfo, palette: BoardPalette) {
-    const { x, y } = cellCenter(info.cell);
-    super(scene, x, y, info.unitId, info.star, palette, info.item, info.side);
+  constructor(scene: Phaser.Scene, readonly info: FighterInfo, palette: BoardPalette, plates: Phaser.GameObjects.Layer) {
+    const { x, y } = cellPoint(info.cell);
+    super(scene, x, y, info.unitId, info.star, palette, plates, info.item, info.side);
     this.hp = info.hp;
     this.mana = info.mana;
     this.bars = scene.add.graphics();
-    this.add(this.bars);
+    this.plate.add(this.bars);
     this.drawBars();
   }
 
@@ -231,6 +320,8 @@ class FighterView extends UnitView {
     const manaY = HP_Y + HP_H + PLATE_GAP;
     const p = this.palette;
     this.bars.clear();
+    // A dark backing, so the bar reads over any creature or floor.
+    this.bars.fillStyle(p.shadow, 0.55).fillRoundedRect(x - 1.5, HP_Y - 1.5, PLATE_W + 3, HP_H + PLATE_GAP + MANA_H + 3, 3);
     this.bars.fillStyle(p.track, p.trackAlpha).fillRoundedRect(x, HP_Y, PLATE_W, HP_H, HP_H / 2);
     this.bars.fillRoundedRect(x, manaY, PLATE_W, MANA_H, MANA_H / 2);
     if (this.shield > 0) {
@@ -267,6 +358,8 @@ export class BattleScene extends Phaser.Scene {
   private bench!: Phaser.GameObjects.Graphics;
   private palette: BoardPalette = readBoardPalette();
   private effects!: Phaser.GameObjects.Layer;
+  /** Every nameplate, above every creature. */
+  private plates!: Phaser.GameObjects.Layer;
   private lastHitSound = 0;
   /** The unit under the player's finger; sync leaves it where it is. */
   private dragging: UnitView | null = null;
@@ -303,6 +396,7 @@ export class BattleScene extends Phaser.Scene {
     ensureItemTextures(this);
     this.drawBoard();
     this.highlight = this.add.graphics().setDepth(1);
+    this.plates = this.add.layer().setDepth(35);
     this.effects = this.add.layer().setDepth(40);
     this.input.dragDistanceThreshold = 6;
     this.setUpDragging();
@@ -396,19 +490,54 @@ export class BattleScene extends Phaser.Scene {
     camera.zoomTo(zoom, VIEW_TWEEN_MS, 'Cubic.easeInOut');
   }
 
-  /** Redrawn whenever the colour scheme changes, so it holds no colour of its own. Cells
-      are flat fills a little smaller than the grid; the gaps between them are the lines. */
+  /**
+   * The table: a floor with a front edge, and a tile per cell, each half faintly in its
+   * team's colour. Redrawn whenever the colour scheme changes, so it holds no colour of
+   * its own.
+   */
   private drawBoard() {
     const p = this.palette;
-    this.board.clear().fillStyle(p.cell, p.cellAlpha);
+    const g = this.board.clear();
+    // The room: a back wall, and the ground from just behind the table's far edge down.
+    // Far wider and taller than any camera view, so its edges never show.
+    const horizon = TILT.screenTop - 14;
+    g.fillStyle(p.stage, 1).fillRect(-BOARD_WIDTH, -BOARD_HEIGHT, 3 * BOARD_WIDTH, BOARD_HEIGHT + horizon);
+    g.fillStyle(p.ground, 1).fillRect(-BOARD_WIDTH, horizon, 3 * BOARD_WIDTH, 2 * BOARD_HEIGHT);
+    const left = BOARD_X - FLOOR_PAD;
+    const right = BOARD_WIDTH - left;
+    // The sides aren't quite straight once tilted, so they're traced in steps.
+    const steps = 12;
+    const outline: Phaser.Types.Math.Vector2Like[] = [];
+    for (let i = 0; i <= steps; i++) outline.push(at(right, TILT.top + ((TILT.bottom - TILT.top) * i) / steps));
+    for (let i = steps; i >= 0; i--) outline.push(at(left, TILT.top + ((TILT.bottom - TILT.top) * i) / steps));
+    const nearLeft = at(left, TILT.bottom);
+    const nearRight = at(right, TILT.bottom);
+    // The table's shadow on the ground, then its front edge.
+    g.fillStyle(p.shadow, p.shadowAlpha * 0.6).fillRoundedRect(nearLeft.x + 4, nearLeft.y + RIM - 2, nearRight.x - nearLeft.x - 8, 8, 4);
+    g.fillStyle(p.rim, 1).fillPoints([nearLeft, nearRight, { x: nearRight.x, y: nearRight.y + RIM }, { x: nearLeft.x, y: nearLeft.y + RIM }], true);
+    g.fillStyle(p.floor, 1).fillPoints(outline, true);
+
     for (let cell = 0; cell < ROWS * COLS; cell++) {
-      const { x, y } = cellCenter(cell);
-      this.board.fillPoints(hexPoints(x, y, CELL_R), true);
+      const points = tilePoints(cell);
+      const mine = cell >= SIDE_CELLS;
+      // A sliver of the rim's colour under each tile gives it a little thickness.
+      g.fillStyle(p.rim, 0.5).fillPoints(
+        points.map(({ x, y }) => ({ x, y: y + 1.5 })),
+        true,
+      );
+      g.fillStyle(p.tile, p.tileAlpha).fillPoints(points, true);
+      g.fillStyle(mine ? p.mine : p.rival, p.tintAlpha).fillPoints(points, true);
     }
-    this.bench.clear().fillStyle(p.cell, p.cellAlpha);
+
+    // The bench: a shelf in front of the table, with a pad per slot.
+    const shelfLeft = BENCH_X - 6;
+    const shelfWidth = BOARD_WIDTH - 2 * shelfLeft;
+    this.bench.clear();
+    this.bench.fillStyle(p.rim, 1).fillRoundedRect(shelfLeft, BENCH_Y - BENCH_SLOT / 2 - 6 + 4, shelfWidth, BENCH_SLOT + 12, 12);
+    this.bench.fillStyle(p.floor, 1).fillRoundedRect(shelfLeft, BENCH_Y - BENCH_SLOT / 2 - 6, shelfWidth, BENCH_SLOT + 12, 12);
     for (let i = 0; i < BENCH_SIZE; i++) {
-      const { x, y } = slotCenter({ area: 'bench', index: i });
-      this.bench.fillRoundedRect(x - BENCH_SLOT / 2, y - BENCH_SLOT / 2 - 3, BENCH_SLOT, BENCH_SLOT + 6, 8);
+      const x = BENCH_X + i * (BENCH_SLOT + BENCH_GAP);
+      this.bench.fillStyle(p.tile, p.tileAlpha).fillRoundedRect(x, BENCH_Y - BENCH_SLOT / 2, BENCH_SLOT, BENCH_SLOT, 9);
     }
   }
 
@@ -528,11 +657,13 @@ export class BattleScene extends Phaser.Scene {
       const index = Math.floor((x - BENCH_X) / (BENCH_SLOT + BENCH_GAP));
       if (index >= 0 && index < BENCH_SIZE) return { area: 'bench', index };
     }
+    // Found on the flat table, where the cells are round and evenly spaced.
+    const flat = unproject(TILT, x, y);
     let best: Slot | null = null;
     let bestDistance = R;
     for (let own = 0; own < SIDE_CELLS; own++) {
-      const center = slotCenter({ area: 'board', index: own });
-      const d = Math.hypot(center.x - x, center.y - y);
+      const center = flatCell(toBattleCell(own, 'a'));
+      const d = Math.hypot(center.x - flat.x, center.y - flat.y);
       if (d < bestDistance) {
         best = { area: 'board', index: own };
         bestDistance = d;
@@ -552,15 +683,15 @@ export class BattleScene extends Phaser.Scene {
   private drawHighlight(slot: Slot | null, refused = false) {
     this.highlight.clear();
     if (!slot) return;
-    const { x, y } = slotCenter(slot);
     const color = refused ? this.palette.rival : this.palette.mine;
-    this.highlight.fillStyle(color, 0.14).lineStyle(2, color, 0.95);
+    this.highlight.fillStyle(color, 0.22).lineStyle(2, color, 0.95);
     if (slot.area === 'board') {
-      this.highlight.fillPoints(hexPoints(x, y, CELL_R), true);
-      this.highlight.strokePoints(hexPoints(x, y, CELL_R), true);
+      const points = tilePoints(toBattleCell(slot.index, 'a'));
+      this.highlight.fillPoints(points, true).strokePoints(points, true);
     } else {
-      this.highlight.fillRoundedRect(x - BENCH_SLOT / 2, y - BENCH_SLOT / 2 - 3, BENCH_SLOT, BENCH_SLOT + 6, 8);
-      this.highlight.strokeRoundedRect(x - BENCH_SLOT / 2, y - BENCH_SLOT / 2 - 3, BENCH_SLOT, BENCH_SLOT + 6, 8);
+      const x = BENCH_X + slot.index * (BENCH_SLOT + BENCH_GAP);
+      this.highlight.fillRoundedRect(x, BENCH_Y - BENCH_SLOT / 2, BENCH_SLOT, BENCH_SLOT, 9);
+      this.highlight.strokeRoundedRect(x, BENCH_Y - BENCH_SLOT / 2, BENCH_SLOT, BENCH_SLOT, 9);
     }
   }
 
@@ -576,8 +707,8 @@ export class BattleScene extends Phaser.Scene {
       const target = slotCenter(slot);
       let view = this.views.get(unit.uid);
       if (!view) {
-        view = new UnitView(this, target.x, target.y, unit.unitId, unit.star, this.palette, unit.item).setDepth(10);
-        view.setInteractive({ draggable: true, useHandCursor: true });
+        view = new UnitView(this, target.x, target.y, unit.unitId, unit.star, this.palette, this.plates, unit.item);
+        view.setInteractive({ hitArea: UnitView.HIT, hitAreaCallback: Phaser.Geom.Rectangle.Contains, draggable: true, useHandCursor: true });
         view.on('pointerup', (pointer: Phaser.Input.Pointer) => {
           if (pointer.getDistance() < 6) useRunStore.getState().select(view!.getData('slot') as Slot);
         });
@@ -588,13 +719,13 @@ export class BattleScene extends Phaser.Scene {
         view.setItem(unit.item);
         if (unit.item) {
           this.tweens.add({ targets: view, scale: { from: 1.25, to: 1 }, duration: 320, ease: 'Back.easeOut' });
-          this.burst(target.x, target.y, this.palette.mine);
+          this.burst(target.x, view.bodyY, this.palette.mine);
         }
       }
       if (view.star !== unit.star) {
         view.setStar(unit.star);
         this.tweens.add({ targets: view, scale: { from: 1.5, to: 1 }, duration: 380, ease: 'Back.easeOut' });
-        this.burst(target.x, target.y, unit.star === 3 ? this.palette.star[2] : this.palette.mine);
+        this.burst(target.x, view.bodyY, unit.star === 3 ? this.palette.star[2] : this.palette.mine);
         sfx.combine();
       }
       view.setData('slot', slot);
@@ -623,10 +754,9 @@ export class BattleScene extends Phaser.Scene {
   private drawSelection(slot: Slot | null) {
     this.highlight.clear();
     if (!slot) return;
-    const { x, y } = slotCenter(slot);
     this.highlight.lineStyle(2, this.palette.mine, 1);
-    if (slot.area === 'board') this.highlight.strokePoints(hexPoints(x, y, CELL_R - 0.5), true);
-    else this.highlight.strokeRoundedRect(x - BENCH_SLOT / 2, y - BENCH_SLOT / 2 - 3, BENCH_SLOT, BENCH_SLOT + 6, 6);
+    if (slot.area === 'board') this.highlight.strokePoints(tilePoints(toBattleCell(slot.index, 'a')), true);
+    else this.highlight.strokeRoundedRect(BENCH_X + slot.index * (BENCH_SLOT + BENCH_GAP), BENCH_Y - BENCH_SLOT / 2, BENCH_SLOT, BENCH_SLOT, 9);
   }
 
   // ---------- Combat replay ----------
@@ -637,7 +767,7 @@ export class BattleScene extends Phaser.Scene {
     this.showView('fight', true);
     for (const view of this.views.values()) view.setVisible(false);
     this.highlight.clear();
-    this.fighters = battle.result.fighters.map((info) => new FighterView(this, info, this.palette).setDepth(10));
+    this.fighters = battle.result.fighters.map((info) => new FighterView(this, info, this.palette, this.plates));
     for (const fighter of this.fighters) {
       fighter.setScale(0);
       this.tweens.add({ targets: fighter, scale: 1, duration: 260, delay: fighter.info.side === 'b' ? 120 : 0, ease: 'Back.easeOut' });
@@ -677,6 +807,8 @@ export class BattleScene extends Phaser.Scene {
   }
 
   update(_time: number, delta: number) {
+    for (const view of this.views.values()) view.follow();
+    for (const fighter of this.fighters) fighter.follow();
     const replay = this.replay;
     if (!replay) return;
     const speed = useRunStore.getState().speed;
@@ -711,7 +843,7 @@ export class BattleScene extends Phaser.Scene {
     if (!fighter) return false;
     switch (event.k) {
       case 'move': {
-        const { x, y } = cellCenter(event.cell);
+        const { x, y } = cellPoint(event.cell);
         this.tweens.add({ targets: fighter, x, y, duration: (MOVE_TICKS * MS_PER_TICK) / speed, ease: 'Sine.easeInOut' });
         return false;
       }
@@ -720,14 +852,14 @@ export class BattleScene extends Phaser.Scene {
         fighter.mana = event.mana;
         fighter.drawBars();
         if (!target) return false;
-        if (Phaser.Math.Distance.Between(fighter.x, fighter.y, target.x, target.y) > HEX_W * 1.5) {
-          const bolt = this.add.circle(fighter.x, fighter.y - 4, 3, fighter.info.side === 'a' ? this.palette.mine : this.palette.rival);
+        if (Phaser.Math.Distance.Between(fighter.x, fighter.y, target.x, target.y) > HEX_W * 1.3) {
+          const bolt = this.add.circle(fighter.x, fighter.bodyY, 3, fighter.info.side === 'a' ? this.palette.mine : this.palette.rival);
           this.effects.add(bolt);
-          this.tweens.add({ targets: bolt, x: target.x, y: target.y - 4, duration: 180 / speed, onComplete: () => bolt.destroy() });
+          this.tweens.add({ targets: bolt, x: target.x, y: target.bodyY, duration: 180 / speed, onComplete: () => bolt.destroy() });
         } else {
-          const dx = (target.x - fighter.x) * 0.2;
-          const dy = (target.y - fighter.y) * 0.2;
-          this.tweens.add({ targets: fighter.image, x: dx, y: dy - 6, duration: 70 / speed, yoyo: true });
+          const dx = (target.x - fighter.x) * 0.25;
+          const dy = (target.y - fighter.y) * 0.25;
+          this.tweens.add({ targets: fighter.figure, x: dx, y: dy - 4, duration: 70 / speed, yoyo: true });
         }
         return false;
       }
@@ -767,8 +899,7 @@ export class BattleScene extends Phaser.Scene {
         fighter.drawBars();
         const color = fighter.info.side === 'a' ? this.palette.mine : this.palette.rival;
         for (const cell of event.cells) {
-          const { x, y } = cellCenter(cell);
-          const flash = this.add.graphics().fillStyle(color, 0.35).fillPoints(hexPoints(x, y, CELL_R), true);
+          const flash = this.add.graphics().fillStyle(color, 0.35).fillPoints(tilePoints(cell), true);
           this.effects.add(flash);
           this.tweens.add({ targets: flash, alpha: 0, duration: 420 / speed, onComplete: () => flash.destroy() });
         }
@@ -779,7 +910,7 @@ export class BattleScene extends Phaser.Scene {
       case 'death':
         fighter.hp = 0;
         this.tweens.add({ targets: fighter, alpha: 0, scale: 0.5, duration: 260 / speed });
-        this.burst(fighter.x, fighter.y, fighter.info.side === 'a' ? this.palette.mine : this.palette.rival);
+        this.burst(fighter.x, fighter.bodyY, fighter.info.side === 'a' ? this.palette.mine : this.palette.rival);
         sfx.faint();
         return true;
       default:
@@ -787,9 +918,9 @@ export class BattleScene extends Phaser.Scene {
     }
   }
 
-  private floatText(at: Phaser.GameObjects.Container, text: string, color: string, size: number) {
+  private floatText(over: UnitView, text: string, color: string, size: number) {
     const label = this.add
-      .text(at.x + Phaser.Math.Between(-6, 6), at.y - 16, text, {
+      .text(over.x + Phaser.Math.Between(-6, 6), over.y - over.headHeight * 0.6, text, {
         fontFamily: DISPLAY_FONT,
         fontSize: `${size}px`,
         fontStyle: '700',

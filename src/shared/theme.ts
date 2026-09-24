@@ -9,8 +9,15 @@
 export const DISPLAY_FONT = "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, system-ui, sans-serif";
 
 export interface BoardPalette {
-  cell: number;
-  cellAlpha: number;
+  /** The back wall and the ground the table stands on. */
+  stage: number;
+  ground: number;
+  floor: number;
+  rim: number;
+  tile: number;
+  tileAlpha: number;
+  /** How strongly each half's tiles take its team's colour. */
+  tintAlpha: number;
   scrim: number;
   scrimAlpha: number;
   shadow: number;
@@ -54,8 +61,13 @@ function alpha(style: CSSStyleDeclaration, name: string): number {
 export function readBoardPalette(): BoardPalette {
   const style = getComputedStyle(document.documentElement);
   return {
-    cell: int(style, '--board-cell'),
-    cellAlpha: alpha(style, '--board-cell-a'),
+    stage: int(style, '--board-stage'),
+    ground: int(style, '--board-ground'),
+    floor: int(style, '--board-floor'),
+    rim: int(style, '--board-rim'),
+    tile: int(style, '--board-tile'),
+    tileAlpha: alpha(style, '--board-tile-a'),
+    tintAlpha: alpha(style, '--board-tint-a'),
     scrim: int(style, '--board-scrim'),
     scrimAlpha: alpha(style, '--board-scrim-a'),
     shadow: int(style, '--board-shadow'),
