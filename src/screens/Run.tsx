@@ -582,6 +582,41 @@ function ShopCard({ unitId, owned, affordable, onBuy }: { unitId: string; owned:
   );
 }
 
+/**
+ * How far a creature reaches, as a patch of hexes round the one it stands on: the ones it
+ * can hit are filled. Axial hex distance, as in src/sim/hex.ts.
+ */
+function RangeHex({ range, cost }: { range: number; cost: number }) {
+  const radius = 4;
+  const size = 4.2;
+  const w = Math.sqrt(3) * size;
+  const cells: { x: number; y: number; d: number }[] = [];
+  for (let q = -radius; q <= radius; q++) {
+    for (let r = Math.max(-radius, -q - radius); r <= Math.min(radius, -q + radius); r++) {
+      cells.push({ x: w * (q + r / 2), y: 1.5 * size * r, d: (Math.abs(q) + Math.abs(r) + Math.abs(q + r)) / 2 });
+    }
+  }
+  const points = (cx: number, cy: number) =>
+    Array.from({ length: 6 }, (_, i) => {
+      const a = (Math.PI / 180) * (60 * i - 30);
+      return `${(cx + (size - 0.5) * Math.cos(a)).toFixed(2)},${(cy + (size - 0.5) * Math.sin(a)).toFixed(2)}`;
+    }).join(' ');
+  const half = w * (radius + 0.5);
+  const tall = 1.5 * size * radius + size;
+  return (
+    <svg className="range-hex" viewBox={`${-half} ${-tall} ${2 * half} ${2 * tall}`} width="66" height={(66 * tall) / half} aria-hidden="true">
+      {cells.map(({ x, y, d }) => (
+        <polygon
+          key={`${x},${y}`}
+          points={points(x, y)}
+          className={d === 0 ? 'self' : d <= range ? 'hit' : undefined}
+          style={d === 0 ? { fill: `var(--tier-${cost})` } : undefined}
+        />
+      ))}
+    </svg>
+  );
+}
+
 /** A held-down creature's essentials, in a bubble over it, until the next touch. */
 function UnitBubble() {
   const peek = useRunStore((s) => s.peek);
@@ -635,9 +670,11 @@ function UnitBubble() {
           <dt>Damage</dt>
           <dd>{scale(def.damage)}</dd>
         </div>
-        <div>
-          <dt>Range</dt>
-          <dd>{def.range}</dd>
+        <div className="bubble-range">
+          <dt>Range {def.range}</dt>
+          <dd>
+            <RangeHex range={def.range} cost={def.cost} />
+          </dd>
         </div>
       </dl>
     </div>

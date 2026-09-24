@@ -26,6 +26,8 @@ export interface BoardPalette {
   mana: number;
   track: number;
   trackAlpha: number;
+  /** One per rarity, cost 1 to 5. */
+  tier: [number, number, number, number, number];
   /** One per star level, 1 to 3. */
   star: [number, number, number];
   /** Phaser text styles take strings, not ints. */
@@ -80,6 +82,7 @@ export function readBoardPalette(): BoardPalette {
     mana: int(style, '--board-mana'),
     track: int(style, '--board-track'),
     trackAlpha: alpha(style, '--board-track-a'),
+    tier: [1, 2, 3, 4, 5].map((n) => int(style, `--board-tier-${n}`)) as BoardPalette['tier'],
     star: [int(style, '--board-star-1'), int(style, '--board-star-2'), int(style, '--board-star-3')],
     label: read(style, '--board-label'),
     halo: read(style, '--board-halo'),

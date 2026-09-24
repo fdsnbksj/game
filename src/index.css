@@ -93,6 +93,12 @@
   --board-halo: #ffffff;
   /* Outlines effects in the creatures' own ink; the same in both schemes. */
   --board-ink: #1d1f2b;
+  /* Rarity, for the rings creatures stand in: plain copies of --tier-1..5. */
+  --board-tier-1: #8e8e93;
+  --board-tier-2: #34c759;
+  --board-tier-3: #007aff;
+  --board-tier-4: #af52de;
+  --board-tier-5: #ffb800;
   --board-on-ink: #ffffff;
 
   /* elevation: light lifts with shadow, dark lifts with surface */
@@ -195,6 +201,11 @@
     --board-rim: #0c0d10;
     --board-tile: #ffffff;
     --board-tile-a: 0.08;
+    --board-tier-1: #98989d;
+    --board-tier-2: #30d158;
+    --board-tier-3: #0a84ff;
+    --board-tier-4: #bf5af2;
+    --board-tier-5: #ffd60a;
     --board-tint-a: 0.16;
     --board-shadow: #000000;
     --board-shadow-a: 0.45;
@@ -1433,6 +1444,28 @@ a {
   gap: 6px;
 }
 
+.bubble-range {
+  grid-row: span 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.range-hex polygon {
+  fill: none;
+  stroke: var(--separator);
+  stroke-width: 0.6;
+}
+
+.range-hex polygon.hit {
+  fill: color-mix(in srgb, var(--team-mine) 40%, transparent);
+  stroke: var(--team-mine);
+}
+
+.range-hex polygon.self {
+  stroke: var(--art-ink);
+}
+
 .bubble-amount {
   color: var(--label);
   font-weight: 700;
@@ -2029,7 +2062,7 @@ a {
 
 .bubble-stats {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: 1fr 1fr auto;
   gap: 6px;
   margin: 0;
 }

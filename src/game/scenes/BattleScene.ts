@@ -3,7 +3,7 @@ import { useRunStore, type Battle } from '../../runStore';
 import { DISPLAY_FONT, readBoardPalette, type BoardPalette } from '../../shared/theme';
 import { BENCH_SIZE, getUnit, MOVE_TICKS, OVERTIME_TICK, TICKS_PER_SECOND, type Star } from '../../sim/balance';
 import type { BattleEvent, FighterInfo } from '../../sim/combat';
-import { COLS, ROWS, SIDE_CELLS, toBattleCell } from '../../sim/hex';
+import { COLS, distance, ROWS, SIDE_CELLS, toBattleCell } from '../../sim/hex';
 import { move, sell, type OwnedUnit, type Slot } from '../../sim/planning';
 import { sfx, vibrate } from '../audio';
 import { project, projectHex, scaleAtScreenY, unproject, type Tilt } from '../battle/projection';
@@ -162,6 +162,7 @@ class UnitView extends Phaser.GameObjects.Container {
   private stars: Phaser.GameObjects.Graphics;
   private badge: Phaser.GameObjects.Image;
   private readonly size: number;
+  private readonly cost: number;
   private readonly stand: number;
   depth3d = 1;
   /** A hit squashes the creature (positive) and a cast stretches it (negative); tweened back to 0. */
@@ -185,6 +186,7 @@ class UnitView extends Phaser.GameObjects.Container {
   ) {
     super(scene, x, y);
     this.size = unitSize(unitId);
+    this.cost = getUnit(unitId).cost;
     this.stand = creatureHeight(unitId) * this.size;
     this.ring = scene.add.graphics();
     this.drawRing();
@@ -238,9 +240,9 @@ class UnitView extends Phaser.GameObjects.Container {
     return -(PLATE_W + (this.item ? ITEM_GAP + ITEM_SIZE : 0)) / 2;
   }
 
-  /** A soft shadow at the feet, and a ring round it in the team's colour. */
+  /** A soft shadow at the feet, and a ring round it in the creature's rarity colour. */
   private drawRing() {
-    const color = this.side === 'a' ? this.palette.mine : this.palette.rival;
+    const color = this.palette.tier[this.cost - 1];
     const w = this.size * 0.7;
     const h = this.size * 0.24;
     this.ring.clear();
@@ -425,7 +427,9 @@ export class BattleScene extends Phaser.Scene {
         else this.stopReplay();
       }
       // Ending a replay changes only the battle, but the planning units have to reappear.
-      if (battleChanged || state.run !== previous.run || state.selected !== previous.selected || state.itemTarget !== previous.itemTarget) {
+      // The peek closing takes its range off the board.
+      const peekClosed = previous.peek !== null && state.peek === null;
+      if (battleChanged || peekClosed || state.run !== previous.run || state.selected !== previous.selected || state.itemTarget !== previous.itemTarget) {
         this.syncPlanning();
       }
     });
@@ -694,8 +698,21 @@ export class BattleScene extends Phaser.Scene {
       this.peeked = true;
       vibrate(10);
       const at = this.worldToClient(view.x, view.y - view.headHeight);
+      if (slot?.area === 'board') this.drawRange(toBattleCell(slot.index, 'a'), getUnit(unit.unitId).range, getUnit(unit.unitId).cost);
       useRunStore.setState({ peek: { unitId: unit.unitId, star: unit.star, x: at.x, y: at.y } });
     });
+  }
+
+  /** Every tile a creature standing on `from` can hit, rival's half included, until the peek closes. */
+  private drawRange(from: number, range: number, cost: number) {
+    const p = this.palette;
+    this.highlight.clear().fillStyle(p.mine, 0.24).lineStyle(1.5, p.mine, 0.9);
+    for (let cell = 0; cell < ROWS * COLS; cell++) {
+      if (cell === from || distance(cell, from) > range) continue;
+      const points = tilePoints(cell);
+      this.highlight.fillPoints(points, true).strokePoints(points, true);
+    }
+    this.highlight.lineStyle(2.5, p.tier[cost - 1], 1).strokePoints(tilePoints(from), true);
   }
 
   private letGo() {
