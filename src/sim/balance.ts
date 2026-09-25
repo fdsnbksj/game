@@ -1,7 +1,7 @@
 // Every number that shapes a run. Changing combat numbers changes old fights, so bump
 // BALANCE_VERSION with them: ghosts are only matched against the same version.
 
-export const BALANCE_VERSION = 3;
+export const BALANCE_VERSION = 4;
 
 export const START_HP = 100;
 export const MAX_LEVEL = 8;
@@ -242,6 +242,26 @@ export const UNITS: readonly UnitDef[] = [
     id: 'solaris', name: 'Galaxy Brain', cost: 5, origin: 'prism', role: 'support', kind: 'mage',
     hp: 950, damage: 65, attackTicks: 19, range: 3, armor: 35, maxMana: 100, startMana: 40,
     ability: { name: 'Big Brain Time', description: 'Shields and speeds up every nearby ally.', target: 'allies', radius: 2, shield: [280, 420, 630], haste: [35, 50, 75] },
+  },
+  {
+    id: 'lirili', name: 'Lirili Larila', cost: 4, origin: 'chrome', role: 'bruiser', kind: 'tank',
+    hp: 1150, damage: 65, attackTicks: 22, range: 1, armor: 55, maxMana: 90, startMana: 40,
+    ability: { name: 'Tempo Fermo', description: 'Shields itself and stuns adjacent enemies.', target: 'self', radius: 1, shield: [400, 600, 900], stunTicks: 25 },
+  },
+  {
+    id: 'trippi', name: 'Trippi Troppi', cost: 4, origin: 'prism', role: 'striker', kind: 'marksman',
+    hp: 780, damage: 90, attackTicks: 15, range: 3, armor: 25, maxMana: 80, startMana: 20,
+    ability: { name: 'Troppa Trippa', description: 'A huge shot at its target.', target: 'enemy', radius: 0, damage: [600, 900, 1350] },
+  },
+  {
+    id: 'honk', name: 'Honk', cost: 5, origin: 'voltage', role: 'striker', kind: 'fighter',
+    hp: 1000, damage: 80, attackTicks: 17, range: 1, armor: 40, maxMana: 90, startMana: 30,
+    ability: { name: 'Peace Was Never an Option', description: 'Hits its target and the hexes around it, stunning them.', target: 'enemy', radius: 1, damage: [350, 525, 790], stunTicks: 15 },
+  },
+  {
+    id: 'boneca', name: 'Boneca Ambalabu', cost: 5, origin: 'toxin', role: 'caster', kind: 'mage',
+    hp: 920, damage: 65, attackTicks: 20, range: 3, armor: 30, maxMana: 100, startMana: 40,
+    ability: { name: 'Ambalabu', description: 'Poisons its target and everything within two hexes.', target: 'enemy', radius: 2, damage: [300, 450, 680], poison: [80, 120, 180] },
   },
 ];
 

@@ -53,12 +53,13 @@ service cloud.firestore {
     // within what a fight can do. Keep the numbers below in sync with src/sim; the unit
     // test tests/unit/rulesSync.test.ts compares them.
 
-    function balanceVersion() { return 3; }
+    function balanceVersion() { return 4; }
     function startHp() { return 100; }
     function maxLevel() { return 8; }
     function unitCosts() {
       return {'sparkmouse': 1, 'chromeshell': 1, 'glitchtoad': 1, 'voltmoth': 1, 'bytebat': 2, 'ironhog': 2, 'surgeeel': 2, 'mirrorowl': 2, 'staticfox': 3, 'chromemantis': 3,
-        'thunderstag': 4, 'nullserpent': 5, 'sporecat': 1, 'prismfly': 1, 'acidfrog': 2, 'lumihare': 2, 'blightmoth': 3, 'beamray': 3, 'sludgebear': 4, 'solaris': 5};
+        'thunderstag': 4, 'nullserpent': 5, 'sporecat': 1, 'prismfly': 1, 'acidfrog': 2, 'lumihare': 2, 'blightmoth': 3, 'beamray': 3, 'sludgebear': 4, 'solaris': 5,
+        'lirili': 4, 'trippi': 4, 'honk': 5, 'boneca': 5};
     }
     // Total XP to reach each level; index = level.
     function levelXp() { return [0, 0, 2, 6, 12, 20, 32, 48, 68]; }
