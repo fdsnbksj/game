@@ -29,7 +29,7 @@ import {
   type TraitId,
 } from '../sim/balance';
 import { baseIncome, dropsItem, interest, nextDropRound, sellValue, surgePercent } from '../sim/economy';
-import { boardCount, buy, buyXp, equip, ownedUnits, reroll, sell, suggestHolders, unequip, whyNotBuy, type RunState, type Slot } from '../sim/planning';
+import { boardCount, buy, buyXp, equip, ownedUnits, reroll, sell, suggestHolders, toggleLock, unequip, whyNotBuy, type RunState, type Slot } from '../sim/planning';
 import { activeTraits } from '../sim/traits';
 
 const SCENES = [BattleScene];
@@ -336,6 +336,23 @@ function Tray({ run }: { run: RunState }) {
           aria-label={`Reroll for ${REROLL_COST} gold`}
         >
           ↻ <span className="price">{REROLL_COST}</span>
+        </button>
+        <button
+          className={run.locked ? 'button small lock on' : 'button small lock'}
+          aria-pressed={run.locked ?? false}
+          aria-label={run.locked ? 'Shop kept for next round' : 'Keep this shop for next round'}
+          onClick={() => act(toggleLock)}
+        >
+          <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+            <path
+              d={run.locked ? 'M8 11V8a4 4 0 0 1 8 0v3' : 'M8 11V8a4 4 0 0 1 7.6-1.8'}
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.2"
+              strokeLinecap="round"
+            />
+            <rect x="5" y="11" width="14" height="10" rx="2.5" fill="currentColor" />
+          </svg>
         </button>
         {pop === 'income' && <IncomePop run={run} onClose={close} />}
         {pop === 'odds' && <OddsPop level={run.level} onClose={close} />}

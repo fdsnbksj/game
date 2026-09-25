@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { getUnit, REROLL_COST, XP_COST } from '../../src/sim/balance';
 import type { BattleResult } from '../../src/sim/combat';
-import { buy, buyXp, dailySeed, equip, finishRound, move, newRun, ownedUnits, reroll, sell, suggestHolders, unequip, type RunState } from '../../src/sim/planning';
+import { buy, buyXp, dailySeed, equip, finishRound, move, newRun, ownedUnits, reroll, sell, suggestHolders, toggleLock, unequip, type RunState } from '../../src/sim/planning';
 
 /** A run with a hand-picked shop and plenty of gold. */
 function runWith(shop: string[], gold = 50, extra: Partial<RunState> = {}): RunState {
@@ -120,6 +120,32 @@ describe('planning', () => {
     const later = finishRound({ ...newRun('seed'), round: 40 }, result('b'), 'bot');
     expect(later.done).toBe(false);
     expect(later.round).toBe(41);
+  });
+});
+
+describe('the shop lock', () => {
+  it('keeps a locked shop, sold slots included, for one round', () => {
+    const start = buy(toggleLock(newRun('lock')), 0);
+    const round2 = finishRound(start, result('a'), 'bot');
+    expect(round2.shop).toEqual(start.shop);
+    expect(round2.shop[0]).toBeNull();
+    expect(round2.locked).toBe(false);
+    const round3 = finishRound(round2, result('a'), 'bot');
+    expect(round3.shop).not.toEqual(round2.shop);
+  });
+
+  it('rolls a fresh shop when unlocked, or on a save from before the lock', () => {
+    const run = newRun('lock');
+    const unlocked = toggleLock(toggleLock(run));
+    expect(finishRound(unlocked, result('a'), 'bot').shop).toEqual(finishRound(run, result('a'), 'bot').shop);
+    const { locked: _, ...oldSave } = run;
+    expect(finishRound(oldSave as RunState, result('a'), 'bot').shop).toEqual(finishRound(run, result('a'), 'bot').shop);
+  });
+
+  it('stays locked through a reroll, keeping the new shop', () => {
+    const rolled = reroll(toggleLock(runWith([], 50)));
+    expect(rolled.locked).toBe(true);
+    expect(finishRound(rolled, result('a'), 'bot').shop).toEqual(rolled.shop);
   });
 });
 

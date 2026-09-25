@@ -46,6 +46,8 @@ export interface RunState {
   bag: string[];
   /** Rerolls this round; part of the shop's seed. */
   rolls: number;
+  /** Keep this shop, sold slots and all, for the next round instead of a fresh one. Missing on older saves. */
+  locked?: boolean;
   nextUid: number;
   wonLast: boolean;
   history: RoundRecord[];
@@ -85,6 +87,8 @@ function startPlanning(run: RunState): RunState {
   const gold = run.gold + income(run.round, run.gold, run.wonLast);
   const xp = run.round > 1 ? run.xp + XP_PER_ROUND : run.xp;
   const next = { ...run, gold, xp, level: levelForXp(xp), rolls: 0 };
+  // A lock holds for one round change, then the shop is free again.
+  if (run.locked) return { ...next, locked: false };
   return { ...next, shop: freshShop(next) };
 }
 
@@ -271,6 +275,12 @@ export function reroll(run: RunState): RunState {
   if (run.done || run.gold < REROLL_COST) return run;
   const next = { ...run, gold: run.gold - REROLL_COST, rolls: run.rolls + 1 };
   return { ...next, shop: freshShop(next) };
+}
+
+/** Keeps this shop for next round, or lets it go again. Rerolling doesn't undo it. */
+export function toggleLock(run: RunState): RunState {
+  if (run.done) return run;
+  return { ...run, locked: !run.locked };
 }
 
 export function buyXp(run: RunState): RunState {

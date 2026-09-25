@@ -1632,9 +1632,18 @@ a {
 .controls {
   position: relative;
   display: grid;
-  grid-template-columns: auto 1fr auto auto;
+  grid-template-columns: auto 1fr auto auto auto;
   align-items: center;
   gap: var(--sp-2);
+}
+
+.button.lock {
+  padding: 6px 10px;
+}
+
+.button.lock.on {
+  background: var(--accent);
+  color: var(--on-accent);
 }
 
 /* Gold and level open their popovers; they look like readouts, not buttons. */
