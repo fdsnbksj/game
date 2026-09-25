@@ -67,7 +67,7 @@ function wobble(d: string, box: Box): string {
   return d.replace(/-?\d*\.?\d+/g, (match) => `${n(Number(match) + nudge(i++, Number(match)) * amount)}`);
 }
 
-function geom(d: string): Geom {
+export function geom(d: string): Geom {
   const shaken = wobble(d, boxOf(d));
   return { d: shaken, box: boxOf(shaken) };
 }

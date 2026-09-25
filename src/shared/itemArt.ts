@@ -1,5 +1,5 @@
 import { getItem } from '../sim/balance';
-import { body, cord, ell, poly, rrect, stroke, INK, type Part } from './creatureArt';
+import { body, cord, ell, geom, poly, rrect, stroke, INK, type Part } from './creatureArt';
 
 // Every item as a crude MS Paint meme object on a tile of the item's own colour, on the same
 // 48x48 grid and with the same wobbly marker as the creatures. ItemChip draws the parts as
@@ -49,12 +49,14 @@ const DEFINITIONS: Record<string, Part[]> = {
   ],
   // Copium: breathe it in before the fight.
   mana_cell: [
-    ...cord('M27 12Q39 8 37 21', DARK_GREY, 1.8),
-    body(ell(36, 23, 4.5, 3.4), WHITE),
-    body(rrect(20.5, 7.5, 7, 6, 1.5), GREY),
-    body(rrect(14, 12.5, 20, 28, 7), GREEN),
-    body(rrect(17, 21, 14, 9, 2), WHITE),
-    stroke('M22 25.5L26 25.5', INK, 1.4),
+    body(rrect(12.5, 7.5, 7, 6, 1.5), GREY),
+    body(rrect(7, 12.5, 18, 28.5, 7), GREEN),
+    body(rrect(9.5, 21.5, 13, 9, 2), WHITE),
+    stroke('M13.5 26L18.5 26', INK, 1.4),
+    ...cord('M19 10Q31 5 33 14', DARK_GREY, 1.8),
+    body(geom('M33 13Q43 13 43 25Q43 37 33 38Q24 37 24 25Q24 13 33 13Z'), WHITE),
+    body(ell(33.5, 26, 5, 7), '#99d9ea'),
+    stroke('M24 22L20 21M43 22L45 21', DARK_GREY, 1.6),
   ],
   // Yoink: a magnet for other people's health.
   siphon_core: [
