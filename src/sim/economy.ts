@@ -1,4 +1,4 @@
-import { ITEM_ROUNDS, LEVEL_XP, MAX_INTEREST, MAX_LEVEL, MAX_ROUNDS, WIN_BONUS, XP_COST, XP_PER_BUY, XP_PER_ROUND, type Star } from './balance';
+import { ITEM_EVERY, ITEM_OFFSET, LEVEL_XP, MAX_INTEREST, MAX_LEVEL, SURGE_FROM, SURGE_PERCENT, WIN_BONUS, XP_COST, XP_PER_BUY, XP_PER_ROUND, type Star } from './balance';
 
 export function baseIncome(round: number): number {
   return Math.min(5, round + 2);
@@ -39,19 +39,20 @@ export function sellValue(cost: number, star: Star | number): number {
   return cost * copies(star);
 }
 
+/** The round after which income can't grow any more; firestore.rules hardcodes the same. */
+export const MAX_GOLD_STEADY_FROM = 8;
+export const MAX_INCOME = 5 + MAX_INTEREST + WIN_BONUS;
+
 /**
- * Most gold a player can have received by the planning phase of each round (index =
- * round). Spending never earns anything back, so banking every coin and winning every
- * round is the best possible case. Units on a board plus XP bought can't be worth more.
+ * Most gold a player can have received by the planning phase of `round`. Spending never
+ * earns anything back, so banking every coin and winning every round is the best possible
+ * case. Units on a board plus XP bought can't be worth more. From round 9 on the bank is
+ * past 50, so every round pays the most there is: base, full interest and the win bonus.
  */
-export function maxGoldByRound(): number[] {
-  const result = [0];
+export function maxGold(round: number): number {
   let bank = 0;
-  for (let round = 1; round <= MAX_ROUNDS; round++) {
-    bank += income(round, bank, round > 1);
-    result.push(bank);
-  }
-  return result;
+  for (let r = 1; r <= Math.min(round, MAX_GOLD_STEADY_FROM); r++) bank += income(r, bank, r > 1);
+  return bank + Math.max(0, round - MAX_GOLD_STEADY_FROM) * MAX_INCOME;
 }
 
 /** HP a loss costs: a base that grows with the round, plus a point per surviving enemy star. */
@@ -63,7 +64,30 @@ export function lossDamage(round: number, survivorStars: number): number {
   return stageDamage(round) + survivorStars;
 }
 
-/** Items held by the planning phase of each round (index = round): one per drop round gone by. */
-export function maxItemsByRound(): number[] {
-  return Array.from({ length: MAX_ROUNDS + 1 }, (_, round) => ITEM_ROUNDS.filter((drop) => drop < round).length);
+/** Whether an item drops after this round. */
+export function dropsItem(round: number): boolean {
+  return round >= ITEM_OFFSET && (round - ITEM_OFFSET) % ITEM_EVERY === 0;
+}
+
+/** The first round from `round` on that drops an item. */
+export function nextDropRound(round: number): number {
+  let r = Math.max(round, ITEM_OFFSET);
+  while (!dropsItem(r)) r += 1;
+  return r;
+}
+
+/** Items held by the planning phase of `round`: one per drop round gone by. */
+export function maxItems(round: number): number {
+  return round <= ITEM_OFFSET ? 0 : Math.floor((round - ITEM_OFFSET - 1) / ITEM_EVERY) + 1;
+}
+
+/**
+ * How strong the rival is in `round`, as a percent of its health and damage: 100 until
+ * SURGE_FROM, then SURGE_PERCENT% more each round, compounding. Integer steps rather than
+ * floating-point powers, so every device gets the same number.
+ */
+export function surgePercent(round: number): number {
+  let percent = 100;
+  for (let r = SURGE_FROM + 1; r <= round; r++) percent = Math.floor((percent * (100 + SURGE_PERCENT)) / 100);
+  return percent;
 }

@@ -1285,6 +1285,13 @@ a {
   font-size: var(--fs-xs);
 }
 
+/* How much stronger rivals are, once the run is past round 15. */
+.hud-round small.surge {
+  margin-left: 2px;
+  color: var(--danger);
+  font-weight: 700;
+}
+
 .hud-hp {
   display: flex;
   align-items: center;
@@ -1690,8 +1697,9 @@ a {
 .bag {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: var(--sp-2);
-  /* The same height empty or full, so the tray never changes size. */
+  /* The same height empty or with a row of items; a long run's pile wraps to a second row. */
   min-height: 42px;
   padding: 4px 6px;
   border-radius: var(--r-md);

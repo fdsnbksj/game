@@ -112,6 +112,15 @@ describe('planning', () => {
     expect(dying.done).toBe(true);
     expect(dying.hp).toBe(0);
   });
+
+  it('has no last round: a run with HP left goes on past round 15', () => {
+    const run = finishRound({ ...newRun('seed'), round: 15 }, result('a'), 'bot');
+    expect(run.done).toBe(false);
+    expect(run.round).toBe(16);
+    const later = finishRound({ ...newRun('seed'), round: 40 }, result('b'), 'bot');
+    expect(later.done).toBe(false);
+    expect(later.round).toBe(41);
+  });
 });
 
 describe('items', () => {

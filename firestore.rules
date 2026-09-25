@@ -54,7 +54,6 @@ service cloud.firestore {
     // test tests/unit/rulesSync.test.ts compares them.
 
     function balanceVersion() { return 3; }
-    function maxRounds() { return 15; }
     function startHp() { return 100; }
     function maxLevel() { return 8; }
     function unitCosts() {
@@ -63,17 +62,21 @@ service cloud.firestore {
     }
     // Total XP to reach each level; index = level.
     function levelXp() { return [0, 0, 2, 6, 12, 20, 32, 48, 68]; }
-    // Most gold a player can have received by each round's planning; index = round.
-    function maxGold() { return [0, 3, 8, 14, 21, 29, 37, 46, 56, 67, 78, 89, 100, 111, 122, 133]; }
-    // HP a loss costs before counting the winner's surviving stars; index = round.
-    function stageDamage() { return [0, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9]; }
+    // Runs have no last round, so these are formulas of the round rather than tables.
+    // Most gold a player can have received by a round's planning: after round 8 the bank is
+    // past 50 and every round pays the most there is, 11.
+    function maxGold(round) {
+      return round <= 8 ? [0, 3, 8, 14, 21, 29, 37, 46, 56][round] : 56 + 11 * (round - 8);
+    }
+    // HP a loss costs before counting the winner's surviving stars.
+    function stageDamage(round) { return 2 + math.floor(round / 2); }
     function minSecondsBetweenRounds() { return 3; }
     function minSecondsBetweenRunStarts() { return 5; }
     function itemIds() {
       return ['heavy_plate', 'razor_fang', 'volt_coil', 'mirror_shard', 'mana_cell', 'siphon_core'];
     }
-    // Items held by each round's planning; index = round.
-    function maxItems() { return [0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4, 5]; }
+    // Items held by a round's planning: one drops after rounds 2, 5, 8 and every third after.
+    function maxItems(round) { return math.floor(round / 3); }
     // A board holds at most maxLevel() units, so an item can name slots 0 to 7.
     function itemSlots() { return [0, 1, 2, 3, 4, 5, 6, 7]; }
 
@@ -107,7 +110,7 @@ service cloud.firestore {
       let ia = board.get('ia', []);
       return it is list && ia is list
         && it.size() == ia.size()
-        && it.size() <= maxItems()[round]
+        && it.size() <= maxItems(round)
         && it.hasOnly(itemIds())
         && ia.hasOnly(itemSlots())
         && ia.toSet().size() == ia.size();
@@ -128,7 +131,7 @@ service cloud.firestore {
         && board.c.toSet().size() == board.c.size()
         && board.s.hasOnly([1, 2, 3])
         // Last, so the checks above guard the lookups.
-        && boardCost(board, unitCosts()) + xpGold(board.lv, round) <= maxGold()[round]
+        && boardCost(board, unitCosts()) + xpGold(board.lv, round) <= maxGold(round)
         && itemsAreLegal(board, round);
     }
 
@@ -181,7 +184,6 @@ service cloud.firestore {
       let key = 'r' + string(n);
       let lost = before.hp - after.hp;
       return before.done == false
-        && n <= maxRounds()
         && after.diff(before).affectedKeys().hasOnly(['round', 'rounds', 'boards', 'hp', 'wins', 'done', 'lastAt'])
         && after.round == n
         && after.rounds == before.rounds.concat([n])
@@ -190,9 +192,9 @@ service cloud.firestore {
         && isValidBoard(after.boards[key], n)
         && after.hp is int && after.hp >= 0
         && ((after.wins == before.wins + 1 && lost == 0)
-          || (after.wins == before.wins && lost <= stageDamage()[n] + maxLevel() * 3
-            && (lost >= stageDamage()[n] || after.hp == 0)))
-        && after.done == (after.hp == 0 || n == maxRounds())
+          || (after.wins == before.wins && lost <= stageDamage(n) + maxLevel() * 3
+            && (lost >= stageDamage(n) || after.hp == 0)))
+        && after.done == (after.hp == 0)
         && after.lastAt == request.time
         && request.time > before.lastAt + duration.value(minSecondsBetweenRounds(), 's');
     }

@@ -13,19 +13,17 @@ import { useRunStore } from '../runStore';
 import {
   getItem,
   getTrait,
-  ITEM_ROUNDS,
   getUnit,
   LEVEL_XP,
   UNITS,
   MAX_LEVEL,
-  MAX_ROUNDS,
   REROLL_COST,
   STAR_PERCENT,
   TICKS_PER_SECOND,
   XP_COST,
   type TraitId,
 } from '../sim/balance';
-import { sellValue } from '../sim/economy';
+import { dropsItem, nextDropRound, sellValue, surgePercent } from '../sim/economy';
 import { boardCount, buy, buyXp, equip, ownedUnits, reroll, sell, suggestHolders, unequip, whyNotBuy, type RunState, type Slot } from '../sim/planning';
 import { activeTraits } from '../sim/traits';
 
@@ -143,7 +141,11 @@ function Hud({ run }: { run: RunState }) {
         <span className="micro">{run.mode === 'daily' ? 'Daily' : 'Round'}</span>
         <strong>
           {run.round}
-          <small>/{MAX_ROUNDS}</small>
+          {surgePercent(run.round) > 100 && (
+            <small className="surge" aria-label={`Rivals ${surgePercent(run.round) - 100}% stronger`}>
+              +{surgePercent(run.round) - 100}%
+            </small>
+          )}
         </strong>
       </div>
       <div className="hud-hp" aria-label={`${run.hp} health`}>
@@ -311,7 +313,7 @@ function Tray({ run }: { run: RunState }) {
       </div>
 
       {/* Always there, even empty, so the tray (and the board above it) never changes height. */}
-      <Bag bag={run.bag} nextDrop={ITEM_ROUNDS.find((round) => round >= run.round)} />
+      <Bag bag={run.bag} nextDrop={nextDropRound(run.round)} />
 
       <div className="shop-wrap" ref={registerSellZone}>
         <div className="shop" aria-label="Shop" aria-hidden={dragged ? true : undefined}>
@@ -370,7 +372,7 @@ interface ItemDrag {
  * The drag follows window events rather than pointer capture on the chip, which some
  * browsers drop mid-gesture.
  */
-function Bag({ bag, nextDrop }: { bag: string[]; nextDrop?: number }) {
+function Bag({ bag, nextDrop }: { bag: string[]; nextDrop: number }) {
   const act = useRunStore((s) => s.act);
   const [drag, setDrag] = useState<ItemDrag | null>(null);
   const [open, setOpen] = useState<number | null>(null);
@@ -467,7 +469,7 @@ function Bag({ bag, nextDrop }: { bag: string[]; nextDrop?: number }) {
           </button>
         ))}
         <span className="hint">
-          {bag.length > 0 ? 'Drag onto a creature' : nextDrop ? `Next item after round ${nextDrop}` : 'No more items this run'}
+          {bag.length > 0 ? 'Drag onto a creature' : `Next item after round ${nextDrop}`}
         </span>
       </div>
       {shownItem && open !== null && <ItemPop itemId={bag[open]} onClose={() => setOpen(null)} />}
@@ -739,7 +741,13 @@ function RoundResult({ result }: { result: RoundOutcome }) {
   return (
     <div className={`glass round-result ${tone}`} role="status">
       <strong>{result.won ? 'Round won' : result.draw ? 'Round drawn' : 'Round lost'}</strong>
-      <span className="note">{result.damage > 0 ? `−${result.damage} HP` : `Round ${result.round} of ${MAX_ROUNDS}`}</span>
+      <span className="note">
+        {result.damage > 0
+          ? `−${result.damage} HP`
+          : surgePercent(result.round + 1) > 100
+            ? `Next rival +${surgePercent(result.round + 1) - 100}%`
+            : `Round ${result.round}`}
+      </span>
       {result.item && (
         <span className="drop">
           <ItemChip itemId={result.item} size={22} />
@@ -903,7 +911,7 @@ function useRoundResult() {
     const run = useRunStore.getState().run;
     const last = run?.history.at(-1);
     if (!run || !last || run.done) return;
-    const dropped = run.bag.length > 0 && ITEM_ROUNDS.includes(last.round) ? run.bag[run.bag.length - 1] : undefined;
+    const dropped = run.bag.length > 0 && dropsItem(last.round) ? run.bag[run.bag.length - 1] : undefined;
     setResult({ id: last.round, won: last.won, draw: last.draw, round: last.round, damage: last.damage, item: dropped });
   }, [fighting, over]);
   return result;
@@ -915,7 +923,6 @@ function Summary({ run }: { run: RunState }) {
   const stats = useRunStore((s) => s.stats);
   const online = useRunStore((s) => s.online);
   const navigate = useNavigate();
-  const survived = run.hp > 0;
   const saving = online !== null && online.status !== 'offline' && (online.status === 'starting' || online.pending.length > 0);
   // Leaving drops anything unsaved, so wait for the result, but not forever.
   const [gaveUp, setGaveUp] = useState(false);
@@ -929,7 +936,7 @@ function Summary({ run }: { run: RunState }) {
   return (
     <div className="overlay">
       <div className="panel">
-        <p className="micro">{survived ? 'Run complete' : 'Knocked out'}</p>
+        <p className="micro">Knocked out in round {run.round}</p>
         <p className="big-score">
           <AnimatedNumber value={run.wins} from={0} />
         </p>
@@ -940,7 +947,6 @@ function Summary({ run }: { run: RunState }) {
             <li key={round.round} className={round.won ? 'won' : round.draw ? 'draw' : 'lost'} title={`Round ${round.round}`} />
           ))}
         </ol>
-        {survived && <p className="note">{run.hp} HP left</p>}
         <p className="note status-line small-print">
           {blocked ? (
             <>

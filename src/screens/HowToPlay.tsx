@@ -1,7 +1,7 @@
 import { CreatureChip } from '../components/CreatureChip';
 import { ItemChip } from '../components/ItemChip';
 import { TraitIcon } from '../components/TraitIcon';
-import { ITEMS, MAX_INTEREST, MAX_ROUNDS, REROLL_COST, START_HP, TRAITS, UNITS, XP_COST, XP_PER_BUY } from '../sim/balance';
+import { ITEMS, MAX_INTEREST, REROLL_COST, START_HP, SURGE_FROM, SURGE_PERCENT, TRAITS, UNITS, XP_COST, XP_PER_BUY } from '../sim/balance';
 
 const STEPS = [
   { title: 'Buy', text: 'Tap a creature in the shop. It lands on your bench.' },
@@ -22,8 +22,8 @@ export function HowToPlay() {
 
       <section className="glass card-pad">
         <p className="lead">
-          Start with {START_HP} HP. Each round your team fights a rival's by itself. Lose and you take damage; win as many of
-          the {MAX_ROUNDS} rounds as you can.
+          Start with {START_HP} HP. Each round your team fights a rival's by itself. Lose and you take damage. There's no last
+          round: go as far as you can. After round {SURGE_FROM}, every rival is {SURGE_PERCENT}% stronger than the last.
         </p>
         <ol className="steps">
           {STEPS.map((step, i) => (

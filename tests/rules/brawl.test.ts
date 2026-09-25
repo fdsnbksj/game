@@ -272,7 +272,7 @@ describe('playing rounds', () => {
     await assertSucceeds(playRound(dbFor('alice'), 'alice', 0, before, { hp: 0, wins: 4, done: true }));
   });
 
-  it('accepts the most expensive legal board on the last round', async () => {
+  it('accepts the most expensive legal board by round 15', async () => {
     const before = { round: 14, hp: 40, wins: 9 };
     await seedRun('alice', 0, before);
     // Six 1-cost 3-stars (54) + a 4-cost 3-star (36) + a 1-cost 2-star (3) = 93, plus 40 gold of XP for
@@ -281,9 +281,7 @@ describe('playing rounds', () => {
       ['sparkmouse', 3], ['voltmoth', 3], ['glitchtoad', 3], ['chromeshell', 3],
       ['sparkmouse', 3], ['voltmoth', 3], ['thunderstag', 3], ['chromeshell', 2],
     ], 8);
-    await assertSucceeds(
-      playRound(dbFor('alice'), 'alice', 0, before, { board: full, hp: 40, wins: 10, done: true, ranking: {} }),
-    );
+    await assertSucceeds(playRound(dbFor('alice'), 'alice', 0, before, { board: full, hp: 40, wins: 10 }));
   });
 
   it('rejects a board one gold over what could have been earned', async () => {
@@ -293,7 +291,47 @@ describe('playing rounds', () => {
       ['sparkmouse', 3], ['voltmoth', 3], ['glitchtoad', 3], ['chromeshell', 3],
       ['sparkmouse', 3], ['voltmoth', 3], ['thunderstag', 3], ['thunderstag', 1],
     ], 8);
-    await assertFails(playRound(dbFor('alice'), 'alice', 0, before, { board: over, hp: 40, wins: 10, done: true }));
+    await assertFails(playRound(dbFor('alice'), 'alice', 0, before, { board: over, hp: 40, wins: 10 }));
+  });
+
+  it('has no last round: round 15 with HP left carries on', async () => {
+    const before = { round: 14, hp: 40, wins: 9 };
+    await seedRun('alice', 0, before);
+    await assertFails(playRound(dbFor('alice'), 'alice', 0, before, { hp: 40, wins: 10, done: true }));
+    await assertSucceeds(playRound(dbFor('alice'), 'alice', 0, before, { hp: 40, wins: 10 }));
+  });
+
+  it('accepts rounds long past 15, within 11 more gold a round', async () => {
+    const before = { round: 29, hp: 40, wins: 20 };
+    await seedRun('alice', 0, before);
+    // Round 30: 56 + 11 * 22 = 298. Seven 4-cost 3-stars (252) + a 3-cost 3-star (27) = 279, plus
+    // 12 gold of XP for level 8 (58 XP came free by now): 291.
+    const units: [string, number][] = [
+      ['thunderstag', 3], ['sludgebear', 3], ['thunderstag', 3], ['sludgebear', 3],
+      ['thunderstag', 3], ['sludgebear', 3], ['thunderstag', 3], ['staticfox', 3],
+    ];
+    await assertSucceeds(playRound(dbFor('alice'), 'alice', 0, before, { board: board(units, 8), hp: 40, wins: 21 }));
+  });
+
+  it('rejects a board over the gold budget long past round 15', async () => {
+    const before = { round: 29, hp: 40, wins: 20 };
+    await seedRun('alice', 0, before);
+    // Seven 4-cost 3-stars (252) + a 5-cost 3-star (45) + 12 gold of XP = 309, more than 298.
+    const units: [string, number][] = [
+      ['thunderstag', 3], ['sludgebear', 3], ['thunderstag', 3], ['sludgebear', 3],
+      ['thunderstag', 3], ['sludgebear', 3], ['thunderstag', 3], ['nullserpent', 3],
+    ];
+    await assertFails(playRound(dbFor('alice'), 'alice', 0, before, { board: board(units, 8), hp: 40, wins: 21 }));
+  });
+
+  it('lets items keep dropping every third round', async () => {
+    const before = { round: 20, hp: 40, wins: 12 };
+    await seedRun('alice', 0, before);
+    // By round 21's planning, drops after rounds 2, 5, …, 20: seven items.
+    const units: [string, number][] = Array.from({ length: 8 }, () => ['sparkmouse', 1]);
+    const items = (n: number) => Array.from({ length: n }, (_, i): [number, string] => [i, 'razor_fang']);
+    await assertFails(playRound(dbFor('alice'), 'alice', 0, before, { board: board(units, 8, undefined, items(8)), hp: 40, wins: 13 }));
+    await assertSucceeds(playRound(dbFor('alice'), 'alice', 0, before, { board: board(units, 8, undefined, items(7)), hp: 40, wins: 13 }));
   });
 
   it('rejects a strong board early in a run', async () => {
@@ -452,7 +490,7 @@ describe('the daily challenge', () => {
   });
 
   it('files a finished challenge on the daily board, not the ordinary one', async () => {
-    const before = { round: 14, hp: 30, wins: 8 };
+    const before = { round: 14, hp: 5, wins: 8 };
     await asAdmin((db) =>
       setDoc(doc(db, 'runs', `alice_d${TODAY}`), {
         uid: 'alice', name: 'Alice', mode: 'daily', day: TODAY, v: BALANCE_VERSION, rand: 7,
@@ -468,13 +506,13 @@ describe('the daily challenge', () => {
         round: 15,
         rounds: rounds(15),
         'boards.r15': board([['sparkmouse', 1]]),
-        hp: 30,
-        wins: 9,
+        hp: 0,
+        wins: 8,
         done: true,
         lastAt: serverTimestamp(),
       });
       batch.set(doc(db, collectionName, TODAY, 'entries', 'alice'), {
-        score: 9030, wins: 9, hp: 30, runId: `alice_d${TODAY}`, displayName: 'Alice', submittedAt: serverTimestamp(),
+        score: 8000, wins: 8, hp: 0, runId: `alice_d${TODAY}`, displayName: 'Alice', submittedAt: serverTimestamp(),
       });
       return batch.commit();
     };
@@ -489,17 +527,17 @@ describe('the daily challenge', () => {
         uid: 'alice', name: 'Alice', mode: 'daily', day: yesterday, v: BALANCE_VERSION, rand: 7,
         round: 14, rounds: rounds(14),
         boards: Object.fromEntries(rounds(14).map((r) => [`r${r}`, board([['sparkmouse', 1]])])),
-        hp: 30, wins: 8, done: false, startedAt: hourAgo(), lastAt: hourAgo(),
+        hp: 5, wins: 8, done: false, startedAt: hourAgo(), lastAt: hourAgo(),
       }),
     );
     const db = dbFor('alice');
     const fileUnder = (day: string) => {
       const batch = writeBatch(db);
       batch.update(doc(db, 'runs', `alice_d${yesterday}`), {
-        round: 15, rounds: rounds(15), 'boards.r15': board([['sparkmouse', 1]]), hp: 30, wins: 9, done: true, lastAt: serverTimestamp(),
+        round: 15, rounds: rounds(15), 'boards.r15': board([['sparkmouse', 1]]), hp: 0, wins: 8, done: true, lastAt: serverTimestamp(),
       });
       batch.set(doc(db, 'dailyRankings', day, 'entries', 'alice'), {
-        score: 9030, wins: 9, hp: 30, runId: `alice_d${yesterday}`, displayName: 'Alice', submittedAt: serverTimestamp(),
+        score: 8000, wins: 8, hp: 0, runId: `alice_d${yesterday}`, displayName: 'Alice', submittedAt: serverTimestamp(),
       });
       return batch.commit();
     };
@@ -509,22 +547,22 @@ describe('the daily challenge', () => {
   });
 
   it('rejects filing an ordinary run on the daily board', async () => {
-    const before = { round: 14, hp: 30, wins: 8 };
+    const before = { round: 14, hp: 5, wins: 8 };
     await seedRun('alice', 0, before);
     const db = dbFor('alice');
     const batch = writeBatch(db);
     batch.update(doc(db, 'runs', 'alice_0'), {
-      round: 15, rounds: rounds(15), 'boards.r15': board([['sparkmouse', 1]]), hp: 30, wins: 9, done: true, lastAt: serverTimestamp(),
+      round: 15, rounds: rounds(15), 'boards.r15': board([['sparkmouse', 1]]), hp: 0, wins: 8, done: true, lastAt: serverTimestamp(),
     });
     batch.set(doc(db, 'dailyRankings', TODAY, 'entries', 'alice'), {
-      score: 9030, wins: 9, hp: 30, runId: 'alice_0', displayName: 'Alice', submittedAt: serverTimestamp(),
+      score: 8000, wins: 8, hp: 0, runId: 'alice_0', displayName: 'Alice', submittedAt: serverTimestamp(),
     });
     await assertFails(batch.commit());
   });
 });
 
 describe('rankings', () => {
-  const last: RunState = { round: 14, hp: 30, wins: 8 };
+  const last: RunState = { round: 14, hp: 5, wins: 8 };
 
   beforeEach(async () => {
     await seedPlayer('alice', 1);
@@ -532,7 +570,7 @@ describe('rankings', () => {
   });
 
   it("accepts a finished run's result with its last round", async () => {
-    await assertSucceeds(playRound(dbFor('alice'), 'alice', 0, last, { hp: 30, wins: 9, done: true, ranking: {} }));
+    await assertSucceeds(playRound(dbFor('alice'), 'alice', 0, last, { hp: 0, wins: 8, done: true, ranking: {} }));
   });
 
   it('rejects a result for a run still going', async () => {
@@ -542,22 +580,22 @@ describe('rankings', () => {
   });
 
   it('rejects a result not written with the run', async () => {
-    await seedRun('alice', 1, { round: 15, hp: 30, wins: 9, done: true });
+    await seedRun('alice', 1, { round: 15, hp: 0, wins: 8, done: true });
     await assertFails(
       setDoc(doc(dbFor('alice'), 'rankings', TODAY, 'entries', 'alice'), {
-        score: 9030, wins: 9, hp: 30, runId: 'alice_1', displayName: 'Alice', submittedAt: serverTimestamp(),
+        score: 8000, wins: 8, hp: 0, runId: 'alice_1', displayName: 'Alice', submittedAt: serverTimestamp(),
       }),
     );
   });
 
   it("rejects a score that doesn't match the run", async () => {
     // Wins and health are right; only the score is inflated.
-    await assertFails(playRound(dbFor('alice'), 'alice', 0, last, { hp: 30, wins: 9, done: true, ranking: { score: 99999 } }));
+    await assertFails(playRound(dbFor('alice'), 'alice', 0, last, { hp: 0, wins: 8, done: true, ranking: { score: 99999 } }));
   });
 
   it("rejects wins or health that don't match the run", async () => {
     await assertFails(
-      playRound(dbFor('alice'), 'alice', 0, last, { hp: 30, wins: 9, done: true, ranking: { wins: 15, score: 15030 } }),
+      playRound(dbFor('alice'), 'alice', 0, last, { hp: 0, wins: 8, done: true, ranking: { wins: 15, score: 15030 } }),
     );
   });
 
@@ -567,13 +605,13 @@ describe('rankings', () => {
         score: 12050, wins: 12, hp: 50, runId: 'alice_x', displayName: 'Alice', submittedAt: hourAgo(),
       }),
     );
-    await assertFails(playRound(dbFor('alice'), 'alice', 0, last, { hp: 30, wins: 9, done: true, ranking: {} }));
+    await assertFails(playRound(dbFor('alice'), 'alice', 0, last, { hp: 0, wins: 8, done: true, ranking: {} }));
   });
 
   it('rejects a result filed under a day far from today', async () => {
     const lastWeek = dayId(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000));
     await assertFails(
-      playRound(dbFor('alice'), 'alice', 0, last, { hp: 30, wins: 9, done: true, ranking: { day: lastWeek } }),
+      playRound(dbFor('alice'), 'alice', 0, last, { hp: 0, wins: 8, done: true, ranking: { day: lastWeek } }),
     );
   });
 
@@ -582,7 +620,7 @@ describe('rankings', () => {
     const db = dbFor('mallory');
     await assertFails(
       setDoc(doc(db, 'rankings', TODAY, 'entries', 'mallory'), {
-        score: 9030, wins: 9, hp: 30, runId: 'alice_0', displayName: 'Alice', submittedAt: serverTimestamp(),
+        score: 8000, wins: 8, hp: 0, runId: 'alice_0', displayName: 'Alice', submittedAt: serverTimestamp(),
       }),
     );
   });

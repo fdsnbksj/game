@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-**a game**: a mobile web auto-battler (TFT-style) with original creatures. Buy creatures from a shop, place them on a hex board, and they fight on their own; a run is up to 15 rounds on 100 HP. There's also a daily challenge: the same run for everyone that day. React handles the screens, Phaser 3 the board and fight replays, and Firebase the free-plan backend (Auth, Firestore, Hosting). Setup and layout are in `README.md`. The game replaced **Neon Flap**, a flappy-bird game; its old data is still in Firestore but closed (see Constraints).
+**a game**: a mobile web auto-battler (TFT-style) with original creatures. Buy creatures from a shop, place them on a hex board, and they fight on their own; a run is endless: it goes on until its 100 HP runs out, and after round 15 each rival surges 8% stronger (`surgePercent()`). There's also a daily challenge: the same run for everyone that day. React handles the screens, Phaser 3 the board and fight replays, and Firebase the free-plan backend (Auth, Firestore, Hosting). Setup and layout are in `README.md`. The game replaced **Neon Flap**, a flappy-bird game; its old data is still in Firestore but closed (see Constraints).
 
 ## Git and deploy
 
@@ -33,8 +33,8 @@ npm run test:rules  # Firestore rules tests (starts its own emulator; stop `npm 
 - **Opponents are ghosts:** each round you fight another player's saved board from the same round (`src/services/opponents.ts`), or a bot (`src/sim/ai.ts`) when there's none, the query fails, or the index isn't built yet. Bots play the real shop and economy, so their boards are always ones a player could have had.
 - **The daily challenge** is the same run for everyone that day: its seed is just the day, its id is `runs/{uid}_d{day}` (so a second one that day fails on its own, with no counter), and it files on `dailyRankings/{day}` instead of `rankings/{day}`. `mode` and `day` are optional on a run, so a client from before it keeps starting ordinary runs.
 - **Online runs:** a run is `runs/{uid}_{n}`, started in one batch with `players/{uid}.runsStarted`. Each round is queued in `runStore` (saved to localStorage) and written in order, at least 3 s apart as the rules require; the last round also files `rankings/{day}/entries/{uid}`. A write the rules refuse marks the run offline (it plays on, unranked); a network error leaves it queued to retry.
-- **Items** drop after rounds 2, 5, 8, 11 and 14, and a creature holds one. A board records them as two lists, `it` (item ids) and `ia` (which slot holds each), which is what lets loop-free rules check both the cap and one-per-creature.
-- **Rules check boards, not fights:** `isValidBoard()` in `firestore.rules` rejects boards no one could have afforded by that round. Its numbers (unit costs, XP table, gold budget, base damage, items) are copies of `src/sim`; `tests/unit/rulesSync.test.ts` fails if they drift. After changing costs or the economy, update both.
+- **Items** drop after round 2 and every third round after (5, 8, 11, …), and a creature holds one. A board records them as two lists, `it` (item ids) and `ia` (which slot holds each), which is what lets loop-free rules check both the cap and one-per-creature.
+- **Rules check boards, not fights:** `isValidBoard()` in `firestore.rules` rejects boards no one could have afforded by that round. Its numbers (unit costs, XP table, gold budget, base damage, items) are copies of `src/sim`, and since runs have no last round the per-round ones are formulas, not tables; `tests/unit/rulesSync.test.ts` fails if they drift. After changing costs or the economy, update both.
 
 ## Constraints
 

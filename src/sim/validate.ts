@@ -1,6 +1,6 @@
 import { getUnit, ITEMS, MAX_LEVEL, UNITS, type Star } from './balance';
 import type { Placed } from './combat';
-import { copies, maxGoldByRound, maxItemsByRound, xpGoldForLevel } from './economy';
+import { copies, maxGold, maxItems, xpGoldForLevel } from './economy';
 import { SIDE_CELLS } from './hex';
 
 // A board as it's stored online: the team a player fought a round with. Firestore rules
@@ -52,8 +52,6 @@ export function boardSpend(board: BoardSnapshot, round: number): number {
 }
 
 const UNIT_IDS = new Set(UNITS.map((unit) => unit.id));
-const MAX_GOLD = maxGoldByRound();
-const MAX_ITEMS = maxItemsByRound();
 const ITEM_IDS = new Set(ITEMS.map((item) => item.id));
 
 /**
@@ -69,11 +67,11 @@ export function isLegalBoard(board: BoardSnapshot, round: number): boolean {
   if (!c.every((cell) => Number.isInteger(cell) && cell >= 0 && cell < SIDE_CELLS)) return false;
   if (new Set(c).size !== c.length) return false;
   if (!s.every((star) => star === 1 || star === 2 || star === 3)) return false;
-  if (round < 1 || round >= MAX_GOLD.length || boardSpend(board, round) > MAX_GOLD[round]) return false;
+  if (!Number.isInteger(round) || round < 1 || boardSpend(board, round) > maxGold(round)) return false;
 
   const it = board.it ?? [];
   const ia = board.ia ?? [];
-  if (it.length !== ia.length || it.length > MAX_ITEMS[round]) return false;
+  if (it.length !== ia.length || it.length > maxItems(round)) return false;
   if (!it.every((id) => ITEM_IDS.has(id))) return false;
   if (!ia.every((slot) => Number.isInteger(slot) && slot >= 0 && slot < MAX_LEVEL)) return false;
   // One item per creature.

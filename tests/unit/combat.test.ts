@@ -56,6 +56,21 @@ describe('combat', () => {
     }
   });
 
+  it('leaves fights alone before the surge', () => {
+    expect(JSON.stringify(simulate(strong, even, 'surge', 100))).toBe(JSON.stringify(simulate(strong, even, 'surge')));
+  });
+
+  it("scales only the rival's health and damage in a surge", () => {
+    const plain = simulate(even, even, 'surge');
+    const surged = simulate(even, even, 'surge', 150);
+    for (const f of surged.fighters) {
+      const before = plain.fighters.find((p) => p.unitId === f.unitId && p.side === f.side)!;
+      expect(f.maxHp).toBe(f.side === 'b' ? Math.floor((before.maxHp * 150) / 100) : before.maxHp);
+    }
+    // A mirror match goes to the surged side.
+    for (let n = 0; n < 10; n++) expect(simulate(even, even, `mirror${n}`, 200).winner).toBe('b');
+  });
+
   it('breaks a stalemate between tanks with overtime', () => {
     // Without overtime, shields outpace damage here and the fight runs to the time limit.
     const result = simulate([{ unitId: 'chromeshell', star: 2, cell: 3 }], [{ unitId: 'chromeshell', star: 1, cell: 3 }], 'stalemate');

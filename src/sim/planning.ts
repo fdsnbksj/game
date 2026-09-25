@@ -1,6 +1,6 @@
-import { BENCH_SIZE, getUnit, ITEM_ROUNDS, MAX_LEVEL, MAX_ROUNDS, REROLL_COST, START_HP, XP_COST, XP_PER_BUY, XP_PER_ROUND, type Role, type Star } from './balance';
+import { BENCH_SIZE, getUnit, MAX_LEVEL, REROLL_COST, START_HP, XP_COST, XP_PER_BUY, XP_PER_ROUND, type Role, type Star } from './balance';
 import type { BattleResult, Placed } from './combat';
-import { copies, income, levelForXp, lossDamage, sellValue } from './economy';
+import { copies, dropsItem, income, levelForXp, lossDamage, sellValue } from './economy';
 import { SIDE_CELLS } from './hex';
 import { rollShop, type Taken } from './shop';
 import { stream } from './rng';
@@ -302,7 +302,8 @@ export function finishRound(run: RunState, result: BattleResult, opponent: strin
   const hp = Math.max(0, run.hp - damage);
   const history = [...run.history, { round: run.round, won, draw, damage, opponent }];
   const wins = run.wins + (won ? 1 : 0);
-  const done = hp <= 0 || run.round >= MAX_ROUNDS;
+  // There's no last round: a run goes on until its HP runs out.
+  const done = hp <= 0;
   const next: RunState = { ...run, hp, wins, history, bag: withDrop(run).bag, done };
   return done ? { ...next, wonLast: won } : nextRound(next, won);
 }
@@ -312,7 +313,7 @@ export function finishRound(run: RunState, result: BattleResult, opponent: strin
  * round. Rounds are played through finishRound(); bots use this directly.
  */
 export function withDrop(run: RunState): RunState {
-  if (!ITEM_ROUNDS.includes(run.round)) return run;
+  if (!dropsItem(run.round)) return run;
   const item = ITEMS[stream(`${run.seed}:item:${run.round}`)(ITEMS.length)].id;
   return { ...run, bag: [...run.bag, item] };
 }

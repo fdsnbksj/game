@@ -2,7 +2,7 @@ import { initializeApp } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { aiOpponent } from '../src/sim/ai';
 import { simulate, type Placed } from '../src/sim/combat';
-import { lossDamage } from '../src/sim/economy';
+import { lossDamage, surgePercent } from '../src/sim/economy';
 import { START_HP } from '../src/sim/balance';
 import { fromSnapshot, isLegalBoard, type BoardSnapshot } from '../src/sim/validate';
 
@@ -72,7 +72,7 @@ async function audit(runId: string, run: RunDoc): Promise<string[]> {
       unchecked += 1;
       continue;
     }
-    const result = simulate(fromSnapshot(board), opponent, `${seed}:fight${round}`);
+    const result = simulate(fromSnapshot(board), opponent, `${seed}:fight${round}`, surgePercent(round));
     if (result.winner === 'a') wins += 1;
     else hp = Math.max(0, hp - lossDamage(round, result.winner === 'draw' ? 0 : result.survivorStars));
   }

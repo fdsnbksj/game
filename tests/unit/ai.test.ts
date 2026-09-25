@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { getUnit, MAX_ROUNDS } from '../../src/sim/balance';
+import { getUnit } from '../../src/sim/balance';
 import { aiOpponent } from '../../src/sim/ai';
 import { simulate } from '../../src/sim/combat';
-import { maxGoldByRound, sellValue, xpGoldForLevel } from '../../src/sim/economy';
+import { maxGold, sellValue, surgePercent, xpGoldForLevel } from '../../src/sim/economy';
 import { autoFill, boardCount, boardUnits, finishRound, newRun, type RunState } from '../../src/sim/planning';
 import { fromSnapshot, isLegalBoard, toSnapshot } from '../../src/sim/validate';
+
+/** Well past round 15, where the old last round was. */
+const HORIZON = 25;
 
 describe('AI opponents', () => {
   it('builds the same board for the same seed and round', () => {
@@ -12,12 +15,11 @@ describe('AI opponents', () => {
   });
 
   it('only builds boards a player could afford', () => {
-    const max = maxGoldByRound();
     for (let n = 0; n < 10; n++) {
-      for (let round = 1; round <= MAX_ROUNDS; round++) {
+      for (let round = 1; round <= HORIZON; round++) {
         const { units } = aiOpponent(`seed${n}`, round);
         const value = units.reduce((sum, u) => sum + sellValue(getUnit(u.unitId).cost, u.star), 0);
-        expect(value + xpGoldForLevel(units.length, round)).toBeLessThanOrEqual(max[round]);
+        expect(value + xpGoldForLevel(units.length, round)).toBeLessThanOrEqual(maxGold(round));
         expect(new Set(units.map((u) => u.cell)).size).toBe(units.length);
       }
     }
@@ -30,7 +32,7 @@ describe('AI opponents', () => {
 });
 
 describe('a whole run', () => {
-  it('plays to the end with gold and board size always legal', () => {
+  it('plays until HP runs out, with gold and board size always legal', () => {
     let run: RunState = newRun('full');
     let rounds = 0;
     while (!run.done) {
@@ -41,11 +43,14 @@ describe('a whole run', () => {
       // Whatever a real run fields must pass the same check the rules make.
       expect(isLegalBoard(toSnapshot(boardUnits(planned), planned.level, 'ai'), planned.round)).toBe(true);
       const opponent = aiOpponent(`full:opp`, run.round);
-      const result = simulate(boardUnits(planned), opponent.units, `full:${run.round}`);
+      const result = simulate(boardUnits(planned), opponent.units, `full:${run.round}`, surgePercent(run.round));
       run = finishRound(planned, result, opponent.name);
       rounds += 1;
+      // The surge makes every run end; this only stops a broken one looping forever.
+      if (rounds > 100) break;
     }
-    expect(rounds).toBeLessThanOrEqual(MAX_ROUNDS);
+    expect(run.done).toBe(true);
+    expect(run.hp).toBe(0);
     expect(run.history).toHaveLength(rounds);
   });
 });
@@ -53,7 +58,7 @@ describe('a whole run', () => {
 describe('board legality', () => {
   it('accepts every board a bot fields', () => {
     for (let n = 0; n < 10; n++) {
-      for (let round = 1; round <= MAX_ROUNDS; round++) {
+      for (let round = 1; round <= HORIZON; round++) {
         const { units } = aiOpponent(`legal${n}`, round);
         const board = toSnapshot(units, Math.max(1, units.length), 'ai');
         expect(isLegalBoard(board, round)).toBe(true);

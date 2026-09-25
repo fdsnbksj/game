@@ -3,7 +3,6 @@
 
 export const BALANCE_VERSION = 3;
 
-export const MAX_ROUNDS = 15;
 export const START_HP = 100;
 export const MAX_LEVEL = 8;
 export const BENCH_SIZE = 9;
@@ -17,8 +16,13 @@ export const XP_PER_ROUND = 2;
 /** Total XP needed to reach each level; index = level. */
 export const LEVEL_XP = [0, 0, 2, 6, 12, 20, 32, 48, 68];
 
-/** A creature can hold one item; one drops after each of these rounds. */
-export const ITEM_ROUNDS = [2, 5, 8, 11, 14];
+/** A creature can hold one item; one drops every ITEM_EVERY rounds, starting after ITEM_OFFSET. */
+export const ITEM_EVERY = 3;
+export const ITEM_OFFSET = 2;
+
+/** Runs have no last round. After SURGE_FROM, each round's rival is SURGE_PERCENT% stronger than the last. */
+export const SURGE_FROM = 15;
+export const SURGE_PERCENT = 8;
 
 export const MAX_INTEREST = 5;
 export const WIN_BONUS = 1;

@@ -4,6 +4,7 @@ import { isRetryable, startOnlineRun, writeRound, type RoundWrite } from './serv
 import { aiOpponent } from './sim/ai';
 import type { Star } from './sim/balance';
 import { simulate, type BattleResult, type Placed } from './sim/combat';
+import { surgePercent } from './sim/economy';
 import { autoFill, boardUnits, dailySeed, finishRound, newRun, type RunMode, type RunState, type Slot } from './sim/planning';
 import { toSnapshot } from './sim/validate';
 import { dayId } from './shared/constants';
@@ -225,10 +226,10 @@ export const useRunStore = create<RunStore>()((set, get) => {
       if (!run || run.done || get().battle) return;
       const planned = autoFill(run);
       const useGhost = ghost && ghost.round === run.round;
-      // Without a ghost, a different bot every round, so a run isn't one opponent fifteen times.
+      // Without a ghost, a different bot every round, so a run isn't the same opponent over and over.
       const bot = useGhost ? null : aiOpponent(`${run.seed}:opp${run.round}`, run.round);
       const opponent: { name: string; units: Placed[] } = useGhost ? ghost : bot!;
-      const result = simulate(boardUnits(planned), opponent.units, `${run.seed}:fight${run.round}`);
+      const result = simulate(boardUnits(planned), opponent.units, `${run.seed}:fight${run.round}`, surgePercent(run.round));
       const next = finishRound(planned, result, opponent.name);
       save(RUN_KEY, next);
       set({

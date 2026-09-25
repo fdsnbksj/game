@@ -1,4 +1,4 @@
-import { getUnit, MAX_ROUNDS, TRAITS, type TraitId } from './balance';
+import { getUnit, TRAITS, type TraitId } from './balance';
 import type { Placed } from './combat';
 import { copies } from './economy';
 import { autoFill, boardUnits, buy, buyXp, equip, move, newRun, nextRound, ownedUnits, reroll, sell, unequip, withDrop, type RunState } from './planning';
@@ -20,7 +20,7 @@ export function aiOpponent(seed: string, round: number): AiOpponent {
   const rng = stream(`${seed}:ai`);
   const focus = FOCUSES[rng(FOCUSES.length)];
   let run = newRun(`${seed}:ai`);
-  for (let r = 1; r <= Math.min(round, MAX_ROUNDS); r++) {
+  for (let r = 1; r <= round; r++) {
     run = plan(run, focus);
     // Bots win every other round, for a middling economy.
     if (r < round) run = nextRound(withDrop(run), r % 2 === 0);
@@ -40,7 +40,7 @@ function plan(start: RunState, focus: TraitId): RunState {
   let run = start;
   const reserve = run.round >= 5 ? 10 : 0;
 
-  if (run.level < TARGET_LEVEL[run.round] && run.gold >= 4 + reserve) run = buyXp(run);
+  if (run.level < TARGET_LEVEL[Math.min(run.round, TARGET_LEVEL.length - 1)] && run.gold >= 4 + reserve) run = buyXp(run);
 
   for (let pass = 0; pass < 3; pass++) {
     const order = run.shop

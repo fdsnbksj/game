@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { LEVEL_XP, MAX_ROUNDS } from '../../src/sim/balance';
-import { baseIncome, income, interest, levelForXp, maxGoldByRound, sellValue, xpGoldForLevel } from '../../src/sim/economy';
+import { LEVEL_XP } from '../../src/sim/balance';
+import { baseIncome, dropsItem, income, interest, levelForXp, maxGold, maxItems, nextDropRound, sellValue, surgePercent, xpGoldForLevel } from '../../src/sim/economy';
 
 describe('economy', () => {
   it('ramps base income to 5', () => {
@@ -34,9 +34,31 @@ describe('economy', () => {
   });
 
   it('bounds gold by banking everything and winning every round', () => {
-    const max = maxGoldByRound();
-    expect(max).toHaveLength(MAX_ROUNDS + 1);
-    expect(max[1]).toBe(3);
-    for (let round = 2; round <= MAX_ROUNDS; round++) expect(max[round]).toBeGreaterThan(max[round - 1]);
+    // Brute force: bank every coin, win every round.
+    let bank = 0;
+    for (let round = 1; round <= 200; round++) {
+      bank += income(round, bank, round > 1);
+      expect(maxGold(round)).toBe(bank);
+    }
+    expect(maxGold(1)).toBe(3);
+    expect(maxGold(15)).toBe(133);
+  });
+
+  it('drops an item after rounds 2, 5, 8 and every third after', () => {
+    const drops = Array.from({ length: 30 }, (_, i) => i + 1).filter(dropsItem);
+    expect(drops).toEqual([2, 5, 8, 11, 14, 17, 20, 23, 26, 29]);
+    expect(nextDropRound(1)).toBe(2);
+    expect(nextDropRound(15)).toBe(17);
+    for (let round = 1; round <= 60; round++) {
+      expect(maxItems(round)).toBe(drops.concat([32, 35, 38, 41, 44, 47, 50, 53, 56, 59]).filter((d) => d < round).length);
+    }
+  });
+
+  it('surges the rival only after round 15, compounding', () => {
+    expect(surgePercent(1)).toBe(100);
+    expect(surgePercent(15)).toBe(100);
+    expect(surgePercent(16)).toBe(108);
+    expect(surgePercent(17)).toBe(116);
+    for (let round = 16; round <= 60; round++) expect(surgePercent(round)).toBeGreaterThan(surgePercent(round - 1));
   });
 });

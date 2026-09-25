@@ -112,14 +112,14 @@ type Effect =
   | { kind: 'poison'; dst: number; damage: number }
   | { kind: 'haste'; dst: number; percent: number };
 
-function buildSide(units: readonly Placed[], side: Side): Omit<Fighter, 'id'>[] {
+function buildSide(units: readonly Placed[], side: Side, percent: number): Omit<Fighter, 'id'>[] {
   const traits = activeTraits(units.map((unit) => unit.unitId));
   return units.map((unit) => {
     const def = getUnit(unit.unitId);
     const bonus = (id: typeof def.origin | typeof def.role) =>
       def.origin === id || def.role === id ? traitBonus(traits, id) : 0;
     const item = unit.item ? getItem(unit.item) : null;
-    const maxHp = Math.floor((def.hp * STAR_PERCENT[unit.star]) / 100) + bonus('bruiser') + (item?.hp ?? 0);
+    const maxHp = Math.floor(((Math.floor((def.hp * STAR_PERCENT[unit.star]) / 100) + bonus('bruiser') + (item?.hp ?? 0)) * percent) / 100);
     const attackSpeed = bonus('voltage') + (item?.attackSpeed ?? 0);
     return {
       side,
@@ -130,7 +130,7 @@ function buildSide(units: readonly Placed[], side: Side): Omit<Fighter, 'id'>[] 
       hp: maxHp,
       maxHp,
       armor: def.armor + bonus('chrome') + (item?.armor ?? 0),
-      damage: Math.floor((def.damage * STAR_PERCENT[unit.star]) / 100),
+      damage: Math.floor((Math.floor((def.damage * STAR_PERCENT[unit.star]) / 100) * percent) / 100),
       damageBonus: bonus('striker') + (item?.damage ?? 0),
       abilityBonus: bonus('prism'),
       manaRegen: bonus('support'),
@@ -162,10 +162,11 @@ function weakest(fighters: readonly Fighter[]): Fighter | undefined {
   return best;
 }
 
-export function simulate(a: readonly Placed[], b: readonly Placed[], seed: string): BattleResult {
+/** `rivalPercent` scales side b's health and damage: surgePercent() of the round, 100 before the surge. */
+export function simulate(a: readonly Placed[], b: readonly Placed[], seed: string, rivalPercent = 100): BattleResult {
   const rng: Rng = stream(`${seed}:battle`);
   // Ids follow the battle cell, so the order units act in depends only on the board.
-  const fighters: Fighter[] = [...buildSide(a, 'a'), ...buildSide(b, 'b')]
+  const fighters: Fighter[] = [...buildSide(a, 'a', 100), ...buildSide(b, 'b', rivalPercent)]
     .sort((x, y) => x.cell - y.cell)
     .map((fighter, id) => ({ ...fighter, id }));
   const occupant = new Array<number>(BATTLE_CELLS).fill(-1);

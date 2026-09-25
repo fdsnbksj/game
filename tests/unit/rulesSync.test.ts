@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { BALANCE_VERSION, ITEMS, LEVEL_XP, MAX_LEVEL, MAX_ROUNDS, START_HP, UNITS, XP_COST, XP_PER_BUY, XP_PER_ROUND } from '../../src/sim/balance';
-import { maxGoldByRound, maxItemsByRound, stageDamage, xpGoldForLevel } from '../../src/sim/economy';
+import { BALANCE_VERSION, ITEMS, LEVEL_XP, MAX_LEVEL, START_HP, UNITS, XP_COST, XP_PER_BUY, XP_PER_ROUND } from '../../src/sim/balance';
+import { maxGold, maxItems, stageDamage, xpGoldForLevel } from '../../src/sim/economy';
 import { SIDE_CELLS } from '../../src/sim/hex';
 
 // firestore.rules repeats some game numbers, because rules can't import code. If a balance
@@ -17,10 +17,23 @@ function returned(name: string): unknown {
   return JSON.parse(match[1].replace(/'/g, '"'));
 }
 
+/**
+ * A one-argument rules function of the round, run as JavaScript. Rules expressions that
+ * these use (ternaries, list indexing, arithmetic, math.floor) mean the same in both.
+ */
+function formula(name: string): (round: number) => number {
+  const match = rules.match(new RegExp(`function ${name}\\(round\\) \\{\\s*return ([\\s\\S]*?);\\s*\\}`));
+  if (!match) throw new Error(`firestore.rules has no function ${name}(round)`);
+  return new Function('round', `return ${match[1].replace(/math\.floor/g, 'Math.floor')};`) as (round: number) => number;
+}
+
+/** Runs have no last round; check far past any run anyone will play. */
+const HORIZON = 200;
+const ROUNDS = Array.from({ length: HORIZON }, (_, i) => i + 1);
+
 describe('firestore.rules matches src/sim', () => {
   it('has the same scalar settings', () => {
     expect(returned('balanceVersion')).toBe(BALANCE_VERSION);
-    expect(returned('maxRounds')).toBe(MAX_ROUNDS);
     expect(returned('startHp')).toBe(START_HP);
     expect(returned('maxLevel')).toBe(MAX_LEVEL);
   });
@@ -31,13 +44,13 @@ describe('firestore.rules matches src/sim', () => {
 
   it('has the same XP table, gold budget and base damage', () => {
     expect(returned('levelXp')).toEqual(LEVEL_XP);
-    expect(returned('maxGold')).toEqual(maxGoldByRound());
-    expect(returned('stageDamage')).toEqual([0, ...Array.from({ length: MAX_ROUNDS }, (_, i) => stageDamage(i + 1))]);
+    expect(ROUNDS.map(formula('maxGold'))).toEqual(ROUNDS.map(maxGold));
+    expect(ROUNDS.map(formula('stageDamage'))).toEqual(ROUNDS.map(stageDamage));
   });
 
   it('has the same items and item limits', () => {
     expect(returned('itemIds')).toEqual(ITEMS.map((item) => item.id));
-    expect(returned('maxItems')).toEqual(maxItemsByRound());
+    expect(ROUNDS.map(formula('maxItems'))).toEqual(ROUNDS.map(maxItems));
     expect(returned('itemSlots')).toEqual([...Array(MAX_LEVEL).keys()]);
   });
 
@@ -53,7 +66,7 @@ describe('firestore.rules matches src/sim', () => {
       return needed > 0 ? needed + ((4 - (needed % 4)) % 4) : 0;
     };
     for (let level = 1; level <= MAX_LEVEL; level++) {
-      for (let round = 1; round <= MAX_ROUNDS; round++) expect(rulesXpGold(level, round)).toBe(xpGoldForLevel(level, round));
+      for (const round of ROUNDS) expect(rulesXpGold(level, round)).toBe(xpGoldForLevel(level, round));
     }
   });
 
