@@ -21,6 +21,15 @@ export function Puzzle() {
   const registry = useMemo(() => ({ store: usePuzzleStore }), []);
   const { stage, tray, fightBar } = useDockInset(battle !== null);
 
+  // Clears still waiting to be written go now, and again when the connection comes back.
+  const sync = usePuzzleStore((s) => s.sync);
+  useEffect(() => {
+    void sync();
+    const retry = () => void sync();
+    window.addEventListener('online', retry);
+    return () => window.removeEventListener('online', retry);
+  }, [sync]);
+
   useEffect(() => {
     // Making a level can take a moment on a phone; let the screen paint first.
     const timer = window.setTimeout(open, 0);

@@ -8,12 +8,25 @@
         { "fieldPath": "rounds", "arrayConfig": "CONTAINS" },
         { "fieldPath": "rand", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "puzzles",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "v", "order": "ASCENDING" },
+        { "fieldPath": "level", "order": "DESCENDING" }
+      ]
     }
   ],
   "fieldOverrides": [
     {
       "collectionGroup": "runs",
       "fieldPath": "boards",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "puzzles",
+      "fieldPath": "solutions",
       "indexes": []
     }
   ]

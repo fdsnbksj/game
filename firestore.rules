@@ -136,6 +136,71 @@ service cloud.firestore {
         && itemsAreLegal(board, round);
     }
 
+    // ---------- Puzzles ----------
+    // The ladder is puzzles/{uid}_{ladder version}: the highest level cleared, and the
+    // layout that cleared each one. Levels are generated from the level number, and the
+    // rules can't generate one or run the fight, so they check that each solution is a
+    // well-formed board and that the ladder climbs one level at a time, no faster than
+    // fights can be played; `npm run audit` replays the solutions. puzzleVersion() is
+    // LADDER_VERSION in src/sim/puzzle.ts.
+
+    function puzzleVersion() { return 1004; }
+
+    // A layout that cleared a level. Mirrors toPuzzleBoard() in src/services/puzzles.ts.
+    function isPuzzleBoard(board) {
+      return board is map
+        && board.keys().hasAll(['u', 'c', 's'])
+        && board.keys().hasOnly(['u', 'c', 's', 'it', 'ia'])
+        && board.u is list && board.c is list && board.s is list
+        && board.u.size() >= 1 && board.u.size() <= maxLevel()
+        && board.c.size() == board.u.size() && board.s.size() == board.u.size()
+        && board.u.hasOnly(unitCosts().keys())
+        && board.c.hasOnly(ownCells())
+        && board.c.toSet().size() == board.c.size()
+        && board.s.hasOnly([1, 2, 3])
+        && board.get('it', []) is list && board.get('ia', []) is list
+        && board.get('it', []).size() == board.get('ia', []).size()
+        && board.get('it', []).size() <= board.u.size()
+        && board.get('it', []).hasOnly(itemIds())
+        && board.get('ia', []).hasOnly(itemSlots())
+        && board.get('ia', []).toSet().size() == board.get('ia', []).size();
+    }
+
+    function playerName(uid) {
+      return get(/databases/$(database)/documents/players/$(uid)).data.displayName;
+    }
+
+    // The ladder starts with its first clear.
+    function isNewLadder(ladderId) {
+      let ladder = request.resource.data;
+      return ladderId == request.auth.uid + '_' + string(puzzleVersion())
+        && hasExactly(ladder, ['uid', 'name', 'v', 'level', 'solutions', 'startedAt', 'lastAt'])
+        && ladder.uid == request.auth.uid
+        && ladder.name == playerName(request.auth.uid)
+        && ladder.v == puzzleVersion()
+        && ladder.level == 1
+        && ladder.solutions is map
+        && ladder.solutions.keys().hasOnly(['l1']) && ladder.solutions.keys().hasAll(['l1'])
+        && isPuzzleBoard(ladder.solutions.l1)
+        && ladder.startedAt == request.time
+        && ladder.lastAt == request.time;
+    }
+
+    // Each clear after that: exactly the next level, with its layout added and none touched.
+    function isNextPuzzle() {
+      let before = resource.data;
+      let after = request.resource.data;
+      let key = 'l' + string(before.level + 1);
+      let added = after.solutions.diff(before.solutions);
+      return after.diff(before).affectedKeys().hasOnly(['level', 'solutions', 'name', 'lastAt'])
+        && after.level == before.level + 1
+        && added.affectedKeys().hasOnly([key]) && added.addedKeys().hasAll([key])
+        && isPuzzleBoard(after.solutions[key])
+        && after.name == playerName(request.auth.uid)
+        && after.lastAt == request.time
+        && request.time > before.lastAt + duration.value(minSecondsBetweenRounds(), 's');
+    }
+
     // Starting a run: runsStarted counts up in the same batch that creates runs/{uid}_{n}.
     function isRunStart(uid) {
       let before = resource.data;
@@ -232,6 +297,13 @@ service cloud.firestore {
         && request.resource.data.createdAt == request.time
         && request.resource.data.lastRunStartAt == request.time;
       allow update: if isOwner(uid) && (isRename() || isRunStart(uid));
+    }
+
+    // Readable by everyone signed in, for the puzzle rankings.
+    match /puzzles/{ladderId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null && isNewLadder(ladderId);
+      allow update: if request.auth != null && request.auth.uid == resource.data.uid && isNextPuzzle();
     }
 
     // Readable by everyone signed in: other players' boards are the opponents.

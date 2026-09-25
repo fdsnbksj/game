@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { BALANCE_VERSION, ITEMS, LEVEL_XP, MAX_LEVEL, START_HP, UNITS, XP_COST, XP_PER_BUY, XP_PER_ROUND } from '../../src/sim/balance';
 import { maxGold, maxItems, stageDamage, xpGoldForLevel } from '../../src/sim/economy';
 import { SIDE_CELLS } from '../../src/sim/hex';
+import { LADDER_VERSION } from '../../src/sim/puzzle';
 
 // firestore.rules repeats some game numbers, because rules can't import code. If a balance
 // change updates src/sim but not the rules, honest players' rounds get rejected; this
@@ -34,6 +35,7 @@ const ROUNDS = Array.from({ length: HORIZON }, (_, i) => i + 1);
 describe('firestore.rules matches src/sim', () => {
   it('has the same scalar settings', () => {
     expect(returned('balanceVersion')).toBe(BALANCE_VERSION);
+    expect(returned('puzzleVersion')).toBe(LADDER_VERSION);
     expect(returned('startHp')).toBe(START_HP);
     expect(returned('maxLevel')).toBe(MAX_LEVEL);
   });

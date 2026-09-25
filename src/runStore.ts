@@ -91,7 +91,9 @@ function save(key: string, value: unknown) {
   }
 }
 
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+// Clamped: setTimeout reads its delay as a 32-bit integer, so a wait long past (a first
+// write, measured from 0) would wrap round to days instead of running at once.
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, Math.max(0, Math.min(ms, 60_000))));
 let syncing = false;
 
 export const useRunStore = create<RunStore>()((set, get) => {

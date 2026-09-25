@@ -9,7 +9,7 @@
     "typecheck": "tsc -b",
     "preview": "vite preview --host",
     "emulators": "firebase emulators:start --only auth,firestore --project demo-game --export-on-exit .emulator-data $([ -f .emulator-data/firebase-export-metadata.json ] && echo --import .emulator-data)",
-    "audit": "tsx scripts/auditRuns.ts",
+    "audit": "tsx scripts/audit.ts",
     "test": "npm run test:unit && npm run test:rules",
     "test:unit": "vitest run --project unit",
     "test:rules": "firebase emulators:exec --project demo-game --only firestore 'vitest run --project rules'",

@@ -1,6 +1,6 @@
 # a game
 
-An auto-battler for your phone. Buy creatures from the shop, drag them onto a hex board, and watch them fight. Three copies merge into a stronger ★★, creatures that share a trait power each other up, items drop as you go, and a run goes on until your 100 HP runs out, with rivals growing stronger every round after 15. Each round you fight another player's saved team from the same round, or a bot if there isn't one, and finished runs go on a daily ranking. There's also a daily challenge: the same run for everyone that day, on its own board.
+An auto-battler for your phone. Buy creatures from the shop, drag them onto a hex board, and watch them fight. Three copies merge into a stronger ★★, creatures that share a trait power each other up, items drop as you go, and a run goes on until your 100 HP runs out, with rivals growing stronger every round after 15. Each round you fight another player's saved team from the same round, or a bot if there isn't one, and finished runs go on a daily ranking. There's also a daily challenge: the same run for everyone that day, on its own board. And there are battle puzzles: a rival already placed and a hand of creatures to place against it, in endless levels that are the same for everyone, with a ranking by the highest level cleared.
 
 React handles the screens, Phaser 3 runs the board and fight replays, and Firebase (free Spark plan) provides auth, data and hosting. Creatures are drawn in code, so the only image assets are the app icons in `public/`. The game replaced Neon Flap, a flappy-bird game.
 
@@ -36,6 +36,8 @@ npm run build       # type-check + production build
 | `src/sim/` | The game as pure, deterministic TypeScript: units, traits, economy, shop, combat, AI |
 | `src/game/scenes/BattleScene.ts` | The board: drag and drop, and replaying fights from the sim's event log |
 | `src/runStore.ts` | The run in progress, saved to localStorage |
+| `src/sim/puzzle.ts`, `src/puzzleStore.ts` | Battle puzzles: the level generator, and the puzzle in progress |
+| `src/boardStore.ts` | What the board needs from a mode, so runs and puzzles share the board and its parts |
 | `src/screens/` | React screens: Home, Run, How to play, Profile |
 | `src/shared/creatureArt.ts` | Every creature as layered path art, baked for Phaser and drawn as SVG |
 | `src/services/` | Firestore reads and writes: players, runs, ghost opponents, rankings |
@@ -65,5 +67,6 @@ Clients write to Firestore directly, so `firestore.rules` is the only check. It 
 - rounds are written one at a time, in order, a few seconds apart, and old rounds can't be changed
 - a round's result stays within what a fight can do: a win costs no health, a loss costs at least the round's base damage and no more than a full board could deal
 - a ranking must be written with the run's last round, match the run, beat the player's best that day, be for today, and go on the board for its kind of run
+- the puzzle ladder climbs one level per write, a few seconds apart, each with a well-formed board that cleared it, and earlier ones can't be changed
 
-A scripted client can still submit the strongest legal board every round, or claim wins it didn't earn. Combat is deterministic and every board records its opponent, so `npm run audit` replays saved runs and reports any whose wins or health don't add up. On the Blaze plan, a Cloud Function should replay each fight and the rules should leave run and ranking writes to it.
+A scripted client can still submit the strongest legal board every round, or claim wins it didn't earn. Combat is deterministic and every board records its opponent, so `npm run audit` replays saved runs and reports any whose wins or health don't add up. It then makes each puzzle level again from its number and replays every saved solution, reporting ladders that used creatures the level doesn't hand out or solutions that don't win. On the Blaze plan, a Cloud Function should replay each fight and the rules should leave run and ranking writes to it.
