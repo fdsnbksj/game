@@ -210,6 +210,21 @@ class UnitView extends Phaser.GameObjects.Container {
   /** The hit area for dragging: the body above the feet (see setSize). */
   static readonly HIT = new Phaser.Geom.Rectangle(0, -UNIT_SIZE / 2 - 3, UNIT_SIZE, UNIT_SIZE + 6);
 
+  /**
+   * Whether a press lands on the creature as it's drawn now. A fixed box would be too big
+   * for creatures up the table, which are drawn smaller, and reach over the one behind:
+   * a press on that one would pick up the nearer one instead. Local coordinates put the
+   * box's middle at x = UNIT_SIZE / 2 and the feet at y = (UNIT_SIZE + 6) / 2.
+   */
+  static hitTest(_area: Phaser.Geom.Rectangle, x: number, y: number, view: UnitView): boolean {
+    const scale = view.depth3d;
+    const feet = (UNIT_SIZE + 6) / 2;
+    const halfWidth = (UNIT_SIZE * scale) / 2;
+    // The creature's own height, and a little over its head for the nameplate.
+    const height = Math.max(view.headHeight, UNIT_SIZE * 0.5 * scale) + 6;
+    return Math.abs(x - UNIT_SIZE / 2) <= halfWidth && y <= feet + 3 && y >= feet - height;
+  }
+
   /** How high the top of the head is above the feet, as drawn now. */
   get headHeight() {
     return this.stand * this.depth3d * this.scaleY;
@@ -789,7 +804,7 @@ export class BattleScene extends Phaser.Scene {
       const { x, y } = cellPoint(toBattleCell(unit.cell, 'b'));
       const view = new UnitView(this, x, y, unit.unitId, unit.star, this.palette, this.plates, unit.item, 'b');
       view.setData('rival', unit);
-      view.setInteractive({ hitArea: UnitView.HIT, hitAreaCallback: Phaser.Geom.Rectangle.Contains });
+      view.setInteractive({ hitArea: UnitView.HIT, hitAreaCallback: UnitView.hitTest });
       view.on('pointerdown', () => this.holdFor(view));
       view.on('pointerup', () => {
         this.letGo();
@@ -813,7 +828,7 @@ export class BattleScene extends Phaser.Scene {
       let view = this.views.get(unit.uid);
       if (!view) {
         view = new UnitView(this, target.x, target.y, unit.unitId, unit.star, this.palette, this.plates, unit.item);
-        view.setInteractive({ hitArea: UnitView.HIT, hitAreaCallback: Phaser.Geom.Rectangle.Contains, draggable: true, useHandCursor: true });
+        view.setInteractive({ hitArea: UnitView.HIT, hitAreaCallback: UnitView.hitTest, draggable: true, useHandCursor: true });
         const held = view;
         view.on('pointerdown', () => this.holdFor(held));
         view.on('pointerup', (pointer: Phaser.Input.Pointer) => {
