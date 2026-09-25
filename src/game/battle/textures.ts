@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { CREATURE_ART, CREATURE_SIZE, GLOSS, INK, OUTLINE, glossEllipse, shadeEllipse } from '../../shared/creatureArt';
+import { CREATURE_ART, CREATURE_SIZE, INK, OUTLINE } from '../../shared/creatureArt';
 import { ITEM_GLYPHS, itemColors } from '../../shared/itemGlyphs';
 import { ITEMS } from '../../sim/balance';
 
@@ -27,13 +27,6 @@ export function ensureCreatureTextures(scene: Phaser.Scene) {
         ctx.fillStyle = part.fill;
         ctx.fill(path);
       }
-      if (part.shade || part.gloss) {
-        ctx.save();
-        ctx.clip(path);
-        if (part.shade) fillEllipse(ctx, shadeEllipse(part.box), part.shade);
-        if (part.gloss) fillEllipse(ctx, glossEllipse(part.box), GLOSS);
-        ctx.restore();
-      }
       if (part.line) {
         ctx.strokeStyle = part.line.color;
         ctx.lineWidth = part.line.width;
@@ -47,13 +40,6 @@ export function ensureCreatureTextures(scene: Phaser.Scene) {
     }
     texture.refresh();
   }
-}
-
-function fillEllipse(ctx: CanvasRenderingContext2D, e: { cx: number; cy: number; rx: number; ry: number }, color: string) {
-  ctx.fillStyle = color;
-  ctx.beginPath();
-  ctx.ellipse(e.cx, e.cy, e.rx, e.ry, 0, 0, Math.PI * 2);
-  ctx.fill();
 }
 
 /** Display scale that makes a creature texture `size` world pixels wide. */
