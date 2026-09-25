@@ -611,6 +611,8 @@ export class BattleScene extends Phaser.Scene {
       const store = useRunStore.getState();
       store.select(null);
       const slot = view.getData('slot') as Slot;
+      const dragged = store.run ? (slot.area === 'board' ? store.run.board : store.run.bench)[slot.index] : null;
+      const def = dragged ? getUnit(dragged.unitId) : null;
       useRunStore.setState({ unitDrag: { slot, overSell: false, outside: null } });
 
       const rect = this.game.canvas.getBoundingClientRect();
@@ -622,7 +624,10 @@ export class BattleScene extends Phaser.Scene {
         const { point, inside } = this.clientToWorld(last.x, last.y);
         view.setPosition(point.x, point.y).setVisible(inside);
         const to = inside ? this.dropSlot(point.x, point.y) : null;
-        this.drawHighlight(to, to !== null && !this.canMove(slot, to));
+        const refused = to !== null && !this.canMove(slot, to);
+        // Over a hex it could stand on, show what it would reach from there.
+        if (def && to?.area === 'board' && !refused) this.drawRange(toBattleCell(to.index, 'a'), def.range, def.cost);
+        else this.drawHighlight(to, refused);
         const overSell = isOverSellZone(last.x, last.y);
         const current = useRunStore.getState().unitDrag;
         // The finger's position only matters to React once the canvas can't draw the unit.
@@ -703,7 +708,7 @@ export class BattleScene extends Phaser.Scene {
     });
   }
 
-  /** Every tile a creature standing on `from` can hit, rival's half included, until the peek closes. */
+  /** Every tile a creature standing on `from` can hit, rival's half included: while it's peeked at, or dragged over `from`. */
   private drawRange(from: number, range: number, cost: number) {
     const p = this.palette;
     this.highlight.clear().fillStyle(p.mine, 0.24).lineStyle(1.5, p.mine, 0.9);

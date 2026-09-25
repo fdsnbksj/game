@@ -97,6 +97,10 @@ export type Star = 1 | 2 | 3;
 export type Origin = 'voltage' | 'glitch' | 'chrome' | 'toxin' | 'prism';
 export type Role = 'bruiser' | 'striker' | 'caster' | 'support';
 export type TraitId = Origin | Role;
+/** How a creature fights, shown on its card. Display only: combat never reads it. */
+export type Kind = 'fighter' | 'mage' | 'tank' | 'marksman';
+
+export const KIND_NAMES: Record<Kind, string> = { fighter: 'Fighter', mage: 'Mage', tank: 'Tank', marksman: 'Marksman' };
 
 export interface Ability {
   name: string;
@@ -125,6 +129,7 @@ export interface UnitDef {
   cost: Cost;
   origin: Origin;
   role: Role;
+  kind: Kind;
   hp: number;
   damage: number;
   /** Ticks between attacks. */
@@ -139,102 +144,102 @@ export interface UnitDef {
 
 export const UNITS: readonly UnitDef[] = [
   {
-    id: 'sparkmouse', name: 'Such Wow', cost: 1, origin: 'voltage', role: 'striker',
+    id: 'sparkmouse', name: 'Such Wow', cost: 1, origin: 'voltage', role: 'striker', kind: 'fighter',
     hp: 500, damage: 50, attackTicks: 18, range: 1, armor: 20, maxMana: 60, startMana: 0,
     ability: { name: 'Such Zap', description: 'Shocks its target.', target: 'enemy', radius: 0, damage: [220, 330, 500] },
   },
   {
-    id: 'chromeshell', name: 'Deal With It', cost: 1, origin: 'chrome', role: 'bruiser',
+    id: 'chromeshell', name: 'Deal With It', cost: 1, origin: 'chrome', role: 'bruiser', kind: 'tank',
     hp: 650, damage: 40, attackTicks: 22, range: 1, armor: 40, maxMana: 70, startMana: 20,
     ability: { name: 'Deal With It', description: 'Shields itself.', target: 'self', radius: 0, shield: [250, 375, 560] },
   },
   {
-    id: 'glitchtoad', name: 'Feels', cost: 1, origin: 'glitch', role: 'caster',
+    id: 'glitchtoad', name: 'Feels', cost: 1, origin: 'glitch', role: 'caster', kind: 'mage',
     hp: 450, damage: 40, attackTicks: 20, range: 3, armor: 15, maxMana: 60, startMana: 20,
     ability: { name: 'Feels Bad', description: 'Hits its target and the hexes around it.', target: 'enemy', radius: 1, damage: [150, 225, 340] },
   },
   {
-    id: 'voltmoth', name: 'Scream', cost: 1, origin: 'voltage', role: 'caster',
+    id: 'voltmoth', name: 'Scream', cost: 1, origin: 'voltage', role: 'caster', kind: 'marksman',
     hp: 430, damage: 45, attackTicks: 18, range: 3, armor: 15, maxMana: 50, startMana: 0,
     ability: { name: 'Scream', description: 'Strikes its target from range.', target: 'enemy', radius: 0, damage: [200, 300, 450] },
   },
   {
-    id: 'bytebat', name: 'Bombardiro', cost: 2, origin: 'glitch', role: 'striker',
+    id: 'bytebat', name: 'Bombardiro', cost: 2, origin: 'glitch', role: 'striker', kind: 'fighter',
     hp: 600, damage: 60, attackTicks: 16, range: 1, armor: 25, maxMana: 70, startMana: 10,
     ability: { name: 'Chomp', description: 'A heavy bite on its target.', target: 'enemy', radius: 0, damage: [300, 450, 680] },
   },
   {
-    id: 'ironhog', name: 'Tung Tung', cost: 2, origin: 'chrome', role: 'bruiser',
+    id: 'ironhog', name: 'Tung Tung', cost: 2, origin: 'chrome', role: 'bruiser', kind: 'tank',
     hp: 800, damage: 50, attackTicks: 22, range: 1, armor: 45, maxMana: 80, startMana: 30,
     ability: { name: 'TUNG', description: 'Damages and stuns its target.', target: 'enemy', radius: 0, damage: [150, 225, 340], stunTicks: 30 },
   },
   {
-    id: 'surgeeel', name: 'Tralalero', cost: 2, origin: 'voltage', role: 'bruiser',
+    id: 'surgeeel', name: 'Tralalero', cost: 2, origin: 'voltage', role: 'bruiser', kind: 'tank',
     hp: 750, damage: 50, attackTicks: 20, range: 1, armor: 35, maxMana: 80, startMana: 20,
     ability: { name: 'Tralala', description: 'Shocks every adjacent enemy.', target: 'self', radius: 1, damage: [180, 270, 400] },
   },
   {
-    id: 'mirrorowl', name: 'O RLY', cost: 2, origin: 'chrome', role: 'caster',
+    id: 'mirrorowl', name: 'O RLY', cost: 2, origin: 'chrome', role: 'caster', kind: 'mage',
     hp: 550, damage: 40, attackTicks: 20, range: 3, armor: 25, maxMana: 70, startMana: 30,
     ability: { name: 'YA RLY', description: 'Heals the most hurt ally.', target: 'weakestAlly', radius: 0, heal: [300, 450, 680] },
   },
   {
-    id: 'staticfox', name: 'Bananini', cost: 3, origin: 'glitch', role: 'striker',
+    id: 'staticfox', name: 'Bananini', cost: 3, origin: 'glitch', role: 'striker', kind: 'fighter',
     hp: 700, damage: 75, attackTicks: 16, range: 1, armor: 30, maxMana: 70, startMana: 0,
     ability: { name: 'Banana Slip', description: 'Damages and briefly stuns its target.', target: 'enemy', radius: 0, damage: [450, 675, 1010], stunTicks: 15 },
   },
   {
-    id: 'chromemantis', name: 'Cappuccina', cost: 3, origin: 'chrome', role: 'striker',
+    id: 'chromemantis', name: 'Cappuccina', cost: 3, origin: 'chrome', role: 'striker', kind: 'fighter',
     hp: 750, damage: 80, attackTicks: 18, range: 1, armor: 40, maxMana: 80, startMana: 20,
     ability: { name: 'Pirouette', description: 'Cuts its target and the hexes around it.', target: 'enemy', radius: 1, damage: [300, 450, 680] },
   },
   {
-    id: 'thunderstag', name: 'Stonks', cost: 4, origin: 'voltage', role: 'bruiser',
+    id: 'thunderstag', name: 'Stonks', cost: 4, origin: 'voltage', role: 'bruiser', kind: 'tank',
     hp: 1100, damage: 75, attackTicks: 20, range: 1, armor: 50, maxMana: 100, startMana: 40,
     ability: { name: 'Line Goes Up', description: 'Damages and stuns enemies within two hexes.', target: 'self', radius: 2, damage: [300, 450, 680], stunTicks: 20 },
   },
   {
-    id: 'nullserpent', name: 'Saturnita', cost: 5, origin: 'glitch', role: 'caster',
+    id: 'nullserpent', name: 'Saturnita', cost: 5, origin: 'glitch', role: 'caster', kind: 'mage',
     hp: 900, damage: 70, attackTicks: 20, range: 4, armor: 30, maxMana: 100, startMana: 40,
     ability: { name: 'Ring Toss', description: 'Blasts its target and everything within two hexes.', target: 'enemy', radius: 2, damage: [500, 750, 1100] },
   },
   {
-    id: 'sporecat', name: 'Capy', cost: 1, origin: 'toxin', role: 'support',
+    id: 'sporecat', name: 'Capy', cost: 1, origin: 'toxin', role: 'support', kind: 'marksman',
     hp: 520, damage: 40, attackTicks: 20, range: 2, armor: 20, maxMana: 60, startMana: 10,
     ability: { name: 'Pull Up', description: 'Heals the most hurt ally.', target: 'weakestAlly', radius: 0, heal: [230, 345, 520] },
   },
   {
-    id: 'prismfly', name: 'Snail', cost: 1, origin: 'prism', role: 'support',
+    id: 'prismfly', name: 'Snail', cost: 1, origin: 'prism', role: 'support', kind: 'marksman',
     hp: 460, damage: 40, attackTicks: 19, range: 3, armor: 15, maxMana: 60, startMana: 20,
     ability: { name: 'Holy Shell', description: 'Shields the most hurt ally.', target: 'weakestAlly', radius: 0, shield: [210, 315, 475] },
   },
   {
-    id: 'acidfrog', name: 'Crab Rave', cost: 2, origin: 'toxin', role: 'striker',
+    id: 'acidfrog', name: 'Crab Rave', cost: 2, origin: 'toxin', role: 'striker', kind: 'fighter',
     hp: 620, damage: 55, attackTicks: 17, range: 1, armor: 25, maxMana: 70, startMana: 10,
     ability: { name: 'Rave', description: 'Damages its target and poisons it.', target: 'enemy', radius: 0, damage: [200, 300, 450], poison: [40, 60, 90] },
   },
   {
-    id: 'lumihare', name: 'Doot', cost: 2, origin: 'prism', role: 'support',
+    id: 'lumihare', name: 'Doot', cost: 2, origin: 'prism', role: 'support', kind: 'marksman',
     hp: 560, damage: 45, attackTicks: 18, range: 2, armor: 25, maxMana: 60, startMana: 20,
     ability: { name: 'Doot Doot', description: 'Speeds up nearby allies.', target: 'allies', radius: 2, haste: [30, 45, 70] },
   },
   {
-    id: 'blightmoth', name: 'Lamp', cost: 3, origin: 'toxin', role: 'caster',
+    id: 'blightmoth', name: 'Lamp', cost: 3, origin: 'toxin', role: 'caster', kind: 'mage',
     hp: 640, damage: 55, attackTicks: 19, range: 3, armor: 25, maxMana: 80, startMana: 20,
     ability: { name: 'Lamp Glow', description: 'Poisons its target and everything around it.', target: 'enemy', radius: 1, damage: [180, 270, 400], poison: [55, 80, 120] },
   },
   {
-    id: 'beamray', name: 'Um Actually', cost: 3, origin: 'prism', role: 'support',
+    id: 'beamray', name: 'Um Actually', cost: 3, origin: 'prism', role: 'support', kind: 'mage',
     hp: 700, damage: 50, attackTicks: 19, range: 3, armor: 30, maxMana: 80, startMana: 20,
     ability: { name: 'Well, Actually', description: 'Heals every nearby ally.', target: 'allies', radius: 2, heal: [190, 285, 430] },
   },
   {
-    id: 'sludgebear', name: 'Patapim', cost: 4, origin: 'toxin', role: 'bruiser',
+    id: 'sludgebear', name: 'Patapim', cost: 4, origin: 'toxin', role: 'bruiser', kind: 'tank',
     hp: 1150, damage: 70, attackTicks: 21, range: 1, armor: 50, maxMana: 90, startMana: 30,
     ability: { name: 'Brr Brr', description: 'Poisons and damages enemies within two hexes.', target: 'self', radius: 2, damage: [220, 330, 500], poison: [60, 90, 135] },
   },
   {
-    id: 'solaris', name: 'Galaxy Brain', cost: 5, origin: 'prism', role: 'support',
+    id: 'solaris', name: 'Galaxy Brain', cost: 5, origin: 'prism', role: 'support', kind: 'mage',
     hp: 950, damage: 65, attackTicks: 19, range: 3, armor: 35, maxMana: 100, startMana: 40,
     ability: { name: 'Big Brain Time', description: 'Shields and speeds up every nearby ally.', target: 'allies', radius: 2, shield: [280, 420, 630], haste: [35, 50, 75] },
   },

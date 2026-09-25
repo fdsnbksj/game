@@ -1451,26 +1451,15 @@ a {
   gap: 6px;
 }
 
-.bubble-range {
-  grid-row: span 1;
+.bubble-kind {
   display: flex;
   flex-direction: column;
   align-items: center;
 }
 
-.range-hex polygon {
-  fill: none;
-  stroke: var(--separator);
-  stroke-width: 0.6;
-}
-
-.range-hex polygon.hit {
-  fill: color-mix(in srgb, var(--team-mine) 40%, transparent);
-  stroke: var(--team-mine);
-}
-
-.range-hex polygon.self {
-  stroke: var(--art-ink);
+.bubble-kind dd {
+  display: flex;
+  color: var(--label);
 }
 
 .bubble-amount {
