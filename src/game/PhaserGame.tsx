@@ -52,6 +52,15 @@ export function PhaserGame({ scenes, responsive = false, width = 100, height = 1
         : { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
       scene: scenes,
     });
+    // Phaser claims a pointer for every touch on the page, not only the canvas. A touch that
+    // starts on something React then removes (an item dragged out of the bag) ends on a
+    // detached node, its touchend never reaches the window, and the pointer stays taken, so
+    // the board stops hearing touches. Touches that start on the canvas are all it needs,
+    // and those end on the canvas's own listener.
+    game.events.once(Phaser.Core.Events.READY, () => {
+      const touch = game.input.touch;
+      if (touch) (touch.isTop ? window.top ?? window : window).removeEventListener('touchstart', touch.onTouchStartWindow as EventListener);
+    });
     // Scenes boot asynchronously, so values set here are ready by the time create() runs.
     applyRegistry(game, registryRef.current);
     gameRef.current = game;
