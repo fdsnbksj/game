@@ -1,11 +1,11 @@
 import { create } from 'zustand';
+import type { Battle, BoardState, Peek, ReplaySpeed, TeamHp, UnitDrag } from './boardStore';
 import { findGhost, type Ghost } from './services/opponents';
 import { isRetryable, startOnlineRun, writeRound, type RoundWrite } from './services/runs';
 import { aiOpponent } from './sim/ai';
-import type { Star } from './sim/balance';
-import { simulate, type BattleResult, type Placed } from './sim/combat';
+import { simulate, type Placed } from './sim/combat';
 import { surgePercent } from './sim/economy';
-import { autoFill, boardUnits, dailySeed, finishRound, newRun, type RunMode, type RunState, type Slot } from './sim/planning';
+import { autoFill, boardUnits, dailySeed, finishRound, newRun, type RunMode, type RunState } from './sim/planning';
 import { toSnapshot } from './sim/validate';
 import { dayId } from './shared/constants';
 import { useGameStore } from './store';
@@ -37,38 +37,6 @@ export interface LocalStats {
   lastRunWasBest?: boolean;
 }
 
-export interface Battle {
-  result: BattleResult;
-  opponent: string;
-  /** A real player's saved team, or a bot. */
-  opponentKind: 'ghost' | 'bot';
-  round: number;
-  /** The run as it was when the fight started, for the replay's HUD. */
-  before: RunState;
-  /** The last unit has fallen and the replay is only pausing on the final frame. */
-  over?: boolean;
-}
-
-/** Health each side has left during a replay, for the versus header. */
-export interface TeamHp {
-  a: number;
-  b: number;
-  maxA: number;
-  maxB: number;
-  /** Units still standing on each side. */
-  aliveA: number;
-  aliveB: number;
-}
-
-/** A unit being dragged on the board, so the shop can turn into a sell zone. */
-export interface UnitDrag {
-  slot: Slot;
-  /** Over the shop: letting go sells it. */
-  overSell: boolean;
-  /** Where the finger is, once it has left the canvas and the scene can't draw the unit. */
-  outside: { x: number; y: number } | null;
-}
-
 export interface OnlineRun {
   runId: string;
   /** The day a daily challenge belongs to; '' for an ordinary run. */
@@ -87,48 +55,20 @@ export interface OnlineRun {
   lastWriteAt: number;
 }
 
-export type ReplaySpeed = 1 | 2;
+export type { Battle, Peek, ReplaySpeed, TeamHp, UnitDrag };
 
-export interface Peek {
-  unitId: string;
-  star: Star;
-  /** Where the creature is, in client pixels; the bubble sits above it. */
-  x: number;
-  y: number;
-}
-
-interface RunStore {
-  run: RunState | null;
+interface RunStore extends BoardState {
   online: OnlineRun | null;
   /** The opponent fetched for the current round, if one was found. */
   ghost: (Ghost & { round: number }) | null;
-  battle: Battle | null;
-  speed: ReplaySpeed;
-  selected: Slot | null;
-  /** The creature an item is being dragged over. */
-  itemTarget: Slot | null;
-  unitDrag: UnitDrag | null;
-  teamHp: TeamHp | null;
-  /** A creature held down for a look: its essentials show in a bubble at this screen point. */
-  peek: Peek | null;
-  /** A short message for the player, e.g. why a move didn't happen. */
-  notice: { text: string; id: number } | null;
   stats: LocalStats;
   startRun: (mode?: RunMode) => void;
   /** Whether today's daily challenge has been played on this device. */
   dailyDone: (day: string) => boolean;
-  /** Applies a planning change; shows `failure` if it changed nothing. */
-  act: (change: (run: RunState) => RunState, failure?: string) => boolean;
-  select: (slot: Slot | null) => void;
   /** Looks for a real player's board to fight this round. */
   prepareOpponent: () => Promise<void>;
   fight: () => void;
-  setSpeed: (speed: ReplaySpeed) => void;
-  endReplay: () => void;
-  /** The replay reached the end of the fight; the result can show. */
-  finishReplay: () => void;
   leaveRun: () => void;
-  notify: (text: string) => void;
   /** Writes whatever is waiting. Safe to call any time; runs one write at a time. */
   sync: () => Promise<void>;
 }

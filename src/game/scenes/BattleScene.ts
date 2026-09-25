@@ -1,8 +1,9 @@
 import Phaser from 'phaser';
-import { useRunStore, type Battle } from '../../runStore';
+import type { Battle, BoardStore } from '../../boardStore';
+import { useRunStore } from '../../runStore';
 import { DISPLAY_FONT, readBoardPalette, type BoardPalette } from '../../shared/theme';
 import { BENCH_SIZE, getUnit, MOVE_TICKS, OVERTIME_TICK, TICKS_PER_SECOND, type Star } from '../../sim/balance';
-import type { BattleEvent, FighterInfo } from '../../sim/combat';
+import type { BattleEvent, FighterInfo, Placed } from '../../sim/combat';
 import { COLS, distance, ROWS, SIDE_CELLS, toBattleCell } from '../../sim/hex';
 import { move, sell, type OwnedUnit, type Slot } from '../../sim/planning';
 import { sfx, vibrate } from '../audio';
@@ -361,6 +362,8 @@ interface Replay {
  */
 export class BattleScene extends Phaser.Scene {
   private views = new Map<number, UnitView>();
+  /** A puzzle's rival, standing on its half while the player plans. */
+  private previews: UnitView[] = [];
   private fighters: FighterView[] = [];
   private replay: Replay | null = null;
   private highlight!: Phaser.GameObjects.Graphics;
@@ -391,6 +394,8 @@ export class BattleScene extends Phaser.Scene {
    * it's still false during create(), where the first sync has to run.
    */
   private alive = false;
+  /** The mode using the board: a run unless the screen hands it another through the registry. */
+  private store: BoardStore = useRunStore;
 
   constructor() {
     super('battle');
@@ -398,6 +403,7 @@ export class BattleScene extends Phaser.Scene {
 
   create() {
     this.alive = true;
+    this.store = (this.registry.get('store') as BoardStore | undefined) ?? useRunStore;
     this.textResolution = Math.max(1, Math.round(1 / (this.scale.zoom || 1)));
     this.palette = readBoardPalette();
     this.board = this.add.graphics().setDepth(0);
@@ -415,11 +421,11 @@ export class BattleScene extends Phaser.Scene {
     this.setUpDragging();
 
     this.input.on('pointerdown', (_pointer: Phaser.Input.Pointer, over: Phaser.GameObjects.GameObject[]) => {
-      if (over.length === 0) useRunStore.getState().select(null);
+      if (over.length === 0) this.store.getState().select(null);
     });
     this.input.on('pointerup', () => this.letGo());
 
-    const unsubscribe = useRunStore.subscribe((state, previous) => {
+    const unsubscribe = this.store.subscribe((state, previous) => {
       // Compared by result: marking a fight over makes a new battle object for the same fight.
       const battleChanged = state.battle?.result !== previous.battle?.result;
       if (battleChanged) {
@@ -429,6 +435,10 @@ export class BattleScene extends Phaser.Scene {
       // Ending a replay changes only the battle, but the planning units have to reappear.
       // The peek closing takes its range off the board.
       const peekClosed = previous.peek !== null && state.peek === null;
+      if (state.rivalPreview !== previous.rivalPreview) {
+        this.syncPreview();
+        if (!state.battle) this.showView('planning', false);
+      }
       if (battleChanged || peekClosed || state.run !== previous.run || state.selected !== previous.selected || state.itemTarget !== previous.itemTarget) {
         this.syncPlanning();
       }
@@ -456,7 +466,8 @@ export class BattleScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, stop);
     this.events.once(Phaser.Scenes.Events.DESTROY, stop);
 
-    const { battle } = useRunStore.getState();
+    const { battle } = this.store.getState();
+    this.syncPreview();
     if (battle) this.startReplay(battle);
     this.syncPlanning();
   }
@@ -476,7 +487,8 @@ export class BattleScene extends Phaser.Scene {
   private showView(view: 'planning' | 'fight', animate: boolean) {
     if (!this.alive) return;
     this.view = view;
-    const rect = view === 'planning' ? planningRect() : fightRect();
+    // With a rival to study, planning shows the whole table as well as the bench.
+    const rect = view === 'planning' ? (this.store.getState().rivalPreview ? contentRect() : planningRect()) : fightRect();
     const camera = this.cameras.main;
     const inset = Math.min(camera.height * 0.8, getBottomInset() / (this.scale.zoom || 1));
     const available = camera.height - inset;
@@ -563,6 +575,7 @@ export class BattleScene extends Phaser.Scene {
     this.palette = readBoardPalette();
     this.drawBoard();
     for (const view of this.views.values()) view.applyPalette(this.palette);
+    for (const view of this.previews) view.applyPalette(this.palette);
     for (const fighter of this.fighters) {
       fighter.applyPalette(this.palette);
       fighter.drawBars();
@@ -585,7 +598,7 @@ export class BattleScene extends Phaser.Scene {
 
   /** Which of the player's creatures is under a point on the screen; for dropping items. */
   private unitSlotAtClient(clientX: number, clientY: number): Slot | null {
-    const { run, battle } = useRunStore.getState();
+    const { run, battle } = this.store.getState();
     if (!this.alive || !run || battle) return null;
     const { point, inside } = this.clientToWorld(clientX, clientY);
     if (!inside) return null;
@@ -602,18 +615,18 @@ export class BattleScene extends Phaser.Scene {
     this.input.on('dragstart', (pointer: Phaser.Input.Pointer, view: UnitView) => {
       this.letGo();
       this.peeked = false;
-      useRunStore.setState({ peek: null });
+      this.store.setState({ peek: null });
       this.dragging = view;
       // A pop-in, slide or item bump still running would keep pulling the unit back.
       this.tweens.killTweensOf(view);
       view.setDepth(30).setScale(1.15).setAlpha(1);
       sfx.pickUp();
-      const store = useRunStore.getState();
+      const store = this.store.getState();
       store.select(null);
       const slot = view.getData('slot') as Slot;
       const dragged = store.run ? (slot.area === 'board' ? store.run.board : store.run.bench)[slot.index] : null;
       const def = dragged ? getUnit(dragged.unitId) : null;
-      useRunStore.setState({ unitDrag: { slot, overSell: false, outside: null } });
+      this.store.setState({ unitDrag: { slot, overSell: false, outside: null } });
 
       const rect = this.game.canvas.getBoundingClientRect();
       this.dragClient = { x: rect.left + (pointer.x * rect.width) / this.scale.width, y: rect.top + (pointer.y * rect.height) / this.scale.height };
@@ -629,18 +642,18 @@ export class BattleScene extends Phaser.Scene {
         if (def && to?.area === 'board' && !refused) this.drawRange(toBattleCell(to.index, 'a'), def.range, def.cost);
         else this.drawHighlight(to, refused);
         const overSell = isOverSellZone(last.x, last.y);
-        const current = useRunStore.getState().unitDrag;
+        const current = this.store.getState().unitDrag;
         // The finger's position only matters to React once the canvas can't draw the unit.
         const outside = inside ? null : last;
         if (current && (current.overSell !== overSell || (current.outside === null) !== (outside === null) || outside)) {
-          useRunStore.setState({ unitDrag: { ...current, overSell, outside } });
+          this.store.setState({ unitDrag: { ...current, overSell, outside } });
         }
       };
       window.addEventListener('pointermove', follow);
       this.stopFollowing = () => {
         window.removeEventListener('pointermove', follow);
         this.stopFollowing = null;
-        useRunStore.setState({ unitDrag: null });
+        this.store.setState({ unitDrag: null });
       };
     });
     this.input.on('dragend', (_pointer: Phaser.Input.Pointer, view: UnitView) => {
@@ -650,7 +663,7 @@ export class BattleScene extends Phaser.Scene {
       view.setDepth(10).setScale(1).setVisible(true);
       this.highlight.clear();
       const from = view.getData('slot') as Slot;
-      const store = useRunStore.getState();
+      const store = this.store.getState();
       if (isOverSellZone(last.x, last.y)) {
         if (store.act((run) => sell(run, from))) sfx.sell();
         this.syncPlanning();
@@ -696,15 +709,25 @@ export class BattleScene extends Phaser.Scene {
     this.peeked = false;
     this.holding = this.time.delayedCall(LONG_PRESS_MS, () => {
       this.holding = null;
+      const rival = view.getData('rival') as Placed | undefined;
+      if (rival) {
+        if (!this.alive || this.dragging) return;
+        this.peeked = true;
+        vibrate(10);
+        const at = this.worldToClient(view.x, view.y - view.headHeight);
+        this.drawRange(toBattleCell(rival.cell, 'b'), getUnit(rival.unitId).range, getUnit(rival.unitId).cost);
+        this.store.setState({ peek: { unitId: rival.unitId, star: rival.star, x: at.x, y: at.y } });
+        return;
+      }
       const slot = view.getData('slot') as Slot | undefined;
-      const run = useRunStore.getState().run;
+      const run = this.store.getState().run;
       const unit = slot && run ? (slot.area === 'board' ? run.board : run.bench)[slot.index] : null;
       if (!this.alive || !unit || this.dragging) return;
       this.peeked = true;
       vibrate(10);
       const at = this.worldToClient(view.x, view.y - view.headHeight);
       if (slot?.area === 'board') this.drawRange(toBattleCell(slot.index, 'a'), getUnit(unit.unitId).range, getUnit(unit.unitId).cost);
-      useRunStore.setState({ peek: { unitId: unit.unitId, star: unit.star, x: at.x, y: at.y } });
+      this.store.setState({ peek: { unitId: unit.unitId, star: unit.star, x: at.x, y: at.y } });
     });
   }
 
@@ -735,7 +758,7 @@ export class BattleScene extends Phaser.Scene {
 
   /** Whether a unit could go there: the board holds no more units than the level. */
   private canMove(from: Slot, to: Slot) {
-    const run = useRunStore.getState().run;
+    const run = this.store.getState().run;
     if (!run || (from.area === to.area && from.index === to.index)) return true;
     return move(run, from, to) !== run;
   }
@@ -756,10 +779,30 @@ export class BattleScene extends Phaser.Scene {
     }
   }
 
+  /** Stands the store's rival preview, if any, on the rival's half; long-press one to read it. */
+  private syncPreview() {
+    if (!this.alive) return;
+    for (const view of this.previews) view.destroy();
+    this.previews = [];
+    for (const unit of this.store.getState().rivalPreview ?? []) {
+      const { x, y } = cellPoint(toBattleCell(unit.cell, 'b'));
+      const view = new UnitView(this, x, y, unit.unitId, unit.star, this.palette, this.plates, unit.item, 'b');
+      view.setData('rival', unit);
+      view.setInteractive({ hitArea: UnitView.HIT, hitAreaCallback: Phaser.Geom.Rectangle.Contains });
+      view.on('pointerdown', () => this.holdFor(view));
+      view.on('pointerup', () => {
+        this.letGo();
+        this.peeked = false;
+      });
+      view.setVisible(!this.store.getState().battle);
+      this.previews.push(view);
+    }
+  }
+
   /** Makes the sprites match the run: new units pop in, moved ones slide, sold ones fade. */
   private syncPlanning() {
     if (!this.alive) return;
-    const { run, battle, selected, itemTarget } = useRunStore.getState();
+    const { run, battle, selected, itemTarget } = this.store.getState();
     const planning = !battle;
     const seen = new Set<number>();
     const place = (unit: OwnedUnit | null, slot: Slot) => {
@@ -778,7 +821,7 @@ export class BattleScene extends Phaser.Scene {
             this.peeked = false;
             return;
           }
-          if (pointer.getDistance() < 6) useRunStore.getState().select(held.getData('slot') as Slot);
+          if (pointer.getDistance() < 6) this.store.getState().select(held.getData('slot') as Slot);
         });
         view.setScale(0.4);
         this.tweens.add({ targets: view, scale: 1, duration: 220, ease: 'Back.easeOut' });
@@ -834,6 +877,7 @@ export class BattleScene extends Phaser.Scene {
     this.stopReplay();
     this.showView('fight', true);
     for (const view of this.views.values()) view.setVisible(false);
+    for (const view of this.previews) view.setVisible(false);
     this.highlight.clear();
     this.fighters = battle.result.fighters.map((info) => new FighterView(this, info, this.palette, this.plates));
     for (const fighter of this.fighters) {
@@ -850,6 +894,7 @@ export class BattleScene extends Phaser.Scene {
     this.replay = null;
     if (!this.alive) return;
     this.showView('planning', true);
+    for (const view of this.previews) view.setVisible(true);
     this.tweens.killTweensOf(this.fighters);
     for (const fighter of this.fighters) fighter.destroy();
     this.fighters = [];
@@ -871,16 +916,17 @@ export class BattleScene extends Phaser.Scene {
         hp.aliveB += alive;
       }
     }
-    useRunStore.setState({ teamHp: hp });
+    this.store.setState({ teamHp: hp });
   }
 
   update(time: number, delta: number) {
     const motion = !prefersReducedMotion();
     for (const view of this.views.values()) view.follow(time, motion);
+    for (const view of this.previews) view.follow(time, motion);
     for (const fighter of this.fighters) fighter.follow(time, motion);
     const replay = this.replay;
     if (!replay) return;
-    const speed = useRunStore.getState().speed;
+    const speed = this.store.getState().speed;
     replay.elapsed += delta * speed;
     const tick = Math.floor(replay.elapsed / MS_PER_TICK);
     const { events, ticks, winner } = replay.battle.result;
@@ -894,7 +940,7 @@ export class BattleScene extends Phaser.Scene {
     if (!replay.finished && tick > ticks) {
       replay.finished = true;
       // The result card over the board says who won; the scene only plays the sting.
-      useRunStore.getState().finishReplay();
+      this.store.getState().finishReplay();
       if (winner === 'a') {
         sfx.reward();
         vibrate(20);
@@ -903,7 +949,7 @@ export class BattleScene extends Phaser.Scene {
         vibrate([40, 30, 60]);
       }
     }
-    if (tick > ticks + END_PAUSE_TICKS) useRunStore.getState().endReplay();
+    if (tick > ticks + END_PAUSE_TICKS) this.store.getState().endReplay();
   }
 
   /** Plays one event; true if it changed anyone's health. */
