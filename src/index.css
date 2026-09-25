@@ -2152,11 +2152,6 @@ a {
   color: var(--label);
 }
 
-.item-chip-tile {
-  stroke: var(--art-ink);
-  stroke-width: 1.2;
-}
-
 .item-section {
   display: flex;
   flex-direction: column;

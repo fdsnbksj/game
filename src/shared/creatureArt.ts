@@ -73,7 +73,7 @@ function geom(d: string): Geom {
 }
 
 /** An ellipse as four cubic curves, so the path is coordinate pairs only. */
-function ell(cx: number, cy: number, rx: number, ry: number): Geom {
+export function ell(cx: number, cy: number, rx: number, ry: number): Geom {
   const k = 0.5523;
   const ox = rx * k;
   const oy = ry * k;
@@ -85,7 +85,7 @@ function ell(cx: number, cy: number, rx: number, ry: number): Geom {
   );
 }
 
-function rrect(x: number, y: number, w: number, h: number, r: number): Geom {
+export function rrect(x: number, y: number, w: number, h: number, r: number): Geom {
   return geom(
     `M${n(x + r)} ${n(y)}L${n(x + w - r)} ${n(y)}Q${n(x + w)} ${n(y)} ${n(x + w)} ${n(y + r)}` +
       `L${n(x + w)} ${n(y + h - r)}Q${n(x + w)} ${n(y + h)} ${n(x + w - r)} ${n(y + h)}` +
@@ -94,13 +94,13 @@ function rrect(x: number, y: number, w: number, h: number, r: number): Geom {
   );
 }
 
-type Pt = [number, number];
+export type Pt = [number, number];
 
 /** A straight-edged closed shape. */
-const poly = (...pts: Pt[]): Geom => geom(`M${pts.map(([x, y]) => `${n(x)} ${n(y)}`).join('L')}Z`);
+export const poly = (...pts: Pt[]): Geom => geom(`M${pts.map(([x, y]) => `${n(x)} ${n(y)}`).join('L')}Z`);
 
 /** A smooth closed shape through the points (a closed Catmull-Rom curve). */
-function blob(...pts: Pt[]): Geom {
+export function blob(...pts: Pt[]): Geom {
   const count = pts.length;
   let d = `M${n(pts[0][0])} ${n(pts[0][1])}`;
   for (let i = 0; i < count; i++) {
@@ -121,17 +121,17 @@ const mirror = (pts: Pt[]): Pt[] => pts.map(([x, y]) => [CREATURE_SIZE - x, y]);
 // ---------- Parts ----------
 
 /** An outlined flat shape: MS Paint's fill bucket inside a fat black line. */
-const body = (g: Geom, fill: string): Part => ({ ...g, fill, outline: true });
+export const body = (g: Geom, fill: string): Part => ({ ...g, fill, outline: true });
 /** A marking painted on: no outline. */
-const paint = (g: Geom, fill: string, opacity?: number): Part => ({ ...g, fill, opacity });
+export const paint = (g: Geom, fill: string, opacity?: number): Part => ({ ...g, fill, opacity });
 /** A line, e.g. a mouth or a stick limb. */
-const stroke = (d: string, color: string, width: number, opacity?: number): Part => ({
+export const stroke = (d: string, color: string, width: number, opacity?: number): Part => ({
   ...geom(d),
   line: { color, width },
   opacity,
 });
 /** A coloured line with an ink edge: tails, bats, bones. */
-const cord = (d: string, color: string, width: number): Part[] => [stroke(d, INK, width + OUTLINE * 1.4), stroke(d, color, width)];
+export const cord = (d: string, color: string, width: number): Part[] => [stroke(d, INK, width + OUTLINE * 1.4), stroke(d, color, width)];
 
 /** Two black dots: the dead stare every meme face has. */
 const dots = (x1: number, x2: number, y: number, r = 1): Part[] => [x1, x2].map((x) => paint(ell(x, y, r, r), INK));

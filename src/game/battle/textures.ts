@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
-import { CREATURE_ART, CREATURE_SIZE, INK, OUTLINE } from '../../shared/creatureArt';
-import { ITEM_GLYPHS, itemColors } from '../../shared/itemGlyphs';
+import { CREATURE_ART, CREATURE_SIZE, INK, OUTLINE, type Part } from '../../shared/creatureArt';
+import { ITEM_SIZE, itemParts } from '../../shared/itemArt';
 import { ITEMS } from '../../sim/balance';
 
 /** Creatures are baked at this multiple of their 48px grid so they stay sharp when scaled up. */
@@ -18,28 +18,34 @@ export function ensureCreatureTextures(scene: Phaser.Scene) {
     if (!texture) continue;
     const ctx = texture.context;
     ctx.scale(SCALE, SCALE);
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    for (const part of art.parts) {
-      const path = new Path2D(part.d);
-      ctx.globalAlpha = part.opacity ?? 1;
-      if (part.fill) {
-        ctx.fillStyle = part.fill;
-        ctx.fill(path);
-      }
-      if (part.line) {
-        ctx.strokeStyle = part.line.color;
-        ctx.lineWidth = part.line.width;
-        ctx.stroke(path);
-      }
-      if (part.outline) {
-        ctx.strokeStyle = INK;
-        ctx.lineWidth = OUTLINE;
-        ctx.stroke(path);
-      }
-    }
+    drawParts(ctx, art.parts);
     texture.refresh();
   }
+}
+
+/** The same parts, in the same order, as PartSvg in CreatureChip. */
+function drawParts(ctx: CanvasRenderingContext2D, parts: readonly Part[]) {
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  for (const part of parts) {
+    const path = new Path2D(part.d);
+    ctx.globalAlpha = part.opacity ?? 1;
+    if (part.fill) {
+      ctx.fillStyle = part.fill;
+      ctx.fill(path);
+    }
+    if (part.line) {
+      ctx.strokeStyle = part.line.color;
+      ctx.lineWidth = part.line.width;
+      ctx.stroke(path);
+    }
+    if (part.outline) {
+      ctx.strokeStyle = INK;
+      ctx.lineWidth = OUTLINE;
+      ctx.stroke(path);
+    }
+  }
+  ctx.globalAlpha = 1;
 }
 
 /** Display scale that makes a creature texture `size` world pixels wide. */
@@ -56,7 +62,7 @@ export const creatureHeight = (unitId: string) => (FEET - (CREATURE_ART[unitId]?
 
 export const itemKey = (itemId: string) => `item-${itemId}`;
 
-/** Item tiles: the same glyph and colours as ItemChip, drawn once per game. */
+/** Item tiles: the same parts as ItemChip, drawn once per game. */
 export function ensureItemTextures(scene: Phaser.Scene) {
   const size = 24 * SCALE;
   for (const item of ITEMS) {
@@ -64,32 +70,11 @@ export function ensureItemTextures(scene: Phaser.Scene) {
     if (scene.textures.exists(key)) continue;
     const texture = scene.textures.createCanvas(key, size, size);
     if (!texture) continue;
-    const ctx = texture.context;
-    const { tile, glyph } = itemColors(item.id);
-    ctx.scale(SCALE, SCALE);
-    ctx.beginPath();
-    roundedRect(ctx, 1, 1, 22, 22, 6);
-    ctx.fillStyle = tile;
-    ctx.fill();
-    ctx.lineWidth = 1.2;
-    ctx.strokeStyle = INK;
-    ctx.stroke();
-    ctx.translate(4.8, 4.8);
-    ctx.scale(0.6, 0.6);
-    ctx.fillStyle = glyph;
-    ctx.fill(new Path2D(ITEM_GLYPHS[item.id]));
+    texture.context.scale(size / ITEM_SIZE, size / ITEM_SIZE);
+    drawParts(texture.context, itemParts(item.id));
     texture.refresh();
   }
 }
 
 /** Display scale that makes an item texture `size` world pixels wide. */
 export const itemScale = (size: number) => size / (24 * SCALE);
-
-function roundedRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
-  ctx.moveTo(x + r, y);
-  ctx.arcTo(x + w, y, x + w, y + h, r);
-  ctx.arcTo(x + w, y + h, x, y + h, r);
-  ctx.arcTo(x, y + h, x, y, r);
-  ctx.arcTo(x, y, x + w, y, r);
-  ctx.closePath();
-}

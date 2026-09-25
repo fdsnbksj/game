@@ -76,12 +76,12 @@ export interface ItemDef {
 }
 
 export const ITEMS: readonly ItemDef[] = [
-  { id: 'heavy_plate', name: 'Heavy Plate', description: '+280 health', color: 0x8fa3c8, hp: 280 },
-  { id: 'razor_fang', name: 'Razor Fang', description: '+30% attack damage', color: 0xff5a5f, damage: 30 },
-  { id: 'volt_coil', name: 'Volt Coil', description: '+25% attack speed', color: 0xffd23f, attackSpeed: 25 },
-  { id: 'mirror_shard', name: 'Mirror Shard', description: '+30 armor', color: 0xd9e2f2, armor: 30 },
-  { id: 'mana_cell', name: 'Mana Cell', description: '+30 starting mana', color: 0x36e2ff, startMana: 30 },
-  { id: 'siphon_core', name: 'Siphon Core', description: 'heals for 20% of damage dealt', color: 0xff3df0, lifesteal: 20 },
+  { id: 'heavy_plate', name: 'Absolute Unit', description: '+280 health', color: 0x8fa3c8, hp: 280 },
+  { id: 'razor_fang', name: 'Ban Hammer', description: '+30% attack damage', color: 0xff5a5f, damage: 30 },
+  { id: 'volt_coil', name: 'Gamer Fuel', description: '+25% attack speed', color: 0xffd23f, attackSpeed: 25 },
+  { id: 'mirror_shard', name: 'Tin Foil Hat', description: '+30 armor', color: 0xd9e2f2, armor: 30 },
+  { id: 'mana_cell', name: 'Copium', description: '+30 starting mana', color: 0x36e2ff, startMana: 30 },
+  { id: 'siphon_core', name: 'Yoink', description: 'heals for 20% of damage dealt', color: 0xff3df0, lifesteal: 20 },
 ];
 
 const ITEMS_BY_ID = new Map(ITEMS.map((item) => [item.id, item]));

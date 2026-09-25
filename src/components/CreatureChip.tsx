@@ -1,7 +1,7 @@
 import { CREATURE_ART, CREATURE_SIZE, INK, OUTLINE, type Part } from '../shared/creatureArt';
 
-/** One part: its fill, then its line or outline. */
-function PartSvg({ part }: { part: Part }) {
+/** One part: its fill, then its line or outline. ItemChip draws items with it too. */
+export function PartSvg({ part }: { part: Part }) {
   return (
     <g opacity={part.opacity}>
       {part.fill && <path d={part.d} fill={part.fill} />}
