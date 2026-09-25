@@ -1630,10 +1630,91 @@ a {
 }
 
 .controls {
+  position: relative;
   display: grid;
   grid-template-columns: auto 1fr auto auto;
   align-items: center;
   gap: var(--sp-2);
+}
+
+/* Gold and level open their popovers; they look like readouts, not buttons. */
+.controls .gold,
+.controls .level {
+  padding: 0;
+  border: 0;
+  background: none;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.controls .level {
+  color: inherit;
+}
+
+.gold .income {
+  color: var(--label-2);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+}
+
+/* The tray is at the bottom, so its popovers open upwards over the board. */
+.tray-pop {
+  top: auto;
+  bottom: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  gap: 6px;
+}
+
+.income-lines {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+}
+
+.income-lines div {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--sp-2);
+}
+
+.income-lines dt {
+  color: var(--label-2);
+  font-size: var(--fs-sm);
+}
+
+.income-lines dd {
+  margin: 0;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.odds-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+
+.odds-row .micro {
+  min-width: 34px;
+}
+
+.odds-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 6px;
+  border-radius: var(--r-sm);
+  background: color-mix(in srgb, var(--tier) 22%, transparent);
+  box-shadow: inset 0 0 0 var(--hairline) var(--tier);
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.odds-chip.none {
+  opacity: 0.35;
 }
 
 .gold {

@@ -20,12 +20,15 @@ import {
   UNITS,
   MAX_LEVEL,
   REROLL_COST,
+  SHOP_ODDS,
   STAR_PERCENT,
   TICKS_PER_SECOND,
+  MAX_INTEREST,
+  WIN_BONUS,
   XP_COST,
   type TraitId,
 } from '../sim/balance';
-import { dropsItem, nextDropRound, sellValue, surgePercent } from '../sim/economy';
+import { baseIncome, dropsItem, interest, nextDropRound, sellValue, surgePercent } from '../sim/economy';
 import { boardCount, buy, buyXp, equip, ownedUnits, reroll, sell, suggestHolders, unequip, whyNotBuy, type RunState, type Slot } from '../sim/planning';
 import { activeTraits } from '../sim/traits';
 
@@ -287,20 +290,31 @@ function Tray({ run }: { run: RunState }) {
   const xpNeeded = run.level < MAX_LEVEL ? LEVEL_XP[run.level + 1] - LEVEL_XP[run.level] : 0;
   const empty = boardCount(run) === 0 && ownedUnits(run).length === 0;
   const dragged = unitDrag ? (unitDrag.slot.area === 'board' ? run.board : run.bench)[unitDrag.slot.index] : null;
+  const nextIncome = baseIncome(run.round + 1) + interest(run.gold);
+  const [pop, setPop] = useState<'income' | 'odds' | null>(null);
+  const controls = useRef<HTMLDivElement>(null);
+  const close = useCallback(() => setPop(null), []);
+  useDismiss(pop !== null, controls, close);
 
   return (
     <section className="glass tray-dock">
-      <div className="controls">
-        <div className="gold" aria-label={`${run.gold} gold`}>
+      <div className="controls" ref={controls}>
+        <button
+          className="gold"
+          aria-label={`${run.gold} gold, +${nextIncome} next round`}
+          aria-expanded={pop === 'income'}
+          onClick={() => setPop(pop === 'income' ? null : 'income')}
+        >
           <span className="coin" aria-hidden="true" />
           <AnimatedNumber value={run.gold} />
-        </div>
-        <div className="level">
+          <small className="income">+{nextIncome}</small>
+        </button>
+        <button className="level" aria-expanded={pop === 'odds'} onClick={() => setPop(pop === 'odds' ? null : 'odds')}>
           <span className="micro">Lv {run.level}</span>
-          <div className="xp-bar" aria-label={`${xpInto} of ${xpNeeded} XP`}>
+          <span className="xp-bar" aria-label={`${xpInto} of ${xpNeeded} XP`}>
             <span style={{ width: xpNeeded ? `${(xpInto / xpNeeded) * 100}%` : '100%' }} />
-          </div>
-        </div>
+          </span>
+        </button>
         <button
           className="button small"
           disabled={run.gold < XP_COST || run.level >= MAX_LEVEL}
@@ -323,6 +337,8 @@ function Tray({ run }: { run: RunState }) {
         >
           ↻ <span className="price">{REROLL_COST}</span>
         </button>
+        {pop === 'income' && <IncomePop run={run} onClose={close} />}
+        {pop === 'odds' && <OddsPop level={run.level} onClose={close} />}
       </div>
 
       {/* Always there, even empty, so the tray (and the board above it) never changes height. */}
@@ -491,6 +507,60 @@ function Bag({ bag, nextDrop }: { bag: string[]; nextDrop: number }) {
           <ItemChip itemId={drag.itemId} size={40} />
         </div>
       )}
+    </div>
+  );
+}
+
+/** What next round pays, and how banking gold adds to it. */
+function IncomePop({ run, onClose }: { run: RunState; onClose: () => void }) {
+  const base = baseIncome(run.round + 1);
+  const earned = interest(run.gold);
+  const toNext = earned < MAX_INTEREST ? (earned + 1) * 10 - run.gold : 0;
+  return (
+    <div className="glass trait-pop tray-pop" role="dialog" onClick={onClose}>
+      <strong>Next round</strong>
+      <dl className="income-lines">
+        <div>
+          <dt>Base</dt>
+          <dd>+{base}</dd>
+        </div>
+        <div>
+          <dt>Interest, 1 per 10 banked (up to {MAX_INTEREST})</dt>
+          <dd>+{earned}</dd>
+        </div>
+        <div>
+          <dt>If you win</dt>
+          <dd>+{WIN_BONUS}</dd>
+        </div>
+      </dl>
+      <span className="note">{toNext > 0 ? `Bank ${toNext} more for +1 interest.` : 'Interest is maxed.'}</span>
+    </div>
+  );
+}
+
+/** The chance of each cost in a shop slot, at this level and the next. */
+function OddsPop({ level, onClose }: { level: number; onClose: () => void }) {
+  const row = (at: number) => (
+    <div className="odds-row">
+      <span className="micro">Lv {at}</span>
+      {SHOP_ODDS[at].map((percent, index) => (
+        <span
+          key={index}
+          className={percent ? 'odds-chip' : 'odds-chip none'}
+          style={{ '--tier': `var(--tier-${index + 1})` } as CSSProperties}
+          aria-label={`${index + 1} gold: ${percent}%`}
+        >
+          <span className="coin" aria-hidden="true" />
+          {index + 1} <b>{percent}%</b>
+        </span>
+      ))}
+    </div>
+  );
+  return (
+    <div className="glass trait-pop tray-pop" role="dialog" onClick={onClose}>
+      <strong>Shop odds</strong>
+      {row(level)}
+      {level < MAX_LEVEL && row(level + 1)}
     </div>
   );
 }
