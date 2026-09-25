@@ -4,6 +4,7 @@ import { CreatureChip } from '../components/CreatureChip';
 import { SettingsButton } from '../components/SettingsSheet';
 import { TraitIcon } from '../components/TraitIcon';
 import { Wordmark } from '../components/Wordmark';
+import { usePuzzleStore } from '../puzzleStore';
 import { useRunStore } from '../runStore';
 import { dayId } from '../shared/constants';
 import { getTrait, UNITS } from '../sim/balance';
@@ -68,6 +69,7 @@ export function Home() {
       </section>
 
       <DailyCard onPlay={() => newRun('daily')} />
+      <PuzzleCard />
 
       <section className="glass tray" aria-label="Your stats">
         {stats.runs === 0 ? (
@@ -114,6 +116,21 @@ function FeaturedCreature() {
         </span>
       </div>
     </div>
+  );
+}
+
+/** Battle puzzles: endless, and the same levels for everyone. */
+function PuzzleCard() {
+  const level = usePuzzleStore((s) => s.level);
+  return (
+    <Link className="glass daily-card puzzle-card" to="/puzzle">
+      <span className="daily-mark" aria-hidden="true" />
+      <span className="daily-text">
+        <span className="micro">Puzzles</span>
+        <strong>{level > 1 ? `Level ${level}` : 'Endless levels'}</strong>
+      </span>
+      <span className="daily-go">{level > 1 ? 'Resume' : 'Play'}</span>
+    </Link>
   );
 }
 

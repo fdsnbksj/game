@@ -5,6 +5,7 @@ import { Wordmark } from './components/Wordmark';
 import { Home } from './screens/Home';
 import { HowToPlay } from './screens/HowToPlay';
 import { Profile } from './screens/Profile';
+import { Puzzle } from './screens/Puzzle';
 import { Rankings } from './screens/Rankings';
 import { Run } from './screens/Run';
 import { sfx, unlockAudio } from './game/audio';
@@ -82,6 +83,7 @@ export function App() {
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/run" element={<Run />} />
+        <Route path="/puzzle" element={<Puzzle />} />
         <Route path="/how" element={<HowToPlay />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/ranks" element={<Rankings />} />
@@ -95,5 +97,6 @@ export function App() {
 /** The tab bar, everywhere but the battle, which needs the whole screen. */
 function Navigation() {
   const { pathname } = useLocation();
-  return pathname === '/run' ? null : <TabBar />;
+  // The board screens use the whole height.
+  return pathname === '/run' || pathname === '/puzzle' ? null : <TabBar />;
 }

@@ -2594,3 +2594,51 @@ a {
     animation: spin 1.6s linear infinite !important;
   }
 }
+
+/* ---------- Puzzles ---------- */
+
+/* The same card as the daily challenge, in the neutral accent rather than gold. */
+.puzzle-card {
+  border-color: var(--accent-soft);
+  text-decoration: none;
+}
+
+.puzzle-card .daily-mark {
+  background: var(--accent);
+}
+
+.puzzle-card .daily-text .micro {
+  color: var(--label-2);
+}
+
+.puzzle-card .daily-go {
+  color: var(--label);
+}
+
+/* Where a run has its trait rail: one line, the same height, so the board sits alike. */
+.puzzle-brief {
+  display: flex;
+  align-items: center;
+  min-height: 36px;
+  margin: 0;
+  padding: 0 10px;
+  color: var(--label-2);
+  font-size: var(--fs-sm);
+}
+
+.puzzle-hud {
+  grid-template-columns: auto auto 1fr auto;
+}
+
+.puzzle-status {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-height: 34px;
+}
+
+.puzzle-actions {
+  display: flex;
+  gap: 6px;
+  margin-left: auto;
+}

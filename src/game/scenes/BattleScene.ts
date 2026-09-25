@@ -715,7 +715,7 @@ export class BattleScene extends Phaser.Scene {
         this.peeked = true;
         vibrate(10);
         const at = this.worldToClient(view.x, view.y - view.headHeight);
-        this.drawRange(toBattleCell(rival.cell, 'b'), getUnit(rival.unitId).range, getUnit(rival.unitId).cost);
+        this.drawRange(toBattleCell(rival.cell, 'b'), getUnit(rival.unitId).range, getUnit(rival.unitId).cost, 'b');
         this.store.setState({ peek: { unitId: rival.unitId, star: rival.star, x: at.x, y: at.y } });
         return;
       }
@@ -732,9 +732,10 @@ export class BattleScene extends Phaser.Scene {
   }
 
   /** Every tile a creature standing on `from` can hit, rival's half included: while it's peeked at, or dragged over `from`. */
-  private drawRange(from: number, range: number, cost: number) {
+  private drawRange(from: number, range: number, cost: number, side: 'a' | 'b' = 'a') {
     const p = this.palette;
-    this.highlight.clear().fillStyle(p.mine, 0.24).lineStyle(1.5, p.mine, 0.9);
+    const color = side === 'a' ? p.mine : p.rival;
+    this.highlight.clear().fillStyle(color, 0.24).lineStyle(1.5, color, 0.9);
     for (let cell = 0; cell < ROWS * COLS; cell++) {
       if (cell === from || distance(cell, from) > range) continue;
       const points = tilePoints(cell);

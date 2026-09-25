@@ -80,6 +80,15 @@ export function HowToPlay() {
         </ul>
       </section>
 
+      <section className="glass card-pad">
+        <p className="micro">Puzzles</p>
+        <p className="body-text">
+          The rival is already on the board. Place the creatures you're given (and any items) so they win, then press
+          Fight. There's no shop and no gold: only where each one stands. Levels never end, get harder as they go, and are
+          the same for everyone. After three misses on a level, a hint places one creature where it belongs.
+        </p>
+      </section>
+
       <section>
         <p className="micro section-label">Creatures</p>
         <ul className="creature-grid">
