@@ -31,7 +31,8 @@ export function Rankings() {
   const podium = rankings?.top.slice(0, 3) ?? [];
   const rest = rankings?.top.slice(3) ?? [];
   const winsLabel = (wins: number) => (wins === 1 ? 'win' : 'wins');
-  const hpLabel = (hp: number) => (hp > 0 ? `${hp} HP` : 'KO');
+  // How long the run lasted, the tie-break; older entries didn't record it.
+  const roundLabel = (round?: number) => (round ? `Round ${round}` : '');
 
   return (
     <main className="screen with-tabs">
@@ -76,7 +77,7 @@ export function Rankings() {
                 {entry.wins}
                 <small>{winsLabel(entry.wins)}</small>
               </span>
-              <span className="micro">{hpLabel(entry.hp)}</span>
+              <span className="micro">{roundLabel(entry.round)}</span>
             </li>
           ))}
         </ol>
@@ -91,7 +92,7 @@ export function Rankings() {
               <span className="wins">
                 {entry.wins} <small>{winsLabel(entry.wins)}</small>
               </span>
-              <span className="hp">{hpLabel(entry.hp)}</span>
+              <span className="hp">{roundLabel(entry.round)}</span>
             </li>
           ))}
         </ol>
@@ -108,7 +109,7 @@ export function Rankings() {
             <span className="wins">
               {rankings.mine.wins} <small>{winsLabel(rankings.mine.wins)}</small>
             </span>
-            <span className="hp">{hpLabel(rankings.mine.hp)}</span>
+            <span className="hp">{roundLabel(rankings.mine.round)}</span>
           </div>
         </div>
       )}

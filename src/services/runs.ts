@@ -69,14 +69,15 @@ export async function writeRound(uid: string, player: Player, runId: string, wri
   if (write.done) {
     // The daily challenge is filed under its own day; an ordinary run under today's.
     const board = mode === 'daily' ? day : dayId();
-    const score = write.wins * 1000 + write.hp;
+    // A run only ends at 0 HP, so ties on wins are broken by how long it lasted.
+    const score = write.wins * 1000 + write.round;
     const best = await getDoc(rankingRef(board, uid, mode)).catch(() => null);
     // Unknown (couldn't read it): skip rather than risk the rules rejecting the whole batch.
     if (best && (!best.exists() || score > (best.get('score') as number))) {
       batch.set(rankingRef(board, uid, mode), {
         score,
         wins: write.wins,
-        hp: write.hp,
+        round: write.round,
         runId,
         displayName: player.displayName,
         submittedAt: serverTimestamp(),

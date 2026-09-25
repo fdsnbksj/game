@@ -101,7 +101,7 @@ interface RoundWrite {
   done?: boolean;
   /** Which round's key to write; defaults to the next one. */
   key?: number;
-  ranking?: { day?: string; score?: number; wins?: number; hp?: number };
+  ranking?: { day?: string; score?: number; wins?: number; round?: number; legacy?: boolean };
 }
 
 /** Mirrors syncRound() in src/services/runs.ts: the round's board and result, plus a ranking on the last one. */
@@ -119,11 +119,13 @@ function playRound(db: Firestore, uid: string, n: number, before: RunState, writ
     lastAt: serverTimestamp(),
   });
   if (write.ranking) {
-    const { day = TODAY, wins = write.wins, hp = write.hp, score = wins * 1000 + hp } = write.ranking;
+    // Legacy: what clients filed before rankings recorded the round (HP, always 0 by then).
+    const { day = TODAY, wins = write.wins, round = next, legacy = false } = write.ranking;
+    const score = write.ranking.score ?? wins * 1000 + (legacy ? write.hp : round);
     batch.set(doc(db, 'rankings', day, 'entries', uid), {
       score,
       wins,
-      hp,
+      ...(legacy ? { hp: write.hp } : { round }),
       runId,
       displayName: 'Alice',
       submittedAt: serverTimestamp(),
@@ -512,7 +514,7 @@ describe('the daily challenge', () => {
         lastAt: serverTimestamp(),
       });
       batch.set(doc(db, collectionName, TODAY, 'entries', 'alice'), {
-        score: 8000, wins: 8, hp: 0, runId: `alice_d${TODAY}`, displayName: 'Alice', submittedAt: serverTimestamp(),
+        score: 8015, wins: 8, round: 15, runId: `alice_d${TODAY}`, displayName: 'Alice', submittedAt: serverTimestamp(),
       });
       return batch.commit();
     };
@@ -537,7 +539,7 @@ describe('the daily challenge', () => {
         round: 15, rounds: rounds(15), 'boards.r15': board([['sparkmouse', 1]]), hp: 0, wins: 8, done: true, lastAt: serverTimestamp(),
       });
       batch.set(doc(db, 'dailyRankings', day, 'entries', 'alice'), {
-        score: 8000, wins: 8, hp: 0, runId: `alice_d${yesterday}`, displayName: 'Alice', submittedAt: serverTimestamp(),
+        score: 8015, wins: 8, round: 15, runId: `alice_d${yesterday}`, displayName: 'Alice', submittedAt: serverTimestamp(),
       });
       return batch.commit();
     };
@@ -555,7 +557,7 @@ describe('the daily challenge', () => {
       round: 15, rounds: rounds(15), 'boards.r15': board([['sparkmouse', 1]]), hp: 0, wins: 8, done: true, lastAt: serverTimestamp(),
     });
     batch.set(doc(db, 'dailyRankings', TODAY, 'entries', 'alice'), {
-      score: 8000, wins: 8, hp: 0, runId: 'alice_0', displayName: 'Alice', submittedAt: serverTimestamp(),
+      score: 8015, wins: 8, round: 15, runId: 'alice_0', displayName: 'Alice', submittedAt: serverTimestamp(),
     });
     await assertFails(batch.commit());
   });
@@ -583,7 +585,7 @@ describe('rankings', () => {
     await seedRun('alice', 1, { round: 15, hp: 0, wins: 8, done: true });
     await assertFails(
       setDoc(doc(dbFor('alice'), 'rankings', TODAY, 'entries', 'alice'), {
-        score: 8000, wins: 8, hp: 0, runId: 'alice_1', displayName: 'Alice', submittedAt: serverTimestamp(),
+        score: 8015, wins: 8, round: 15, runId: 'alice_1', displayName: 'Alice', submittedAt: serverTimestamp(),
       }),
     );
   });
@@ -593,16 +595,35 @@ describe('rankings', () => {
     await assertFails(playRound(dbFor('alice'), 'alice', 0, last, { hp: 0, wins: 8, done: true, ranking: { score: 99999 } }));
   });
 
-  it("rejects wins or health that don't match the run", async () => {
+  it("rejects wins or a round that don't match the run", async () => {
     await assertFails(
-      playRound(dbFor('alice'), 'alice', 0, last, { hp: 0, wins: 8, done: true, ranking: { wins: 15, score: 15030 } }),
+      playRound(dbFor('alice'), 'alice', 0, last, { hp: 0, wins: 8, done: true, ranking: { wins: 15, score: 15015 } }),
     );
+    await assertFails(
+      playRound(dbFor('alice'), 'alice', 0, last, { hp: 0, wins: 8, done: true, ranking: { round: 30, score: 8030 } }),
+    );
+  });
+
+  it('still accepts the HP-based result that older clients file', async () => {
+    await assertSucceeds(playRound(dbFor('alice'), 'alice', 0, last, { hp: 0, wins: 8, done: true, ranking: { legacy: true } }));
+  });
+
+  it('rejects a result that mixes the two shapes', async () => {
+    const db = dbFor('alice');
+    const batch = writeBatch(db);
+    batch.update(doc(db, 'runs', 'alice_0'), {
+      round: 15, rounds: rounds(15), 'boards.r15': board([['sparkmouse', 1]]), hp: 0, wins: 8, done: true, lastAt: serverTimestamp(),
+    });
+    batch.set(doc(db, 'rankings', TODAY, 'entries', 'alice'), {
+      score: 8015, wins: 8, round: 15, hp: 0, runId: 'alice_0', displayName: 'Alice', submittedAt: serverTimestamp(),
+    });
+    await assertFails(batch.commit());
   });
 
   it("rejects a result below the player's best today", async () => {
     await asAdmin((db) =>
       setDoc(doc(db, 'rankings', TODAY, 'entries', 'alice'), {
-        score: 12050, wins: 12, hp: 50, runId: 'alice_x', displayName: 'Alice', submittedAt: hourAgo(),
+        score: 12020, wins: 12, round: 20, runId: 'alice_x', displayName: 'Alice', submittedAt: hourAgo(),
       }),
     );
     await assertFails(playRound(dbFor('alice'), 'alice', 0, last, { hp: 0, wins: 8, done: true, ranking: {} }));
@@ -620,7 +641,7 @@ describe('rankings', () => {
     const db = dbFor('mallory');
     await assertFails(
       setDoc(doc(db, 'rankings', TODAY, 'entries', 'mallory'), {
-        score: 8000, wins: 8, hp: 0, runId: 'alice_0', displayName: 'Alice', submittedAt: serverTimestamp(),
+        score: 8015, wins: 8, round: 15, runId: 'alice_0', displayName: 'Alice', submittedAt: serverTimestamp(),
       }),
     );
   });

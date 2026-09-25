@@ -22,7 +22,7 @@ import { useGameStore } from './store';
 const RUN_KEY = 'neon-brawl:run';
 const ONLINE_KEY = 'neon-brawl:online';
 const STATS_KEY = 'neon-brawl:stats';
-/** The last day whose challenge was finished on this device. */
+/** The last day whose challenge was started on this device: a second start that day can't be saved. */
 const DAILY_KEY = 'neon-brawl:daily';
 
 /** A little over the rules' minimums, so client and server clocks can disagree slightly. */
@@ -33,6 +33,8 @@ export interface LocalStats {
   runs: number;
   bestWins: number;
   bestRound: number;
+  /** Whether the last finished run beat the best before it (not just tied it). */
+  lastRunWasBest?: boolean;
 }
 
 export interface Battle {
@@ -189,6 +191,8 @@ export const useRunStore = create<RunStore>()((set, get) => {
       const online: OnlineRun | null = runId ? { runId, day: mode === 'daily' ? day : '', rand, pending: [], status: 'starting', lastWriteAt: 0 } : null;
       save(RUN_KEY, run);
       save(ONLINE_KEY, online);
+      // Counted from the start: leaving and starting over couldn't be saved or ranked.
+      if (mode === 'daily') save(DAILY_KEY, day);
       set({ run, online, battle: null, selected: null, ghost: null });
       void get().sync();
     },
@@ -251,8 +255,6 @@ export const useRunStore = create<RunStore>()((set, get) => {
         void get().sync();
       }
 
-      if (next.done && next.mode === 'daily') save(DAILY_KEY, dayId());
-
       // Counted now rather than after the replay, so a reload mid-replay can't skip it.
       if (next.done) {
         const stats = get().stats;
@@ -260,6 +262,7 @@ export const useRunStore = create<RunStore>()((set, get) => {
           runs: stats.runs + 1,
           bestWins: Math.max(stats.bestWins, next.wins),
           bestRound: Math.max(stats.bestRound, next.history.length),
+          lastRunWasBest: next.wins > stats.bestWins,
         };
         save(STATS_KEY, updated);
         set({ stats: updated });
@@ -324,6 +327,7 @@ export const useRunStore = create<RunStore>()((set, get) => {
             if (isRetryable(error)) return; // Leave it queued; the next fight or reload tries again.
             console.warn('Run is offline from here:', error);
             updateOnline(runId, { status: 'offline', pending: [] });
+            get().notify("This run can't be saved online, so it won't be ranked.");
             return;
           }
         }

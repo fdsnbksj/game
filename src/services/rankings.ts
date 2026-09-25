@@ -10,7 +10,8 @@ export interface RankingEntry {
   uid: string;
   displayName: string;
   wins: number;
-  hp: number;
+  /** The round the run ended in; missing on entries filed before it was recorded. */
+  round?: number;
   score: number;
 }
 
@@ -32,7 +33,7 @@ const toEntry = (uid: string, data: Record<string, unknown>): RankingEntry => ({
   uid,
   displayName: data.displayName as string,
   wins: data.wins as number,
-  hp: data.hp as number,
+  round: data.round as number | undefined,
   score: data.score as number,
 });
 

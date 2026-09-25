@@ -203,14 +203,19 @@ service cloud.firestore {
     function isValidRanking(uid, day, mode) {
       let entry = request.resource.data;
       let run = getAfter(/databases/$(database)/documents/runs/$(entry.runId)).data;
-      return hasExactly(entry, ['score', 'wins', 'hp', 'runId', 'displayName', 'submittedAt'])
+      // Ranked by wins, then by rounds survived. Clients from before that filed HP instead,
+      // which is always 0 at the end of a run; they're still accepted, with a score that
+      // can only tie or lose to the new one.
+      return (hasExactly(entry, ['score', 'wins', 'round', 'runId', 'displayName', 'submittedAt'])
+            && entry.round == run.round && entry.score == run.wins * 1000 + run.round
+          || hasExactly(entry, ['score', 'wins', 'hp', 'runId', 'displayName', 'submittedAt'])
+            && entry.hp == run.hp && entry.score == run.wins * 1000 + run.hp)
         && run.get('mode', 'run') == mode
         && (mode == 'run' || run.day == day)
         && run.uid == uid
         && run.done == true
         && run.lastAt == request.time
-        && entry.wins == run.wins && entry.hp == run.hp
-        && entry.score == run.wins * 1000 + run.hp
+        && entry.wins == run.wins
         && entry.displayName == playerAfter(uid).displayName
         && isValidDay(day) && isDayNearNow(day)
         && (resource == null || entry.score > resource.data.score)

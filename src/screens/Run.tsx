@@ -132,6 +132,13 @@ function useDockInset(fighting: boolean) {
 function Hud({ run }: { run: RunState }) {
   const leaveRun = useRunStore((s) => s.leaveRun);
   const navigate = useNavigate();
+  // Leaving throws the run away, so it takes a second tap.
+  const [confirming, setConfirming] = useState(false);
+  useEffect(() => {
+    if (!confirming) return;
+    const timer = setTimeout(() => setConfirming(false), 3000);
+    return () => clearTimeout(timer);
+  }, [confirming]);
   return (
     <header className="glass run-hud">
       <Link className="icon-button" to="/" aria-label="Home">
@@ -169,13 +176,17 @@ function Hud({ run }: { run: RunState }) {
           How to play
         </Link>
         <button
-          className="button ghost danger"
+          className={confirming ? 'button danger' : 'button ghost danger'}
           onClick={() => {
+            if (!confirming) {
+              setConfirming(true);
+              return;
+            }
             leaveRun();
             navigate('/');
           }}
         >
-          Leave run
+          {confirming ? 'Tap again to leave' : 'Leave run'}
         </button>
       </SettingsButton>
     </header>
@@ -909,7 +920,7 @@ function Summary({ run }: { run: RunState }) {
           <AnimatedNumber value={run.wins} from={0} />
         </p>
         <p className="note">wins in {run.history.length} rounds</p>
-        {run.wins >= stats.bestWins && run.wins > 0 && <p className="highlight">Best run yet!</p>}
+        {stats.lastRunWasBest && <p className="highlight">Best run yet!</p>}
         <ol className="round-strip" aria-label="Round results">
           {run.history.map((round) => (
             <li key={round.round} className={round.won ? 'won' : round.draw ? 'draw' : 'lost'} title={`Round ${round.round}`} />
