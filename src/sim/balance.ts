@@ -259,15 +259,15 @@ export interface TraitDef {
 }
 
 export const TRAITS: readonly TraitDef[] = [
-  { id: 'voltage', name: 'Voltage', description: '+{v}% attack speed', thresholds: [2, 4], values: [20, 45] },
-  { id: 'glitch', name: 'Glitch', description: '{v}% chance to dodge attacks', thresholds: [2, 4], values: [20, 40] },
-  { id: 'chrome', name: 'Chrome', description: '+{v} armor', thresholds: [2, 4], values: [25, 60] },
-  { id: 'bruiser', name: 'Bruiser', description: '+{v} health', thresholds: [2, 4], values: [200, 450] },
-  { id: 'striker', name: 'Striker', description: '+{v}% damage', thresholds: [2, 4], values: [15, 35] },
-  { id: 'caster', name: 'Caster', description: '+{v} starting mana', thresholds: [2, 4], values: [20, 40] },
-  { id: 'toxin', name: 'Toxin', description: 'attacks poison for {v} a second', thresholds: [2, 4], values: [30, 70] },
-  { id: 'prism', name: 'Prism', description: '+{v}% ability power', thresholds: [2, 4], values: [25, 55] },
-  { id: 'support', name: 'Support', description: '+{v} mana a second', thresholds: [2, 4], values: [8, 18] },
+  { id: 'voltage', name: 'Zoomies', description: '+{v}% attack speed', thresholds: [2, 4], values: [20, 45] },
+  { id: 'glitch', name: 'Lag', description: '{v}% chance to dodge attacks', thresholds: [2, 4], values: [20, 40] },
+  { id: 'chrome', name: 'Sigma', description: '+{v} armor', thresholds: [2, 4], values: [25, 60] },
+  { id: 'bruiser', name: 'Chonk', description: '+{v} health', thresholds: [2, 4], values: [200, 450] },
+  { id: 'striker', name: 'Bonk', description: '+{v}% damage', thresholds: [2, 4], values: [15, 35] },
+  { id: 'caster', name: 'Cooking', description: '+{v} starting mana', thresholds: [2, 4], values: [20, 40] },
+  { id: 'toxin', name: 'Toxic', description: 'attacks poison for {v} a second', thresholds: [2, 4], values: [30, 70] },
+  { id: 'prism', name: 'Aura', description: '+{v}% ability power', thresholds: [2, 4], values: [25, 55] },
+  { id: 'support', name: 'Hype', description: '+{v} mana a second', thresholds: [2, 4], values: [8, 18] },
 ];
 
 export function getTrait(id: TraitId): TraitDef {
