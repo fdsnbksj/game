@@ -23,7 +23,9 @@ const STOP = new Set(
     'from further have having here into itself just more most other ought over same should some such than that their ' +
     'theirs them themselves then there these they this those through under until very were what when where which while ' +
     'whom will with would your yours yourself also only even ever every never much many made make like well cannot ' +
-    'still upon within without shall might must once dont doesnt didnt isnt wasnt youre theyre thats whats'
+    'still upon within without shall might must once dont doesnt didnt isnt wasnt youre theyre thats whats ' +
+    'something everything anything nothing someone everyone anyone people peoples things always really ' +
+    'became become better thought believed preferred insisted described introduced released entirely saying'
   ).split(' '),
 );
 

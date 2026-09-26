@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type ChangeEvent } from 'react';
 import { looksLikeClippings, parseClippings, parsePasted } from '../learn/highlights';
 import { dayNumber } from '../learn/schedule';
+import { STARTER_SETS, starterHighlights, type StarterSet } from '../learn/starters';
 import { useLibraryStore, type Card } from '../libraryStore';
 import { dayId } from '../shared/constants';
 
@@ -63,6 +64,11 @@ export function Books() {
         <BookPanel key={book} book={book} cards={list} />
       ))}
 
+      {!adding &&
+        STARTER_SETS.filter((set) => !books.some(([book]) => book === set.book)).map((set) => (
+          <StarterCard key={set.book} set={set} onAdded={added} />
+        ))}
+
       <p className="note center-text">Your highlights stay on this phone. They're never uploaded.</p>
       {notice && (
         <div className="notice" role="status">
@@ -116,6 +122,21 @@ function AddHighlights({ onAdded, onCancel }: { onAdded: (count: number) => void
         On a Kindle, connect it to a computer and copy documents/My Clippings.txt. From Apple Books or elsewhere, copy your
         highlights and paste them above.
       </p>
+    </section>
+  );
+}
+
+/** A ready-made set, one tap to add. */
+function StarterCard({ set, onAdded }: { set: StarterSet; onAdded: (count: number) => void }) {
+  const add = useLibraryStore((s) => s.add);
+  return (
+    <section className="glass card-pad">
+      <p className="micro">Starter set · {set.lines.length} key ideas</p>
+      <p className="lead">{set.book}</p>
+      <p className="note">{set.about}</p>
+      <button className="button primary" onClick={() => onAdded(add(starterHighlights(set)))}>
+        Add these {set.lines.length} lines
+      </button>
     </section>
   );
 }

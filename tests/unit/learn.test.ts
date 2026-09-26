@@ -49,7 +49,7 @@ describe('questions', () => {
   const pool = ['Habits are the compound interest of self-improvement.', 'Nothing in life is as important as you think it is.'];
 
   it('blank out a telling word, not filler', () => {
-    expect(keyWords(text)).toEqual(['reliable', 'people', 'believe', 'falsehoods', 'frequent', 'repetition']);
+    expect(keyWords(text)).toEqual(['reliable', 'believe', 'falsehoods', 'frequent', 'repetition']);
     const q = makeQuestion(text, pool, 'seed')!;
     expect(['falsehoods', 'repetition', 'reliable', 'frequent']).toContain(q.answer);
     expect(q.before + q.answer + q.after).toBe(text);
@@ -105,5 +105,18 @@ describe('schedule', () => {
     expect(nextDue(items, 1, null)?.id).toBe('b');
     expect(nextDue([item('a', 5)], 6, 'a')?.id).toBe('a');
     expect(nextDue([], 6, null)).toBeNull();
+  });
+});
+
+describe('starter sets', () => {
+  it('can ask about every line', async () => {
+    const { STARTER_SETS } = await import('../../src/learn/starters');
+    for (const set of STARTER_SETS) {
+      for (const [i, line] of set.lines.entries()) {
+        const q = makeQuestion(line, set.lines.filter((l) => l !== line), `check:${i}`);
+        expect(q, line).not.toBeNull();
+        expect(q!.choices.length, line).toBe(4);
+      }
+    }
   });
 });
