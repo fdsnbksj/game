@@ -2,6 +2,8 @@ import { Link } from 'react-router';
 import { MiniGrid } from '../components/Board';
 import { SettingsButton } from '../components/SettingsSheet';
 import { Wordmark } from '../components/Wordmark';
+import { dayNumber } from '../learn/schedule';
+import { useLibraryStore } from '../libraryStore';
 import { levelPuzzle, useNonogramStore } from '../nonogramStore';
 import { dayId } from '../shared/constants';
 
@@ -42,6 +44,7 @@ export function Home() {
       </section>
 
       <DailyCard />
+      <BookCard />
 
       <section className="glass tray" aria-label="Your stats">
         {solved === 0 ? (
@@ -94,6 +97,29 @@ function DailyCard() {
         <strong>{done ? 'Solved today' : playing ? 'In progress' : 'The same 10×10 for everyone'}</strong>
       </span>
       <span className="daily-go">{done ? '✓' : playing ? 'Resume' : 'Play'}</span>
+    </Link>
+  );
+}
+
+/** Your highlights: where the lines to recall between levels come from. */
+function BookCard() {
+  const cards = useLibraryStore((s) => s.cards);
+  const today = dayNumber(dayId());
+  const due = cards.filter((c) => c.review.due <= today).length;
+  const books = new Set(cards.map((c) => c.book)).size;
+
+  return (
+    <Link className="glass daily-card book-card" to="/books">
+      <span className="daily-mark" aria-hidden="true" />
+      <span className="daily-text">
+        <span className="micro">Your book</span>
+        <strong>
+          {cards.length === 0
+            ? 'Add highlights to recall between levels'
+            : `${cards.length} ${cards.length === 1 ? 'line' : 'lines'}${books > 1 ? ` from ${books} books` : ''} · ${due} due`}
+        </strong>
+      </span>
+      <span className="daily-go">{cards.length === 0 ? 'Add' : 'Open'}</span>
     </Link>
   );
 }

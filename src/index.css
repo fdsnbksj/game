@@ -1417,3 +1417,14 @@ a.daily-card {
   padding: var(--sp-2) var(--sp-3);
   border-top: 1px solid var(--separator);
 }
+
+/* The same card as the daily puzzle, in the quiet colours: it's a place, not a task. */
+.book-card .daily-mark {
+  border-radius: 2px;
+  background: var(--label-2);
+}
+
+.book-card .daily-text .micro,
+.book-card .daily-go {
+  color: var(--label-2);
+}
