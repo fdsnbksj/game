@@ -11,12 +11,14 @@ const FORBIDDEN = [
   /\bfrom ['"](phaser|react|firebase)/,
 ];
 
-describe('src/sim', () => {
-  const dir = new URL('../../src/sim/', import.meta.url);
-  for (const file of readdirSync(dir).filter((name) => name.endsWith('.ts'))) {
-    it(`${file} uses only deterministic APIs`, () => {
-      const source = readFileSync(new URL(file, dir), 'utf8');
-      for (const pattern of FORBIDDEN) expect(source).not.toMatch(pattern);
-    });
-  }
-});
+for (const folder of ['sim', 'nonogram']) {
+  describe(`src/${folder}`, () => {
+    const dir = new URL(`../../src/${folder}/`, import.meta.url);
+    for (const file of readdirSync(dir).filter((name) => name.endsWith('.ts'))) {
+      it(`${file} uses only deterministic APIs`, () => {
+        const source = readFileSync(new URL(file, dir), 'utf8');
+        for (const pattern of FORBIDDEN) expect(source).not.toMatch(pattern);
+      });
+    }
+  });
+}
