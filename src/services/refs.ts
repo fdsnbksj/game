@@ -1,13 +1,13 @@
 import { collection, doc } from 'firebase/firestore';
 import { db } from '../firebase';
-import type { RunMode } from '../sim/planning';
+import { NONOGRAM_VERSION } from '../nonogram/generate';
 
 export const playerRef = (uid: string) => doc(db, 'players', uid);
-export const runsCollection = () => collection(db, 'runs');
-export const runRef = (runId: string) => doc(db, 'runs', runId);
-/** One ranking per UTC day for each mode: ordinary runs, and the daily challenge. */
-export const rankingsCollection = (day: string, mode: RunMode = 'run') =>
-  collection(db, mode === 'daily' ? 'dailyRankings' : 'rankings', day, 'entries');
-export const rankingRef = (day: string, uid: string, mode: RunMode = 'run') => doc(rankingsCollection(day, mode), uid);
+/** One ladder per player per generator version: a new generator makes new puzzles. */
+export const laddersCollection = () => collection(db, 'ladders');
+export const ladderRef = (uid: string) => doc(db, 'ladders', `${uid}_${NONOGRAM_VERSION}`);
+/** Who solved each UTC day's puzzle, one entry per player. */
+export const dailySolvesCollection = (day: string) => collection(db, 'dailySolves', day, 'entries');
+export const dailySolveRef = (day: string, uid: string) => doc(dailySolvesCollection(day), uid);
 /** The retired Neon Flap profile, read once to carry a player's name over. */
 export const legacyUserRef = (uid: string) => doc(db, 'users', uid);

@@ -1,43 +1,57 @@
 import { useState } from 'react';
-import { useRunStore } from '../runStore';
+import { useNonogramStore } from '../nonogramStore';
 import { renamePlayer } from '../services/players';
 import { useGameStore } from '../store';
 
 export function Profile() {
-  const player = useGameStore((s) => s.player)!;
-  const stats = useRunStore((s) => s.stats);
+  const player = useGameStore((s) => s.player);
+  const solved = useNonogramStore((s) => s.solved);
+  const level = useNonogramStore((s) => s.level);
+  const days = useNonogramStore((s) => s.dailySolved.length);
+  const ladderOnline = useNonogramStore((s) => s.ladderOnline);
+  const waiting = useNonogramStore((s) => s.pending.length);
   return (
     <main className="screen with-tabs">
       <header className="page-head">
         <div>
           <p className="micro">Profile</p>
-          <h1>{player.displayName}</h1>
+          <h1>{player?.displayName ?? 'You'}</h1>
         </div>
       </header>
 
       <section className="glass card-pad">
         <p className="micro">Display name</p>
-        <NameEditor name={player.displayName} />
-        <p className="note">Shown on the rankings, and to players who meet your teams as rivals.</p>
+        {player ? (
+          <NameEditor name={player.displayName} />
+        ) : (
+          <p className="note">Connecting… Your name can be changed once you're online. Puzzles play either way.</p>
+        )}
+        <p className="note">Shown on the rankings.</p>
       </section>
 
       <section className="glass tray" aria-label="Your stats">
         <dl className="tray-stats">
           <div>
-            <dd>{stats.runs}</dd>
-            <dt>Runs</dt>
+            <dd>{solved}</dd>
+            <dt>Solved</dt>
           </div>
           <div>
-            <dd>{stats.bestWins}</dd>
-            <dt>Best wins</dt>
+            <dd>{level - 1}</dd>
+            <dt>Levels</dt>
           </div>
           <div>
-            <dd>{stats.bestRound}</dd>
-            <dt>Best round</dt>
+            <dd>{days}</dd>
+            <dt>Daily puzzles</dt>
           </div>
         </dl>
       </section>
-      <p className="note center-text">Stats are counted on this device.</p>
+      <p className="note center-text">
+        {!ladderOnline
+          ? "Your levels couldn't be saved online, so they're counted on this device only."
+          : waiting > 0
+            ? `${waiting} ${waiting === 1 ? 'solve' : 'solves'} waiting for a connection.`
+            : 'Stats are counted on this device.'}
+      </p>
     </main>
   );
 }

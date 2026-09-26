@@ -1,8 +1,8 @@
 # a game
 
-An auto-battler for your phone. Buy creatures from the shop, drag them onto a hex board, and watch them fight. Three copies merge into a stronger ★★, creatures that share a trait power each other up, items drop as you go, and a run goes on until your 100 HP runs out, with rivals growing stronger every round after 15. Each round you fight another player's saved team from the same round, or a bot if there isn't one, and finished runs go on a daily ranking. There's also a daily challenge: the same run for everyone that day, on its own board. And there are battle puzzles: a rival already placed and a hand of creatures to place against it, in endless levels that are the same for everyone, with a ranking by the highest level cleared.
+Small logic puzzles for between chapters. Each one is a nonogram: fill in squares so that every row and column matches the numbers beside it, and a picture appears. It's built for a train ride with a book. Everything works with one thumb, nothing needs sound, there's no clock and no way to lose, and every tap is saved, so you can close it at your stop, even without a signal. Levels go on forever and grow from 5×5 to 10×10. The daily puzzle is the same for everyone. Both have rankings.
 
-React handles the screens, Phaser 3 runs the board and fight replays, and Firebase (free Spark plan) provides auth, data and hosting. Creatures are drawn in code, so the only image assets are the app icons in `public/`. The game replaced Neon Flap, a flappy-bird game.
+React handles the screens, and Firebase (free Spark plan) provides auth, data and hosting. Puzzles are generated in code from their level or day. The game replaced an auto-battler, which had replaced Neon Flap, a flappy-bird game.
 
 ## Requirements
 
@@ -23,8 +23,8 @@ Emulator data is saved to `.emulator-data/` when you stop the emulators. The emu
 ## Test
 
 ```sh
-npm run audit       # replay saved runs and report ones that don't add up
-npm run test:unit   # game logic: sim, economy, shop, AI (no emulator)
+npm run audit       # check saved solves against their puzzles
+npm run test:unit   # puzzle logic (no emulator)
 npm run test:rules  # starts its own Firestore emulator, so stop `npm run emulators` first
 npm run build       # type-check + production build
 ```
@@ -33,15 +33,12 @@ npm run build       # type-check + production build
 
 | Path | What |
 |---|---|
-| `src/sim/` | The game as pure, deterministic TypeScript: units, traits, economy, shop, combat, AI |
-| `src/game/scenes/BattleScene.ts` | The board: drag and drop, and replaying fights from the sim's event log |
-| `src/runStore.ts` | The run in progress, saved to localStorage |
-| `src/sim/puzzle.ts`, `src/puzzleStore.ts` | Battle puzzles: the level generator, and the puzzle in progress |
-| `src/boardStore.ts` | What the board needs from a mode, so runs and puzzles share the board and its parts |
-| `src/screens/` | React screens: Home, Run, How to play, Profile |
-| `src/shared/creatureArt.ts` | Every creature as layered path art, baked for Phaser and drawn as SVG |
-| `src/services/` | Firestore reads and writes: players, runs, ghost opponents, rankings |
-| `tests/unit/`, `tests/rules/` | Game logic tests, and Firestore rules tests |
+| `src/nonogram/` | The puzzles as pure, deterministic TypeScript: clues, line solver, generator, play reducer |
+| `src/nonogramStore.ts` | Puzzles in progress and solves, saved to localStorage, and the queue of writes to Firestore |
+| `src/components/Board.tsx` | The grid: tap and drag to mark squares |
+| `src/screens/` | React screens: Home, Play, Rankings, How to play, Profile |
+| `src/services/` | Firestore reads and writes: session, players, solves and rankings |
+| `tests/unit/`, `tests/rules/` | Puzzle tests, and Firestore rules tests |
 | `firestore.rules` | The only server-side validation (Spark has no Cloud Functions) |
 
 ## Deploy
@@ -52,8 +49,9 @@ We only use the `main` branch, and **every push to `main` deploys automatically*
 2. Type-check and build
 3. Firestore rules tests
 4. Deploy Hosting and Firestore rules to the project in `.firebaserc`
+5. Deploy Firestore indexes (allowed to fail; see `CLAUDE.md`)
 
-A failing step stops the deploy. Auth settings in `firebase.json` (anonymous sign-in) aren't deployed by the workflow; after changing them, run `npm run deploy` as a project owner.
+A failing step, apart from the indexes, stops the deploy. Auth settings in `firebase.json` (anonymous sign-in) aren't deployed by the workflow; after changing them, run `npm run deploy` as a project owner.
 
 The workflow signs in with a service account key stored in the `FIREBASE_SERVICE_ACCOUNT` GitHub secret. The public Firebase web config is committed in `.env.production`.
 
@@ -61,12 +59,9 @@ To deploy by hand from this machine with your own Firebase login, run `npm run d
 
 ## Anti-cheat on Spark
 
-Clients write to Firestore directly, so `firestore.rules` is the only check. It can't replay a fight, so it can't tell who really won; instead it rejects what can't be true:
+Clients write to Firestore directly, so `firestore.rules` is the only check. The rules can't make a puzzle, so they check each solve's shape instead:
 
-- every board a run saves must be one a player could have afforded by that round (no more units than the level, one per hex, no more gold's worth than could have been earned, and no more items than have dropped, one per creature)
-- rounds are written one at a time, in order, a few seconds apart, and old rounds can't be changed
-- a round's result stays within what a fight can do: a win costs no health, a loss costs at least the round's base damage and no more than a full board could deal
-- a ranking must be written with the run's last round, match the run, beat the player's best that day, be for today, and go on the board for its kind of run
-- the puzzle ladder climbs one level per write, a few seconds apart, each with a well-formed board that cleared it, and earlier ones can't be changed
+- the ladder climbs one level per write, a few seconds apart, and each level's grid must be that level's size; earlier levels can't be changed
+- a daily solve is filed once per player, for a day within one of today, with a 10×10 grid
 
-A scripted client can still submit the strongest legal board every round, or claim wins it didn't earn. Combat is deterministic and every board records its opponent, so `npm run audit` replays saved runs and reports any whose wins or health don't add up. It then makes each puzzle level again from its number and replays every saved solution, reporting ladders that used creatures the level doesn't hand out or solutions that don't win. On the Blaze plan, a Cloud Function should replay each fight and the rules should leave run and ranking writes to it.
+A scripted client can still file grids that don't answer their puzzles. Puzzles come from their level or day alone, so `npm run audit` makes each one again and reports every saved grid that doesn't match its clues.

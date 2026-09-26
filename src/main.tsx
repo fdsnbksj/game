@@ -1,14 +1,16 @@
+import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { registerSW } from 'virtual:pwa-register';
-import { App } from './App';
-import { useRunStore } from './runStore';
+import { App, PLAY_PATHS } from './App';
 import './index.css';
 
 // The service worker serves the build it cached, so a deploy would otherwise show the
-// previous version once. Reload as soon as a new one is ready, but never mid-fight.
+// previous version once. Swap in a new one as soon as it's ready, but not under a thumb
+// mid-puzzle: wait until the player is off the grid or the app is in the background.
+// (Nothing would be lost either way; every tap is already saved.)
 const updateSW = registerSW({
   onNeedRefresh() {
-    const idle = () => useRunStore.getState().battle === null && location.pathname !== '/run';
+    const idle = () => !PLAY_PATHS.includes(location.pathname) || document.visibilityState === 'hidden';
     if (idle()) return void updateSW(true);
     const timer = setInterval(() => {
       if (!idle()) return;
@@ -18,6 +20,8 @@ const updateSW = registerSW({
   },
 });
 
-// No <StrictMode>: its dev-only double mount creates and destroys each Phaser game back to back,
-// which can leave a stray canvas behind.
-createRoot(document.getElementById('root')!).render(<App />);
+createRoot(document.getElementById('root')!).render(
+  <StrictMode>
+    <App />
+  </StrictMode>,
+);

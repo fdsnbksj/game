@@ -1,13 +1,8 @@
-import { CreatureChip } from '../components/CreatureChip';
-import { ItemChip } from '../components/ItemChip';
-import { TraitIcon } from '../components/TraitIcon';
-import { ITEMS, MAX_INTEREST, REROLL_COST, START_HP, SURGE_FROM, SURGE_PERCENT, TRAITS, UNITS, XP_COST, XP_PER_BUY } from '../sim/balance';
-
 const STEPS = [
-  { title: 'Buy', text: 'Tap a creature in the shop. It lands on your bench.' },
-  { title: 'Place', text: 'Drag it onto your hexes. Your level is how many can fight.' },
-  { title: 'Sell', text: 'Drag a creature onto the shop to sell it.' },
-  { title: 'Fight', text: 'Press Fight. The battle plays out on its own.' },
+  { title: 'Read the numbers', text: 'Each number is a run of filled squares in that row or column, in order, with at least one gap between runs.' },
+  { title: 'Fill', text: 'Tap a square to fill it. Drag to fill a line of them. Tap again to clear.' },
+  { title: 'Cross', text: "Switch to Cross to mark squares you know are empty. They're only notes." },
+  { title: 'Solve', text: 'When every row and column matches its numbers, the picture is done.' },
 ];
 
 export function HowToPlay() {
@@ -21,10 +16,7 @@ export function HowToPlay() {
       </header>
 
       <section className="glass card-pad">
-        <p className="lead">
-          Start with {START_HP} HP. Each round your team fights a rival's by itself. Lose and you take damage. There's no last
-          round: go as far as you can. After round {SURGE_FROM}, every rival is {SURGE_PERCENT}% stronger than the last.
-        </p>
+        <p className="lead">Fill in squares so every row and column matches the numbers beside it.</p>
         <ol className="steps">
           {STEPS.map((step, i) => (
             <li key={step.title}>
@@ -39,74 +31,20 @@ export function HowToPlay() {
       </section>
 
       <section className="glass card-pad">
-        <p className="micro">Gold and levels</p>
+        <p className="micro">No guessing</p>
         <p className="body-text">
-          You earn gold every round, plus 1 for every 10 you've saved (up to {MAX_INTEREST}) and a bonus for a win. Reroll the
-          shop for {REROLL_COST}, or buy {XP_PER_BUY} XP for {XP_COST}: higher levels field more creatures and find rarer
-          ones. Selling refunds the full price. Three copies merge into ★★, three ★★ into ★★★.
+          Every puzzle can be solved one row or column at a time, by logic alone, and has exactly one answer. Start with the
+          big numbers: a 4 in a row of 5 always fills the middle three.
         </p>
       </section>
 
       <section className="glass card-pad">
-        <p className="micro">Traits</p>
-        <ul className="trait-guide">
-          {TRAITS.map((trait) => (
-            <li key={trait.id}>
-              <TraitIcon trait={trait.id} size={22} />
-              <span>
-                <strong>{trait.name}</strong>
-                <span className="note">
-                  {trait.thresholds.map((t, i) => `${t}: ${trait.description.replace('{v}', `${trait.values[i]}`)}`).join(' · ')}
-                </span>
-              </span>
-            </li>
-          ))}
-        </ul>
-      </section>
-
-      <section className="glass card-pad">
-        <p className="micro">Items</p>
-        <p className="note">One drops every few rounds. Drag it onto a creature; each holds one.</p>
-        <ul className="item-guide">
-          {ITEMS.map((item) => (
-            <li key={item.id}>
-              <ItemChip itemId={item.id} size={24} />
-              <span>
-                <strong>{item.name}</strong>
-                <span className="note">{item.description}</span>
-              </span>
-            </li>
-          ))}
-        </ul>
-      </section>
-
-      <section className="glass card-pad">
-        <p className="micro">Puzzles</p>
+        <p className="micro">Made for the train</p>
         <p className="body-text">
-          The rival is already on the board. Place the creatures you're given (and any items) so they win, then press
-          Fight. There's no shop and no gold: only where each one stands. Levels never end, get harder as they go, and are
-          the same for everyone. After three misses on a level, a hint places one creature where it belongs.
+          Everything works with one thumb and without sound. There's no clock and no way to lose, and every tap is saved, so
+          you can close the app at your stop and carry on later, even without a signal. Levels go on forever and grow from
+          5×5 to 10×10. The daily puzzle is the same for everyone and resets at 00:00 UTC.
         </p>
-      </section>
-
-      <section>
-        <p className="micro section-label">Creatures</p>
-        <ul className="creature-grid">
-          {UNITS.map((unit) => (
-            <li key={unit.id} className={`glass creature-card cost-${unit.cost}`}>
-              <span className="cost-gem">{unit.cost}</span>
-              <CreatureChip unitId={unit.id} size={54} />
-              <strong>{unit.name}</strong>
-              <span className="creature-traits">
-                <TraitIcon trait={unit.origin} size={14} />
-                <TraitIcon trait={unit.role} size={14} />
-              </span>
-              <span className="note ability-note">
-                <b>{unit.ability.name}</b> {unit.ability.description}
-              </span>
-            </li>
-          ))}
-        </ul>
       </section>
     </main>
   );

@@ -1,27 +1,21 @@
-import { getDoc, serverTimestamp, setDoc, updateDoc, type Timestamp } from 'firebase/firestore';
+import { getDoc, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore';
 import { useGameStore, type Player } from '../store';
 import { legacyUserRef, playerRef } from './refs';
 
 /** The signed-in player's profile, created on first visit. */
 export async function loadOrCreatePlayer(uid: string): Promise<Player> {
   const snap = await getDoc(playerRef(uid));
-  if (snap.exists()) {
-    return {
-      displayName: snap.get('displayName'),
-      runsStarted: snap.get('runsStarted'),
-      lastRunStartAt: (snap.get('lastRunStartAt') as Timestamp | null)?.toMillis() ?? 0,
-    };
-  }
+  if (snap.exists()) return { displayName: snap.get('displayName') };
   const displayName = (await legacyName(uid)) ?? `Player${Math.floor(1000 + Math.random() * 9000)}`;
   try {
-    await setDoc(playerRef(uid), { displayName, createdAt: serverTimestamp(), runsStarted: 0, lastRunStartAt: serverTimestamp() });
+    await setDoc(playerRef(uid), { displayName, createdAt: serverTimestamp() });
   } catch (error) {
     // Another tab may have created it first.
     const again = await getDoc(playerRef(uid));
     if (!again.exists()) throw error;
     return loadOrCreatePlayer(uid);
   }
-  return { displayName, runsStarted: 0, lastRunStartAt: Date.now() };
+  return { displayName };
 }
 
 /** Neon Flap players keep the name they already chose. */

@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
-// The sim must give the same result on every device, so it can't use anything whose
+// The puzzles must come out the same result on every device, so it can't use anything whose
 // result depends on the device, the clock or the engine.
 const FORBIDDEN = [
   /Math\.random/,
@@ -11,7 +11,7 @@ const FORBIDDEN = [
   /\bfrom ['"](phaser|react|firebase)/,
 ];
 
-for (const folder of ['sim', 'nonogram']) {
+for (const folder of ['nonogram']) {
   describe(`src/${folder}`, () => {
     const dir = new URL(`../../src/${folder}/`, import.meta.url);
     for (const file of readdirSync(dir).filter((name) => name.endsWith('.ts'))) {

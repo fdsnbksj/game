@@ -1,89 +1,26 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router';
 import { TabBar } from './components/TabBar';
-import { Wordmark } from './components/Wordmark';
 import { Home } from './screens/Home';
 import { HowToPlay } from './screens/HowToPlay';
+import { Play } from './screens/Play';
 import { Profile } from './screens/Profile';
-import { Puzzle } from './screens/Puzzle';
 import { Rankings } from './screens/Rankings';
-import { Run } from './screens/Run';
-import { sfx, unlockAudio } from './game/audio';
 import { startSession } from './services/auth';
-import { useGameStore } from './store';
 
-/**
- * An installed copy of an older version can fail against the current rules, and the
- * offline cache keeps serving it. Throw the cache away and start over.
- */
-async function reloadFresh() {
-  try {
-    const registrations = (await navigator.serviceWorker?.getRegistrations()) ?? [];
-    await Promise.all(registrations.map((registration) => registration.unregister()));
-    if (typeof caches !== 'undefined') {
-      const names = await caches.keys();
-      await Promise.all(names.map((name) => caches.delete(name)));
-    }
-  } catch {
-    // Reloading is still worth a try.
-  }
-  location.reload();
-}
+/** The puzzle screens, which use the whole height and hide the tab bar. */
+export const PLAY_PATHS = ['/play', '/daily'];
 
 export function App() {
-  const ready = useGameStore((s) => s.player !== null);
-  const [error, setError] = useState<string | null>(null);
-
-  // Audio can only start inside a gesture, so every tap is a chance to unlock it.
-  useEffect(() => {
-    const onPointerDown = (event: PointerEvent) => {
-      unlockAudio();
-      if (event.target instanceof Element && event.target.closest('.button:not(:disabled), .item:not(:disabled)')) sfx.tick();
-    };
-    document.addEventListener('pointerdown', onPointerDown, { capture: true });
-    return () => document.removeEventListener('pointerdown', onPointerDown, { capture: true });
-  }, []);
-
-  useEffect(
-    () =>
-      startSession((cause) => {
-        console.error(cause);
-        setError('Could not connect. Check your connection and reload.');
-      }),
-    [],
-  );
-
-  if (error) {
-    return (
-      <main className="screen center">
-        <div className="glass splash-card">
-          <Wordmark />
-          <p className="error">{error}</p>
-          <button className="button primary" onClick={() => void reloadFresh()}>
-            Reload
-          </button>
-        </div>
-      </main>
-    );
-  }
-
-  if (!ready) {
-    return (
-      <main className="screen center" aria-busy="true">
-        <div className="glass splash-card">
-          <Wordmark />
-          <div className="spinner large" aria-label="Loading" />
-        </div>
-      </main>
-    );
-  }
+  // In the background: everything plays without it, which matters in a tunnel.
+  useEffect(() => startSession(), []);
 
   return (
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Home />} />
-        <Route path="/run" element={<Run />} />
-        <Route path="/puzzle" element={<Puzzle />} />
+        <Route path="/play" element={<Play which="ladder" />} />
+        <Route path="/daily" element={<Play which="daily" />} />
         <Route path="/how" element={<HowToPlay />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/ranks" element={<Rankings />} />
@@ -94,9 +31,7 @@ export function App() {
   );
 }
 
-/** The tab bar, everywhere but the battle, which needs the whole screen. */
 function Navigation() {
   const { pathname } = useLocation();
-  // The board screens use the whole height.
-  return pathname === '/run' || pathname === '/puzzle' ? null : <TabBar />;
+  return PLAY_PATHS.includes(pathname) ? null : <TabBar />;
 }

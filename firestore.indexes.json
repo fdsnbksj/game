@@ -1,16 +1,7 @@
 {
   "indexes": [
     {
-      "collectionGroup": "runs",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "v", "order": "ASCENDING" },
-        { "fieldPath": "rounds", "arrayConfig": "CONTAINS" },
-        { "fieldPath": "rand", "order": "ASCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "puzzles",
+      "collectionGroup": "ladders",
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "v", "order": "ASCENDING" },
@@ -20,12 +11,7 @@
   ],
   "fieldOverrides": [
     {
-      "collectionGroup": "runs",
-      "fieldPath": "boards",
-      "indexes": []
-    },
-    {
-      "collectionGroup": "puzzles",
+      "collectionGroup": "ladders",
       "fieldPath": "solutions",
       "indexes": []
     }

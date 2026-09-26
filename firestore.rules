@@ -3,8 +3,9 @@ rules_version = '2';
 // On the Spark plan there are no Cloud Functions, so these rules are the only
 // server-side validation. They make cheating harder, not impossible.
 //
-// Anything without a rule here is denied, including everything left from Neon Flap
-// (its leaderboards, item catalog and inventories) apart from reading your own old profile.
+// Anything without a rule here is denied. That closes everything left from earlier
+// games: Neon Flap's leaderboards, item catalog and inventories (apart from reading your
+// own old profile), and the auto-battler's runs, puzzles and rankings.
 service cloud.firestore {
   match /databases/{database}/documents {
 
@@ -37,10 +38,29 @@ service cloud.firestore {
     }
 
     // The client names the day from its own clock, so allow a day either side of the
-    // server's. Any wider and a result could be filed under a day long gone.
+    // server's. Any wider and a solve could be filed under a day long gone.
     function isDayNearNow(day) {
       return dayStart(day) >= request.time.date() - duration.value(1, 'd')
         && dayStart(day) <= request.time.date() + duration.value(1, 'd');
+    }
+
+    function playerName(uid) {
+      return get(/databases/$(database)/documents/players/$(uid)).data.displayName;
+    }
+
+    // Copies of src/nonogram/generate.ts; tests/unit/rulesSync.test.ts compares them.
+    // The rules can't make a puzzle, so they check a solve's shape and `npm run audit`
+    // checks it against the clues.
+    function nonogramVersion() { return 1; }
+    function sizeFor(level) {
+      return level <= 3 ? 5 : (level <= 8 ? 6 : (level <= 15 ? 7 : (level <= 25 ? 8 : 10)));
+    }
+    function dailySize() { return 10; }
+    function minSecondsBetweenLevels() { return 3; }
+
+    // A solved grid: one string of 0s and 1s, row by row.
+    function isGrid(grid, size) {
+      return grid is string && grid.matches('[01]{' + string(size * size) + '}');
     }
 
     // Neon Flap profiles, read once so a returning player keeps their name.
@@ -48,146 +68,34 @@ service cloud.firestore {
       allow read: if isOwner(uid);
     }
 
-    // A run is written one round at a time. The rules can't replay a fight, so they check
-    // that each board is one a player could have had, and that each round's result stays
-    // within what a fight can do. Keep the numbers below in sync with src/sim; the unit
-    // test tests/unit/rulesSync.test.ts compares them.
-
-    function balanceVersion() { return 4; }
-    function startHp() { return 100; }
-    function maxLevel() { return 8; }
-    function unitCosts() {
-      return {'sparkmouse': 1, 'chromeshell': 1, 'glitchtoad': 1, 'voltmoth': 1, 'bytebat': 2, 'ironhog': 2, 'surgeeel': 2, 'mirrorowl': 2, 'staticfox': 3, 'chromemantis': 3,
-        'thunderstag': 4, 'nullserpent': 5, 'sporecat': 1, 'prismfly': 1, 'acidfrog': 2, 'lumihare': 2, 'blightmoth': 3, 'beamray': 3, 'sludgebear': 4, 'solaris': 5,
-        'lirili': 4, 'trippi': 4, 'honk': 5, 'boneca': 5};
-    }
-    // Total XP to reach each level; index = level.
-    function levelXp() { return [0, 0, 2, 6, 12, 20, 32, 48, 68]; }
-    // Runs have no last round, so these are formulas of the round rather than tables.
-    // Most gold a player can have received by a round's planning: after round 8 the bank is
-    // past 50 and every round pays the most there is, 11.
-    function maxGold(round) {
-      return round <= 8 ? [0, 3, 8, 14, 21, 29, 37, 46, 56][round] : 56 + 11 * (round - 8);
-    }
-    // HP a loss costs before counting the winner's surviving stars.
-    function stageDamage(round) { return 2 + math.floor(round / 2); }
-    function minSecondsBetweenRounds() { return 3; }
-    function minSecondsBetweenRunStarts() { return 5; }
-    function itemIds() {
-      return ['heavy_plate', 'razor_fang', 'volt_coil', 'mirror_shard', 'mana_cell', 'siphon_core'];
-    }
-    // Items held by a round's planning: one drops after rounds 2, 5, 8 and every third after.
-    function maxItems(round) { return math.floor(round / 3); }
-    // A board holds at most maxLevel() units, so an item can name slots 0 to 7.
-    function itemSlots() { return [0, 1, 2, 3, 4, 5, 6, 7]; }
-
-    function ownCells() {
-      return [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27];
+    // Auto-battler players still have runsStarted and lastRunStartAt; they're left as they are.
+    match /players/{uid} {
+      allow read: if isOwner(uid);
+      allow create: if isOwner(uid)
+        && hasExactly(request.resource.data, ['displayName', 'createdAt'])
+        && isValidName(request.resource.data.displayName)
+        && request.resource.data.createdAt == request.time;
+      allow update: if isOwner(uid) && isRename();
     }
 
-    function playerAfter(uid) {
-      return getAfter(/databases/$(database)/documents/players/$(uid)).data;
-    }
-
-    // 1-star units bought to make a unit of this star.
-    function copies(star) { return star == 1 ? 1 : (star == 2 ? 3 : 9); }
-    function slotCost(board, i, costs) { return board.u.size() > i ? costs[board.u[i]] * copies(board.s[i]) : 0; }
-    // No loops in rules, so one term per possible unit (the board holds at most maxLevel()).
-    function boardCost(board, costs) {
-      return slotCost(board, 0, costs) + slotCost(board, 1, costs) + slotCost(board, 2, costs) + slotCost(board, 3, costs)
-        + slotCost(board, 4, costs) + slotCost(board, 5, costs) + slotCost(board, 6, costs) + slotCost(board, 7, costs);
-    }
-    // Gold spent on XP to be at `level` by `round`: 4 gold buys 4 XP, on top of 2 XP a round after the first.
-    function xpGold(level, round) {
-      let needed = levelXp()[level] - 2 * (round - 1);
-      return needed > 0 ? needed + (4 - needed % 4) % 4 : 0;
-    }
-
-    // Items a board carried: `it` holds the item ids and `ia` which slot holds each, so a
-    // creature can hold one item and a run can't hold more than have dropped. Both are
-    // optional, so a client from before items can still save its rounds.
-    function itemsAreLegal(board, round) {
-      let it = board.get('it', []);
-      let ia = board.get('ia', []);
-      return it is list && ia is list
-        && it.size() == ia.size()
-        && it.size() <= maxItems(round)
-        && it.hasOnly(itemIds())
-        && ia.hasOnly(itemSlots())
-        && ia.toSet().size() == ia.size();
-    }
-
-    // The team a player fought round `round` with. Mirrors isLegalBoard() in src/sim/validate.ts.
-    function isValidBoard(board, round) {
-      return board is map
-        && board.keys().hasAll(['lv', 'u', 'c', 's', 'o'])
-        && board.keys().hasOnly(['lv', 'u', 'c', 's', 'o', 'it', 'ia'])
-        && board.lv is int && board.lv >= 1 && board.lv <= maxLevel()
-        && board.u is list && board.c is list && board.s is list
-        && board.o is string && board.o.size() <= 100
-        && board.u.size() <= board.lv
-        && board.c.size() == board.u.size() && board.s.size() == board.u.size()
-        && board.u.hasOnly(unitCosts().keys())
-        && board.c.hasOnly(ownCells())
-        && board.c.toSet().size() == board.c.size()
-        && board.s.hasOnly([1, 2, 3])
-        // Last, so the checks above guard the lookups.
-        && boardCost(board, unitCosts()) + xpGold(board.lv, round) <= maxGold(round)
-        && itemsAreLegal(board, round);
-    }
-
-    // ---------- Puzzles ----------
-    // The ladder is puzzles/{uid}_{ladder version}: the highest level cleared, and the
-    // layout that cleared each one. Levels are generated from the level number, and the
-    // rules can't generate one or run the fight, so they check that each solution is a
-    // well-formed board and that the ladder climbs one level at a time, no faster than
-    // fights can be played; `npm run audit` replays the solutions. puzzleVersion() is
-    // LADDER_VERSION in src/sim/puzzle.ts.
-
-    function puzzleVersion() { return 1004; }
-
-    // A layout that cleared a level. Mirrors toPuzzleBoard() in src/services/puzzles.ts.
-    function isPuzzleBoard(board) {
-      return board is map
-        && board.keys().hasAll(['u', 'c', 's'])
-        && board.keys().hasOnly(['u', 'c', 's', 'it', 'ia'])
-        && board.u is list && board.c is list && board.s is list
-        && board.u.size() >= 1 && board.u.size() <= maxLevel()
-        && board.c.size() == board.u.size() && board.s.size() == board.u.size()
-        && board.u.hasOnly(unitCosts().keys())
-        && board.c.hasOnly(ownCells())
-        && board.c.toSet().size() == board.c.size()
-        && board.s.hasOnly([1, 2, 3])
-        && board.get('it', []) is list && board.get('ia', []) is list
-        && board.get('it', []).size() == board.get('ia', []).size()
-        && board.get('it', []).size() <= board.u.size()
-        && board.get('it', []).hasOnly(itemIds())
-        && board.get('ia', []).hasOnly(itemSlots())
-        && board.get('ia', []).toSet().size() == board.get('ia', []).size();
-    }
-
-    function playerName(uid) {
-      return get(/databases/$(database)/documents/players/$(uid)).data.displayName;
-    }
-
-    // The ladder starts with its first clear.
+    // The ladder starts with its first level.
     function isNewLadder(ladderId) {
       let ladder = request.resource.data;
-      return ladderId == request.auth.uid + '_' + string(puzzleVersion())
+      return ladderId == request.auth.uid + '_' + string(nonogramVersion())
         && hasExactly(ladder, ['uid', 'name', 'v', 'level', 'solutions', 'startedAt', 'lastAt'])
         && ladder.uid == request.auth.uid
         && ladder.name == playerName(request.auth.uid)
-        && ladder.v == puzzleVersion()
+        && ladder.v == nonogramVersion()
         && ladder.level == 1
         && ladder.solutions is map
         && ladder.solutions.keys().hasOnly(['l1']) && ladder.solutions.keys().hasAll(['l1'])
-        && isPuzzleBoard(ladder.solutions.l1)
+        && isGrid(ladder.solutions.l1, sizeFor(1))
         && ladder.startedAt == request.time
         && ladder.lastAt == request.time;
     }
 
-    // Each clear after that: exactly the next level, with its layout added and none touched.
-    function isNextPuzzle() {
+    // Each level after that: exactly the next one, with its grid added and none touched.
+    function isNextLevel() {
       let before = resource.data;
       let after = request.resource.data;
       let key = 'l' + string(before.level + 1);
@@ -195,133 +103,33 @@ service cloud.firestore {
       return after.diff(before).affectedKeys().hasOnly(['level', 'solutions', 'name', 'lastAt'])
         && after.level == before.level + 1
         && added.affectedKeys().hasOnly([key]) && added.addedKeys().hasAll([key])
-        && isPuzzleBoard(after.solutions[key])
+        && isGrid(after.solutions[key], sizeFor(after.level))
         && after.name == playerName(request.auth.uid)
         && after.lastAt == request.time
-        && request.time > before.lastAt + duration.value(minSecondsBetweenRounds(), 's');
+        && request.time > before.lastAt + duration.value(minSecondsBetweenLevels(), 's');
     }
 
-    // Starting a run: runsStarted counts up in the same batch that creates runs/{uid}_{n}.
-    function isRunStart(uid) {
-      let before = resource.data;
-      let after = request.resource.data;
-      return after.diff(before).affectedKeys().hasOnly(['runsStarted', 'lastRunStartAt'])
-        && after.runsStarted == before.runsStarted + 1
-        && after.lastRunStartAt == request.time
-        && request.time > before.lastRunStartAt + duration.value(minSecondsBetweenRunStarts(), 's')
-        && existsAfter(/databases/$(database)/documents/runs/$(uid + '_' + string(before.runsStarted)));
-    }
-
-    // Two kinds of run. A normal one is counted on the player, which is what spaces runs out
-    // and names it. The daily challenge is one per player per day, so its id is the day and
-    // creating it twice fails on its own. `mode` and `day` are optional: a client from before
-    // the daily challenge writes neither and starts a normal run, as it always did.
-    function isRightRunId(runId, run, player) {
-      return run.get('mode', 'run') == 'daily'
-        ? runId == request.auth.uid + '_d' + run.day
-          && isValidDay(run.day)
-          && isDayNearNow(run.day)
-        : runId == request.auth.uid + '_' + string(player.runsStarted - 1)
-          && player.lastRunStartAt == request.time;
-    }
-
-    function isNewRun(runId) {
-      let run = request.resource.data;
-      let player = playerAfter(request.auth.uid);
-      return run.keys().hasAll(['uid', 'name', 'v', 'rand', 'round', 'rounds', 'boards', 'hp', 'wins', 'done', 'startedAt', 'lastAt'])
-        && run.keys().hasOnly(['uid', 'name', 'v', 'rand', 'round', 'rounds', 'boards', 'hp', 'wins', 'done', 'startedAt', 'lastAt', 'mode', 'day'])
-        && run.get('mode', 'run') in ['run', 'daily']
-        && run.uid == request.auth.uid
-        && isRightRunId(runId, run, player)
-        && run.name == player.displayName
-        && run.v == balanceVersion()
-        && run.rand is int && run.rand >= 0 && run.rand < 2147483648
-        && run.round == 0 && run.rounds == [] && run.boards == {}
-        && run.hp == startHp() && run.wins == 0 && run.done == false
-        && run.startedAt == request.time && run.lastAt == request.time;
-    }
-
-    // One round: its board, and the result. A win adds a win and costs nothing; anything
-    // else costs at least the round's base damage and at most that plus a full board of 3-stars.
-    function isNextRound() {
-      let before = resource.data;
-      let after = request.resource.data;
-      let n = before.round + 1;
-      let key = 'r' + string(n);
-      let lost = before.hp - after.hp;
-      return before.done == false
-        && after.diff(before).affectedKeys().hasOnly(['round', 'rounds', 'boards', 'hp', 'wins', 'done', 'lastAt'])
-        && after.round == n
-        && after.rounds == before.rounds.concat([n])
-        && after.boards.diff(before.boards).affectedKeys().hasOnly([key])
-        && key in after.boards
-        && isValidBoard(after.boards[key], n)
-        && after.hp is int && after.hp >= 0
-        && ((after.wins == before.wins + 1 && lost == 0)
-          || (after.wins == before.wins && lost <= stageDamage(n) + maxLevel() * 3
-            && (lost >= stageDamage(n) || after.hp == 0)))
-        && after.done == (after.hp == 0)
-        && after.lastAt == request.time
-        && request.time > before.lastAt + duration.value(minSecondsBetweenRounds(), 's');
-    }
-
-    // A finished run's result on a day's rankings, written in the same batch as its last round.
-    function isValidRanking(uid, day, mode) {
-      let entry = request.resource.data;
-      let run = getAfter(/databases/$(database)/documents/runs/$(entry.runId)).data;
-      // Ranked by wins, then by rounds survived. Clients from before that filed HP instead,
-      // which is always 0 at the end of a run; they're still accepted, with a score that
-      // can only tie or lose to the new one.
-      return (hasExactly(entry, ['score', 'wins', 'round', 'runId', 'displayName', 'submittedAt'])
-            && entry.round == run.round && entry.score == run.wins * 1000 + run.round
-          || hasExactly(entry, ['score', 'wins', 'hp', 'runId', 'displayName', 'submittedAt'])
-            && entry.hp == run.hp && entry.score == run.wins * 1000 + run.hp)
-        && run.get('mode', 'run') == mode
-        && (mode == 'run' || run.day == day)
-        && run.uid == uid
-        && run.done == true
-        && run.lastAt == request.time
-        && entry.wins == run.wins
-        && entry.displayName == playerAfter(uid).displayName
-        && isValidDay(day) && isDayNearNow(day)
-        && (resource == null || entry.score > resource.data.score)
-        && entry.submittedAt == request.time;
-    }
-
-    match /players/{uid} {
-      allow read: if isOwner(uid);
-      allow create: if isOwner(uid)
-        && hasExactly(request.resource.data, ['displayName', 'createdAt', 'runsStarted', 'lastRunStartAt'])
-        && isValidName(request.resource.data.displayName)
-        && request.resource.data.runsStarted == 0
-        && request.resource.data.createdAt == request.time
-        && request.resource.data.lastRunStartAt == request.time;
-      allow update: if isOwner(uid) && (isRename() || isRunStart(uid));
-    }
-
-    // Readable by everyone signed in, for the puzzle rankings.
-    match /puzzles/{ladderId} {
+    // Readable by everyone signed in, for the rankings.
+    match /ladders/{ladderId} {
       allow read: if request.auth != null;
       allow create: if request.auth != null && isNewLadder(ladderId);
-      allow update: if request.auth != null && request.auth.uid == resource.data.uid && isNextPuzzle();
+      allow update: if request.auth != null && request.auth.uid == resource.data.uid && isNextLevel();
     }
 
-    // Readable by everyone signed in: other players' boards are the opponents.
-    match /runs/{runId} {
-      allow read: if request.auth != null;
-      allow create: if request.auth != null && isNewRun(runId);
-      allow update: if request.auth != null && request.auth.uid == resource.data.uid && isNextRound();
+    // One solve per player per day, never changed: the doc id is the player.
+    function isDailySolve(uid, day) {
+      let solve = request.resource.data;
+      return isValidDay(day) && isDayNearNow(day)
+        && hasExactly(solve, ['name', 'v', 'g', 'solvedAt'])
+        && solve.name == playerName(uid)
+        && solve.v == nonogramVersion()
+        && isGrid(solve.g, dailySize())
+        && solve.solvedAt == request.time;
     }
 
-    match /rankings/{day}/entries/{uid} {
+    match /dailySolves/{day}/entries/{uid} {
       allow read: if request.auth != null;
-      allow create, update: if isOwner(uid) && isValidRanking(uid, day, 'run');
-    }
-
-    // The daily challenge: the same run for everyone that day, on its own board.
-    match /dailyRankings/{day}/entries/{uid} {
-      allow read: if request.auth != null;
-      allow create, update: if isOwner(uid) && isValidRanking(uid, day, 'daily');
+      allow create: if isOwner(uid) && isDailySolve(uid, day);
     }
   }
 }
