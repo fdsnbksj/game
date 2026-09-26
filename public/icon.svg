@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="a game">
-  <rect width="512" height="512" rx="114" fill="#007aff"/>
+  <rect width="512" height="512" rx="114" fill="#0a0b0d"/>
   <!-- A geometric lowercase a: a ring and a stem, drawn as shapes so it looks the same everywhere. -->
-  <circle cx="256" cy="256" r="112" fill="none" stroke="#ffffff" stroke-width="72"/>
-  <rect x="332" y="108" width="72" height="296" fill="#ffffff"/>
+  <circle cx="256" cy="256" r="112" fill="none" stroke="#e8b339" stroke-width="72"/>
+  <rect x="332" y="108" width="72" height="296" fill="#e8b339"/>
 </svg>

@@ -14,9 +14,9 @@ export default defineConfig({
         name: 'a game',
         short_name: 'a game',
         description: 'Small logic puzzles for between chapters. One thumb, no sound, stop anytime.',
-        // A manifest has one colour for both schemes; this matches the icon's own tile.
-        theme_color: '#f2f2f7',
-        background_color: '#f2f2f7',
+        // The page background, which is also the icon's tile.
+        theme_color: '#0a0b0d',
+        background_color: '#0a0b0d',
         display: 'standalone',
         orientation: 'portrait',
         categories: ['games'],
@@ -35,6 +35,8 @@ export default defineConfig({
         ],
       },
       workbox: {
+        // The bundled Inter too, so text looks the same offline.
+        globPatterns: ['**/*.{js,css,html,woff2}'],
         // The new worker waits until src/main.tsx says it is safe to swap in.
         skipWaiting: false,
         clientsClaim: false,

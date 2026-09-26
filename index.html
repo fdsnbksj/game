@@ -3,12 +3,11 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="color-scheme" content="light dark" />
-    <meta name="theme-color" content="#f2f2f7" media="(prefers-color-scheme: light)" />
-    <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="theme-color" content="#0a0b0d" />
     <meta name="description" content="Small logic puzzles for between chapters. One thumb, no sound, stop anytime." />
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="a game" />
     <meta property="og:type" content="website" />
     <meta property="og:title" content="a game" />
@@ -20,19 +19,15 @@
     <title>a game</title>
     <!-- Just enough to paint the first frame before the app's CSS and JS arrive. -->
     <style>
-      /* The same two colours as :root in src/index.css, so the first frame is right. */
-      html { color-scheme: light dark; background: #f2f2f7; color: #000; }
+      /* The same colours as :root in src/index.css, so the first frame is right. */
+      html { color-scheme: dark; background: #0a0b0d; color: #ecedef; }
       html, body { margin: 0; height: 100%; }
       .boot { height: 100%; display: grid; place-content: center; gap: 24px; justify-items: center;
-        font: 700 2.125rem/1.1 -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, system-ui, sans-serif;
-        letter-spacing: -.02em; }
-      .boot i { width: 24px; height: 24px; border: 3px solid rgb(120 120 128 / .2);
-        border-top-color: rgb(60 60 67 / .6); border-radius: 50%; animation: boot-spin .8s linear infinite; }
+        font: 650 1.75rem/1.1 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+        letter-spacing: -.03em; }
+      .boot i { width: 24px; height: 24px; border: 3px solid #24272e;
+        border-top-color: #e8b339; border-radius: 50%; animation: boot-spin .8s linear infinite; }
       @keyframes boot-spin { to { transform: rotate(360deg); } }
-      @media (prefers-color-scheme: dark) {
-        html { background: #000; color: #fff; }
-        .boot i { border-color: rgb(120 120 128 / .36); border-top-color: rgb(235 235 245 / .6); }
-      }
     </style>
   </head>
   <body>
