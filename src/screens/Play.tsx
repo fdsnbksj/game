@@ -1,6 +1,9 @@
+import { useEffect } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { Board, MiniGrid } from '../components/Board';
+import { RecallCard } from '../components/RecallCard';
 import { SettingsButton } from '../components/SettingsSheet';
+import { useLibraryStore } from '../libraryStore';
 import { puzzleFor, useNonogramStore, type Which } from '../nonogramStore';
 import { dayId } from '../shared/constants';
 
@@ -23,6 +26,21 @@ export function Play({ which }: { which: Which }) {
   const day = dayId();
   const dailyDone = useNonogramStore((s) => s.dailySolved.includes(day));
   const puzzle = puzzleFor(which, level, day);
+  const gate = useNonogramStore((s) => (which === 'ladder' ? s.gate : null));
+  const openGate = useNonogramStore((s) => s.openGate);
+  const gateCard = useLibraryStore((s) => (gate ? s.cards.find((c) => c.id === gate) : undefined));
+  const hasLibrary = useLibraryStore((s) => s.cards.length > 0);
+
+  // The line was removed from the library while it stood in the way: nothing to ask.
+  useEffect(() => {
+    if (gate && !gateCard) openGate();
+  }, [gate, gateCard, openGate]);
+
+  const leave = () => {
+    openGate();
+    dismissSolved();
+    navigate('/');
+  };
 
   if (which === 'daily' && dailyDone && !justSolved) {
     return (
@@ -81,7 +99,20 @@ export function Play({ which }: { which: Which }) {
         </button>
       </div>
 
-      {justSolved && (
+      {gateCard ? (
+        <div className="overlay bottom">
+          <RecallCard
+            key={gateCard.id}
+            card={gateCard}
+            solved={justSolved}
+            onNext={() => {
+              openGate();
+              dismissSolved();
+            }}
+            onLeave={leave}
+          />
+        </div>
+      ) : justSolved && (
         <div className="overlay">
           <div className="panel solved-panel" role="dialog" aria-label="Solved">
             <MiniGrid size={justSolved.size} marks={justSolved.marks} px={120} />
@@ -92,6 +123,11 @@ export function Play({ which }: { which: Which }) {
                 <button className="button primary big" onClick={dismissSolved}>
                   Next puzzle
                 </button>
+                {!hasLibrary && (
+                  <Link className="note recall-invite" to="/books" onClick={dismissSolved}>
+                    Add highlights from your book to recall a line between levels
+                  </Link>
+                )}
                 <button
                   className="button ghost"
                   onClick={() => {

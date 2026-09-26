@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { dailyNonogram, nonogram, NONOGRAM_VERSION, type Nonogram } from './nonogram/generate';
 import { isSolved, newPlay, paint, setMode, undo, type Mark, type Mode, type PlayState } from './nonogram/play';
 import { isRetryable, packGrid, writeSolve, type SolveWrite } from './services/solves';
+import { useLibraryStore } from './libraryStore';
 import { dayId } from './shared/constants';
 import { useGameStore } from './store';
 
@@ -33,6 +34,11 @@ interface Saved {
   /** When the last write landed (ms, client clock), to space the next one. */
   lastWriteAt: number;
   haptics: boolean;
+  /**
+   * A line from the player's highlights to recall before the next level opens, by card
+   * id. Saved, so closing the app on the question doesn't skip it.
+   */
+  gate: string | null;
 }
 
 /** Just solved, for the card that follows. */
@@ -59,6 +65,7 @@ const fresh = (): Saved => ({
   ladderOnline: true,
   lastWriteAt: 0,
   haptics: true,
+  gate: null,
 });
 
 function load(): Saved {
@@ -67,7 +74,7 @@ function load(): Saved {
     if (!saved) return fresh();
     if (saved.v === NONOGRAM_VERSION) return { ...fresh(), ...saved };
     // New generator, new puzzles: the ladder starts over, but the count and settings stay.
-    return { ...fresh(), solved: saved.solved ?? 0, haptics: saved.haptics ?? true };
+    return { ...fresh(), solved: saved.solved ?? 0, haptics: saved.haptics ?? true, gate: saved.gate ?? null };
   } catch {
     return fresh();
   }
@@ -106,6 +113,8 @@ interface NonogramStore extends Saved {
   /** Wipes the grid (and its undo steps) to start the puzzle again. */
   clear: (which: Which) => void;
   dismissSolved: () => void;
+  /** The question was answered: the next level is open. */
+  openGate: () => void;
   setHaptics: (on: boolean) => void;
   /** Writes whatever solves are waiting. Safe to call any time; runs one write at a time. */
   sync: () => Promise<void>;
@@ -118,8 +127,8 @@ let syncing = false;
 
 export const useNonogramStore = create<NonogramStore>()((set, get) => {
   const persist = () => {
-    const { v, level, ladder, daily, dailySolved, solved, pending, ladderOnline, lastWriteAt, haptics } = get();
-    save({ v, level, ladder, daily, dailySolved, solved, pending, ladderOnline, lastWriteAt, haptics });
+    const { v, level, ladder, daily, dailySolved, solved, pending, ladderOnline, lastWriteAt, haptics, gate } = get();
+    save({ v, level, ladder, daily, dailySolved, solved, pending, ladderOnline, lastWriteAt, haptics, gate });
   };
 
   /** Puts a play back where it belongs. */
@@ -141,6 +150,8 @@ export const useNonogramStore = create<NonogramStore>()((set, get) => {
         solved: state.solved + 1,
         pending: state.ladderOnline ? [...state.pending, write] : state.pending,
         justSolved: { ...justSolved, title: `Level ${state.level}` },
+        // Only the ladder asks; the daily puzzle stays the same for everyone.
+        gate: useLibraryStore.getState().pickNext(),
       });
     } else {
       const day = dayId();
@@ -196,6 +207,11 @@ export const useNonogramStore = create<NonogramStore>()((set, get) => {
     },
 
     dismissSolved: () => set({ justSolved: null }),
+
+    openGate: () => {
+      set({ gate: null });
+      persist();
+    },
 
     setHaptics: (haptics) => {
       set({ haptics });

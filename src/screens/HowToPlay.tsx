@@ -39,6 +39,16 @@ export function HowToPlay() {
       </section>
 
       <section className="glass card-pad">
+        <p className="micro">Learn your book</p>
+        <p className="body-text">
+          Add lines you highlighted under Books. After each level, one comes back with a word missing: pick the right word to
+          open the next level. A wrong pick just greys out, so try again. Lines you get first time come back after longer and
+          longer gaps, and ones you miss come back soon, so the lines you keep forgetting come up most. Your highlights stay on
+          your phone.
+        </p>
+      </section>
+
+      <section className="glass card-pad">
         <p className="micro">Made for the train</p>
         <p className="body-text">
           Everything works with one thumb and without sound. There's no clock and no way to lose, and every tap is saved, so

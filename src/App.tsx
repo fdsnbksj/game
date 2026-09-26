@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router';
 import { TabBar } from './components/TabBar';
+import { Books } from './screens/Books';
 import { Home } from './screens/Home';
 import { HowToPlay } from './screens/HowToPlay';
 import { Play } from './screens/Play';
@@ -21,6 +22,7 @@ export function App() {
         <Route path="/" element={<Home />} />
         <Route path="/play" element={<Play which="ladder" />} />
         <Route path="/daily" element={<Play which="daily" />} />
+        <Route path="/books" element={<Books />} />
         <Route path="/how" element={<HowToPlay />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/ranks" element={<Rankings />} />
