@@ -1,17 +1,17 @@
 import { initializeApp } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { cluesOf, sameClue, type Clues } from '../src/nonogram/clues';
-import { dailyNonogram, nonogram, NONOGRAM_VERSION } from '../src/nonogram/generate';
+import { nonogram, NONOGRAM_VERSION } from '../src/nonogram/generate';
 
 // Checks saved solves against their puzzles and reports ones that don't add up.
 //
 // The rules check each solve's shape (a grid of the right size, levels in order), not
-// that it answers the puzzle: they can't make one. Puzzles come from their level or day
+// that it answers the puzzle: they can't make one. Puzzles come from their level
 // alone, so here each is made again and every saved grid checked against its clues.
 // Read-only: it writes nothing.
 //
 //   npm run audit                                   # the emulator
-//   AUDIT_PROJECT_ID=<project-id> npm run audit -- --limit 200 --days 7
+//   AUDIT_PROJECT_ID=<project-id> npm run audit -- --limit 200
 
 const projectId = process.env.AUDIT_PROJECT_ID;
 if (projectId === '') throw new Error('AUDIT_PROJECT_ID is set but empty');
@@ -24,7 +24,6 @@ const flag = (name: string, fallback: number) => {
   return i > 0 ? Number(process.argv[i + 1]) : fallback;
 };
 const limit = flag('--limit', 50);
-const days = flag('--days', 3);
 
 const db = getFirestore(initializeApp({ projectId: projectId ?? 'demo-game' }));
 
@@ -52,20 +51,6 @@ for (const doc of ladders.docs) {
   else flagged.push(`${doc.id} (${name}, level ${level}): ${problems.slice(0, 5).join('; ')}${problems.length > 5 ? ` and ${problems.length - 5} more` : ''}`);
 }
 console.log(`Checked ${ladders.size} ladders from ${projectId ?? 'the emulator'}: ${clean} add up.`);
-
-// Every solve of the last few daily puzzles.
-let solves = 0;
-for (let back = 0; back < days; back++) {
-  const day = new Date(Date.now() - back * 86_400_000).toISOString().slice(0, 10);
-  const puzzle = dailyNonogram(day);
-  const snap = await db.collection('dailySolves').doc(day).collection('entries').get();
-  for (const doc of snap.docs) {
-    solves += 1;
-    const problem = doc.get('v') === NONOGRAM_VERSION ? check(doc.get('g'), puzzle) : 'made by another generator version';
-    if (problem) flagged.push(`daily ${day} ${doc.id} (${doc.get('name')}): ${problem}`);
-  }
-}
-console.log(`Checked ${solves} daily solves over ${days} days.`);
 
 if (flagged.length > 0) console.log(`\n${flagged.length} to look at:\n  ${flagged.join('\n  ')}`);
 await db.terminate();

@@ -1,8 +1,8 @@
 # a game
 
-Small logic puzzles for between chapters. Each one is a nonogram: fill in squares so that every row and column matches the numbers beside it, and a picture appears. It's built for a train ride with a book. Everything works with one thumb, nothing needs sound, there's no clock and no way to lose, and every tap is saved, so you can close it at your stop, even without a signal. Levels go on forever and grow from 5×5 to 10×10. The daily puzzle is the same for everyone. Both have rankings.
+Small logic puzzles for between chapters. Each one is a nonogram: fill in squares so that every row and column matches the numbers beside it, and a picture appears. It's built for a train ride with a book. Everything works with one thumb, nothing needs sound, there's no clock and no way to lose, and every tap is saved, so you can close it at your stop, even without a signal. Levels go on forever, grow from 5×5 to 10×10 and are ranked.
 
-After every puzzle it shows one short, useful idea from psychology, software engineering or philosophy, with something to try; save the ones worth keeping. It can also help you remember what you read. Add your highlights, pasted or from a Kindle's `My Clippings.txt`. After each level, one comes back with a word missing, and you pick the word to open the next level. Lines you know come back less often, and ones you miss come back sooner. Highlights stay on your phone.
+After every puzzle it shows one short, useful idea from psychology, software engineering or philosophy, with something to try; save the ones worth keeping. The app is one screen: the puzzle, with a ⋯ menu for saved cards, rankings and settings.
 
 React handles the screens, and Firebase (free Spark plan) provides auth, data and hosting. Puzzles are generated in code from their level or day. The game replaced an auto-battler, which had replaced Neon Flap, a flappy-bird game.
 
@@ -38,8 +38,8 @@ npm run build       # type-check + production build
 | `src/nonogram/` | The puzzles as pure, deterministic TypeScript: clues, line solver, generator, play reducer |
 | `src/nonogramStore.ts` | Puzzles in progress and solves, saved to localStorage, and the queue of writes to Firestore |
 | `src/components/Board.tsx` | The grid: tap and drag to mark squares |
-| `src/learn/`, `src/libraryStore.ts` | Knowledge cards, and highlights (importing, fill-the-gap questions, spaced repetition); kept on the device |
-| `src/screens/` | React screens: Home, Play, Rankings, How to play, Profile |
+| `src/learn/`, `src/knowledgeStore.ts` | Knowledge cards, and the topics and saved cards, kept on the device |
+| `src/screens/` | The puzzle (`Play`), and the menu's pages: Saved, Rankings, Settings |
 | `src/services/` | Firestore reads and writes: session, players, solves and rankings |
 | `tests/unit/`, `tests/rules/` | Puzzle tests, and Firestore rules tests |
 | `firestore.rules` | The only server-side validation (Spark has no Cloud Functions) |
@@ -65,6 +65,5 @@ To deploy by hand from this machine with your own Firebase login, run `npm run d
 Clients write to Firestore directly, so `firestore.rules` is the only check. The rules can't make a puzzle, so they check each solve's shape instead:
 
 - the ladder climbs one level per write, a few seconds apart, and each level's grid must be that level's size; earlier levels can't be changed
-- a daily solve is filed once per player, for a day within one of today, with a 10×10 grid
 
 A scripted client can still file grids that don't answer their puzzles. Puzzles come from their level or day alone, so `npm run audit` makes each one again and reports every saved grid that doesn't match its clues.

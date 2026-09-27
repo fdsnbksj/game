@@ -1,7 +1,7 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { registerSW } from 'virtual:pwa-register';
-import { App, PLAY_PATHS } from './App';
+import { App } from './App';
 import './index.css';
 
 // The service worker serves the build it cached, so a deploy would otherwise show the
@@ -10,7 +10,7 @@ import './index.css';
 // (Nothing would be lost either way; every tap is already saved.)
 const updateSW = registerSW({
   onNeedRefresh() {
-    const idle = () => !PLAY_PATHS.includes(location.pathname) || document.visibilityState === 'hidden';
+    const idle = () => location.pathname !== '/' || document.visibilityState === 'hidden';
     if (idle()) return void updateSW(true);
     const timer = setInterval(() => {
       if (!idle()) return;

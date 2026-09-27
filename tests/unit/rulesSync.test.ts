@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { DAILY_SIZE, NONOGRAM_VERSION, sizeFor } from '../../src/nonogram/generate';
+import { NONOGRAM_VERSION, sizeFor } from '../../src/nonogram/generate';
 
 // firestore.rules keeps its own copies of a few numbers from src/nonogram. This fails if
 // they drift apart, which would make the rules refuse honest solves.
@@ -17,10 +17,6 @@ function body(name: string): string {
 describe('firestore.rules matches src/nonogram', () => {
   it('has the same generator version', () => {
     expect(Number(body('nonogramVersion'))).toBe(NONOGRAM_VERSION);
-  });
-
-  it('has the same daily size', () => {
-    expect(Number(body('dailySize'))).toBe(DAILY_SIZE);
   });
 
   it('grows grids with the level the same way', () => {

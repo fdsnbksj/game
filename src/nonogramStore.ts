@@ -1,51 +1,37 @@
 import { create } from 'zustand';
-import { dailyNonogram, nonogram, NONOGRAM_VERSION, type Nonogram } from './nonogram/generate';
+import { useKnowledgeStore } from './knowledgeStore';
+import { nonogram, NONOGRAM_VERSION, type Nonogram } from './nonogram/generate';
 import { isSolved, newPlay, paint, setMode, undo, type Mark, type Mode, type PlayState } from './nonogram/play';
 import { isRetryable, packGrid, writeSolve, type SolveWrite } from './services/solves';
-import { useLibraryStore } from './libraryStore';
-import { dayId } from './shared/constants';
 import { useGameStore } from './store';
 
-// Puzzles in progress, and everything solved on this device. Every change is saved to
-// localStorage the moment it happens, so the app can be closed at any point (a stop
-// coming up, a tunnel) and pick up exactly where it was.
+// The puzzle in progress and the ladder it's on. Every change is saved to localStorage
+// the moment it happens, so the app can be closed at any point (a stop coming up, a
+// tunnel) and pick up exactly where it was.
 //
 // Solves are counted here first and queued for Firestore, written in order and spaced
 // out the way the rules require, whenever there's a session and a connection.
 
-export type Which = 'ladder' | 'daily';
-
 const KEY = 'game:nonogram';
 
-/** What's saved. */
+/** What's saved. Older saves also hold fields from removed modes; they're ignored. */
 interface Saved {
   v: number;
-  /** The ladder level being played: one past the highest cleared. */
+  /** The level being played: one past the highest cleared. */
   level: number;
   ladder: PlayState | null;
-  daily: { day: string; play: PlayState } | null;
-  /** Days whose puzzle was solved here, newest last. */
-  dailySolved: string[];
-  /** Puzzles solved on this device, over every version. */
-  solved: number;
   pending: SolveWrite[];
-  /** False once Firestore refused a ladder write: the ladder carries on here, unranked. */
+  /** False once Firestore refused a write: the ladder carries on here, unranked. */
   ladderOnline: boolean;
   /** When the last write landed (ms, client clock), to space the next one. */
   lastWriteAt: number;
   haptics: boolean;
-  /**
-   * A line from the player's highlights to recall before the next level opens, by card
-   * id. Saved, so closing the app on the question doesn't skip it.
-   */
-  gate: string | null;
 }
 
 /** Just solved, for the card that follows. */
 export interface JustSolved {
-  which: Which;
-  title: string;
-  size: number;
+  level: number;
+  /** The finished grid, to show the picture while the card is up. */
   marks: Mark[];
   /** A knowledge card to read before moving on, if any topic is chosen. */
   knowledge: string | null;
@@ -53,30 +39,18 @@ export interface JustSolved {
 
 /** A little over the rules' 3 s minimum, so client and server clocks can disagree slightly. */
 const WRITE_SPACING_MS = 3500;
-/** Solved days kept, enough for any streak worth showing. */
-const DAYS_KEPT = 400;
 
-const fresh = (): Saved => ({
-  v: NONOGRAM_VERSION,
-  level: 1,
-  ladder: null,
-  daily: null,
-  dailySolved: [],
-  solved: 0,
-  pending: [],
-  ladderOnline: true,
-  lastWriteAt: 0,
-  haptics: true,
-  gate: null,
-});
+const fresh = (): Saved => ({ v: NONOGRAM_VERSION, level: 1, ladder: null, pending: [], ladderOnline: true, lastWriteAt: 0, haptics: true });
 
 function load(): Saved {
   try {
     const saved = JSON.parse(localStorage.getItem(KEY) ?? 'null') as Partial<Saved> | null;
     if (!saved) return fresh();
-    if (saved.v === NONOGRAM_VERSION) return { ...fresh(), ...saved };
-    // New generator, new puzzles: the ladder starts over, but the count and settings stay.
-    return { ...fresh(), solved: saved.solved ?? 0, haptics: saved.haptics ?? true, gate: saved.gate ?? null };
+    // New generator, new puzzles: the ladder starts over, but settings stay.
+    if (saved.v !== NONOGRAM_VERSION) return { ...fresh(), haptics: saved.haptics ?? true };
+    const { level, ladder, pending, ladderOnline, lastWriteAt, haptics } = { ...fresh(), ...saved };
+    // Daily solves from before the daily puzzle was removed can no longer be written.
+    return { v: NONOGRAM_VERSION, level, ladder, pending: pending.filter((p) => p.kind === 'level'), ladderOnline, lastWriteAt, haptics };
   } catch {
     return fresh();
   }
@@ -90,33 +64,27 @@ function save(saved: Saved) {
   }
 }
 
-/** Puzzles already made, so moving between screens doesn't make them twice. */
-const made = new Map<string, Nonogram>();
-function remember(id: string, make: () => Nonogram) {
-  let found = made.get(id);
+/** Levels already made, so re-renders don't make them twice. */
+const made = new Map<number, Nonogram>();
+export function levelPuzzle(level: number): Nonogram {
+  let found = made.get(level);
   if (!found) {
-    found = make();
-    made.set(id, found);
+    found = nonogram(level);
+    made.set(level, found);
   }
   return found;
 }
-export const levelPuzzle = (level: number) => remember(`level:${level}`, () => nonogram(level));
-export const dailyPuzzle = (day: string) => remember(`day:${day}`, () => dailyNonogram(day));
-
-export const puzzleFor = (which: Which, level: number, day: string) => (which === 'ladder' ? levelPuzzle(level) : dailyPuzzle(day));
 
 interface NonogramStore extends Saved {
   justSolved: JustSolved | null;
-  /** The play in progress for a puzzle, or a blank one. */
-  playOf: (which: Which) => PlayState;
-  stroke: (which: Which, cells: number[]) => void;
-  undo: (which: Which) => void;
-  setMode: (which: Which, mode: Mode) => void;
-  /** Wipes the grid (and its undo steps) to start the puzzle again. */
-  clear: (which: Which) => void;
+  /** The play in progress, or a blank one. */
+  play: () => PlayState;
+  stroke: (cells: number[]) => void;
+  undo: () => void;
+  setMode: (mode: Mode) => void;
+  /** Wipes the grid (and its undo steps) to start the level again. */
+  clear: () => void;
   dismissSolved: () => void;
-  /** The question was answered: the next level is open. */
-  openGate: () => void;
   setHaptics: (on: boolean) => void;
   /** Writes whatever solves are waiting. Safe to call any time; runs one write at a time. */
   sync: () => Promise<void>;
@@ -129,91 +97,51 @@ let syncing = false;
 
 export const useNonogramStore = create<NonogramStore>()((set, get) => {
   const persist = () => {
-    const { v, level, ladder, daily, dailySolved, solved, pending, ladderOnline, lastWriteAt, haptics, gate } = get();
-    save({ v, level, ladder, daily, dailySolved, solved, pending, ladderOnline, lastWriteAt, haptics, gate });
+    const { v, level, ladder, pending, ladderOnline, lastWriteAt, haptics } = get();
+    save({ v, level, ladder, pending, ladderOnline, lastWriteAt, haptics });
   };
 
-  /** Puts a play back where it belongs. */
-  const store = (which: Which, play: PlayState) => {
-    if (which === 'ladder') set({ ladder: play });
-    else set({ daily: { day: dayId(), play } });
-  };
-
-  /** Counts a solve at once, so closing the app on the card can't lose it. */
-  const solve = (which: Which, play: PlayState) => {
-    const grid = packGrid(play.marks);
-    const justSolved = { which, size: play.size, marks: play.marks, knowledge: useLibraryStore.getState().nextKnowledge() } as const;
-    const state = get();
-    if (which === 'ladder') {
-      const write: SolveWrite = { kind: 'level', level: state.level, grid };
-      set({
-        level: state.level + 1,
-        ladder: null,
-        solved: state.solved + 1,
-        pending: state.ladderOnline ? [...state.pending, write] : state.pending,
-        justSolved: { ...justSolved, title: `Level ${state.level}` },
-        // Only the ladder asks; the daily puzzle stays the same for everyone.
-        gate: useLibraryStore.getState().pickNext(),
-      });
-    } else {
-      const day = dayId();
-      set({
-        daily: null,
-        dailySolved: [...state.dailySolved.filter((d) => d !== day), day].slice(-DAYS_KEPT),
-        solved: state.solved + 1,
-        pending: [...state.pending, { kind: 'daily', day, grid }],
-        justSolved: { ...justSolved, title: "Today's puzzle" },
-      });
-    }
-    if (state.haptics) navigator.vibrate?.([30, 60, 30]);
+  const keep = (ladder: PlayState) => {
+    set({ ladder });
     persist();
-    void get().sync();
   };
 
   return {
     ...load(),
     justSolved: null,
 
-    playOf: (which) => {
-      const { level, ladder, daily } = get();
-      const saved = which === 'ladder' ? ladder : daily?.day === dayId() ? daily.play : null;
-      return saved ?? newPlay(puzzleFor(which, level, dayId()).size);
-    },
+    play: () => get().ladder ?? newPlay(levelPuzzle(get().level).size),
 
-    stroke: (which, cells) => {
-      const before = get().playOf(which);
+    stroke: (cells) => {
+      const before = get().play();
       const next = paint(before, cells);
       if (next === before) return;
-      if (isSolved(next, puzzleFor(which, get().level, dayId()))) return solve(which, next);
-      store(which, next);
+      const { level, pending, ladderOnline, haptics } = get();
+      if (!isSolved(next, levelPuzzle(level))) return keep(next);
+      // Counted at once, so closing the app on the card can't lose it.
+      const write: SolveWrite = { kind: 'level', level, grid: packGrid(next.marks) };
+      set({
+        level: level + 1,
+        ladder: null,
+        pending: ladderOnline ? [...pending, write] : pending,
+        justSolved: { level, marks: next.marks, knowledge: useKnowledgeStore.getState().next() },
+      });
+      if (haptics) navigator.vibrate?.([30, 60, 30]);
       persist();
+      void get().sync();
     },
 
-    undo: (which) => {
-      const before = get().playOf(which);
+    undo: () => {
+      const before = get().play();
       const next = undo(before);
-      if (next === before) return;
-      store(which, next);
-      persist();
+      if (next !== before) keep(next);
     },
 
-    setMode: (which, mode) => {
-      store(which, setMode(get().playOf(which), mode));
-      persist();
-    },
+    setMode: (mode) => keep(setMode(get().play(), mode)),
 
-    clear: (which) => {
-      const before = get().playOf(which);
-      store(which, { ...newPlay(before.size), mode: before.mode });
-      persist();
-    },
+    clear: () => keep({ ...newPlay(get().play().size), mode: get().play().mode }),
 
     dismissSolved: () => set({ justSolved: null }),
-
-    openGate: () => {
-      set({ gate: null });
-      persist();
-    },
 
     setHaptics: (haptics) => {
       set({ haptics });
@@ -236,11 +164,9 @@ export const useNonogramStore = create<NonogramStore>()((set, get) => {
             persist();
           } catch (error) {
             if (isRetryable(error)) return; // Left queued; the next solve, connection or visit tries again.
+            // A refused level breaks the chain the rules check, so the ladder stays on this device from here.
             console.warn('Firestore refused a solve:', error);
-            // A refused level breaks the chain the rules check, so the ladder stays on this
-            // device from here. A refused day (filed too late, say) is only that day.
-            if (next.kind === 'level') set({ ladderOnline: false, pending: get().pending.filter((p) => p.kind !== 'level') });
-            else set({ pending: get().pending.slice(1) });
+            set({ ladderOnline: false, pending: [] });
             persist();
           }
         }

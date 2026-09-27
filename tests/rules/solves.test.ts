@@ -3,7 +3,7 @@ import { deleteDoc, doc, getDoc, serverTimestamp, setDoc, Timestamp, updateDoc, 
 import { readFileSync } from 'node:fs';
 import { afterAll, beforeAll, beforeEach, describe, it } from 'vitest';
 import { dayId } from '../../src/shared/constants';
-import { DAILY_SIZE, NONOGRAM_VERSION, sizeFor } from '../../src/nonogram/generate';
+import { NONOGRAM_VERSION, sizeFor } from '../../src/nonogram/generate';
 
 // Mirrors the writes in src/services/players.ts and src/services/solves.ts.
 
@@ -12,7 +12,6 @@ const asModular = (db: unknown) => db as Firestore;
 const dbFor = (uid: string) => asModular(env.authenticatedContext(uid).firestore());
 const hourAgo = () => Timestamp.fromMillis(Date.now() - 60 * 60 * 1000);
 const TODAY = dayId();
-const daysAgo = (n: number) => dayId(new Date(Date.now() - n * 86_400_000));
 
 /** Any grid of the right size; the rules check shape, the audit checks answers. */
 const grid = (size: number) => '1'.repeat(size * size);
@@ -49,14 +48,6 @@ const nextLevel = (level: number, extra: Record<string, unknown> = {}) => ({
   [`solutions.l${level}`]: grid(sizeFor(level)),
   name: 'Alice',
   lastAt: serverTimestamp(),
-  ...extra,
-});
-
-const dailySolve = (extra: Record<string, unknown> = {}) => ({
-  name: 'Alice',
-  v: NONOGRAM_VERSION,
-  g: grid(DAILY_SIZE),
-  solvedAt: serverTimestamp(),
   ...extra,
 });
 
@@ -161,44 +152,20 @@ describe('the ladder', () => {
   });
 });
 
-describe('daily solves', () => {
-  beforeEach(() => seedPlayer('alice'));
-  const ref = (day: string, uid = 'alice') => doc(dbFor('alice'), 'dailySolves', day, 'entries', uid);
-
-  it("files today's solve once", async () => {
-    await assertSucceeds(setDoc(ref(TODAY), dailySolve()));
-    await assertFails(setDoc(ref(TODAY), dailySolve()));
-  });
-
-  it('accepts yesterday, not a day long gone or a bad day', async () => {
-    await assertSucceeds(setDoc(ref(daysAgo(1)), dailySolve()));
-    await assertFails(setDoc(ref(daysAgo(3)), dailySolve()));
-    await assertFails(setDoc(ref('2026-02-31'), dailySolve()));
-    await assertFails(setDoc(ref('today'), dailySolve()));
-  });
-
-  it("rejects a wrong grid, name, version, or someone else's entry", async () => {
-    await assertFails(setDoc(ref(TODAY), dailySolve({ g: grid(5) })));
-    await assertFails(setDoc(ref(TODAY), dailySolve({ name: 'Someone' })));
-    await assertFails(setDoc(ref(TODAY), dailySolve({ v: 0 })));
-    await assertFails(setDoc(ref(TODAY), dailySolve({ extra: true })));
-    await assertFails(setDoc(ref(TODAY, 'bob'), dailySolve()));
-  });
-});
-
-describe("the auto-battler's data", () => {
+describe("removed games' data, and the removed daily puzzle", () => {
   beforeEach(() =>
     asAdmin(async (db) => {
       await setDoc(doc(db, 'runs', 'alice_0'), { uid: 'alice', round: 3 });
       await setDoc(doc(db, 'puzzles', 'alice_1004'), { uid: 'alice', level: 3 });
       await setDoc(doc(db, 'rankings', TODAY, 'entries', 'alice'), { score: 3000 });
       await setDoc(doc(db, 'dailyRankings', TODAY, 'entries', 'alice'), { score: 3000 });
+      await setDoc(doc(db, 'dailySolves', TODAY, 'entries', 'alice'), { name: 'Alice', v: NONOGRAM_VERSION, g: '1'.repeat(100) });
     }),
   );
 
   it('is closed to reads and writes', async () => {
     const db = dbFor('alice');
-    for (const path of [['runs', 'alice_0'], ['puzzles', 'alice_1004'], ['rankings', TODAY, 'entries', 'alice'], ['dailyRankings', TODAY, 'entries', 'alice']]) {
+    for (const path of [['runs', 'alice_0'], ['puzzles', 'alice_1004'], ['rankings', TODAY, 'entries', 'alice'], ['dailyRankings', TODAY, 'entries', 'alice'], ['dailySolves', TODAY, 'entries', 'alice']]) {
       const [first, ...rest] = path;
       await assertFails(getDoc(doc(db, first, ...rest)));
       await assertFails(setDoc(doc(db, first, ...rest), { uid: 'alice' }));

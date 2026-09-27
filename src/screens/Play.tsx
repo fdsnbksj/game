@@ -1,142 +1,75 @@
-import { useEffect } from 'react';
-import { Link, useNavigate } from 'react-router';
-import { Board, MiniGrid } from '../components/Board';
+import { useState } from 'react';
+import { Board } from '../components/Board';
 import { KnowledgeCard } from '../components/KnowledgeCard';
-import { RecallCard } from '../components/RecallCard';
-import { SettingsButton } from '../components/SettingsSheet';
-import { useLibraryStore } from '../libraryStore';
-import { puzzleFor, useNonogramStore, type Which } from '../nonogramStore';
-import { dayId } from '../shared/constants';
+import { Menu } from '../components/Menu';
+import { levelPuzzle, useNonogramStore } from '../nonogramStore';
 
 /**
- * One puzzle, laid out for a thumb: the grid low on the screen, the controls under it.
- * There's no clock and no way to lose, so it can be put down at any moment.
+ * The app: one puzzle, laid out for a thumb, with the grid low on the screen and the
+ * controls under it. There's no clock and no way to lose, so it can be put down at any
+ * moment. Solving it shows one idea worth knowing, then the next level.
  */
-export function Play({ which }: { which: Which }) {
-  const navigate = useNavigate();
+export function Play() {
   const level = useNonogramStore((s) => s.level);
-  // Subscribed so the grid redraws on every change; playOf reads the same state.
-  useNonogramStore((s) => (which === 'ladder' ? s.ladder : s.daily));
-  const play = useNonogramStore((s) => s.playOf)(which);
+  // Subscribed so the grid redraws on every change; play() reads the same state.
+  useNonogramStore((s) => s.ladder);
+  const play = useNonogramStore((s) => s.play)();
   const stroke = useNonogramStore((s) => s.stroke);
   const undo = useNonogramStore((s) => s.undo);
   const setMode = useNonogramStore((s) => s.setMode);
   const clear = useNonogramStore((s) => s.clear);
   const justSolved = useNonogramStore((s) => s.justSolved);
   const dismissSolved = useNonogramStore((s) => s.dismissSolved);
-  const day = dayId();
-  const dailyDone = useNonogramStore((s) => s.dailySolved.includes(day));
-  const puzzle = puzzleFor(which, level, day);
-  const gate = useNonogramStore((s) => (which === 'ladder' ? s.gate : null));
-  const openGate = useNonogramStore((s) => s.openGate);
-  const gateCard = useLibraryStore((s) => (gate ? s.cards.find((c) => c.id === gate) : undefined));
+  const [menu, setMenu] = useState(false);
+  // While the card is up, the finished picture stays on screen, moved up above the card.
+  const shown = justSolved ? levelPuzzle(justSolved.level) : levelPuzzle(level);
+  const shownPlay = justSolved ? { ...play, size: shown.size, marks: justSolved.marks } : play;
 
-  // The line was removed from the library while it stood in the way: nothing to ask.
-  useEffect(() => {
-    if (gate && !gateCard) openGate();
-  }, [gate, gateCard, openGate]);
-
-  const leave = () => {
-    openGate();
-    dismissSolved();
-    navigate('/');
-  };
-
-  if (which === 'daily' && dailyDone && !justSolved) {
-    return (
-      <main className="screen center">
-        <div className="glass splash-card">
-          <p className="lead center-text">Today's puzzle is solved.</p>
-          <p className="note center-text">A new one arrives at 00:00 UTC.</p>
-          <Link className="button primary" to="/">
-            Done
-          </Link>
-        </div>
-      </main>
-    );
-  }
-
-  const title = which === 'ladder' ? `Level ${level}` : "Today's puzzle";
   return (
     <main className="screen play">
-      <header className="play-head">
-        <Link className="icon-button" to="/" aria-label="Home">
+      <header className="bar">
+        <span className="icon-button" aria-hidden="true" />
+        <h1 className="bar-title">Level {justSolved?.level ?? level}</h1>
+        <button className="icon-button" aria-label="Menu" onClick={() => setMenu(true)}>
           <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
-            <path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            <circle cx="5" cy="12" r="1.6" fill="currentColor" />
+            <circle cx="12" cy="12" r="1.6" fill="currentColor" />
+            <circle cx="19" cy="12" r="1.6" fill="currentColor" />
           </svg>
-        </Link>
-        <div className="play-title">
-          <strong>{title}</strong>
-          <span className="micro">
-            {puzzle.size}×{puzzle.size}
-          </span>
-        </div>
-        <SettingsButton>
-          <button className="button danger" onClick={() => clear(which)} disabled={play.history.length === 0}>
-            Clear this grid
-          </button>
-        </SettingsButton>
+        </button>
       </header>
 
       {/* Pushes the grid down to where a thumb reaches. */}
-      <div className="spacer" />
+      {!justSolved && <div className="spacer" />}
 
-      <Board key={puzzle.id} puzzle={puzzle} play={play} onStroke={(cells) => stroke(which, cells)} />
+      <Board key={shown.id} puzzle={shown} play={shownPlay} onStroke={justSolved ? () => {} : stroke} />
 
-      <div className="play-controls">
-        <div className="segmented mode-switch" role="radiogroup" aria-label="What a tap does">
-          <button role="radio" aria-checked={play.mode === 'fill'} onClick={() => setMode(which, 'fill')}>
+      <div className="play-controls" hidden={justSolved !== null}>
+        <div className="segmented" role="radiogroup" aria-label="What a tap does">
+          <button role="radio" aria-checked={play.mode === 'fill'} onClick={() => setMode('fill')}>
             <span className="mode-icon fill" aria-hidden="true" /> Fill
           </button>
-          <button role="radio" aria-checked={play.mode === 'cross'} onClick={() => setMode(which, 'cross')}>
+          <button role="radio" aria-checked={play.mode === 'cross'} onClick={() => setMode('cross')}>
             <span className="mode-icon cross" aria-hidden="true" /> Cross
           </button>
         </div>
-        <button className="icon-button undo" aria-label="Undo" onClick={() => undo(which)} disabled={play.history.length === 0}>
+        <button className="icon-button undo" aria-label="Undo" onClick={undo} disabled={play.history.length === 0}>
           <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
             <path d="M9 14 4 9l5-5M4 9h11a5 5 0 0 1 0 10h-3" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </button>
       </div>
 
-      {gateCard ? (
-        <div className="overlay bottom">
-          <RecallCard
-            key={gateCard.id}
-            card={gateCard}
-            solved={justSolved}
-            onNext={() => {
-              openGate();
-              dismissSolved();
-            }}
-            onLeave={leave}
-          />
-        </div>
-      ) : justSolved && (
-        <div className="overlay bottom">
-          <div className="panel solved-panel" role="dialog" aria-label="Solved">
-            <div className="recall-solved">
-              <MiniGrid size={justSolved.size} marks={justSolved.marks} px={justSolved.knowledge ? 40 : 72} />
-              <span>
-                <strong>Solved</strong>
-                <span className="micro">{justSolved.title}</span>
-              </span>
-            </div>
+      {menu && <Menu onClose={() => setMenu(false)} onClear={clear} canClear={play.history.length > 0} />}
+
+      {justSolved && (
+        <div className="overlay clear">
+          <div className="panel" role="dialog" aria-label="Solved">
+            <p className="solved-title">Level {justSolved.level} solved</p>
             {justSolved.knowledge && <KnowledgeCard id={justSolved.knowledge} />}
-            {justSolved.which === 'ladder' ? (
-              <>
-                <button className="button primary big" onClick={dismissSolved}>
-                  Next puzzle
-                </button>
-                <button className="button ghost" onClick={leave}>
-                  Back to my book
-                </button>
-              </>
-            ) : (
-              <button className="button primary big" onClick={leave}>
-                Done
-              </button>
-            )}
+            <button className="button primary" onClick={dismissSolved}>
+              Next
+            </button>
           </div>
         </div>
       )}

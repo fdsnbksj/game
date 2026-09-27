@@ -2,7 +2,7 @@ import { cluesOf, type Clues, type Grid } from './clues';
 import { stream } from './rng';
 import { solve } from './solver';
 
-// Puzzles are made from their level (or day) alone, so they go on forever and are the
+// Puzzles are made from their level alone, so they go on forever and are the
 // same for everyone. A picture is drawn at random and kept only if its clues settle every
 // cell by line logic, which means it has exactly one answer and never needs a guess.
 
@@ -18,10 +18,8 @@ export function sizeFor(level: number): number {
   return 10;
 }
 
-export const DAILY_SIZE = 10;
-
 export interface Nonogram extends Clues {
-  /** `level:12` or `day:2026-09-26`. */
+  /** `level:12`. (The removed daily puzzle used `day:2026-09-26`.) */
   id: string;
   size: number;
   /** The one answer, for tests and the audit; play is checked against the clues. */
@@ -46,5 +44,3 @@ function make(id: string, size: number): Nonogram {
 }
 
 export const nonogram = (level: number) => make(`level:${level}`, sizeFor(level));
-
-export const dailyNonogram = (day: string) => make(`day:${day}`, DAILY_SIZE);

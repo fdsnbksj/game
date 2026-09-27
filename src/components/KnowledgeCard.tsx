@@ -1,11 +1,11 @@
 import { knowledgeById, TOPICS } from '../learn/knowledge';
-import { useLibraryStore } from '../libraryStore';
+import { useKnowledgeStore } from '../knowledgeStore';
 
 /** One idea worth knowing: what it is, and something to do with it today. */
 export function KnowledgeCard({ id }: { id: string }) {
   const card = knowledgeById(id);
-  const saved = useLibraryStore((s) => s.saved.includes(id));
-  const toggleSaved = useLibraryStore((s) => s.toggleSaved);
+  const saved = useKnowledgeStore((s) => s.saved.includes(id));
+  const toggleSaved = useKnowledgeStore((s) => s.toggleSaved);
   if (!card) return null;
 
   return (

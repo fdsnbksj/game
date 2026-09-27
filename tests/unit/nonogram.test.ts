@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { cluesOf, lineClue } from '../../src/nonogram/clues';
-import { DAILY_SIZE, dailyNonogram, nonogram, sizeFor } from '../../src/nonogram/generate';
+import { nonogram, sizeFor } from '../../src/nonogram/generate';
 import { isSolved, newPlay, paint, setMode, undo } from '../../src/nonogram/play';
 import { solve, solveLine } from '../../src/nonogram/solver';
 import { hashSeed } from '../../src/shared/random';
@@ -33,10 +33,7 @@ describe('solveLine', () => {
 });
 
 describe('generated puzzles', () => {
-  const puzzles = [
-    ...Array.from({ length: 200 }, (_, i) => nonogram(i + 1)),
-    ...Array.from({ length: 30 }, (_, i) => dailyNonogram(`2026-10-${String(i + 1).padStart(2, '0')}`)),
-  ];
+  const puzzles = Array.from({ length: 200 }, (_, i) => nonogram(i + 1));
 
   it('are settled completely by line logic, so each has one answer', () => {
     for (const puzzle of puzzles) {
@@ -54,7 +51,6 @@ describe('generated puzzles', () => {
   it('grow with the level and cap at 10', () => {
     expect(nonogram(1).size).toBe(5);
     expect(nonogram(500).size).toBe(10);
-    expect(dailyNonogram('2026-09-26').size).toBe(DAILY_SIZE);
     for (let level = 1; level < 100; level++) {
       expect(sizeFor(level + 1)).toBeGreaterThanOrEqual(sizeFor(level));
     }

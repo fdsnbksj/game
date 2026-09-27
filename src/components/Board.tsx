@@ -133,14 +133,3 @@ function cellClass(mark: Mark, i: number, size: number) {
     .filter(Boolean)
     .join(' ');
 }
-
-/** A small, still picture of a grid: the Home card and the solved card. */
-export function MiniGrid({ size, marks, px = 96 }: { size: number; marks: readonly Mark[]; px?: number }) {
-  return (
-    <span className="mini-grid" style={{ '--n': size, width: px, height: px } as CSSProperties} aria-hidden="true">
-      {marks.map((mark, i) => (
-        <span key={i} className={mark === 1 ? 'on' : undefined} />
-      ))}
-    </span>
-  );
-}
