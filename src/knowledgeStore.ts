@@ -37,8 +37,8 @@ function load(): Saved {
 }
 
 interface KnowledgeStore extends Saved {
-  /** The card to show after a puzzle, counted as seen; null with every topic off. */
-  next: () => string | null;
+  /** The card to show after a puzzle, from `prefer`'s topic if it's on; null with every topic off. */
+  next: (prefer?: Topic) => string | null;
   setTopic: (topic: Topic, on: boolean) => void;
   toggleSaved: (id: string) => void;
 }
@@ -56,8 +56,8 @@ export const useKnowledgeStore = create<KnowledgeStore>()((set, get) => {
   return {
     ...load(),
 
-    next: () => {
-      const picked = pickKnowledge(get().topics, get().seen, Math.random());
+    next: (prefer) => {
+      const picked = pickKnowledge(get().topics, get().seen, Math.random(), prefer);
       if (!picked) return null;
       set({ seen: picked.seen });
       persist();

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { cluesOf, lineClue } from '../../src/nonogram/clues';
-import { nonogram, sizeFor } from '../../src/nonogram/generate';
+import { isLineSolvable, nonogram, sizeFor } from '../../src/nonogram/generate';
+import { PICTURES } from '../../src/nonogram/pictures';
 import { isSolved, newPlay, paint, setMode, undo } from '../../src/nonogram/play';
 import { solve, solveLine } from '../../src/nonogram/solver';
 import { hashSeed } from '../../src/shared/random';
@@ -62,7 +63,41 @@ describe('generated puzzles', () => {
       return { rows, cols };
     });
     // Changes only when the generator does; then bump NONOGRAM_VERSION and update this.
-    expect(hashSeed(JSON.stringify(clues))).toBe(3492071791);
+    expect(hashSeed(JSON.stringify(clues))).toBe(3539198533);
+  });
+});
+
+describe('pictures', () => {
+  it('are square, of their size, and solvable by line logic alone', () => {
+    const unsolvable: string[] = [];
+    for (const [size, list] of Object.entries(PICTURES)) {
+      for (const picture of list) {
+        expect(picture.rows.length, picture.name).toBe(Number(size));
+        for (const row of picture.rows) expect(row, picture.name).toMatch(new RegExp(`^[#.]{${size}}$`));
+        const grid = picture.rows.join('').split('').map((c) => (c === '#' ? 1 : 0));
+        if (!isLineSolvable(grid, Number(size))) unsolvable.push(`${size}: ${picture.name}`);
+      }
+    }
+    // Redraw any listed here: they would need a guess, so the generator skips them.
+    expect(unsolvable).toEqual([]);
+  });
+
+  it('are each seen once as the grid grows, in order', () => {
+    const names = (size: number) => PICTURES[size].map((p) => p.name);
+    for (const size of [5, 6, 7, 8]) {
+      const levels = Array.from({ length: 60 }, (_, i) => i + 1).filter((l) => sizeFor(l) === size);
+      expect(levels.map((l) => nonogram(l).name), `size ${size}`).toEqual(names(size));
+    }
+  });
+
+  it('come back mirrored once the 10x10 pictures run out', () => {
+    const count = PICTURES[10].length;
+    const first = nonogram(39);
+    const again = nonogram(39 + count);
+    expect(again.name).toBe(first.name);
+    const rows = (p: typeof first) => Array.from({ length: 10 }, (_, r) => p.solution.slice(r * 10, r * 10 + 10).join(''));
+    expect(rows(again)).toEqual(rows(first).map((r) => [...r].reverse().join('')));
+    expect(nonogram(39 + 2 * count).solution).toEqual(first.solution);
   });
 });
 

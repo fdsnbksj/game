@@ -106,7 +106,7 @@ describe('the ladder', () => {
     const db = dbFor('alice');
     const ref = doc(db, 'ladders', ladderId('alice'));
     await assertFails(setDoc(ref, firstLevel('alice', { level: 2 })));
-    await assertFails(setDoc(ref, firstLevel('alice', { solutions: { l1: grid(6) } })));
+    await assertFails(setDoc(ref, firstLevel('alice', { solutions: { l1: grid(sizeFor(1) + 1) } })));
     await assertFails(setDoc(ref, firstLevel('alice', { solutions: { l1: '2'.repeat(25) } })));
     await assertFails(setDoc(ref, firstLevel('alice', { name: 'Someone' })));
     await assertFails(setDoc(ref, firstLevel('alice', { v: NONOGRAM_VERSION + 1 })));
@@ -118,13 +118,13 @@ describe('the ladder', () => {
     await seedLadder('alice', 3);
     const ref = doc(dbFor('alice'), 'ladders', ladderId('alice'));
     await assertFails(updateDoc(ref, nextLevel(5)));
-    await assertFails(updateDoc(ref, nextLevel(4, { 'solutions.l4': grid(5) })));
+    await assertFails(updateDoc(ref, nextLevel(4, { 'solutions.l4': grid(sizeFor(4) + 1) })));
     await assertSucceeds(updateDoc(ref, nextLevel(4)));
   });
 
   it('grows the grid with the level', async () => {
-    await seedLadder('alice', 25);
-    await assertSucceeds(updateDoc(doc(dbFor('alice'), 'ladders', ladderId('alice')), nextLevel(26)));
+    await seedLadder('alice', 38);
+    await assertSucceeds(updateDoc(doc(dbFor('alice'), 'ladders', ladderId('alice')), nextLevel(39)));
   });
 
   it('refuses to change a level already saved', async () => {

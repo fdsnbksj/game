@@ -34,9 +34,9 @@ service cloud.firestore {
     // Copies of src/nonogram/generate.ts; tests/unit/rulesSync.test.ts compares them.
     // The rules can't make a puzzle, so they check a solve's shape and `npm run audit`
     // checks it against the clues.
-    function nonogramVersion() { return 1; }
+    function nonogramVersion() { return 2; }
     function sizeFor(level) {
-      return level <= 3 ? 5 : (level <= 8 ? 6 : (level <= 15 ? 7 : (level <= 25 ? 8 : 10)));
+      return level <= 6 ? 5 : (level <= 14 ? 6 : (level <= 24 ? 7 : (level <= 38 ? 8 : 10)));
     }
     function minSecondsBetweenLevels() { return 3; }
 

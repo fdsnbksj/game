@@ -31,6 +31,8 @@ interface Saved {
 /** Just solved, for the card that follows. */
 export interface JustSolved {
   level: number;
+  /** What the picture shows, like "a lighthouse". */
+  name?: string;
   /** The finished grid, to show the picture while the card is up. */
   marks: Mark[];
   /** A knowledge card to read before moving on, if any topic is chosen. */
@@ -117,14 +119,15 @@ export const useNonogramStore = create<NonogramStore>()((set, get) => {
       const next = paint(before, cells);
       if (next === before) return;
       const { level, pending, ladderOnline, haptics } = get();
-      if (!isSolved(next, levelPuzzle(level))) return keep(next);
+      const puzzle = levelPuzzle(level);
+      if (!isSolved(next, puzzle)) return keep(next);
       // Counted at once, so closing the app on the card can't lose it.
       const write: SolveWrite = { kind: 'level', level, grid: packGrid(next.marks) };
       set({
         level: level + 1,
         ladder: null,
         pending: ladderOnline ? [...pending, write] : pending,
-        justSolved: { level, marks: next.marks, knowledge: useKnowledgeStore.getState().next() },
+        justSolved: { level, name: puzzle.name, marks: next.marks, knowledge: useKnowledgeStore.getState().next(puzzle.topic) },
       });
       if (haptics) navigator.vibrate?.([30, 60, 30]);
       persist();
