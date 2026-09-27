@@ -10,19 +10,29 @@ const KEY = 'game:library';
 interface Saved {
   /** Which topics to show; all of them to start. */
   topics: Topic[];
+  /** Every topic the player has had the chance to turn off, so a new one starts switched on. */
+  offered: Topic[];
   /** Cards shown in the current round. */
   seen: string[];
   /** Cards kept to read again, newest first. */
   saved: string[];
 }
 
+/** The topics there were before `offered` was recorded. */
+const FIRST_TOPICS: Topic[] = ['psychology', 'software', 'philosophy'];
+
 function load(): Saved {
   const all = TOPICS.map((t) => t.id);
   try {
     const saved = JSON.parse(localStorage.getItem(KEY) ?? 'null') as Partial<Saved> | null;
-    return { topics: saved?.topics ?? all, seen: saved?.seen ?? [], saved: saved?.saved ?? [] };
+    if (!saved?.topics) return { topics: all, offered: all, seen: saved?.seen ?? [], saved: saved?.saved ?? [] };
+    // Topics added since the player last chose start on; ones they turned off stay off.
+    const offered = saved.offered ?? FIRST_TOPICS;
+    const added = all.filter((t) => !offered.includes(t));
+    const topics = [...saved.topics.filter((t) => all.includes(t)), ...added];
+    return { topics, offered: all, seen: saved.seen ?? [], saved: saved.saved ?? [] };
   } catch {
-    return { topics: all, seen: [], saved: [] };
+    return { topics: all, offered: all, seen: [], saved: [] };
   }
 }
 
@@ -35,9 +45,9 @@ interface KnowledgeStore extends Saved {
 
 export const useKnowledgeStore = create<KnowledgeStore>()((set, get) => {
   const persist = () => {
-    const { topics, seen, saved } = get();
+    const { topics, offered, seen, saved } = get();
     try {
-      localStorage.setItem(KEY, JSON.stringify({ topics, seen, saved }));
+      localStorage.setItem(KEY, JSON.stringify({ topics, offered, seen, saved }));
     } catch {
       // Full storage: lasts this visit.
     }
