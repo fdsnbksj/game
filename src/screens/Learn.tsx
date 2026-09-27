@@ -1,16 +1,21 @@
 import { useEffect, useMemo, useState, type ChangeEvent } from 'react';
 import { looksLikeClippings, parseClippings, parsePasted } from '../learn/highlights';
 import { dayNumber } from '../learn/schedule';
-import { STARTER_SETS, starterHighlights, type StarterSet } from '../learn/starters';
-import { useLibraryStore, type Card } from '../libraryStore';
+import { KNOWLEDGE, TOPICS } from '../learn/knowledge';
+import { KnowledgeCard } from '../components/KnowledgeCard';
+import { Toggle } from '../components/SettingsSheet';import { useLibraryStore, type Card } from '../libraryStore';
 import { dayId } from '../shared/constants';
 
 /**
- * The player's highlights, by book. After each level one comes back as a line to
- * complete, so the puzzles between chapters also go over what the chapters said.
+ * What there is to learn between puzzles: a knowledge card after every solve, from the
+ * topics chosen here, the cards saved to read again, and the player's own highlights,
+ * which come back as lines to complete.
  */
-export function Books() {
+export function Learn() {
   const cards = useLibraryStore((s) => s.cards);
+  const topics = useLibraryStore((s) => s.topics);
+  const setTopic = useLibraryStore((s) => s.setTopic);
+  const saved = useLibraryStore((s) => s.saved);
   const [adding, setAdding] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -35,41 +40,56 @@ export function Books() {
     <main className="screen with-tabs">
       <header className="page-head">
         <div>
-          <p className="micro">Books</p>
-          <h1>Your highlights</h1>
+          <p className="micro">Learn</p>
+          <h1>Between puzzles</h1>
         </div>
+      </header>
+
+      <section className="glass card-pad">
+        <p className="micro">A card after every puzzle</p>
+        <p className="note">One short idea you can use, from the topics you choose. Save the ones worth keeping.</p>
+        <div className="setting-list">
+          {TOPICS.map((topic) => (
+            <Toggle
+              key={topic.id}
+              label={`${topic.name} · ${KNOWLEDGE.filter((k) => k.topic === topic.id).length}`}
+              on={topics.includes(topic.id)}
+              onChange={(on) => setTopic(topic.id, on)}
+            />
+          ))}
+        </div>
+      </section>
+
+      <p className="micro section-label">Saved · {saved.length}</p>
+      {saved.length === 0 ? (
+        <p className="note section-note">Tap Save on a card after a puzzle to keep it here.</p>
+      ) : (
+        saved.map((id) => (
+          <section key={id} className="glass card-pad">
+            <KnowledgeCard id={id} />
+          </section>
+        ))
+      )}
+
+      <div className="section-row">
+        <p className="micro">Your highlights</p>
         {!adding && (
-          <button className="button small primary" onClick={() => setAdding(true)}>
+          <button className="button small" onClick={() => setAdding(true)}>
             Add
           </button>
         )}
-      </header>
-
+      </div>
       {adding && <AddHighlights onAdded={added} onCancel={() => setAdding(false)} />}
-
       {books.length === 0 && !adding && (
-        <section className="glass card-pad">
-          <p className="lead">Learn your book between puzzles.</p>
-          <p className="note">
-            Add lines you highlighted. After each level, one comes back with a word missing. Pick the word to open the next
-            level. Lines you remember come back less often, and ones you miss come back sooner.
-          </p>
-          <button className="button primary" onClick={() => setAdding(true)}>
-            Add highlights
-          </button>
-        </section>
+        <p className="note section-note">
+          Optional: add lines you highlighted in a book. After each level one comes back with a word missing, and you pick
+          the word to open the next level. They stay on this phone.
+        </p>
       )}
-
       {books.map(([book, list]) => (
         <BookPanel key={book} book={book} cards={list} />
       ))}
 
-      {!adding &&
-        STARTER_SETS.filter((set) => !books.some(([book]) => book === set.book)).map((set) => (
-          <StarterCard key={set.book} set={set} onAdded={added} />
-        ))}
-
-      <p className="note center-text">Your highlights stay on this phone. They're never uploaded.</p>
       {notice && (
         <div className="notice" role="status">
           {notice}
@@ -122,21 +142,6 @@ function AddHighlights({ onAdded, onCancel }: { onAdded: (count: number) => void
         On a Kindle, connect it to a computer and copy documents/My Clippings.txt. From Apple Books or elsewhere, copy your
         highlights and paste them above.
       </p>
-    </section>
-  );
-}
-
-/** A ready-made set, one tap to add. */
-function StarterCard({ set, onAdded }: { set: StarterSet; onAdded: (count: number) => void }) {
-  const add = useLibraryStore((s) => s.add);
-  return (
-    <section className="glass card-pad">
-      <p className="micro">Starter set · {set.lines.length} key ideas</p>
-      <p className="lead">{set.book}</p>
-      <p className="note">{set.about}</p>
-      <button className="button primary" onClick={() => onAdded(add(starterHighlights(set)))}>
-        Add these {set.lines.length} lines
-      </button>
     </section>
   );
 }

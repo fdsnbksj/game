@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { useNonogramStore } from '../nonogramStore';
 import { reloadFresh } from '../reload';
 
-function Toggle({ label, on, onChange }: { label: string; on: boolean; onChange: (on: boolean) => void }) {
+export function Toggle({ label, on, onChange }: { label: string; on: boolean; onChange: (on: boolean) => void }) {
   return (
     <button className="setting-row" role="switch" aria-checked={on} onClick={() => onChange(!on)}>
       <span>{label}</span>

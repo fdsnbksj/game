@@ -47,6 +47,8 @@ export interface JustSolved {
   title: string;
   size: number;
   marks: Mark[];
+  /** A knowledge card to read before moving on, if any topic is chosen. */
+  knowledge: string | null;
 }
 
 /** A little over the rules' 3 s minimum, so client and server clocks can disagree slightly. */
@@ -140,7 +142,7 @@ export const useNonogramStore = create<NonogramStore>()((set, get) => {
   /** Counts a solve at once, so closing the app on the card can't lose it. */
   const solve = (which: Which, play: PlayState) => {
     const grid = packGrid(play.marks);
-    const justSolved = { which, size: play.size, marks: play.marks } as const;
+    const justSolved = { which, size: play.size, marks: play.marks, knowledge: useLibraryStore.getState().nextKnowledge() } as const;
     const state = get();
     if (which === 'ladder') {
       const write: SolveWrite = { kind: 'level', level: state.level, grid };

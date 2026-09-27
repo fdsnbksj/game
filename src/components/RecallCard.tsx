@@ -3,6 +3,7 @@ import { INTERVALS } from '../learn/schedule';
 import { useLibraryStore, type Card } from '../libraryStore';
 import type { JustSolved } from '../nonogramStore';
 import { MiniGrid } from './Board';
+import { KnowledgeCard } from './KnowledgeCard';
 
 /**
  * A line from the player's own highlights, one word blanked, to recall before the next
@@ -66,6 +67,7 @@ export function RecallCard({
               ? `Right first time. It comes back in ${INTERVALS[box]} ${INTERVALS[box] === 1 ? 'day' : 'days'}.`
               : "Got it. This line will come back soon."}
           </p>
+          {solved?.knowledge && <KnowledgeCard id={solved.knowledge} />}
           <button className="button primary big" onClick={onNext}>
             Next puzzle
           </button>

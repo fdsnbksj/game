@@ -44,7 +44,7 @@ export function Home() {
       </section>
 
       <DailyCard />
-      <BookCard />
+      <LearnCard />
 
       <section className="glass tray" aria-label="Your stats">
         {solved === 0 ? (
@@ -101,25 +101,29 @@ function DailyCard() {
   );
 }
 
-/** Your highlights: where the lines to recall between levels come from. */
-function BookCard() {
-  const cards = useLibraryStore((s) => s.cards);
-  const today = dayNumber(dayId());
-  const due = cards.filter((c) => c.review.due <= today).length;
-  const books = new Set(cards.map((c) => c.book)).size;
+/** What there is to learn between puzzles. */
+function LearnCard() {
+  const saved = useLibraryStore((s) => s.saved.length);
+  const topics = useLibraryStore((s) => s.topics.length);
+  const lines = useLibraryStore((s) => s.cards);
+  const due = lines.filter((c) => c.review.due <= dayNumber(dayId())).length;
+
+  const detail = [
+    topics === 0 ? 'Cards are off' : 'A card after every puzzle',
+    saved > 0 && `${saved} saved`,
+    lines.length > 0 && `${due} ${due === 1 ? 'line' : 'lines'} due`,
+  ]
+    .filter(Boolean)
+    .join(' · ');
 
   return (
-    <Link className="glass daily-card book-card" to="/books">
+    <Link className="glass daily-card book-card" to="/learn">
       <span className="daily-mark" aria-hidden="true" />
       <span className="daily-text">
-        <span className="micro">Your book</span>
-        <strong>
-          {cards.length === 0
-            ? 'Add highlights to recall between levels'
-            : `${cards.length} ${cards.length === 1 ? 'line' : 'lines'}${books > 1 ? ` from ${books} books` : ''} · ${due} due`}
-        </strong>
+        <span className="micro">Learn</span>
+        <strong>{detail}</strong>
       </span>
-      <span className="daily-go">{cards.length === 0 ? 'Add' : 'Open'}</span>
+      <span className="daily-go">Open</span>
     </Link>
   );
 }

@@ -1228,7 +1228,9 @@ a.daily-card {
 }
 
 .solved-panel {
-  align-items: center;
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+  text-align: left;
 }
 
 .solved-panel .button {
@@ -1306,11 +1308,6 @@ a.daily-card {
   text-decoration: line-through;
 }
 
-.recall-invite {
-  text-align: center;
-  text-decoration: none;
-  font-size: var(--fs-sm);
-}
 
 /* ---------- Books ---------- */
 
@@ -1427,4 +1424,85 @@ a.daily-card {
 .book-card .daily-text .micro,
 .book-card .daily-go {
   color: var(--label-2);
+}
+
+/* ---------- Knowledge ---------- */
+
+.knowledge {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  text-align: left;
+}
+
+.knowledge-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+}
+
+.knowledge-head .micro {
+  color: var(--accent);
+}
+
+.knowledge h2 {
+  margin: 0;
+  font-size: var(--fs-md);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.knowledge-body {
+  margin: 0;
+  color: var(--label);
+  font-size: var(--fs-base);
+  line-height: 1.5;
+}
+
+.knowledge-try {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: var(--sp-1) 0 0;
+  padding: 10px 12px;
+  border: 1px solid var(--separator);
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  color: var(--label-2);
+  font-size: var(--fs-sm);
+  line-height: 1.45;
+}
+
+.save-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-sm);
+  background: none;
+  color: var(--label-2);
+  font: inherit;
+  font-size: var(--fs-cap);
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.save-button.on {
+  border-color: var(--accent-line);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.section-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: var(--sp-3) 0 0 var(--sp-1);
+}
+
+.section-note {
+  padding: 0 var(--sp-1);
 }

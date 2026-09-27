@@ -108,15 +108,44 @@ describe('schedule', () => {
   });
 });
 
-describe('starter sets', () => {
-  it('can ask about every line', async () => {
-    const { STARTER_SETS } = await import('../../src/learn/starters');
-    for (const set of STARTER_SETS) {
-      for (const [i, line] of set.lines.entries()) {
-        const q = makeQuestion(line, set.lines.filter((l) => l !== line), `check:${i}`);
-        expect(q, line).not.toBeNull();
-        expect(q!.choices.length, line).toBe(4);
-      }
+describe('knowledge cards', () => {
+  it('have unique ids, every topic, and fit on a phone', async () => {
+    const { KNOWLEDGE, TOPICS } = await import('../../src/learn/knowledge');
+    expect(new Set(KNOWLEDGE.map((k) => k.id)).size).toBe(KNOWLEDGE.length);
+    for (const topic of TOPICS) expect(KNOWLEDGE.filter((k) => k.topic === topic.id).length).toBeGreaterThanOrEqual(15);
+    for (const k of KNOWLEDGE) {
+      expect(k.title.length, k.id).toBeLessThanOrEqual(45);
+      expect(k.body.length, k.id).toBeLessThanOrEqual(260);
+      expect(k.tryThis.length, k.id).toBeLessThanOrEqual(90);
     }
+  });
+
+  it('show every card of the chosen topics before any repeats', async () => {
+    const { KNOWLEDGE, pickKnowledge } = await import('../../src/learn/knowledge');
+    const deck = KNOWLEDGE.filter((k) => k.topic === 'philosophy');
+    let seen: string[] = [];
+    const shown = new Set<string>();
+    for (let i = 0; i < deck.length; i++) {
+      const next = pickKnowledge(['philosophy'], seen, (i * 0.37) % 1)!;
+      expect(shown.has(next.id)).toBe(false);
+      expect(deck.some((k) => k.id === next.id)).toBe(true);
+      shown.add(next.id);
+      seen = next.seen;
+    }
+    // A full round, then it starts over and keeps going.
+    const again = pickKnowledge(['philosophy'], seen, 0.5)!;
+    expect(again.seen).toEqual([again.id]);
+  });
+
+  it('keep other topics\' history when one topic starts over', async () => {
+    const { KNOWLEDGE, pickKnowledge } = await import('../../src/learn/knowledge');
+    const philosophy = KNOWLEDGE.filter((k) => k.topic === 'philosophy').map((k) => k.id);
+    const next = pickKnowledge(['philosophy'], ['spacing-effect', ...philosophy], 0)!;
+    expect(next.seen).toEqual(['spacing-effect', next.id]);
+  });
+
+  it('show nothing with every topic off', async () => {
+    const { pickKnowledge } = await import('../../src/learn/knowledge');
+    expect(pickKnowledge([], [], 0.5)).toBeNull();
   });
 });

@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { Board, MiniGrid } from '../components/Board';
+import { KnowledgeCard } from '../components/KnowledgeCard';
 import { RecallCard } from '../components/RecallCard';
 import { SettingsButton } from '../components/SettingsSheet';
 import { useLibraryStore } from '../libraryStore';
@@ -29,7 +30,6 @@ export function Play({ which }: { which: Which }) {
   const gate = useNonogramStore((s) => (which === 'ladder' ? s.gate : null));
   const openGate = useNonogramStore((s) => s.openGate);
   const gateCard = useLibraryStore((s) => (gate ? s.cards.find((c) => c.id === gate) : undefined));
-  const hasLibrary = useLibraryStore((s) => s.cards.length > 0);
 
   // The line was removed from the library while it stood in the way: nothing to ask.
   useEffect(() => {
@@ -113,39 +113,27 @@ export function Play({ which }: { which: Which }) {
           />
         </div>
       ) : justSolved && (
-        <div className="overlay">
+        <div className="overlay bottom">
           <div className="panel solved-panel" role="dialog" aria-label="Solved">
-            <MiniGrid size={justSolved.size} marks={justSolved.marks} px={120} />
-            <p className="big-score">Solved</p>
-            <p className="note">{justSolved.title}</p>
+            <div className="recall-solved">
+              <MiniGrid size={justSolved.size} marks={justSolved.marks} px={justSolved.knowledge ? 40 : 72} />
+              <span>
+                <strong>Solved</strong>
+                <span className="micro">{justSolved.title}</span>
+              </span>
+            </div>
+            {justSolved.knowledge && <KnowledgeCard id={justSolved.knowledge} />}
             {justSolved.which === 'ladder' ? (
               <>
                 <button className="button primary big" onClick={dismissSolved}>
                   Next puzzle
                 </button>
-                {!hasLibrary && (
-                  <Link className="note recall-invite" to="/books" onClick={dismissSolved}>
-                    Add highlights from your book to recall a line between levels
-                  </Link>
-                )}
-                <button
-                  className="button ghost"
-                  onClick={() => {
-                    dismissSolved();
-                    navigate('/');
-                  }}
-                >
+                <button className="button ghost" onClick={leave}>
                   Back to my book
                 </button>
               </>
             ) : (
-              <button
-                className="button primary big"
-                onClick={() => {
-                  dismissSolved();
-                  navigate('/');
-                }}
-              >
+              <button className="button primary big" onClick={leave}>
                 Done
               </button>
             )}

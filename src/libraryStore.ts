@@ -1,14 +1,19 @@
 import { create } from 'zustand';
 import { highlightKey, type Highlight } from './learn/highlights';
+import { pickKnowledge, TOPICS, type Topic } from './learn/knowledge';
 import { makeQuestion, type Question } from './learn/question';
 import { dayNumber, newReview, nextDue, review, type Review } from './learn/schedule';
 import { dayId } from './shared/constants';
 import { hashSeed } from './shared/random';
 
-// The player's highlights and how well each is known. They never leave the device: no
-// Firestore, no rules, nothing to audit. Saved to localStorage like everything else.
+// What the player learns between puzzles: the knowledge cards they've seen and saved,
+// the topics they chose, and their own highlights with how well each is known. None of
+// it leaves the device: no Firestore, no rules, nothing to audit.
 
 const KEY = 'game:library';
+/** 2: the Make Something Wonderful starter set was withdrawn, so its lines are removed. */
+const VERSION = 2;
+const WITHDRAWN_BOOKS = ['Make Something Wonderful'];
 
 export interface Card extends Highlight {
   id: string;
@@ -16,17 +21,29 @@ export interface Card extends Highlight {
 }
 
 interface Saved {
+  v: number;
   cards: Card[];
   /** The last line asked, so the same one isn't asked twice running. */
   lastId: string | null;
+  /** Which knowledge topics to show; all of them to start. */
+  topics: Topic[];
+  /** Knowledge cards shown in the current round. */
+  seen: string[];
+  /** Knowledge cards kept to read again, newest first. */
+  saved: string[];
 }
+
+const fresh = (): Saved => ({ v: VERSION, cards: [], lastId: null, topics: TOPICS.map((t) => t.id), seen: [], saved: [] });
 
 function load(): Saved {
   try {
     const saved = JSON.parse(localStorage.getItem(KEY) ?? 'null') as Partial<Saved> | null;
-    return { cards: saved?.cards ?? [], lastId: saved?.lastId ?? null };
+    if (!saved) return fresh();
+    const loaded = { ...fresh(), ...saved, v: VERSION };
+    if ((saved.v ?? 1) < 2) loaded.cards = loaded.cards.filter((c) => !WITHDRAWN_BOOKS.includes(c.book));
+    return loaded;
   } catch {
-    return { cards: [], lastId: null };
+    return fresh();
   }
 }
 
@@ -44,13 +61,17 @@ interface LibraryStore extends Saved {
   pickNext: () => string | null;
   /** Records an answer: right on the first try moves it up, anything else starts it over. */
   answer: (id: string, firstTry: boolean) => void;
+  /** The knowledge card to show after a puzzle, counted as seen; null with no topics on. */
+  nextKnowledge: () => string | null;
+  setTopic: (topic: Topic, on: boolean) => void;
+  toggleSaved: (id: string) => void;
 }
 
 export const useLibraryStore = create<LibraryStore>()((set, get) => {
   const persist = () => {
-    const { cards, lastId } = get();
+    const { v, cards, lastId, topics, seen, saved } = get();
     try {
-      localStorage.setItem(KEY, JSON.stringify({ cards, lastId }));
+      localStorage.setItem(KEY, JSON.stringify({ v, cards, lastId, topics, seen, saved }));
     } catch {
       // Full storage: the new lines last this visit.
     }
@@ -102,6 +123,26 @@ export const useLibraryStore = create<LibraryStore>()((set, get) => {
       const { cards, lastId } = get();
       const askable = cards.filter((card) => question(card, cards) !== null);
       return nextDue(askable, today(), lastId)?.id ?? null;
+    },
+
+    nextKnowledge: () => {
+      const picked = pickKnowledge(get().topics, get().seen, Math.random());
+      if (!picked) return null;
+      set({ seen: picked.seen });
+      persist();
+      return picked.id;
+    },
+
+    setTopic: (topic, on) => {
+      const topics = get().topics.filter((t) => t !== topic);
+      set({ topics: on ? [...topics, topic] : topics });
+      persist();
+    },
+
+    toggleSaved: (id) => {
+      const { saved } = get();
+      set({ saved: saved.includes(id) ? saved.filter((s) => s !== id) : [id, ...saved] });
+      persist();
     },
 
     answer: (id, firstTry) => {

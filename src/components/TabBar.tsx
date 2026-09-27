@@ -2,7 +2,7 @@ import { NavLink } from 'react-router';
 
 const TABS = [
   { to: '/', label: 'Home', icon: 'M4 11 12 4l8 7v9h-5v-6H9v6H4z' },
-  { to: '/books', label: 'Books', icon: 'M4 5.5C6.5 4 9.5 4 12 6c2.5-2 5.5-2 8-.5V19c-2.5-1.5-5.5-1.5-8 .5-2.5-2-5.5-2-8-.5zM12 6v13.5' },
+  { to: '/learn', label: 'Learn', icon: 'M9 18h6M10 21h4M12 3a6 6 0 0 0-3.6 10.8c.7.5 1.1 1.3 1.1 2.2h5c0-.9.4-1.7 1.1-2.2A6 6 0 0 0 12 3z' },
   { to: '/ranks', label: 'Ranks', icon: 'M4 20V11h4v9zM10 20V5h4v15zM16 20v-7h4v7z' },
   { to: '/how', label: 'Guide', icon: 'M5 4h9l5 5v11H5zM14 4v5h5M8 13h8M8 16h6' },
   { to: '/profile', label: 'Profile', icon: 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4 20c1-4 4.5-6 8-6s7 2 8 6z' },
