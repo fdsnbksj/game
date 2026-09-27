@@ -4,7 +4,7 @@ describe('knowledge cards', () => {
   it('have unique ids, every topic, and fit on a phone', async () => {
     const { KNOWLEDGE, TOPICS } = await import('../../src/learn/knowledge');
     expect(new Set(KNOWLEDGE.map((k) => k.id)).size).toBe(KNOWLEDGE.length);
-    for (const topic of TOPICS) expect(KNOWLEDGE.filter((k) => k.topic === topic.id).length).toBeGreaterThanOrEqual(15);
+    for (const topic of TOPICS) expect(KNOWLEDGE.filter((k) => k.topic === topic.id).length).toBeGreaterThanOrEqual(40);
     for (const k of KNOWLEDGE) {
       expect(k.title.length, k.id).toBeLessThanOrEqual(45);
       expect(k.body.length, k.id).toBeLessThanOrEqual(260);
