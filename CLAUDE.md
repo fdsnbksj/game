@@ -19,6 +19,7 @@ npm run emulators   # Auth + Firestore emulators (needs Java 21: /opt/homebrew/o
 npm run dev         # Vite dev server, reachable from a phone on the LAN
 npm run build       # type-check + production build
 npm run audit       # checks saved solves against their puzzles
+npm run set-level -- --name <player> --level <n> [--write]   # admin: set a ladder's level (emulator unless PROJECT_ID=<id>)
 npm run test:unit   # puzzle logic tests, no emulator needed
 npm run test:rules  # Firestore rules tests (starts its own emulator; stop `npm run emulators` first)
 ```
@@ -31,7 +32,7 @@ npm run test:rules  # Firestore rules tests (starts its own emulator; stop `npm 
 - **One screen.** The app opens on the puzzle (`/`, `src/screens/Play.tsx`). A ⋯ menu leads to Saved cards, Rankings and Settings (name, topics, vibration, how to play), each a plain page back to the puzzle. There's no tab bar and no home screen; keep it that way unless the user asks.
 - **Offline first.** `src/nonogramStore.ts` (zustand) holds the plays in progress, the ladder level, solved days and settings, and saves every change to localStorage (`game:nonogram`). The app never waits for Firebase: `startSession()` signs in in the background and retries when the connection returns.
 - **Online solves:** a solve is counted locally first, then queued and written in order at least 3 s apart, as the rules require, once there's a session. A network error leaves it queued. If the rules refuse a level, the ladder carries on unranked on that device.
-- **The ladder** is `ladders/{uid}_{NONOGRAM_VERSION}`: the highest level solved and each level's grid (one `0`/`1` string, row by row). The first write creates the doc at level 1.
+- **The ladder** is `ladders/{uid}_{NONOGRAM_VERSION}`: the highest level solved and each level's grid (one `0`/`1` string, row by row). The first write creates the doc at level 1. Once a session, before writing, `sync()` reads the player's ladder and `catchUp()` moves the device up to it if the server is ahead: a new phone, cleared storage, or a level set with `scripts/setLevel.ts`, which files every level's real answer so the audit stays clean.
 - **A knowledge card after every puzzle:** one short idea from psychology, software engineering, philosophy or productivity, with a "Try this" line, from the solved picture's topic when that topic is on (`src/learn/knowledge.ts`, about 40 per topic; a new topic starts switched on for existing players via `offered` in `src/knowledgeStore.ts`). `pickKnowledge()` shows every card of the chosen topics before any repeats. Cards are written in our own words and name their source; hedge where the research is weaker than the popular version. `tests/unit/learn.test.ts` caps their length so they fit on a phone. Topics and saved cards live in localStorage (`src/knowledgeStore.ts`), never Firestore.
 - **Rules check shape, not answers:** `firestore.rules` copies `NONOGRAM_VERSION` and `sizeFor()`; `tests/unit/rulesSync.test.ts` fails if they drift.
 

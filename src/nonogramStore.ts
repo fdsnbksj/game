@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { useKnowledgeStore } from './knowledgeStore';
 import { nonogram, NONOGRAM_VERSION, type Nonogram } from './nonogram/generate';
 import { isSolved, newPlay, paint, setMode, undo, type Mark, type Mode, type PlayState } from './nonogram/play';
-import { isRetryable, packGrid, writeSolve, type SolveWrite } from './services/solves';
+import { fetchOwnLevel, isRetryable, packGrid, writeSolve, type SolveWrite } from './services/solves';
 import { useGameStore } from './store';
 
 // The puzzle in progress and the ladder it's on. Every change is saved to localStorage
@@ -88,6 +88,11 @@ interface NonogramStore extends Saved {
   clear: () => void;
   dismissSolved: () => void;
   setHaptics: (on: boolean) => void;
+  /**
+   * Moves up to the server's ladder when it's ahead of this device: a new phone, cleared
+   * storage, or a level set by an admin (scripts/setLevel.ts).
+   */
+  catchUp: (serverLevel: number) => void;
   /** Writes whatever solves are waiting. Safe to call any time; runs one write at a time. */
   sync: () => Promise<void>;
 }
@@ -96,6 +101,8 @@ interface NonogramStore extends Saved {
 // write, measured from 0) would wrap round to days instead of running at once.
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, Math.max(0, Math.min(ms, 60_000))));
 let syncing = false;
+/** Whether this session has compared the device's level with the server's yet. */
+let caughtUp = false;
 
 export const useNonogramStore = create<NonogramStore>()((set, get) => {
   const persist = () => {
@@ -151,10 +158,37 @@ export const useNonogramStore = create<NonogramStore>()((set, get) => {
       persist();
     },
 
+    catchUp: (serverLevel) => {
+      const { level, pending } = get();
+      if (serverLevel < level) return;
+      // The server has this level solved already: play on from the one after it, and drop
+      // anything queued that it already has, which the rules would refuse.
+      set({
+        level: serverLevel + 1,
+        ladder: null,
+        pending: pending.filter((p) => p.level > serverLevel),
+        ladderOnline: true,
+      });
+      persist();
+    },
+
     sync: async () => {
       if (syncing) return;
       syncing = true;
       try {
+        // Once a session, before writing anything: the server may be ahead of this device.
+        if (!caughtUp) {
+          const { uid, player } = useGameStore.getState();
+          if (!uid || !player) return;
+          try {
+            get().catchUp(await fetchOwnLevel(uid));
+            caughtUp = true;
+          } catch (error) {
+            if (isRetryable(error)) return; // Offline: the next connection tries again.
+            console.warn('Could not read the ladder:', error);
+            caughtUp = true;
+          }
+        }
         for (;;) {
           const { pending, lastWriteAt } = get();
           const { uid, player } = useGameStore.getState();

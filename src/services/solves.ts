@@ -47,6 +47,12 @@ export async function writeSolve(uid: string, player: Player, solve: SolveWrite)
   cache = null;
 }
 
+/** The highest level this player's ladder has on the server, or 0 if it has none yet. */
+export async function fetchOwnLevel(uid: string): Promise<number> {
+  const own = await getDoc(ladderRef(uid));
+  return own.exists() ? (own.get('level') as number) : 0;
+}
+
 export const RANKINGS_SIZE = 25;
 /** Rankings change slowly; re-reading them on every visit would eat the free read quota. */
 const CACHE_MS = 5 * 60 * 1000;
