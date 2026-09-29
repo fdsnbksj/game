@@ -1,6 +1,6 @@
 # a game
 
-Small logic puzzles for between chapters. Each one is a nonogram: fill in squares so that every row and column matches the numbers beside it, and a hand-drawn picture appears: a lighthouse, an owl, a coffee cup. It's built for a train ride with a book. Everything works with one thumb, nothing needs sound, there's no clock and no way to lose, and every tap is saved, so you can close it at your stop, even without a signal. Levels go on forever, grow from 5×5 to 10×10 and are ranked.
+Small logic puzzles for between chapters. Each one is a nonogram: fill in squares so that every row and column matches the numbers beside it, and a picture appears. It's built for a train ride with a book. Everything works with one thumb, nothing needs sound, there's no clock and no way to lose, and every tap is saved, so you can close it at your stop, even without a signal. Levels go on forever, grow from 5×5 to 10×10 and are ranked.
 
 After every puzzle it shows one short, useful idea from psychology, software engineering, philosophy or productivity, with something to try; save the ones worth keeping. The app is one screen: the puzzle, with a ⋯ menu for saved cards, rankings and settings.
 

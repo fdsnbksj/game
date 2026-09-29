@@ -65,15 +65,7 @@ export function Play() {
       {justSolved && (
         <div className="overlay clear">
           <div className="panel" role="dialog" aria-label="Solved">
-            <p className="solved-title">
-              {justSolved.name ? (
-                <>
-                  <strong>{justSolved.name[0].toUpperCase() + justSolved.name.slice(1)}</strong> · Level {justSolved.level}
-                </>
-              ) : (
-                `Level ${justSolved.level} solved`
-              )}
-            </p>
+            <p className="solved-title">Level {justSolved.level} solved</p>
             {justSolved.knowledge && <KnowledgeCard id={justSolved.knowledge} />}
             <button className="button primary" onClick={dismissSolved}>
               Next

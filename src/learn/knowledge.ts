@@ -1154,18 +1154,11 @@ export const KNOWLEDGE: Knowledge[] = [
 
 /**
  * The next card to show: one not yet seen from the chosen topics, picked with `random`
- * (0 to 1). Once all of them are seen, those topics start over. `prefer` narrows it to
- * one topic, if that topic is chosen: the one the solved picture belongs to. Returns the
- * card and the new list of seen ids; null when no topic is chosen.
+ * (0 to 1). Once all of them are seen, those topics start over. Returns the card and the
+ * new list of seen ids; null when no topic is chosen.
  */
-export function pickKnowledge(
-  topics: readonly Topic[],
-  seen: readonly string[],
-  random: number,
-  prefer?: Topic,
-): { id: string; seen: string[] } | null {
-  const from = prefer && topics.includes(prefer) ? [prefer] : topics;
-  const deck = KNOWLEDGE.filter((k) => from.includes(k.topic));
+export function pickKnowledge(topics: readonly Topic[], seen: readonly string[], random: number): { id: string; seen: string[] } | null {
+  const deck = KNOWLEDGE.filter((k) => topics.includes(k.topic));
   if (deck.length === 0) return null;
   const seenSet = new Set(seen);
   let fresh = deck.filter((k) => !seenSet.has(k.id));

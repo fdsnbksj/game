@@ -512,12 +512,6 @@ body {
   font-size: var(--fs-sm);
 }
 
-.solved-title strong {
-  color: var(--label);
-  font-size: var(--fs-md);
-  font-weight: 600;
-}
-
 /* ---------- Knowledge ---------- */
 
 .knowledge {

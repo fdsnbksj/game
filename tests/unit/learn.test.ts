@@ -36,16 +36,6 @@ describe('knowledge cards', () => {
     expect(next.seen).toEqual(['spacing-effect', next.id]);
   });
 
-  it("prefer the solved picture's topic, when it's on", async () => {
-    const { knowledgeById, pickKnowledge } = await import('../../src/learn/knowledge');
-    for (let i = 0; i < 10; i++) {
-      const next = pickKnowledge(['psychology', 'software'], [], i / 10, 'software')!;
-      expect(knowledgeById(next.id)?.topic).toBe('software');
-    }
-    const off = pickKnowledge(['psychology'], [], 0.5, 'software')!;
-    expect(knowledgeById(off.id)?.topic).toBe('psychology');
-  });
-
   it('show nothing with every topic off', async () => {
     const { pickKnowledge } = await import('../../src/learn/knowledge');
     expect(pickKnowledge([], [], 0.5)).toBeNull();
