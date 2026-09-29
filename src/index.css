@@ -33,6 +33,11 @@
   --accent-soft: rgb(232 179 57 / 0.1);
   --accent-line: rgb(232 179 57 / 0.45);
   --danger: #f0616d;
+  --danger-soft: rgb(240 97 109 / 0.1);
+  --danger-line: rgb(240 97 109 / 0.4);
+  /* Avalon's two sides, invest's long and short. */
+  --success: #3fbf88;
+  --success-soft: rgb(63 191 136 / 0.12);
 
   /* the grid */
   --cell: #121317;
@@ -255,6 +260,7 @@ body {
   font: inherit;
   font-size: var(--fs-sm);
   font-weight: 500;
+  text-decoration: none;
   cursor: pointer;
   transition: opacity var(--dur-fast) var(--ease);
 }
@@ -276,6 +282,12 @@ body {
   color: var(--accent);
   font-size: var(--fs-base);
   font-weight: 600;
+}
+
+.button.danger {
+  border-color: var(--danger-line);
+  background: var(--danger-soft);
+  color: var(--danger);
 }
 
 .button.ghost {
@@ -740,4 +752,237 @@ body {
   .spinner {
     animation: spin 1.6s linear infinite !important;
   }
+}
+
+/* ---------- Avalon ---------- */
+
+.code-field {
+  text-align: center;
+  letter-spacing: 0.4em;
+  font-size: 1.5rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.room-code {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 0 4px;
+  text-align: center;
+}
+
+.room-code strong {
+  color: var(--accent);
+  font-size: 2.75rem;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  font-variant-numeric: tabular-nums;
+}
+
+.players .row-detail + .row-detail {
+  margin-left: -4px;
+}
+
+.row-detail.good {
+  color: var(--success);
+}
+
+.row-detail.evil {
+  color: var(--danger);
+}
+
+/* Hidden unless held: a plain card, then the role in its side's colour. */
+.role-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 132px;
+  width: 100%;
+  padding: 16px;
+  color: var(--label);
+  font: inherit;
+  text-align: center;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  touch-action: none;
+}
+
+.role-card strong {
+  font-size: var(--fs-md);
+  font-weight: 600;
+}
+
+.role-card.shown strong {
+  font-size: 1.5rem;
+}
+
+.role-card.good {
+  border-color: var(--success);
+  background: var(--success-soft);
+}
+
+.role-card.good .micro {
+  color: var(--success);
+}
+
+.role-card.evil {
+  border-color: var(--danger-line);
+  background: var(--danger-soft);
+}
+
+.role-card.evil .micro {
+  color: var(--danger);
+}
+
+.board-track {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.quests {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.quest {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 1;
+  border: 1px solid var(--border-strong);
+  border-radius: 50%;
+  color: var(--label-2);
+  font-size: var(--fs-md);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.quest small {
+  font-size: 0.55rem;
+  font-weight: 500;
+  line-height: 1;
+}
+
+.quest.current {
+  border-color: var(--accent-line);
+  color: var(--accent);
+}
+
+.quest.won {
+  border-color: var(--success);
+  background: var(--success-soft);
+  color: var(--success);
+}
+
+.quest.lost {
+  border-color: var(--danger-line);
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.track-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.rejections {
+  display: flex;
+  gap: 5px;
+}
+
+.rejections span {
+  width: 10px;
+  height: 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: 50%;
+}
+
+.rejections span.on {
+  border-color: var(--danger);
+  background: var(--danger);
+}
+
+.phase {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.lead-line {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.choice-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.choice-pair .button {
+  min-height: 56px;
+  font-size: var(--fs-base);
+}
+
+.pick-list {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.pick {
+  min-height: 48px;
+  padding: 8px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-md);
+  background: none;
+  color: var(--label);
+  font: inherit;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+
+.pick.on {
+  border-color: var(--accent-line);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.history {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.history strong {
+  color: var(--label);
+  font-weight: 600;
+}
+
+.winner {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.winner.good {
+  color: var(--success);
+}
+
+.winner.evil {
+  color: var(--danger);
 }

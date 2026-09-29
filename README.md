@@ -1,6 +1,8 @@
 # a game
 
-Small logic puzzles for between chapters. Each one is a nonogram: fill in squares so that every row and column matches the numbers beside it, and a picture appears. It's built for a train ride with a book. Everything works with one thumb, nothing needs sound, there's no clock and no way to lose, and every tap is saved, so you can close it at your stop, even without a signal. Levels go on forever, grow from 5×5 to 10×10 and are ranked.
+A small collection of games: nonograms for between chapters, and Avalon for a table of friends.
+
+Nonograms are small logic puzzles for between chapters. Each one is a nonogram: fill in squares so that every row and column matches the numbers beside it, and a picture appears. It's built for a train ride with a book. Everything works with one thumb, nothing needs sound, there's no clock and no way to lose, and every tap is saved, so you can close it at your stop, even without a signal. Levels go on forever, grow from 5×5 to 10×10 and are ranked.
 
 After every puzzle it shows one short, useful idea from psychology, software engineering, philosophy or productivity, with something to try; save the ones worth keeping. The app is one screen: the puzzle, with a ⋯ menu for saved cards, rankings and settings.
 
@@ -39,7 +41,8 @@ npm run build       # type-check + production build
 | `src/nonogramStore.ts` | Puzzles in progress and solves, saved to localStorage, and the queue of writes to Firestore |
 | `src/components/Board.tsx` | The grid: tap and drag to mark squares |
 | `src/learn/`, `src/knowledgeStore.ts` | Knowledge cards, and the topics and saved cards, kept on the device |
-| `src/screens/` | The puzzle (`Play`), and the menu's pages: Saved, Rankings, Settings |
+| `src/screens/` | Home and Account; the puzzle (`Play`) and its menu's pages; `avalon/` for Avalon's rooms |
+| `src/games/avalon/`, `src/services/avalon.ts` | Avalon: rules, dealing and state as pure code; rooms in Firestore |
 | `src/services/` | Firestore reads and writes: session, players, solves and rankings |
 | `tests/unit/`, `tests/rules/` | Puzzle tests, and Firestore rules tests |
 | `firestore.rules` | The only server-side validation (Spark has no Cloud Functions) |

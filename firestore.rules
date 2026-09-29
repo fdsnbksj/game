@@ -97,5 +97,198 @@ service cloud.firestore {
       allow create: if request.auth != null && isNewLadder(ladderId);
       allow update: if request.auth != null && request.auth.uid == resource.data.uid && isNextLevel();
     }
+
+    // ---------- Avalon ----------
+    // One room per game, played at one table with a phone each. There are no Cloud
+    // Functions on Spark, so the host's phone deals the roles: the rules keep each role
+    // private to its player and hold every write to its player, but they trust the host.
+    // Quest cards are only ever counts, so no document says who played a fail.
+
+    function room(code) {
+      return get(/databases/$(database)/documents/rooms/$(code)).data;
+    }
+
+    function roomAfter(code) {
+      return getAfter(/databases/$(database)/documents/rooms/$(code)).data;
+    }
+
+    function isMember(code) {
+      return request.auth != null && request.auth.uid in room(code).playerIds;
+    }
+
+    function isPlaying(code) {
+      return room(code).status == 'playing';
+    }
+
+    function avalonRoles() {
+      return ['merlin', 'percival', 'servant', 'assassin', 'morgana', 'mordred', 'oberon', 'minion'];
+    }
+
+    function evilRoles() {
+      return ['assassin', 'morgana', 'mordred', 'oberon', 'minion'];
+    }
+
+    function roleOf(code, uid) {
+      return get(/databases/$(database)/documents/rooms/$(code)/secrets/$(uid)).data.role;
+    }
+
+    function isNewRoom(code) {
+      let r = request.resource.data;
+      return code.matches('[A-Z]{4}')
+        && hasExactly(r, ['host', 'playerIds', 'names', 'status', 'optional', 'createdAt'])
+        && r.host == request.auth.uid
+        && r.playerIds == [request.auth.uid]
+        && r.names.keys().hasOnly([request.auth.uid]) && isValidName(r.names[request.auth.uid])
+        && r.status == 'lobby'
+        && r.optional is list && r.optional.hasOnly(['percival', 'morgana', 'mordred', 'oberon'])
+        && r.createdAt == request.time;
+    }
+
+    function isJoin() {
+      let before = resource.data;
+      let after = request.resource.data;
+      return before.status == 'lobby'
+        && !(request.auth.uid in before.playerIds)
+        && before.playerIds.size() < 10
+        && after.diff(before).affectedKeys().hasOnly(['playerIds', 'names'])
+        && after.playerIds == before.playerIds.concat([request.auth.uid])
+        && after.names.diff(before.names).affectedKeys().hasOnly([request.auth.uid])
+        && isValidName(after.names[request.auth.uid]);
+    }
+
+    function isLeave() {
+      let before = resource.data;
+      let after = request.resource.data;
+      return before.status == 'lobby'
+        && request.auth.uid in before.playerIds && request.auth.uid != before.host
+        && after.diff(before).affectedKeys().hasOnly(['playerIds'])
+        && after.playerIds == before.playerIds.removeAll([request.auth.uid]);
+    }
+
+    function isHostSetup() {
+      let before = resource.data;
+      let after = request.resource.data;
+      return before.status == 'lobby' && request.auth.uid == before.host
+        && after.diff(before).affectedKeys().hasOnly(['optional'])
+        && after.optional is list && after.optional.hasOnly(['percival', 'morgana', 'mordred', 'oberon']);
+    }
+
+    function isStart() {
+      let before = resource.data;
+      let after = request.resource.data;
+      return before.status == 'lobby' && request.auth.uid == before.host
+        && after.diff(before).affectedKeys().hasOnly(['status', 'firstLeader', 'startedAt'])
+        && after.status == 'playing'
+        && before.playerIds.size() >= 5 && before.playerIds.size() <= 10
+        && after.firstLeader is int && after.firstLeader >= 0 && after.firstLeader < before.playerIds.size()
+        && after.startedAt == request.time;
+    }
+
+    // The game is over: evil won on quests or rejections (any player may say so; the app
+    // works it out the same on every phone), or the assassin named someone.
+    function isFinish(code) {
+      let before = resource.data;
+      let after = request.resource.data;
+      return before.status == 'playing' && request.auth.uid in before.playerIds
+        && after.status == 'done'
+        && after.endedAt == request.time
+        && (
+          (after.diff(before).affectedKeys().hasOnly(['status', 'endedAt']))
+          || (after.diff(before).affectedKeys().hasOnly(['status', 'endedAt', 'assassinated'])
+            && roleOf(code, request.auth.uid) == 'assassin'
+            && after.assassinated in before.playerIds)
+        );
+    }
+
+    match /rooms/{code} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null && isNewRoom(code);
+      allow update: if request.auth != null && (isJoin() || isLeave() || isHostSetup() || isStart() || isFinish(code));
+
+      // Each player's role and night knowledge, written by the host in the batch that
+      // starts the game, and readable only by that player until the game is over.
+      match /secrets/{uid} {
+        allow read: if request.auth != null && (request.auth.uid == uid || room(code).status == 'done');
+        allow create: if request.auth != null
+          && room(code).host == request.auth.uid
+          && room(code).status == 'lobby' && roomAfter(code).status == 'playing'
+          && uid in room(code).playerIds
+          && hasExactly(request.resource.data, ['role', 'sees'])
+          && request.resource.data.role in avalonRoles()
+          && request.resource.data.sees is list;
+      }
+
+      // The leader's team for one attempt at one quest: `{quest}-{attempt}`.
+      match /proposals/{id} {
+        allow read: if isMember(code);
+        allow create: if isMember(code) && isPlaying(code)
+          && hasExactly(request.resource.data, ['quest', 'attempt', 'leader', 'team'])
+          && id == string(request.resource.data.quest) + '-' + string(request.resource.data.attempt)
+          && request.resource.data.quest is int && request.resource.data.quest >= 0 && request.resource.data.quest < 5
+          && request.resource.data.attempt is int && request.resource.data.attempt >= 0 && request.resource.data.attempt < 5
+          && request.resource.data.leader == request.auth.uid
+          && request.resource.data.team is list
+          && request.resource.data.team.size() >= 2 && request.resource.data.team.size() <= 5
+          && request.resource.data.team.hasOnly(room(code).playerIds)
+          && request.resource.data.team.toSet().size() == request.resource.data.team.size();
+      }
+
+      // One vote per player per team: `{quest}-{attempt}-{uid}`. Team votes are public in Avalon.
+      match /votes/{id} {
+        allow read: if isMember(code);
+        allow create: if isMember(code) && isPlaying(code)
+          && hasExactly(request.resource.data, ['quest', 'attempt', 'uid', 'approve'])
+          && request.resource.data.uid == request.auth.uid
+          && id == string(request.resource.data.quest) + '-' + string(request.resource.data.attempt) + '-' + request.auth.uid
+          && request.resource.data.approve is bool
+          && exists(/databases/$(database)/documents/rooms/$(code)/proposals/$(string(request.resource.data.quest) + '-' + string(request.resource.data.attempt)));
+      }
+
+      // A quest's cards as counts only. Playing a card writes, together, a marker saying
+      // the player has played (with no choice in it) and a tally going up by one.
+      match /quests/{quest} {
+        allow read: if isMember(code);
+        allow create: if isMember(code) && isPlaying(code)
+          && hasExactly(request.resource.data, ['quest', 'attempt', 'successes', 'fails'])
+          && string(request.resource.data.quest) == quest
+          && request.resource.data.attempt is int
+          && ((request.resource.data.successes == 1 && request.resource.data.fails == 0)
+            || (request.resource.data.successes == 0 && request.resource.data.fails == 1))
+          && isCardPlay(code, quest, request.resource.data.attempt, request.resource.data.fails == 1);
+        allow update: if isMember(code) && isPlaying(code)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['successes', 'fails'])
+          && ((request.resource.data.successes == resource.data.successes + 1 && request.resource.data.fails == resource.data.fails)
+            || (request.resource.data.fails == resource.data.fails + 1 && request.resource.data.successes == resource.data.successes))
+          && isCardPlay(code, quest, resource.data.attempt, request.resource.data.fails == resource.data.fails + 1);
+
+        // Who has played: nothing about what.
+        match /cards/{uid} {
+          allow read: if isMember(code);
+          allow create: if isMember(code) && isPlaying(code)
+            && uid == request.auth.uid
+            && request.resource.data.keys().size() == 0
+            && playedAfter(code, quest) == playedBefore(code, quest) + 1;
+        }
+      }
+
+      // Cards counted on a quest, before and after this write: a marker must come with one more.
+      function playedBefore(code, quest) {
+        let path = /databases/$(database)/documents/rooms/$(code)/quests/$(quest);
+        return exists(path) ? get(path).data.successes + get(path).data.fails : 0;
+      }
+
+      function playedAfter(code, quest) {
+        let path = /databases/$(database)/documents/rooms/$(code)/quests/$(quest);
+        return existsAfter(path) ? getAfter(path).data.successes + getAfter(path).data.fails : 0;
+      }
+
+      function isCardPlay(code, quest, attempt, fail) {
+        let marker = /databases/$(database)/documents/rooms/$(code)/quests/$(quest)/cards/$(request.auth.uid);
+        let proposal = get(/databases/$(database)/documents/rooms/$(code)/proposals/$(quest + '-' + string(attempt))).data;
+        return !exists(marker) && existsAfter(marker)
+          && request.auth.uid in proposal.team
+          && (!fail || roleOf(code, request.auth.uid) in evilRoles());
+      }
+    }
   }
 }

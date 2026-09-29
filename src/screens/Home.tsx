@@ -40,6 +40,13 @@ export function Home() {
           <span className="row-detail">Level {level}</span>
           <Chevron />
         </Link>
+        <Link className="row game-row" to="/avalon">
+          <span>
+            Avalon
+            <small>Hidden loyalty, 5 to 10 players at one table</small>
+          </span>
+          <Chevron />
+        </Link>
       </div>
     </main>
   );

@@ -1,6 +1,8 @@
 import { useEffect } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router';
 import { Account } from './screens/Account';
+import { AvalonHome } from './screens/avalon/AvalonHome';
+import { Room } from './screens/avalon/Room';
 import { Home } from './screens/Home';
 import { Play } from './screens/Play';
 import { Rankings } from './screens/Rankings';
@@ -18,6 +20,8 @@ export function App() {
         <Route path="/" element={<Home />} />
         <Route path="/account" element={<Account />} />
         <Route path="/nonograms" element={<Play />} />
+        <Route path="/avalon" element={<AvalonHome />} />
+        <Route path="/avalon/:code" element={<Room />} />
         <Route path="/saved" element={<Saved />} />
         <Route path="/ranks" element={<Rankings />} />
         <Route path="/settings" element={<Settings />} />
