@@ -26,6 +26,8 @@ interface Saved {
   /** When the last write landed (ms, client clock), to space the next one. */
   lastWriteAt: number;
   haptics: boolean;
+  /** Whose ladder this is (a uid), so switching accounts doesn't mix two players' progress. */
+  owner: string | null;
 }
 
 /** Just solved, for the card that follows. */
@@ -40,17 +42,17 @@ export interface JustSolved {
 /** A little over the rules' 3 s minimum, so client and server clocks can disagree slightly. */
 const WRITE_SPACING_MS = 3500;
 
-const fresh = (): Saved => ({ v: NONOGRAM_VERSION, level: 1, ladder: null, pending: [], ladderOnline: true, lastWriteAt: 0, haptics: true });
+const fresh = (): Saved => ({ v: NONOGRAM_VERSION, level: 1, ladder: null, pending: [], ladderOnline: true, lastWriteAt: 0, haptics: true, owner: null });
 
 function load(): Saved {
   try {
     const saved = JSON.parse(localStorage.getItem(KEY) ?? 'null') as Partial<Saved> | null;
     if (!saved) return fresh();
     // New generator, new puzzles: the ladder starts over, but settings stay.
-    if (saved.v !== NONOGRAM_VERSION) return { ...fresh(), haptics: saved.haptics ?? true };
-    const { level, ladder, pending, ladderOnline, lastWriteAt, haptics } = { ...fresh(), ...saved };
+    if (saved.v !== NONOGRAM_VERSION) return { ...fresh(), haptics: saved.haptics ?? true, owner: saved.owner ?? null };
+    const { level, ladder, pending, ladderOnline, lastWriteAt, haptics, owner } = { ...fresh(), ...saved };
     // Daily solves from before the daily puzzle was removed can no longer be written.
-    return { v: NONOGRAM_VERSION, level, ladder, pending: pending.filter((p) => p.kind === 'level'), ladderOnline, lastWriteAt, haptics };
+    return { v: NONOGRAM_VERSION, level, ladder, pending: pending.filter((p) => p.kind === 'level'), ladderOnline, lastWriteAt, haptics, owner };
   } catch {
     return fresh();
   }
@@ -91,6 +93,11 @@ interface NonogramStore extends Saved {
    * storage, or a level set by an admin (scripts/setLevel.ts).
    */
   catchUp: (serverLevel: number) => void;
+  /**
+   * A (new) session for `uid`: a device save from another account starts over, and the
+   * next sync catches up to this account's ladder on the server.
+   */
+  claim: (uid: string) => void;
   /** Writes whatever solves are waiting. Safe to call any time; runs one write at a time. */
   sync: () => Promise<void>;
 }
@@ -104,8 +111,8 @@ let caughtUp = false;
 
 export const useNonogramStore = create<NonogramStore>()((set, get) => {
   const persist = () => {
-    const { v, level, ladder, pending, ladderOnline, lastWriteAt, haptics } = get();
-    save({ v, level, ladder, pending, ladderOnline, lastWriteAt, haptics });
+    const { v, level, ladder, pending, ladderOnline, lastWriteAt, haptics, owner } = get();
+    save({ v, level, ladder, pending, ladderOnline, lastWriteAt, haptics, owner });
   };
 
   const keep = (ladder: PlayState) => {
@@ -152,6 +159,14 @@ export const useNonogramStore = create<NonogramStore>()((set, get) => {
 
     setHaptics: (haptics) => {
       set({ haptics });
+      persist();
+    },
+
+    claim: (uid) => {
+      const { owner, haptics } = get();
+      if (owner !== null && owner !== uid) set({ ...fresh(), haptics, owner: uid, justSolved: null });
+      else set({ owner: uid });
+      caughtUp = false;
       persist();
     },
 
@@ -213,6 +228,9 @@ export const useNonogramStore = create<NonogramStore>()((set, get) => {
 
 // Write what's queued as soon as there's a session, and whenever the connection returns.
 useGameStore.subscribe((session, before) => {
-  if (session.player && !before.player) void useNonogramStore.getState().sync();
+  if (session.uid && session.player && (session.uid !== before.uid || !before.player)) {
+    useNonogramStore.getState().claim(session.uid);
+    void useNonogramStore.getState().sync();
+  }
 });
 if (typeof window !== 'undefined') window.addEventListener('online', () => void useNonogramStore.getState().sync());

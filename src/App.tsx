@@ -1,5 +1,7 @@
 import { useEffect } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router';
+import { Account } from './screens/Account';
+import { Home } from './screens/Home';
 import { Play } from './screens/Play';
 import { Rankings } from './screens/Rankings';
 import { Saved } from './screens/Saved';
@@ -13,11 +15,13 @@ export function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<Play />} />
+        <Route path="/" element={<Home />} />
+        <Route path="/account" element={<Account />} />
+        <Route path="/nonograms" element={<Play />} />
         <Route path="/saved" element={<Saved />} />
         <Route path="/ranks" element={<Rankings />} />
         <Route path="/settings" element={<Settings />} />
-        {/* Everything else, including old links and installed shortcuts, opens the puzzle. */}
+        {/* Everything else, including old links and installed shortcuts, opens the home screen. */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

@@ -1,11 +1,12 @@
 import { useState } from 'react';
+import { Link } from 'react-router';
 import { Board } from '../components/Board';
 import { KnowledgeCard } from '../components/KnowledgeCard';
 import { Menu } from '../components/Menu';
 import { levelPuzzle, useNonogramStore } from '../nonogramStore';
 
 /**
- * The app: one puzzle, laid out for a thumb, with the grid low on the screen and the
+ * Nonograms: one puzzle, laid out for a thumb, with the grid low on the screen and the
  * controls under it. There's no clock and no way to lose, so it can be put down at any
  * moment. Solving it shows one idea worth knowing, then the next level.
  */
@@ -28,7 +29,11 @@ export function Play() {
   return (
     <main className="screen play">
       <header className="bar">
-        <span className="icon-button" aria-hidden="true" />
+        <Link className="icon-button" to="/" aria-label="All games">
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+            <path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </Link>
         <h1 className="bar-title">Level {justSolved?.level ?? level}</h1>
         <button className="icon-button" aria-label="Menu" onClick={() => setMenu(true)}>
           <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">

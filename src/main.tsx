@@ -10,7 +10,9 @@ import './index.css';
 // (Nothing would be lost either way; every tap is already saved.)
 const updateSW = registerSW({
   onNeedRefresh() {
-    const idle = () => location.pathname !== '/' || document.visibilityState === 'hidden';
+    // On a game screen (the puzzle, or an Avalon room), wait until the app is in the background.
+    const playing = () => location.pathname === '/nonograms' || location.pathname.startsWith('/avalon/');
+    const idle = () => !playing() || document.visibilityState === 'hidden';
     if (idle()) return void updateSW(true);
     const timer = setInterval(() => {
       if (!idle()) return;

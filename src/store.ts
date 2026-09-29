@@ -8,17 +8,25 @@ export interface Player {
 interface SessionState {
   uid: string | null;
   player: Player | null;
-  setSession: (uid: string, player: Player) => void;
+  /** The account's email; null for a guest (an anonymous user). */
+  email: string | null;
+  setSession: (uid: string, player: Player, email: string | null) => void;
   setPlayer: (player: Player) => void;
+  setEmail: (email: string | null) => void;
+  /** Between signing out and the next guest session. */
+  clear: () => void;
 }
 
 /**
- * Who's signed in, once they are. The game never waits for this: puzzles play offline,
+ * Who's signed in, once they are. The games never wait for this: puzzles play offline,
  * and their results are queued in nonogramStore until a session exists.
  */
 export const useGameStore = create<SessionState>()((set) => ({
   uid: null,
   player: null,
-  setSession: (uid, player) => set({ uid, player }),
+  email: null,
+  setSession: (uid, player, email) => set({ uid, player, email }),
   setPlayer: (player) => set({ player }),
+  setEmail: (email) => set({ email }),
+  clear: () => set({ uid: null, player: null, email: null }),
 }));

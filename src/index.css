@@ -610,6 +610,41 @@ body {
 
 /* ---------- Pages ---------- */
 
+.game-row {
+  min-height: 64px;
+}
+
+.game-row small {
+  display: block;
+  margin-top: 2px;
+  color: var(--label-2);
+  font-size: var(--fs-cap);
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.field {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid var(--separator);
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  color: var(--label);
+  font: inherit;
+  /* 16px or iOS zooms the page on focus. */
+  font-size: 16px;
+}
+
+.field:focus {
+  outline: none;
+  border-color: var(--accent-line);
+}
+
 .name-editor {
   display: flex;
   align-items: center;

@@ -25,7 +25,7 @@ export function Rankings() {
   const onBoard = ranking?.top.some((entry) => entry.uid === uid) ?? false;
 
   return (
-    <Page title="Rankings">
+    <Page title="Rankings" back="/nonograms">
       {!signedIn && <p className="note">Rankings need a connection. The puzzles don't.</p>}
       {signedIn && !ranking && !failed && <div className="spinner" aria-label="Loading" />}
       {failed && <p className="error">Couldn't load the rankings.</p>}

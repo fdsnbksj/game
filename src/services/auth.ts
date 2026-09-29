@@ -7,7 +7,8 @@ import { loadOrCreatePlayer } from './players';
 const RETRY_MS = 30_000;
 
 /**
- * Signs in anonymously if needed and loads the player into the store, in the background.
+ * Signs in anonymously if needed (everyone starts as a guest; src/services/account.ts
+ * turns a guest into an account) and loads the player into the store, in the background.
  * Offline it keeps retrying, sooner if the browser says the connection is back.
  * Returns an unsubscribe function.
  */
@@ -31,12 +32,17 @@ export function startSession(): () => void {
   const load = (user: User) => {
     const attempt = () =>
       void loadOrCreatePlayer(user.uid)
-        .then((player) => useGameStore.getState().setSession(user.uid, player))
+        .then((player) => useGameStore.getState().setSession(user.uid, player, user.isAnonymous ? null : user.email))
         .catch(retry(attempt));
     attempt();
   };
 
-  const unsubscribe = onAuthStateChanged(auth, (user) => (user ? load(user) : signIn()));
+  const unsubscribe = onAuthStateChanged(auth, (user) => {
+    if (user) return load(user);
+    // Signed out: nobody until the new guest session is ready.
+    useGameStore.getState().clear();
+    signIn();
+  });
   return () => {
     stopped = true;
     clearTimeout(timer);
