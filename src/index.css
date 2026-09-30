@@ -41,6 +41,9 @@
   /* The Lady of the Lake's token. */
   --lady: #8fb0ff;
   --lady-soft: rgb(143 176 255 / 0.14);
+  /* Percival's Merlin-or-Morgana pair: its own colour, apart from the leader's amber. */
+  --maybe: #b48cff;
+  --maybe-soft: rgb(180 140 255 / 0.14);
 
   /* the grid */
   --cell: #121317;
@@ -1169,8 +1172,8 @@ button.seat:disabled {
 }
 
 .seat.known-maybe {
-  border-color: var(--accent);
-  background: var(--accent-soft);
+  border-color: var(--maybe);
+  background: var(--maybe-soft);
 }
 
 .mark.evil {
@@ -1184,8 +1187,8 @@ button.seat:disabled {
 }
 
 .mark.maybe {
-  background: var(--accent-soft);
-  color: var(--accent);
+  background: var(--maybe-soft);
+  color: var(--maybe);
 }
 
 .legend {
