@@ -1156,3 +1156,53 @@ button.seat:disabled {
   background: var(--danger-soft);
   color: var(--danger);
 }
+
+/* Night knowledge on the seats, while the role card is held. */
+.seat.known-evil {
+  border-color: var(--danger);
+  background: var(--danger-soft);
+}
+
+.seat.known-merlin {
+  border-color: var(--success);
+  background: var(--success-soft);
+}
+
+.seat.known-maybe {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.mark.evil {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.mark.merlin {
+  background: var(--success-soft);
+  color: var(--success);
+}
+
+.mark.maybe {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.legend {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0 4px;
+  list-style: none;
+}
+
+.legend li {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.legend .mark {
+  flex: none;
+}

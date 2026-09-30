@@ -228,10 +228,15 @@ function Game({ room, data, uid }: { room: RoomDoc; data: RoomData; uid: string 
   const toggle = (p: string) =>
     setPicked((current) => (current.includes(p) ? current.filter((x) => x !== p) : picking?.count === 1 ? [p] : [...current, p]));
 
+  // While the role card is held, your night knowledge is marked on the seats too.
+  const [revealing, setRevealing] = useState(false);
+  const knowing = revealing && room.status !== 'done' ? data.mine : null;
+
   const last = state.votes.at(-1);
   const current = phase.kind === 'voting' || phase.kind === 'questing' ? phase.proposal : null;
   const marks = (p: string): SeatMarks => ({
     you: p === uid,
+    knows: knowing?.sees.find((s) => s.uid === p)?.as,
     leader: state.leader === p,
     next: phase.kind !== 'over' && phase.kind !== 'assassinating' && state.nextLeader === p && state.leader !== p,
     lady: state.ladyHolder === p && phase.kind !== 'over',
@@ -262,7 +267,7 @@ function Game({ room, data, uid }: { room: RoomDoc; data: RoomData; uid: string 
 
   return (
     <>
-      {data.mine && room.status !== 'done' && <RoleCard secret={data.mine} name={name} />}
+      {data.mine && room.status !== 'done' && <RoleCard secret={data.mine} name={name} shown={revealing} setShown={setRevealing} />}
       <TableView
         playerIds={room.playerIds}
         names={room.names}
@@ -272,6 +277,7 @@ function Game({ room, data, uid }: { room: RoomDoc; data: RoomData; uid: string 
         onPick={picking ? toggle : undefined}
         center={<strong className="table-caption">{caption}</strong>}
       />
+      {knowing && <Legend secret={knowing} />}
       <Board state={state} n={n} />
       <PhasePanel state={state} room={room} data={data} uid={uid} name={name} picked={picked} picking={picking} />
       <History state={state} data={data} uid={uid} name={name} />
@@ -281,8 +287,18 @@ function Game({ room, data, uid }: { room: RoomDoc; data: RoomData; uid: string 
 }
 
 /** Your role, shown only while you hold it, so a neighbour can't glance at it. */
-function RoleCard({ secret, name }: { secret: Secret; name: (p: string) => string }) {
-  const [shown, setShown] = useState(false);
+function RoleCard({
+  secret,
+  name,
+  shown,
+  setShown,
+}: {
+  secret: Secret;
+  name: (p: string) => string;
+  /** Held down right now: the table shows your knowledge too while it is. */
+  shown: boolean;
+  setShown: (shown: boolean) => void;
+}) {
   const evil = isEvil(secret.role);
   const names = (as: string) => secret.sees.filter((s) => s.as === as).map((s) => name(s.uid)).join(', ');
   let knows: string;
@@ -316,6 +332,27 @@ function RoleCard({ secret, name }: { secret: Secret; name: (p: string) => strin
         </>
       )}
     </button>
+  );
+}
+
+/** What the knowledge marks on the seats mean, for your role; shown only while you hold your card. */
+function Legend({ secret }: { secret: Secret }) {
+  const items: [string, string, string][] = [];
+  if (secret.role === 'merlin') items.push(['evil', 'Evil', 'Evil players you see. Mordred, if in the game, is hidden from you.']);
+  else if (secret.role === 'percival') {
+    if (secret.sees.some((s) => s.as === 'merlin-or-morgana')) items.push(['maybe', 'Merlin?', 'One is Merlin, the other Morgana. You can’t tell which.']);
+    else items.push(['merlin', 'Merlin', 'Merlin. Protect them from the assassin.']);
+  } else if (isEvil(secret.role) && secret.role !== 'oberon') items.push(['evil', 'Evil', 'Your fellow evil. Oberon, if in the game, is not shown.']);
+  if (items.length === 0) return <p className="note legend">{secret.role === 'oberon' ? 'Oberon knows no one.' : 'You know no one. Watch the votes.'}</p>;
+  return (
+    <ul className="legend">
+      {items.map(([kind, label, text]) => (
+        <li key={kind}>
+          <span className={`mark ${kind}`}>{label}</span>
+          <span className="note">{text}</span>
+        </li>
+      ))}
+    </ul>
   );
 }
 
