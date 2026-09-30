@@ -135,7 +135,8 @@ service cloud.firestore {
     function isNewRoom(code) {
       let r = request.resource.data;
       return code.matches('[A-Z]{4}')
-        && hasExactly(r, ['host', 'playerIds', 'names', 'status', 'optional', 'createdAt'])
+        && hasExactly(r, ['host', 'playerIds', 'names', 'status', 'optional', 'lady', 'createdAt'])
+        && r.lady is bool
         && r.host == request.auth.uid
         && r.playerIds == [request.auth.uid]
         && r.names.keys().hasOnly([request.auth.uid]) && isValidName(r.names[request.auth.uid])
@@ -165,12 +166,16 @@ service cloud.firestore {
         && after.playerIds == before.playerIds.removeAll([request.auth.uid]);
     }
 
+    // Roles, the Lady of the Lake, and the seating: the same players, in the order they sit.
     function isHostSetup() {
       let before = resource.data;
       let after = request.resource.data;
       return before.status == 'lobby' && request.auth.uid == before.host
-        && after.diff(before).affectedKeys().hasOnly(['optional'])
-        && after.optional is list && after.optional.hasOnly(['percival', 'morgana', 'mordred', 'oberon']);
+        && after.diff(before).affectedKeys().hasOnly(['optional', 'lady', 'playerIds'])
+        && after.optional is list && after.optional.hasOnly(['percival', 'morgana', 'mordred', 'oberon'])
+        && after.get('lady', false) is bool
+        && after.playerIds.size() == before.playerIds.size()
+        && after.playerIds.toSet() == before.playerIds.toSet();
     }
 
     function isStart() {
@@ -282,12 +287,63 @@ service cloud.firestore {
         return existsAfter(path) ? getAfter(path).data.successes + getAfter(path).data.fails : 0;
       }
 
+      // ---------- The Lady of the Lake ----------
+      // After quests 2, 3 and 4 (`after` = 1, 2, 3), whoever holds her examines another
+      // player's loyalty and passes her on. She starts to the right of the first leader,
+      // and never goes back to anyone who has held her.
+
+      function ladyPick(code, after) {
+        return get(/databases/$(database)/documents/rooms/$(code)/lady/$(string(after))).data;
+      }
+
+      function firstHolder(code) {
+        let r = room(code);
+        return r.playerIds[(r.firstLeader + r.playerIds.size() - 1) % r.playerIds.size()];
+      }
+
+      // Written without `? :`: the emulator crashes on these conditionals rather than denying.
+      function isLadyHolder(code, after) {
+        return (after == 1 && request.auth.uid == firstHolder(code))
+          || (after > 1 && request.auth.uid == ladyPick(code, after - 1).target);
+      }
+
+      function wasLadyHolder(code, after, uid) {
+        return uid == firstHolder(code)
+          || (after > 1 && uid == ladyPick(code, 1).target)
+          || (after > 2 && uid == ladyPick(code, 2).target);
+      }
+
       function isCardPlay(code, quest, attempt, fail) {
         let marker = /databases/$(database)/documents/rooms/$(code)/quests/$(quest)/cards/$(request.auth.uid);
         let proposal = get(/databases/$(database)/documents/rooms/$(code)/proposals/$(quest + '-' + string(attempt))).data;
         return !exists(marker) && existsAfter(marker)
           && request.auth.uid in proposal.team
           && (!fail || roleOf(code, request.auth.uid) in evilRoles());
+      }
+
+      // Who the holder examined: public, as at a real table. `{after}` is 1, 2 or 3.
+      match /lady/{after} {
+        allow read: if isMember(code);
+        allow create: if isMember(code) && isPlaying(code)
+          && room(code).get('lady', false) == true
+          && after in ['1', '2', '3']
+          && hasExactly(request.resource.data, ['quest', 'holder', 'target'])
+          && request.resource.data.quest == int(after)
+          && request.resource.data.holder == request.auth.uid
+          && isLadyHolder(code, int(after))
+          && request.resource.data.target in room(code).playerIds
+          && !wasLadyHolder(code, int(after), request.resource.data.target);
+      }
+
+      // What the holder learns. The examined player's own phone writes it, and the rules
+      // check it against their role, so no one can lie; only the holder can read it.
+      match /ladyResults/{after} {
+        allow read: if request.auth != null
+          && (request.auth.uid == ladyPick(code, int(after)).holder || room(code).status == 'done');
+        allow create: if isMember(code) && isPlaying(code)
+          && request.auth.uid == ladyPick(code, int(after)).target
+          && hasExactly(request.resource.data, ['evil'])
+          && request.resource.data.evil == (roleOf(code, request.auth.uid) in evilRoles());
       }
     }
   }

@@ -38,6 +38,9 @@
   /* Avalon's two sides, invest's long and short. */
   --success: #3fbf88;
   --success-soft: rgb(63 191 136 / 0.12);
+  /* The Lady of the Lake's token. */
+  --lady: #8fb0ff;
+  --lady-soft: rgb(143 176 255 / 0.14);
 
   /* the grid */
   --cell: #121317;
@@ -984,5 +987,172 @@ body {
 }
 
 .winner.evil {
+  color: var(--danger);
+}
+
+/* The table: seats on an oval, in seating order, clockwise from the top. */
+.table-view {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 0.86;
+  margin: 4px 0;
+}
+
+.table-top {
+  position: absolute;
+  inset: 22% 20%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid var(--separator);
+  border-radius: 50%;
+  background: var(--surface);
+  text-align: center;
+}
+
+.table-caption {
+  padding: 0 8px;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+
+.clockwise {
+  color: var(--label-3);
+  font-size: var(--fs-label);
+  letter-spacing: 0.04em;
+}
+
+.seats {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.seat-slot {
+  position: absolute;
+  transform: translate(-50%, -50%);
+}
+
+.seat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  width: 78px;
+  min-height: 44px;
+  padding: 6px 4px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  color: var(--label);
+  font: inherit;
+  text-align: center;
+}
+
+button.seat:disabled {
+  opacity: 0.4;
+}
+
+.seat.pickable {
+  cursor: pointer;
+}
+
+.seat.team {
+  border-color: var(--accent-line);
+}
+
+.seat.leading {
+  border-color: var(--accent);
+}
+
+.seat.picked {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.seat.you .seat-name {
+  color: var(--accent);
+}
+
+.seat-name {
+  max-width: 100%;
+  overflow: hidden;
+  font-size: var(--fs-cap);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.seat-marks {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 3px;
+}
+
+.seat-marks:empty {
+  display: none;
+}
+
+.mark {
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: var(--fill-3);
+  color: var(--label-2);
+  font-size: 0.5625rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.mark.lead {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.mark.lady {
+  background: var(--lady-soft);
+  color: var(--lady);
+}
+
+.mark.yes {
+  color: var(--success);
+}
+
+.mark.no {
+  color: var(--danger);
+}
+
+.seat-moves {
+  display: flex;
+  gap: 2px;
+}
+
+.icon-button.small {
+  width: 36px;
+  height: 36px;
+}
+
+.section-note {
+  margin: 0 4px;
+}
+
+.lady-seen {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: var(--r-md);
+  line-height: 1.45;
+  font-size: var(--fs-sm);
+}
+
+.lady-seen.good {
+  background: var(--success-soft);
+  color: var(--success);
+}
+
+.lady-seen.evil {
+  background: var(--danger-soft);
   color: var(--danger);
 }

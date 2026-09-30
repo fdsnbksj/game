@@ -76,7 +76,7 @@ describe('dealing', () => {
 
 describe('the game', () => {
   const ids = players(5);
-  const table = (over: Partial<Table> = {}): Table => ({ playerIds: ids, firstLeader: 0, proposals: [], votes: [], tallies: [], assassinated: null, ...over });
+  const table = (over: Partial<Table> = {}): Table => ({ playerIds: ids, firstLeader: 0, proposals: [], votes: [], tallies: [], assassinated: null, lady: false, ladyPicks: [], ...over });
   const propose = (quest: number, attempt: number, leader: string, team: string[]): Proposal => ({ quest, attempt, leader, team });
   const allVote = (quest: number, attempt: number, approvers: number): Vote[] =>
     ids.map((uid, i) => ({ quest, attempt, uid, approve: i < approvers }));
@@ -133,6 +133,49 @@ describe('the game', () => {
     expect(derive(picked, (uid) => uid === 'p4').phase).toEqual({ kind: 'over', winner: 'good', reason: 'assassin-missed' });
   });
 
+  it('shows who leads next', () => {
+    expect(derive(table()).nextLeader).toBe('p1');
+    const p = propose(0, 0, 'p0', ['p0', 'p1']);
+    expect(derive(table({ proposals: [p], votes: allVote(0, 0, 5).slice(0, 2) })).nextLeader).toBe('p1');
+    const questing = derive(table({ proposals: [p], votes: allVote(0, 0, 5) }));
+    expect(questing.leader).toBe('p0');
+    expect(questing.nextLeader).toBe('p1');
+    expect(derive(table({ firstLeader: 4 })).nextLeader).toBe('p0');
+  });
+
+  describe('the Lady of the Lake', () => {
+    it('starts with the player to the first leader’s right', () => {
+      expect(derive(table({ lady: true, firstLeader: 0 })).ladyHolder).toBe('p4');
+      expect(derive(table({ lady: true, firstLeader: 2 })).ladyHolder).toBe('p1');
+      expect(derive(table()).ladyHolder).toBeNull();
+    });
+
+    it('is used after the second quest, before the next team, and passes to whoever was examined', () => {
+      const two = play([true, false], { lady: true });
+      expect(derive(two).phase).toEqual({ kind: 'lady', holder: 'p4', afterQuest: 1, candidates: ['p0', 'p1', 'p2', 'p3'] });
+      const used = derive({ ...two, ladyPicks: [{ quest: 1, holder: 'p4', target: 'p2' }] });
+      expect(used.phase).toMatchObject({ kind: 'proposing' });
+      expect(used.ladyHolder).toBe('p2');
+      // Never back to anyone who has held her.
+      const three = play([true, false, true], { lady: true, ladyPicks: [{ quest: 1, holder: 'p4', target: 'p2' }] });
+      expect(derive(three).phase).toEqual({ kind: 'lady', holder: 'p2', afterQuest: 2, candidates: ['p0', 'p1', 'p3'] });
+    });
+
+    it('is not used after the first quest, or once a side has won', () => {
+      expect(derive(play([true], { lady: true })).phase).toMatchObject({ kind: 'proposing' });
+      const picks = [
+        { quest: 1, holder: 'p4', target: 'p2' },
+        { quest: 2, holder: 'p2', target: 'p0' },
+      ];
+      expect(derive(play([true, false, true, true], { lady: true, ladyPicks: picks })).phase).toEqual({ kind: 'assassinating' });
+    });
+
+    it('ignores a pick by someone who doesn’t hold her', () => {
+      const two = play([true, false], { lady: true, ladyPicks: [{ quest: 1, holder: 'p1', target: 'p2' }] });
+      expect(derive(two).phase).toMatchObject({ kind: 'lady', holder: 'p4' });
+    });
+  });
+
   it('needs two fails to sink the fourth quest with seven players', () => {
     const seven = players(7);
     const sizes = TEAM_SIZES[7];
@@ -144,7 +187,7 @@ describe('the game', () => {
       { quest: 2, successes: 2, fails: 1 },
       { quest: 3, successes: 3, fails: 1 },
     ];
-    const state = derive({ playerIds: seven, firstLeader: 0, proposals, votes, tallies, assassinated: null });
+    const state = derive({ playerIds: seven, firstLeader: 0, proposals, votes, tallies, assassinated: null, lady: false, ladyPicks: [] });
     expect(state.results.map((r) => r.succeeded)).toEqual([true, false, false, true]);
   });
 });

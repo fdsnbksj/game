@@ -26,7 +26,15 @@ export interface QuestTally {
   fails: number;
 }
 
+/** A Lady of the Lake check: after quest `quest` (0-based: 1, 2 or 3), `holder` examined `target`. */
+export interface LadyPick {
+  quest: number;
+  holder: string;
+  target: string;
+}
+
 export interface Table {
+  /** Seat order, clockwise around the real table: leadership passes to the left. */
   playerIds: string[];
   /** Seat of the first leader, 0-based. */
   firstLeader: number;
@@ -35,6 +43,9 @@ export interface Table {
   tallies: QuestTally[];
   /** Whom the assassin named, once they have. */
   assassinated: string | null;
+  /** Whether the Lady of the Lake is in the game. */
+  lady: boolean;
+  ladyPicks: LadyPick[];
 }
 
 export interface QuestResult {
@@ -49,11 +60,19 @@ export type Phase =
   | { kind: 'proposing'; leader: string; teamSize: number }
   | { kind: 'voting'; proposal: Proposal; voted: string[] }
   | { kind: 'questing'; proposal: Proposal; played: number }
+  | { kind: 'lady'; holder: string; afterQuest: number; candidates: string[] }
   | { kind: 'assassinating' }
   | { kind: 'over'; winner: 'good' | 'evil'; reason: 'quests' | 'rejections' | 'assassin-missed' | 'assassin-found-merlin' };
 
 export interface GameState {
   phase: Phase;
+  /** Who leads now (proposing, voting or questing), and who leads after them. */
+  leader: string | null;
+  nextLeader: string;
+  /** Who holds the Lady of the Lake, if she's in the game. */
+  ladyHolder: string | null;
+  /** Lady of the Lake checks so far: public (who looked at whom), not what they saw. */
+  ladyPicks: LadyPick[];
   /** The quest being played or up next, 0-based. */
   quest: number;
   /** Teams rejected so far on this quest. */
@@ -76,8 +95,24 @@ export function derive(table: Table, isMerlin: (uid: string) => boolean | null =
   let leaderSeat = table.firstLeader;
   let quest = 0;
   let attempt = 0;
+  // The Lady starts with the player to the first leader's right, and can't return to anyone who held her.
+  let holder = table.lady ? playerIds[(table.firstLeader + n - 1) % n] : null;
+  const pastHolders = holder ? [holder] : [];
+  const picks: LadyPick[] = [];
 
-  const state = (phase: Phase): GameState => ({ phase, quest, rejections: attempt, results, votes: history });
+  const state = (phase: Phase): GameState => ({
+    phase,
+    leader: phase.kind === 'proposing' ? phase.leader : phase.kind === 'voting' || phase.kind === 'questing' ? phase.proposal.leader : null,
+    // While a team is proposed or voted on, the lead moves on once the vote is in; after an
+    // approved vote it already has, so the seat counter points at the next leader.
+    nextLeader: playerIds[(leaderSeat + (phase.kind === 'proposing' || phase.kind === 'voting' ? 1 : 0)) % n],
+    ladyHolder: holder,
+    ladyPicks: picks,
+    quest,
+    rejections: attempt,
+    results,
+    votes: history,
+  });
 
   for (;;) {
     const good = results.filter((r) => r.succeeded).length;
@@ -88,6 +123,20 @@ export function derive(table: Table, isMerlin: (uid: string) => boolean | null =
       const found = isMerlin(table.assassinated);
       if (found === null) return state({ kind: 'assassinating' });
       return state({ kind: 'over', winner: found ? 'evil' : 'good', reason: found ? 'assassin-found-merlin' : 'assassin-missed' });
+    }
+
+    // The Lady of the Lake is used after the second, third and fourth quests.
+    if (holder) {
+      for (let after = 1; after <= Math.min(results.length - 1, 3); after++) {
+        if (picks.some((p) => p.quest === after)) continue;
+        const pick = table.ladyPicks.find((p) => p.quest === after && p.holder === holder);
+        if (!pick) {
+          return state({ kind: 'lady', holder, afterQuest: after, candidates: playerIds.filter((p) => !pastHolders.includes(p)) });
+        }
+        picks.push(pick);
+        holder = pick.target;
+        pastHolders.push(pick.target);
+      }
     }
 
     const leader = playerIds[leaderSeat % n];

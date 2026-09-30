@@ -1,17 +1,21 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Link, useParams } from 'react-router';
 import { Page, Toggle } from '../../components/Page';
 import type { Secret } from '../../games/avalon/deal';
 import { failsToSink, isEvil, MAX_PLAYERS, MAX_REJECTIONS, MIN_PLAYERS, OPTIONAL_ROLES, QUESTS, ROLE_NAMES, roleList, TEAM_SIZES, type OptionalRole } from '../../games/avalon/rules';
-import { derive, type GameState, type Proposal } from '../../games/avalon/state';
+import { derive, type GameState } from '../../games/avalon/state';
 import {
   assassinate,
   emptyRoom,
+  fileLadyResult,
   finish,
   joinRoom,
   leaveRoom,
+  pickLady,
   playCard,
   propose,
+  seat,
+  setLady,
   setOptional,
   startGame,
   vote,
@@ -20,6 +24,7 @@ import {
   type RoomData,
 } from '../../services/avalon';
 import { useGameStore } from '../../store';
+import { TableView, type SeatMarks } from './TableView';
 
 /** A room, from the lobby to the reveal. Everything follows the documents live. */
 export function Room() {
@@ -66,9 +71,18 @@ function Lobby({ room, uid }: { room: RoomDoc; uid: string }) {
   const roles = roleList(Math.max(count, MIN_PLAYERS), room.optional);
   const problem = typeof roles === 'string' ? roles : count < MIN_PLAYERS ? `Waiting for ${MIN_PLAYERS - count} more to join.` : null;
   const [error, setError] = useState<string | null>(null);
+  const name = (p: string) => (p === uid ? 'You' : room.names[p]);
 
   const toggle = (role: OptionalRole, on: boolean) =>
     void setOptional(room.code, on ? [...room.optional, role] : room.optional.filter((r) => r !== role));
+
+  /** Moves a player one seat clockwise (+1) or back (-1). */
+  const move = (i: number, by: number) => {
+    const order = [...room.playerIds];
+    const j = (i + by + order.length) % order.length;
+    [order[i], order[j]] = [order[j], order[i]];
+    void seat(room.code, order);
+  };
 
   return (
     <>
@@ -78,15 +92,29 @@ function Lobby({ room, uid }: { room: RoomDoc; uid: string }) {
         <span className="note">Everyone joins on their own phone: Avalon → Join a room.</span>
       </div>
 
+      <TableView playerIds={room.playerIds} names={room.names} marks={(p) => ({ you: p === uid })} />
+
       <p className="group-title">
-        Players · {count} of {MAX_PLAYERS}
+        Seats · {count} of {MAX_PLAYERS}
       </p>
+      {isHost && <p className="note section-note">Put everyone in the order they sit, going clockwise. The lead passes that way.</p>}
       <ol className="group players">
-        {room.playerIds.map((p) => (
+        {room.playerIds.map((p, i) => (
           <li key={p} className="row">
-            <span>{room.names[p]}</span>
+            <span>
+              {i + 1}. {name(p)}
+            </span>
             {p === room.host && <span className="row-detail">Host</span>}
-            {p === uid && <span className="row-detail">You</span>}
+            {isHost && count > 1 && (
+              <span className="seat-moves">
+                <button className="icon-button small" aria-label={`Move ${name(p)} back a seat`} onClick={() => move(i, -1)}>
+                  ↑
+                </button>
+                <button className="icon-button small" aria-label={`Move ${name(p)} on a seat`} onClick={() => move(i, 1)}>
+                  ↓
+                </button>
+              </span>
+            )}
           </li>
         ))}
       </ol>
@@ -106,6 +134,14 @@ function Lobby({ room, uid }: { room: RoomDoc; uid: string }) {
               <span className="row-detail">{room.optional.includes(role) ? 'In' : 'Out'}</span>
             </div>
           ),
+        )}
+        {isHost ? (
+          <Toggle label="Lady of the Lake (best with 7+)" on={room.lady} onChange={(on) => void setLady(room.code, on)} />
+        ) : (
+          <div className="row">
+            <span>Lady of the Lake</span>
+            <span className="row-detail">{room.lady ? 'In' : 'Out'}</span>
+          </div>
         )}
       </div>
 
@@ -129,30 +165,116 @@ function Lobby({ room, uid }: { room: RoomDoc; uid: string }) {
 
 // ---------- Game ----------
 
+/** What the table lets you choose right now, if anything. */
+interface Picking {
+  /** How many to choose. */
+  count: number;
+  can: (uid: string) => boolean;
+}
+
 function Game({ room, data, uid }: { room: RoomDoc; data: RoomData; uid: string }) {
   const n = room.playerIds.length;
   const name = (p: string) => (p === uid ? 'You' : room.names[p]);
   const state = useMemo(
     () =>
       derive(
-        { playerIds: room.playerIds, firstLeader: room.firstLeader, proposals: data.proposals, votes: data.votes, tallies: data.tallies, assassinated: room.assassinated },
+        {
+          playerIds: room.playerIds,
+          firstLeader: room.firstLeader,
+          proposals: data.proposals,
+          votes: data.votes,
+          tallies: data.tallies,
+          assassinated: room.assassinated,
+          lady: room.lady,
+          ladyPicks: data.ladyPicks,
+        },
         (p) => (data.secrets[p] ? data.secrets[p].role === 'merlin' : null),
       ),
     [room, data],
   );
+  const phase = state.phase;
 
   // Evil has won on quests or rejections: every phone sees it, and the first to say so ends the game.
-  const over = state.phase.kind === 'over';
+  const over = phase.kind === 'over';
   useEffect(() => {
     if (over && room.status === 'playing') void finish(room.code).catch(() => {});
   }, [over, room.status, room.code]);
 
+  // Examined by the Lady: this phone tells the holder the truth (the rules check it).
+  const filed = useRef(new Set<number>());
+  useEffect(() => {
+    if (!data.mine) return;
+    for (const pick of data.ladyPicks) {
+      if (pick.target !== uid || filed.current.has(pick.quest)) continue;
+      filed.current.add(pick.quest);
+      // Refused if it was already filed (a reload): that's fine.
+      void fileLadyResult(room.code, pick.quest, isEvil(data.mine.role)).catch(() => {});
+    }
+  }, [data.ladyPicks, data.mine, room.code, uid]);
+
+  // Choosing players on the table: the leader's team, the Lady's target, the assassin's guess.
+  const picking: Picking | null =
+    phase.kind === 'proposing' && phase.leader === uid
+      ? { count: phase.teamSize, can: () => true }
+      : phase.kind === 'lady' && phase.holder === uid
+        ? { count: 1, can: (p) => phase.candidates.includes(p) }
+        : phase.kind === 'assassinating' && data.mine?.role === 'assassin' && !room.assassinated
+          ? { count: 1, can: (p) => p !== uid }
+          : null;
+  const pickKey = `${phase.kind}-${state.quest}-${state.rejections}`;
+  const [picked, setPicked] = useState<string[]>([]);
+  useEffect(() => setPicked([]), [pickKey]);
+  // Functional, so quick taps in a row each count.
+  const toggle = (p: string) =>
+    setPicked((current) => (current.includes(p) ? current.filter((x) => x !== p) : picking?.count === 1 ? [p] : [...current, p]));
+
+  const last = state.votes.at(-1);
+  const current = phase.kind === 'voting' || phase.kind === 'questing' ? phase.proposal : null;
+  const marks = (p: string): SeatMarks => ({
+    you: p === uid,
+    leader: state.leader === p,
+    next: phase.kind !== 'over' && phase.kind !== 'assassinating' && state.nextLeader === p && state.leader !== p,
+    lady: state.ladyHolder === p && phase.kind !== 'over',
+    team: current?.team.includes(p),
+    vote: phase.kind !== 'voting' && last && (phase.kind === 'questing' || phase.kind === 'proposing') ? (last.approvals.includes(p) ? 'approve' : 'reject') : undefined,
+    done:
+      phase.kind === 'voting' && phase.voted.includes(p)
+        ? 'Voted'
+        : phase.kind === 'questing' && (data.played[state.quest] ?? []).includes(p)
+          ? 'Played'
+          : undefined,
+  });
+
+  const caption =
+    phase.kind === 'proposing'
+      ? `Quest ${state.quest + 1} · team of ${phase.teamSize}`
+      : phase.kind === 'voting'
+        ? 'Vote on the team'
+        : phase.kind === 'questing'
+          ? `Quest ${state.quest + 1} under way`
+          : phase.kind === 'lady'
+            ? 'Lady of the Lake'
+            : phase.kind === 'assassinating'
+              ? 'The assassin chooses'
+              : phase.winner === 'good'
+                ? 'Good wins'
+                : 'Evil wins';
+
   return (
     <>
       {data.mine && room.status !== 'done' && <RoleCard secret={data.mine} name={name} />}
-      <Board state={state} n={n} name={name} />
-      <PhasePanel state={state} room={room} data={data} uid={uid} name={name} />
-      <History state={state} name={name} />
+      <TableView
+        playerIds={room.playerIds}
+        names={room.names}
+        marks={marks}
+        picked={picked}
+        canPick={picking?.can}
+        onPick={picking ? toggle : undefined}
+        center={<strong className="table-caption">{caption}</strong>}
+      />
+      <Board state={state} n={n} />
+      <PhasePanel state={state} room={room} data={data} uid={uid} name={name} picked={picked} picking={picking} />
+      <History state={state} data={data} uid={uid} name={name} />
       {room.status === 'done' && <Reveal room={room} secrets={data.secrets} name={name} />}
     </>
   );
@@ -197,8 +319,7 @@ function RoleCard({ secret, name }: { secret: Secret; name: (p: string) => strin
   );
 }
 
-function Board({ state, n, name }: { state: GameState; n: number; name: (p: string) => string }) {
-  const leader = state.phase.kind === 'proposing' ? state.phase.leader : state.phase.kind === 'voting' || state.phase.kind === 'questing' ? state.phase.proposal.leader : null;
+function Board({ state, n }: { state: GameState; n: number }) {
   return (
     <div className="group card-pad board-track">
       <ol className="quests">
@@ -215,7 +336,7 @@ function Board({ state, n, name }: { state: GameState; n: number; name: (p: stri
         })}
       </ol>
       <div className="track-foot">
-        <span className="note">{leader ? `Leader: ${name(leader)}` : ' '}</span>
+        <span className="note">Rejected teams</span>
         <span className="rejections" aria-label={`${state.rejections} of ${MAX_REJECTIONS} teams rejected`}>
           {Array.from({ length: MAX_REJECTIONS }, (_, i) => (
             <span key={i} className={i < state.rejections ? 'on' : undefined} />
@@ -226,17 +347,44 @@ function Board({ state, n, name }: { state: GameState; n: number; name: (p: stri
   );
 }
 
-function PhasePanel({ state, room, data, uid, name }: { state: GameState; room: RoomDoc; data: RoomData; uid: string; name: (p: string) => string }) {
+function PhasePanel({
+  state,
+  room,
+  data,
+  uid,
+  name,
+  picked,
+  picking,
+}: {
+  state: GameState;
+  room: RoomDoc;
+  data: RoomData;
+  uid: string;
+  name: (p: string) => string;
+  picked: string[];
+  picking: Picking | null;
+}) {
   const [error, setError] = useState<string | null>(null);
   const act = (p: Promise<unknown>) => void p.then(() => setError(null), (e) => setError(e instanceof Error ? e.message : String(e)));
   const phase = state.phase;
-  const team = (proposal: Proposal) => proposal.team.map(name).join(', ');
+  const list = (ids: string[]) => ids.map(name).join(', ');
   let content: ReactNode;
 
   if (phase.kind === 'proposing') {
     content =
       phase.leader === uid ? (
-        <TeamPicker room={room} size={phase.teamSize} name={name} onPropose={(t) => act(propose(room.code, state.quest, state.rejections, t))} />
+        <>
+          <p className="lead-line">
+            You lead. Tap {phase.teamSize} players on the table for quest {state.quest + 1} ({picked.length} of {phase.teamSize}).
+          </p>
+          <button
+            className="button primary"
+            disabled={picked.length !== phase.teamSize}
+            onClick={() => act(propose(room.code, state.quest, state.rejections, room.playerIds.filter((p) => picked.includes(p))))}
+          >
+            Propose this team
+          </button>
+        </>
       ) : (
         <p className="note">
           {name(phase.leader)} is choosing {phase.teamSize} players for quest {state.quest + 1}.
@@ -248,7 +396,7 @@ function PhasePanel({ state, room, data, uid, name }: { state: GameState; room: 
     content = (
       <>
         <p className="lead-line">
-          Team for quest {state.quest + 1}: <strong>{team(phase.proposal)}</strong>
+          Team for quest {state.quest + 1}: <strong>{list(phase.proposal.team)}</strong>
         </p>
         {mine ? (
           <p className="note">Voted. Waiting for {waiting.join(', ')}.</p>
@@ -271,7 +419,7 @@ function PhasePanel({ state, room, data, uid, name }: { state: GameState; room: 
     content = (
       <>
         <p className="lead-line">
-          On quest {state.quest + 1}: <strong>{team(phase.proposal)}</strong>
+          On quest {state.quest + 1}: <strong>{list(phase.proposal.team)}</strong>
         </p>
         {onTeam && !played ? (
           <>
@@ -292,10 +440,30 @@ function PhasePanel({ state, room, data, uid, name }: { state: GameState; room: 
         )}
       </>
     );
+  } else if (phase.kind === 'lady') {
+    content =
+      phase.holder === uid ? (
+        <>
+          <p className="lead-line">
+            You hold the Lady of the Lake. Tap a player on the table to learn whether they are good or evil. Only you will
+            see it, and she passes to them.
+          </p>
+          <button className="button primary" disabled={picked.length !== 1} onClick={() => act(pickLady(room.code, phase.afterQuest, picked[0]))}>
+            {picked.length ? `Examine ${name(picked[0])}` : 'Choose a player'}
+          </button>
+        </>
+      ) : (
+        <p className="note">{name(phase.holder)} holds the Lady of the Lake and is choosing someone to examine.</p>
+      );
   } else if (phase.kind === 'assassinating') {
     content =
-      data.mine?.role === 'assassin' ? (
-        <AssassinPicker room={room} uid={uid} name={name} onPick={(t) => act(assassinate(room.code, t))} />
+      picking && data.mine?.role === 'assassin' ? (
+        <>
+          <p className="lead-line">Good won three quests. Tap the player you think is Merlin to steal the win.</p>
+          <button className="button danger" disabled={picked.length !== 1} onClick={() => act(assassinate(room.code, picked[0]))}>
+            {picked.length ? `Name ${name(picked[0])} as Merlin` : 'Choose a player'}
+          </button>
+        </>
       ) : room.assassinated ? (
         <p className="note">The assassin named {name(room.assassinated)}. Revealing…</p>
       ) : (
@@ -327,56 +495,26 @@ function PhasePanel({ state, room, data, uid, name }: { state: GameState; room: 
   );
 }
 
-function TeamPicker({ room, size, name, onPropose }: { room: RoomDoc; size: number; name: (p: string) => string; onPropose: (team: string[]) => void }) {
-  const [team, setTeam] = useState<string[]>([]);
-  // Functional, so quick taps in a row each count.
-  const toggle = (p: string) => setTeam((current) => (current.includes(p) ? current.filter((t) => t !== p) : [...current, p]));
-  return (
-    <>
-      <p className="lead-line">
-        You lead. Choose {size} for the quest ({team.length} of {size}).
-      </p>
-      <div className="pick-list">
-        {room.playerIds.map((p) => (
-          <button key={p} className={team.includes(p) ? 'pick on' : 'pick'} aria-pressed={team.includes(p)} onClick={() => toggle(p)}>
-            {name(p)}
-          </button>
-        ))}
-      </div>
-      <button className="button primary" disabled={team.length !== size} onClick={() => onPropose(room.playerIds.filter((p) => team.includes(p)))}>
-        Propose this team
-      </button>
-    </>
-  );
-}
-
-function AssassinPicker({ room, uid, name, onPick }: { room: RoomDoc; uid: string; name: (p: string) => string; onPick: (target: string) => void }) {
-  const [target, setTarget] = useState<string | null>(null);
-  return (
-    <>
-      <p className="lead-line">Good won three quests. Name Merlin to steal the win.</p>
-      <div className="pick-list">
-        {room.playerIds
-          .filter((p) => p !== uid)
-          .map((p) => (
-            <button key={p} className={target === p ? 'pick on' : 'pick'} aria-pressed={target === p} onClick={() => setTarget(p)}>
-              {name(p)}
-            </button>
-          ))}
-      </div>
-      <button className="button danger" disabled={!target} onClick={() => target && onPick(target)}>
-        {target ? `Name ${name(target)} as Merlin` : 'Choose a player'}
-      </button>
-    </>
-  );
-}
-
-/** The last vote and the quests so far. */
-function History({ state, name }: { state: GameState; name: (p: string) => string }) {
+/** The last vote, the Lady's checks, and the quests so far. */
+function History({ state, data, uid, name }: { state: GameState; data: RoomData; uid: string; name: (p: string) => string }) {
   const last = state.votes.at(-1);
-  if (!last && state.results.length === 0) return null;
+  if (!last && state.results.length === 0 && state.ladyPicks.length === 0) return null;
   return (
     <div className="group card-pad history">
+      {state.ladyPicks
+        .filter((p) => p.holder === uid)
+        .map((p) => (
+          <p key={`seen-${p.quest}`} className={data.ladySeen[p.quest] === undefined ? 'note' : data.ladySeen[p.quest] ? 'lady-seen evil' : 'lady-seen good'}>
+            {data.ladySeen[p.quest] === undefined ? (
+              `Waiting for ${name(p.target)}'s phone to answer the Lady…`
+            ) : (
+              <>
+                The Lady shows you: <strong>{name(p.target)}</strong> is <strong>{data.ladySeen[p.quest] ? 'evil' : 'good'}</strong>. Only you
+                can see this.
+              </>
+            )}
+          </p>
+        ))}
       {last && (
         <p className="note">
           Last vote on {last.proposal.team.map(name).join(', ')}: <strong>{last.approved ? 'approved' : 'rejected'}</strong>{' '}
@@ -387,6 +525,9 @@ function History({ state, name }: { state: GameState; name: (p: string) => strin
         <p key={r.quest} className="note">
           Quest {r.quest + 1}: <strong>{r.succeeded ? 'succeeded' : 'failed'}</strong>
           {r.fails > 0 ? ` with ${r.fails} ${r.fails === 1 ? 'fail' : 'fails'}` : ''}.
+          {state.ladyPicks
+            .filter((p) => p.quest === r.quest)
+            .map((p) => ` ${name(p.holder)} examined ${name(p.target)} with the Lady.`)}
         </p>
       ))}
     </div>

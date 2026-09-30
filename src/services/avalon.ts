@@ -15,7 +15,7 @@ import {
 import { db } from '../firebase';
 import { deal, type Secret } from '../games/avalon/deal';
 import type { OptionalRole } from '../games/avalon/rules';
-import type { Proposal, QuestTally, Vote } from '../games/avalon/state';
+import type { LadyPick, Proposal, QuestTally, Vote } from '../games/avalon/state';
 import { useGameStore } from '../store';
 
 // Avalon rooms in Firestore. firestore.rules checks every write here, and
@@ -29,6 +29,8 @@ export interface Room {
   names: Record<string, string>;
   status: 'lobby' | 'playing' | 'done';
   optional: OptionalRole[];
+  /** Whether the Lady of the Lake is in the game. */
+  lady: boolean;
   firstLeader: number;
   assassinated: string | null;
 }
@@ -51,7 +53,7 @@ export async function createRoom(): Promise<string> {
   for (let tries = 0; tries < 5; tries++) {
     const code = newCode();
     try {
-      await setDoc(roomRef(code), { host: uid, playerIds: [uid], names: { [uid]: name }, status: 'lobby', optional: ['percival', 'morgana'], createdAt: serverTimestamp() });
+      await setDoc(roomRef(code), { host: uid, playerIds: [uid], names: { [uid]: name }, status: 'lobby', optional: ['percival', 'morgana'], lady: false, createdAt: serverTimestamp() });
       return code;
     } catch (error) {
       // Taken already: the rules refuse creating over an existing room. Try another code.
@@ -81,6 +83,29 @@ export async function leaveRoom(room: Room) {
 
 export async function setOptional(code: string, optional: OptionalRole[]) {
   await updateDoc(roomRef(code), { optional });
+}
+
+export async function setLady(code: string, lady: boolean) {
+  await updateDoc(roomRef(code), { lady });
+}
+
+/** The host seats everyone in the order they sit, clockwise: the lead passes that way. */
+export async function seat(code: string, playerIds: string[]) {
+  await updateDoc(roomRef(code), { playerIds });
+}
+
+/** The Lady's holder examines `target` after quest `after` (1, 2 or 3, 0-based). */
+export async function pickLady(code: string, after: number, target: string) {
+  const { uid } = me();
+  await setDoc(doc(db, 'rooms', code, 'lady', String(after)), { quest: after, holder: uid, target });
+}
+
+/**
+ * The examined player's phone tells the holder their loyalty. The rules check it against
+ * their role, so it can't lie; only the holder can read it. Refused if already filed.
+ */
+export async function fileLadyResult(code: string, after: number, evil: boolean) {
+  await setDoc(doc(db, 'rooms', code, 'ladyResults', String(after)), { evil });
 }
 
 /** A number from 0 to 1 from the browser's crypto source, for dealing. */
@@ -147,9 +172,12 @@ export interface RoomData {
   mine: Secret | null;
   /** Everyone's, once the game is over. */
   secrets: Record<string, Secret>;
+  ladyPicks: LadyPick[];
+  /** What the Lady showed you, by quest, for the picks you made: true when evil. */
+  ladySeen: Record<number, boolean>;
 }
 
-export const emptyRoom = (): RoomData => ({ room: null, missing: false, proposals: [], votes: [], tallies: [], played: {}, mine: null, secrets: {} });
+export const emptyRoom = (): RoomData => ({ room: null, missing: false, proposals: [], votes: [], tallies: [], played: {}, mine: null, secrets: {}, ladyPicks: [], ladySeen: {} });
 
 /** Follows a room live. Calls `onChange` with everything so far on every change. */
 export function watchRoom(code: string, uid: string, onChange: (data: RoomData) => void): Unsubscribe {
@@ -161,10 +189,23 @@ export function watchRoom(code: string, uid: string, onChange: (data: RoomData) 
   const subs: Unsubscribe[] = [];
   const members: Unsubscribe[] = [];
   const cardSubs = new Map<number, Unsubscribe>();
+  const ladySubs = new Map<number, Unsubscribe>();
   let watchingMembers = false;
   let watchingSecrets = false;
   let stopped = false;
   const ignore = () => {};
+
+  /** What the Lady shows you after quest `after`: only readable by her holder; retried if refused. */
+  const watchLady = (after: number) => {
+    ladySubs.set(
+      after,
+      onSnapshot(
+        doc(db, 'rooms', code, 'ladyResults', String(after)),
+        (r) => r.exists() && update({ ladySeen: { ...data.ladySeen, [after]: r.get('evil') as boolean } }),
+        () => setTimeout(() => !stopped && watchLady(after), 2000),
+      ),
+    );
+  };
 
   /** Everyone's roles, for the reveal; retried if the rules refuse (the game not over yet). */
   const openSecrets = () => {
@@ -190,6 +231,7 @@ export function watchRoom(code: string, uid: string, onChange: (data: RoomData) 
         names: d.names,
         status: d.status,
         optional: d.optional ?? [],
+        lady: d.lady ?? false,
         firstLeader: d.firstLeader ?? 0,
         assassinated: d.assassinated ?? null,
       };
@@ -217,6 +259,20 @@ export function watchRoom(code: string, uid: string, onChange: (data: RoomData) 
             ignore,
           ),
           onSnapshot(doc(db, 'rooms', code, 'secrets', uid), (s) => update({ mine: s.exists() ? (s.data() as Secret) : null }), ignore),
+          onSnapshot(
+            col('lady'),
+            // With metadata, so a pick of ours is followed only once the server has it:
+            // until then the rules can't see it, and would refuse to show us the answer.
+            { includeMetadataChanges: true },
+            (s) => {
+              update({ ladyPicks: s.docs.map((x) => x.data() as LadyPick) });
+              for (const x of s.docs) {
+                const pick = x.data() as LadyPick;
+                if (pick.holder === uid && !x.metadata.hasPendingWrites && !ladySubs.has(pick.quest)) watchLady(pick.quest);
+              }
+            },
+            ignore,
+          ),
         );
       }
       // Everyone's role opens only once the server has the game as over. Our own write
@@ -227,6 +283,6 @@ export function watchRoom(code: string, uid: string, onChange: (data: RoomData) 
   );
   return () => {
     stopped = true;
-    for (const u of [...subs, ...members, ...cardSubs.values()]) u();
+    for (const u of [...subs, ...members, ...cardSubs.values(), ...ladySubs.values()]) u();
   };
 }

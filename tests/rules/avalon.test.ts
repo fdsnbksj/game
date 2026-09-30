@@ -22,13 +22,13 @@ const roomRef = (db: Firestore) => doc(db, 'rooms', CODE);
 
 /** A room in the lobby with these players. */
 const seedLobby = (ids: string[]) =>
-  asAdmin((db) => setDoc(roomRef(db), { host: ids[0], playerIds: ids, names: names(ids), status: 'lobby', optional: [], createdAt: serverTimestamp() }));
+  asAdmin((db) => setDoc(roomRef(db), { host: ids[0], playerIds: ids, names: names(ids), status: 'lobby', optional: [], lady: false, createdAt: serverTimestamp() }));
 
 /** A game in progress: host, p1, p2 good (host is Merlin), p3 assassin, p4 minion. */
 const ROLES: Record<string, string> = { host: 'merlin', p1: 'servant', p2: 'servant', p3: 'assassin', p4: 'minion' };
-async function seedGame() {
+async function seedGame(lady = false) {
   await asAdmin(async (db) => {
-    await setDoc(roomRef(db), { host: 'host', playerIds: FIVE, names: names(FIVE), status: 'playing', optional: [], createdAt: serverTimestamp(), firstLeader: 0, startedAt: serverTimestamp() });
+    await setDoc(roomRef(db), { host: 'host', playerIds: FIVE, names: names(FIVE), status: 'playing', optional: [], lady, createdAt: serverTimestamp(), firstLeader: 0, startedAt: serverTimestamp() });
     for (const uid of FIVE) await setDoc(doc(db, 'rooms', CODE, 'secrets', uid), { role: ROLES[uid], sees: [] });
     // Quest 0: p1 and p3 approved to go.
     await setDoc(doc(db, 'rooms', CODE, 'proposals', '0-0'), { quest: 0, attempt: 0, leader: 'host', team: ['p1', 'p3'] });
@@ -55,7 +55,7 @@ beforeEach(() => env.clearFirestore());
 describe('rooms', () => {
   it('can be opened by a player, as its host', async () => {
     const db = dbFor('host');
-    const room = { host: 'host', playerIds: ['host'], names: { host: 'Host' }, status: 'lobby', optional: ['percival'], createdAt: serverTimestamp() };
+    const room = { host: 'host', playerIds: ['host'], names: { host: 'Host' }, status: 'lobby', optional: ['percival'], lady: false, createdAt: serverTimestamp() };
     await assertSucceeds(setDoc(roomRef(db), room));
     await assertFails(setDoc(doc(db, 'rooms', 'abcd'), room));
     await assertFails(setDoc(doc(db, 'rooms', 'WXYZ'), { ...room, host: 'someone' }));
@@ -70,6 +70,16 @@ describe('rooms', () => {
     await assertFails(updateDoc(roomRef(dbFor('p2')), { playerIds: ['host', 'p1', 'p2', 'p2'], names: names(['host', 'p1', 'p2']) }));
     await assertSucceeds(updateDoc(roomRef(dbFor('p1')), { playerIds: ['host', 'p2'] }));
     await assertFails(updateDoc(roomRef(dbFor('host')), { playerIds: ['p2'] }));
+  });
+
+  it('let the host seat players in table order and add the Lady, and no one else', async () => {
+    await seedLobby(FIVE);
+    const seated = ['host', 'p3', 'p1', 'p4', 'p2'];
+    await assertFails(updateDoc(roomRef(dbFor('p1')), { playerIds: seated }));
+    await assertSucceeds(updateDoc(roomRef(dbFor('host')), { playerIds: seated, lady: true }));
+    // Reordering can't swap anyone in or out.
+    await assertFails(updateDoc(roomRef(dbFor('host')), { playerIds: ['host', 'p3', 'p1', 'p4', 'p9'] }));
+    await assertFails(updateDoc(roomRef(dbFor('host')), { playerIds: ['host', 'p3', 'p1', 'p4'] }));
   });
 
   it('stop at ten players', async () => {
@@ -100,7 +110,7 @@ describe('rooms', () => {
 });
 
 describe('secrets', () => {
-  beforeEach(seedGame);
+  beforeEach(() => seedGame());
 
   it('are readable only by their own player while playing', async () => {
     await assertSucceeds(getDoc(doc(dbFor('p1'), 'rooms', CODE, 'secrets', 'p1')));
@@ -115,7 +125,7 @@ describe('secrets', () => {
 });
 
 describe('playing', () => {
-  beforeEach(seedGame);
+  beforeEach(() => seedGame());
 
   it('lets the proposer name only themselves as leader', async () => {
     const proposal = { quest: 0, attempt: 1, leader: 'p1', team: ['p1', 'p2'] };
@@ -162,5 +172,50 @@ describe('playing', () => {
   it('lets only the assassin name Merlin, which ends the game', async () => {
     await assertFails(updateDoc(roomRef(dbFor('p4')), { status: 'done', endedAt: serverTimestamp(), assassinated: 'host' }));
     await assertSucceeds(updateDoc(roomRef(dbFor('p3')), { status: 'done', endedAt: serverTimestamp(), assassinated: 'host' }));
+  });
+});
+
+describe('the Lady of the Lake', () => {
+  // First leader is seat 0 (host), so the Lady starts with seat 4 (p4, the minion).
+  const pick = (uid: string, after: number, target: string) =>
+    setDoc(doc(dbFor(uid), 'rooms', CODE, 'lady', String(after)), { quest: after, holder: uid, target });
+  const result = (uid: string, after: number, evil: boolean) => setDoc(doc(dbFor(uid), 'rooms', CODE, 'ladyResults', String(after)), { evil });
+
+  it('is only in games that include her', async () => {
+    await seedGame(false);
+    await assertFails(pick('p4', 1, 'p2'));
+  });
+
+  it('lets only her holder examine, never a past holder', async () => {
+    await seedGame(true);
+    await assertFails(pick('host', 1, 'p2'));
+    await assertFails(pick('p4', 1, 'p4'));
+    await assertSucceeds(pick('p4', 1, 'p2'));
+    // She is now p2's, and can't go back to p4.
+    await assertFails(pick('p4', 2, 'p1'));
+    await assertFails(pick('p2', 2, 'p4'));
+    await assertSucceeds(pick('p2', 2, 'p3'));
+    // Third use: not to p4 or p2 either.
+    await assertFails(pick('p3', 3, 'p2'));
+    await assertSucceeds(pick('p3', 3, 'p1'));
+  });
+
+  it("gets the truth from the examined player's phone, for the holder's eyes only", async () => {
+    await seedGame(true);
+    await assertSucceeds(pick('p4', 1, 'p3'));
+    // p3 is the assassin: their phone must say evil.
+    await assertFails(result('p3', 1, false));
+    await assertFails(result('p1', 1, true));
+    await assertSucceeds(result('p3', 1, true));
+    await assertSucceeds(getDoc(doc(dbFor('p4'), 'rooms', CODE, 'ladyResults', '1')));
+    await assertFails(getDoc(doc(dbFor('p1'), 'rooms', CODE, 'ladyResults', '1')));
+    await assertFails(getDoc(doc(dbFor('p3'), 'rooms', CODE, 'ladyResults', '1')));
+  });
+
+  it('shows a good player as good', async () => {
+    await seedGame(true);
+    await assertSucceeds(pick('p4', 1, 'p1'));
+    await assertFails(result('p1', 1, true));
+    await assertSucceeds(result('p1', 1, false));
   });
 });
