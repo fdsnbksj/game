@@ -2,6 +2,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { registerSW } from 'virtual:pwa-register';
 import { App } from './App';
+import { restoreLastPage } from './lastPage';
 import './index.css';
 
 // The service worker serves the build it cached, so a deploy would otherwise show the
@@ -21,6 +22,9 @@ const updateSW = registerSW({
     }, 2000);
   },
 });
+
+// The installed app opens at home; go back to the page the player left.
+restoreLastPage();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

@@ -1,5 +1,6 @@
-/* One dark palette, shared with ../invest. There is no light theme: every colour in
-   this file is written in :root, and everything below uses var(). */
+/* One dark palette of our own. There is no light theme: every colour in this file is
+   written in :root, and everything below uses var(). --bg matches index.html's boot
+   styles, the manifest and the icons in public/, so keep them in step. */
 
 /* Inter, bundled rather than fetched, so the offline cache has it in a tunnel. Latin
    only; anything else falls back to the system face. */
@@ -15,23 +16,36 @@
 :root {
   color-scheme: dark;
 
-  /* surfaces step by luminance, not shadow: bg -> surface -> surface-2 -> border */
+  /* Surfaces lift by luminance and a soft shadow; a faint top highlight edges each card. */
   --bg: #0a0b0d;
-  --surface: #121317;
-  --surface-2: #191b20;
-  --scrim: rgb(0 0 0 / 0.6);
+  --surface: #15171d;
+  --surface-2: #1d2028;
+  --surface-grad: linear-gradient(180deg, #181b22, #13151a);
+  --scrim: rgb(4 5 8 / 0.55);
+  --glow: radial-gradient(110% 55% at 50% -12%, rgb(232 179 57 / 0.09), transparent 62%);
+  --highlight: inset 0 1px 0 rgb(255 255 255 / 0.05);
+  --shadow-1: 0 1px 2px rgb(0 0 0 / 0.35), 0 6px 18px rgb(0 0 0 / 0.28);
+  --shadow-2: 0 -2px 6px rgb(0 0 0 / 0.25), 0 18px 48px rgb(0 0 0 / 0.5);
+  --fill-1: rgb(255 255 255 / 0.04);
+  --fill-2: rgb(255 255 255 / 0.07);
+  --fill-3: rgb(255 255 255 / 0.1);
+  --bar-bg: rgb(10 11 13 / 0.72);
 
-  --label: #ecedef;
-  --label-2: #8b909b;
-  --label-3: #5d626c;
+  --label: #f1f2f4;
+  --label-2: #969ba6;
+  --label-3: #636874;
 
-  --separator: #24272e;
-  --border-strong: #333741;
+  --separator: #252831;
+  --border-strong: #353945;
 
-  /* the one accent */
-  --accent: #e8b339;
-  --accent-soft: rgb(232 179 57 / 0.1);
-  --accent-line: rgb(232 179 57 / 0.45);
+  /* the one accent: warm gold, solid on primary actions */
+  --accent: #eebb45;
+  --accent-grad: linear-gradient(180deg, #f6cc63, #e0a62c);
+  --on-accent: #1a1406;
+  --accent-glow: 0 6px 20px rgb(232 170 50 / 0.25), inset 0 1px 0 rgb(255 255 255 / 0.35);
+  --accent-soft: rgb(238 187 69 / 0.12);
+  --accent-line: rgb(238 187 69 / 0.45);
+  --cell-fill: linear-gradient(160deg, #f6cc63, #dda02a);
   --danger: #f0616d;
   --danger-soft: rgb(240 97 109 / 0.1);
   --danger-line: rgb(240 97 109 / 0.4);
@@ -55,15 +69,25 @@
   --res-glass: #4fb3c8;
   --res-papyrus: #cdb98a;
   --on-card: #0a0b0d;
+  /* The home screen's game tiles. */
+  --game-nonogram: #eebb45;
+  --game-nonogram-soft: rgb(238 187 69 / 0.14);
+  --game-avalon: #8fb0ff;
+  --game-avalon-soft: rgb(143 176 255 / 0.14);
+  --game-duel: #b48cff;
+  --game-duel-soft: rgb(180 140 255 / 0.14);
+  /* Avalon's table: a dark felt. */
+  --felt: radial-gradient(ellipse at 50% 35%, #1f2a26, #141a18 70%);
+  --felt-edge: #2b3a34;
   /* Percival's Merlin-or-Morgana pair: its own colour, apart from the leader's amber. */
   --maybe: #b48cff;
   --maybe-soft: rgb(180 140 255 / 0.14);
 
   /* the grid */
-  --cell: #121317;
-  --cell-line: #24272e;
-  --cell-edge: #5d626c;
-  --cell-focus: rgb(232 179 57 / 0.14);
+  --cell: #13151a;
+  --cell-line: #252831;
+  --cell-edge: #5a5f6b;
+  --cell-focus: rgb(238 187 69 / 0.14);
   --knob: #ecedef;
 
   --font: 'Inter Variable', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
@@ -72,10 +96,13 @@
   --fs-sm: 0.8125rem;
   --fs-base: 0.9375rem;
   --fs-md: 1.0625rem;
+  --fs-lg: 1.375rem;
+  --fs-xl: 1.75rem;
 
   --r-sm: 8px;
-  --r-md: 12px;
-  --r-lg: 16px;
+  --r-md: 14px;
+  --r-lg: 20px;
+  --r-xl: 28px;
 
   --dur-fast: 120ms;
   --dur: 220ms;
@@ -100,7 +127,7 @@ body,
 }
 
 body {
-  background: var(--bg);
+  background: var(--glow) no-repeat, var(--bg);
   color: var(--label);
   font-size: var(--fs-base);
   -webkit-font-smoothing: antialiased;
@@ -130,6 +157,8 @@ body {
   flex-direction: column;
   gap: 12px;
   padding: max(12px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
+  /* No fill after it ends: a transform left on the screen would trap fixed overlays. */
+  animation: screen-in var(--dur) var(--ease) backwards;
 }
 
 /* The puzzle never scrolls: everything a thumb needs sits in the bottom half. */
@@ -152,7 +181,8 @@ body {
 .bar-title {
   margin: 0;
   font-size: var(--fs-md);
-  font-weight: 600;
+  font-weight: 650;
+  letter-spacing: -0.01em;
   text-align: center;
 }
 
@@ -178,7 +208,8 @@ body {
   overflow: hidden;
   border: 1px solid var(--separator);
   border-radius: var(--r-lg);
-  background: var(--surface);
+  background: var(--surface-grad);
+  box-shadow: var(--highlight), var(--shadow-1);
   list-style: none;
 }
 
@@ -200,7 +231,7 @@ body {
   align-items: center;
   gap: 12px;
   width: 100%;
-  min-height: 52px;
+  min-height: 56px;
   padding: 0 16px;
   border: none;
   background: none;
@@ -209,6 +240,12 @@ body {
   text-align: left;
   text-decoration: none;
   cursor: pointer;
+  transition: background-color var(--dur-fast) var(--ease);
+}
+
+a.row:active,
+button.row:active:not(:disabled) {
+  background: var(--fill-2);
 }
 
 .row > span:first-child {
@@ -244,7 +281,7 @@ body {
   height: 26px;
   padding: 2px;
   border-radius: 999px;
-  background: var(--border-strong);
+  background: var(--fill-3);
   transition: background-color var(--dur) var(--ease);
 }
 
@@ -258,7 +295,7 @@ body {
 }
 
 .switch.on {
-  background: var(--accent);
+  background: var(--accent-grad);
 }
 
 .switch.on span {
@@ -271,22 +308,23 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 44px;
-  padding: 10px 14px;
+  min-height: 46px;
+  padding: 10px 16px;
   border: 1px solid var(--border-strong);
   border-radius: var(--r-md);
-  background: transparent;
+  background: var(--fill-1);
   color: var(--label);
   font: inherit;
   font-size: var(--fs-sm);
-  font-weight: 500;
+  font-weight: 550;
   text-decoration: none;
   cursor: pointer;
-  transition: opacity var(--dur-fast) var(--ease);
+  transition: transform var(--dur-fast) var(--ease), background-color var(--dur-fast) var(--ease);
 }
 
 .button:active:not(:disabled) {
-  opacity: 0.7;
+  transform: scale(0.97);
+  background: var(--fill-2);
 }
 
 .button:disabled {
@@ -294,14 +332,27 @@ body {
   cursor: default;
 }
 
-/* Tinted, never solid. */
+/* Solid gold, the one thing on a screen that asks to be pressed. */
 .button.primary {
-  min-height: 52px;
-  border-color: var(--accent-line);
-  background: var(--accent-soft);
-  color: var(--accent);
+  min-height: 54px;
+  border-color: transparent;
+  background: var(--accent-grad);
+  box-shadow: var(--accent-glow);
+  color: var(--on-accent);
   font-size: var(--fs-base);
-  font-weight: 600;
+  font-weight: 650;
+}
+
+.button.primary:active:not(:disabled) {
+  background: var(--accent-grad);
+}
+
+.button.primary:disabled {
+  border-color: var(--separator);
+  background: var(--fill-2);
+  box-shadow: none;
+  color: var(--label-3);
+  opacity: 1;
 }
 
 .button.danger {
@@ -312,6 +363,7 @@ body {
 
 .button.ghost {
   border-color: transparent;
+  background: none;
   color: var(--label-2);
 }
 
@@ -322,10 +374,24 @@ body {
   height: 44px;
   padding: 0;
   border: none;
-  border-radius: var(--r-md);
+  border-radius: 50%;
   background: transparent;
   color: var(--label-2);
   cursor: pointer;
+  transition: transform var(--dur-fast) var(--ease), background-color var(--dur-fast) var(--ease);
+}
+
+/* Real buttons get a soft disc; the bar's empty placeholders stay invisible. */
+a.icon-button,
+button.icon-button {
+  background: var(--fill-1);
+  color: var(--label);
+}
+
+a.icon-button:active,
+button.icon-button:active:not(:disabled) {
+  transform: scale(0.92);
+  background: var(--fill-3);
 }
 
 .icon-button:disabled {
@@ -404,9 +470,10 @@ body {
   grid-template-columns: repeat(var(--n), 1fr);
   aspect-ratio: 1;
   border: 1px solid var(--cell-edge);
-  border-radius: var(--r-sm);
+  border-radius: 10px;
   overflow: hidden;
   background: var(--cell);
+  box-shadow: var(--shadow-1);
   touch-action: none;
 }
 
@@ -433,7 +500,9 @@ body {
 }
 
 .cell.filled::after {
-  background: var(--accent);
+  border-radius: 3px;
+  background: var(--cell-fill);
+  box-shadow: var(--highlight);
 }
 
 /* An X in two strokes, drawn with gradients so it scales with the square. */
@@ -459,9 +528,11 @@ body {
   display: grid;
   grid-auto-columns: 1fr;
   grid-auto-flow: column;
-  overflow: hidden;
-  border: 1px solid var(--border-strong);
+  gap: 3px;
+  padding: 3px;
+  border: 1px solid var(--separator);
   border-radius: var(--r-md);
+  background: var(--fill-1);
 }
 
 .segmented button {
@@ -469,17 +540,20 @@ body {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  min-height: 48px;
+  min-height: 46px;
   border: none;
+  border-radius: 11px;
   background: none;
   color: var(--label-2);
   font: inherit;
-  font-weight: 500;
+  font-weight: 550;
   cursor: pointer;
+  transition: background-color var(--dur) var(--ease), color var(--dur) var(--ease);
 }
 
 .segmented button[aria-checked='true'] {
   background: var(--surface-2);
+  box-shadow: var(--highlight), var(--shadow-1);
   color: var(--accent);
 }
 
@@ -531,10 +605,11 @@ body {
   display: flex;
   flex-direction: column;
   gap: 16px;
-  padding: 20px;
+  padding: 22px;
   border: 1px solid var(--separator);
-  border-radius: var(--r-lg);
-  background: var(--surface);
+  border-radius: var(--r-xl);
+  background: var(--surface-grad);
+  box-shadow: var(--highlight), var(--shadow-2);
   animation: rise var(--dur) var(--ease) both;
 }
 
@@ -573,9 +648,10 @@ body {
 
 .knowledge h2 {
   margin: 0;
-  font-size: var(--fs-md);
-  font-weight: 600;
-  letter-spacing: -0.01em;
+  font-size: var(--fs-lg);
+  font-weight: 650;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
 }
 
 .knowledge-body {
@@ -588,9 +664,10 @@ body {
   flex-direction: column;
   gap: 4px;
   margin: 4px 0 0;
-  padding: 10px 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--accent-soft);
   border-radius: var(--r-md);
-  background: var(--surface-2);
+  background: var(--fill-1);
   color: var(--label-2);
   font-size: var(--fs-sm);
   line-height: 1.45;
@@ -601,10 +678,10 @@ body {
   align-items: center;
   gap: 6px;
   min-height: 36px;
-  padding: 0 10px;
+  padding: 0 12px;
   border: 1px solid var(--border-strong);
-  border-radius: var(--r-sm);
-  background: none;
+  border-radius: 999px;
+  background: var(--fill-1);
   color: var(--label-2);
   font: inherit;
   font-size: var(--fs-cap);
@@ -628,29 +705,234 @@ body {
   align-items: flex-end;
   justify-content: center;
   background: var(--scrim);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
   animation: fade-in var(--dur) var(--ease) both;
 }
 
+/* A bottom sheet with a grabber, where the thumb already is. */
 .sheet {
   width: min(100%, 480px);
   display: flex;
   flex-direction: column;
   gap: 12px;
-  padding: 16px 16px max(16px, env(safe-area-inset-bottom));
+  padding: 10px 16px max(20px, env(safe-area-inset-bottom));
+  border: 1px solid var(--separator);
+  border-bottom: none;
+  border-radius: var(--r-xl) var(--r-xl) 0 0;
+  background: var(--surface);
+  box-shadow: var(--highlight), var(--shadow-2);
   animation: rise var(--dur) var(--ease) both;
+}
+
+.sheet::before {
+  content: '';
+  flex: none;
+  align-self: center;
+  width: 36px;
+  height: 5px;
+  margin-bottom: 4px;
+  border-radius: 999px;
+  background: var(--fill-3);
+}
+
+.sheet .group {
+  background: var(--surface-2);
+  box-shadow: var(--highlight);
 }
 
 /* ---------- Pages ---------- */
 
-.game-row {
-  min-height: 64px;
+/* Home: a greeting, the game to pick up again, and every game as a tile. */
+.home-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 4px 4px;
 }
 
-.game-row small {
-  display: block;
-  margin-top: 2px;
+.home-head > div {
+  flex: 1;
+  min-width: 0;
+}
+
+.home-hello {
+  margin: 0;
+  color: var(--label-2);
+  font-size: var(--fs-sm);
+}
+
+.home-name {
+  margin: 2px 0 0;
+  overflow: hidden;
+  font-size: var(--fs-xl);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.avatar {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--separator);
+  border-radius: 50%;
+  background: var(--surface-grad);
+  box-shadow: var(--highlight), var(--shadow-1);
+  color: var(--accent);
+  font-weight: 700;
+  text-decoration: none;
+  transition: transform var(--dur-fast) var(--ease);
+}
+
+.avatar:active {
+  transform: scale(0.92);
+}
+
+.continue-card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 18px;
+  overflow: hidden;
+  border: 1px solid var(--accent-line);
+  border-radius: var(--r-lg);
+  background: var(--glow), var(--surface-grad);
+  box-shadow: var(--highlight), var(--shadow-1);
+  color: var(--label);
+  text-decoration: none;
+  transition: transform var(--dur-fast) var(--ease);
+}
+
+.continue-card:active,
+.game-tile:active {
+  transform: scale(0.98);
+}
+
+.continue-card > div {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.continue-card .micro {
+  color: var(--accent);
+}
+
+.continue-card strong {
+  font-size: var(--fs-lg);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.continue-play {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--accent-grad);
+  box-shadow: var(--accent-glow);
+  color: var(--on-accent);
+}
+
+.game-tiles {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.game-tile {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 80px;
+  padding: 14px 16px;
+  border: 1px solid var(--separator);
+  border-radius: var(--r-lg);
+  background: var(--surface-grad);
+  box-shadow: var(--highlight), var(--shadow-1);
+  color: var(--label);
+  text-decoration: none;
+  transition: transform var(--dur-fast) var(--ease);
+}
+
+.game-tile > div {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.game-tile strong {
+  font-size: var(--fs-md);
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+.game-tile small {
   color: var(--label-2);
   font-size: var(--fs-cap);
+  line-height: 1.35;
+}
+
+.game-glyph {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+}
+
+.game-glyph.nonogram {
+  background: var(--game-nonogram-soft);
+  color: var(--game-nonogram);
+}
+
+.game-glyph.avalon {
+  background: var(--game-avalon-soft);
+  color: var(--game-avalon);
+}
+
+.game-glyph.duel {
+  background: var(--game-duel-soft);
+  color: var(--game-duel);
+}
+
+.tile-chip {
+  flex: none;
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: var(--fill-2);
+  color: var(--label-2);
+  font-size: var(--fs-cap);
+  font-weight: 550;
+  font-variant-numeric: tabular-nums;
+}
+
+/* A page with nothing to show: what happened, and the way on. */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 24px 0;
+  text-align: center;
+}
+
+.lead-note {
+  margin: 4px 4px 4px;
+  color: var(--label-2);
+  font-size: var(--fs-base);
+  line-height: 1.55;
 }
 
 .form {
@@ -661,20 +943,22 @@ body {
 
 .field {
   width: 100%;
-  min-height: 44px;
-  padding: 10px 12px;
+  min-height: 48px;
+  padding: 10px 14px;
   border: 1px solid var(--separator);
   border-radius: var(--r-md);
-  background: var(--surface-2);
+  background: var(--fill-1);
   color: var(--label);
   font: inherit;
   /* 16px or iOS zooms the page on focus. */
   font-size: 16px;
+  transition: border-color var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease);
 }
 
 .field:focus {
   outline: none;
   border-color: var(--accent-line);
+  box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
 .name-editor {
@@ -686,11 +970,11 @@ body {
 .name-editor input {
   flex: 1;
   min-width: 0;
-  min-height: 44px;
-  padding: 10px 12px;
+  min-height: 48px;
+  padding: 10px 14px;
   border: 1px solid var(--separator);
   border-radius: var(--r-md);
-  background: var(--surface-2);
+  background: var(--fill-1);
   color: var(--label);
   font: inherit;
   /* 16px or iOS zooms the page on focus. */
@@ -700,6 +984,7 @@ body {
 .name-editor input:focus {
   outline: none;
   border-color: var(--accent-line);
+  box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
 .ranks .rank {
@@ -754,6 +1039,13 @@ body {
   }
 }
 
+@keyframes screen-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
 @keyframes spin {
   to {
     transform: rotate(360deg);
@@ -794,7 +1086,10 @@ body {
 }
 
 .room-code strong {
-  color: var(--accent);
+  background: var(--accent-grad);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
   font-size: 2.75rem;
   font-weight: 700;
   letter-spacing: 0.2em;
@@ -815,6 +1110,7 @@ body {
 
 /* Hidden unless held: a plain card, then the role in its side's colour. */
 .role-card {
+  transition: transform var(--dur) var(--ease);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -883,6 +1179,8 @@ body {
   aspect-ratio: 1;
   border: 1px solid var(--border-strong);
   border-radius: 50%;
+  background: var(--fill-1);
+  box-shadow: var(--highlight);
   color: var(--label-2);
   font-size: var(--fs-md);
   font-weight: 600;
@@ -896,7 +1194,9 @@ body {
 }
 
 .quest.current {
-  border-color: var(--accent-line);
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  box-shadow: 0 0 0 3px var(--accent-soft);
   color: var(--accent);
 }
 
@@ -969,11 +1269,16 @@ body {
   padding: 8px 10px;
   border: 1px solid var(--border-strong);
   border-radius: var(--r-md);
-  background: none;
+  background: var(--fill-1);
   color: var(--label);
   font: inherit;
   overflow-wrap: anywhere;
   cursor: pointer;
+  transition: transform var(--dur-fast) var(--ease);
+}
+
+.pick:active {
+  transform: scale(0.97);
 }
 
 .pick.on {
@@ -1023,9 +1328,10 @@ body {
   align-items: center;
   justify-content: center;
   gap: 6px;
-  border: 1px solid var(--separator);
+  border: 1px solid var(--felt-edge);
   border-radius: 50%;
-  background: var(--surface);
+  background: var(--felt);
+  box-shadow: var(--highlight), var(--shadow-1), inset 0 0 30px rgb(0 0 0 / 0.35);
   text-align: center;
 }
 
@@ -1063,9 +1369,15 @@ body {
   border: 1px solid var(--border-strong);
   border-radius: var(--r-md);
   background: var(--surface-2);
+  box-shadow: var(--highlight), var(--shadow-1);
   color: var(--label);
   font: inherit;
   text-align: center;
+  transition: transform var(--dur-fast) var(--ease), border-color var(--dur) var(--ease);
+}
+
+.seat.pickable:active {
+  transform: scale(0.95);
 }
 
 button.seat:disabled {
@@ -1087,6 +1399,7 @@ button.seat:disabled {
 .seat.picked {
   border-color: var(--accent);
   background: var(--accent-soft);
+  box-shadow: 0 0 0 3px var(--accent-soft), var(--shadow-1);
 }
 
 .seat.you .seat-name {
@@ -1231,6 +1544,10 @@ button.seat:disabled {
   flex-direction: column;
   gap: 2px;
   min-height: 40px;
+  padding: 10px 14px;
+  border: 1px solid var(--separator);
+  border-radius: var(--r-md);
+  background: var(--fill-1);
 }
 
 .duel-status strong {
@@ -1262,8 +1579,9 @@ button.seat:disabled {
   padding: 0 0 4px;
   overflow: hidden;
   border: 1px solid var(--border-strong);
-  border-radius: 6px;
+  border-radius: 7px;
   background: var(--surface-2);
+  box-shadow: var(--highlight), 0 2px 6px rgb(0 0 0 / 0.4);
   color: var(--label);
   font: inherit;
   text-align: center;
@@ -1273,7 +1591,7 @@ button.seat:disabled {
 .dcard.back {
   align-items: center;
   justify-content: center;
-  background: var(--surface);
+  background: var(--surface-grad);
   cursor: default;
 }
 
@@ -1385,8 +1703,8 @@ button.seat:disabled {
 .res,
 .chip,
 .pip {
-  padding: 2px 6px;
-  border-radius: 4px;
+  padding: 2px 7px;
+  border-radius: 999px;
   font-size: var(--fs-label);
   font-weight: 600;
   letter-spacing: 0.02em;
@@ -1481,15 +1799,13 @@ button.seat:disabled {
 .duel-sheet {
   max-height: 85dvh;
   overflow-y: auto;
-  border: 1px solid var(--separator);
-  border-radius: var(--r-lg) var(--r-lg) 0 0;
-  background: var(--surface);
 }
 
 .sheet-title {
   margin: 0;
-  font-size: var(--fs-md);
-  font-weight: 600;
+  font-size: var(--fs-lg);
+  font-weight: 650;
+  letter-spacing: -0.02em;
 }
 
 .sheet-actions {

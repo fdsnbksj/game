@@ -37,7 +37,7 @@ export function Room() {
   const room = data.room;
   let body: ReactNode;
   if (!uid) body = <p className="note">Connecting…</p>;
-  else if (data.missing) body = <p className="note">There's no room {code}.</p>;
+  else if (data.missing) body = <Gone text={`There's no room ${code}.`} />;
   else if (!room) body = <div className="spinner" aria-label="Loading" />;
   else if (!room.playerIds.includes(uid)) body = <NotIn room={room} />;
   else if (room.status === 'lobby') body = <Lobby room={room} uid={uid} />;
@@ -52,7 +52,7 @@ export function Room() {
 
 function NotIn({ room }: { room: RoomDoc }) {
   const [error, setError] = useState<string | null>(null);
-  if (room.status !== 'lobby') return <p className="note">This game has already started.</p>;
+  if (room.status !== 'lobby') return <Gone text="This game has already started." />;
   return (
     <>
       <button className="button primary" onClick={() => void joinRoom(room.code).then(setError, (e) => setError(String(e)))}>
@@ -587,5 +587,20 @@ function Reveal({ room, secrets, name }: { room: RoomDoc; secrets: Record<string
         })}
       </ol>
     </>
+  );
+}
+
+/** A room this phone can't play in, perhaps reopened from last time: a way out. */
+function Gone({ text }: { text: string }) {
+  return (
+    <div className="empty-state">
+      <p className="note">{text}</p>
+      <Link className="button primary" to="/avalon">
+        Open or join another room
+      </Link>
+      <Link className="button ghost" to="/">
+        All games
+      </Link>
+    </div>
   );
 }

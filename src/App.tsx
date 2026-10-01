@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router';
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router';
+import { rememberPage } from './lastPage';
 import { Account } from './screens/Account';
 import { AvalonHome } from './screens/avalon/AvalonHome';
 import { Room } from './screens/avalon/Room';
@@ -18,6 +19,7 @@ export function App() {
 
   return (
     <BrowserRouter>
+      <RememberPage />
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/account" element={<Account />} />
@@ -34,4 +36,11 @@ export function App() {
       </Routes>
     </BrowserRouter>
   );
+}
+
+/** Saves every page as it opens, home included, so the app reopens where it was left. */
+function RememberPage() {
+  const { pathname } = useLocation();
+  useEffect(() => rememberPage(pathname), [pathname]);
+  return null;
 }

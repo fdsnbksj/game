@@ -38,7 +38,7 @@ export function AvalonHome() {
 
   return (
     <Page title="Avalon">
-      <p className="note">
+      <p className="lead-note">
         A game of hidden loyalty for 5 to 10 players around one table. Each player uses their own phone: it deals the
         roles, runs the votes and keeps score. Talk out loud; the arguing is the game.
       </p>

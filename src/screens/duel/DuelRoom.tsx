@@ -30,7 +30,7 @@ export function DuelRoom() {
   const room = data.room;
   let body: ReactNode;
   if (!uid) body = <p className="note">Connecting…</p>;
-  else if (data.missing) body = <p className="note">There's no room {code}.</p>;
+  else if (data.missing) body = <Gone text={`There's no room ${code}.`} />;
   else if (!room) body = <div className="spinner" aria-label="Loading" />;
   else if (!room.playerIds.includes(uid)) body = <NotIn room={room} />;
   else if (room.status === 'lobby' || !room.seed) body = <Lobby room={room} uid={uid} />;
@@ -45,7 +45,7 @@ export function DuelRoom() {
 
 function NotIn({ room }: { room: Duel }) {
   const [error, setError] = useState<string | null>(null);
-  if (room.status !== 'lobby' || room.playerIds.length >= 2) return <p className="note">This game is already under way.</p>;
+  if (room.status !== 'lobby' || room.playerIds.length >= 2) return <Gone text="This game is already under way." />;
   return (
     <>
       <button className="button primary" onClick={() => void joinDuel(room.code).then(setError, (e) => setError(String(e)))}>
@@ -461,6 +461,21 @@ function Outcome({ state, me, name }: { state: DuelState; me: Player; name: (p: 
       )}
       <Link className="button" to="/duel">
         New game
+      </Link>
+    </div>
+  );
+}
+
+/** A room this phone can't play in, perhaps reopened from last time: a way out. */
+function Gone({ text }: { text: string }) {
+  return (
+    <div className="empty-state">
+      <p className="note">{text}</p>
+      <Link className="button primary" to="/duel">
+        Open or join another room
+      </Link>
+      <Link className="button ghost" to="/">
+        All games
       </Link>
     </div>
   );

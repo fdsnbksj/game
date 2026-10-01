@@ -27,7 +27,7 @@ export function DuelHome() {
 
   return (
     <Page title="Rival Wonders">
-      <p className="note">
+      <p className="lead-note">
         Two rival cities, three ages. Take cards from the table to build your city and your wonders, and win by
         points, by driving your rival back to their capital, or by mastering six sciences. Each player on their own phone.
       </p>
