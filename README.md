@@ -1,6 +1,6 @@
 # a game
 
-A small collection of games: nonograms for between chapters, and Avalon for a table of friends.
+A small collection of games: nonograms for between chapters, Avalon for a table of friends, and Rival Wonders, a two-player duel of ancient wonders.
 
 Nonograms are small logic puzzles for between chapters. Each one is a nonogram: fill in squares so that every row and column matches the numbers beside it, and a picture appears. It's built for a train ride with a book. Everything works with one thumb, nothing needs sound, there's no clock and no way to lose, and every tap is saved, so you can close it at your stop, even without a signal. Levels go on forever, grow from 5×5 to 10×10 and are ranked.
 
@@ -43,6 +43,7 @@ npm run build       # type-check + production build
 | `src/learn/`, `src/knowledgeStore.ts` | Knowledge cards, and the topics and saved cards, kept on the device |
 | `src/screens/` | Home and Account; the puzzle (`Play`) and its menu's pages; `avalon/` for Avalon's rooms |
 | `src/games/avalon/`, `src/services/avalon.ts` | Avalon: rules, dealing and state as pure code; rooms in Firestore |
+| `src/games/duel/`, `src/services/duel.ts`, `src/screens/duel/` | Rival Wonders: cards, layouts, payment and the rules as pure code; rooms and moves in Firestore |
 | `src/services/` | Firestore reads and writes: session, players, solves and rankings |
 | `tests/unit/`, `tests/rules/` | Puzzle tests, and Firestore rules tests |
 | `firestore.rules` | The only server-side validation (Spark has no Cloud Functions) |

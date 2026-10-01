@@ -47,6 +47,13 @@ export function Home() {
           </span>
           <Chevron />
         </Link>
+        <Link className="row game-row" to="/duel">
+          <span>
+            Rival Wonders
+            <small>Two rival cities, three ages</small>
+          </span>
+          <Chevron />
+        </Link>
       </div>
     </main>
   );

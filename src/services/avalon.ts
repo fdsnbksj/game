@@ -17,6 +17,7 @@ import { deal, type Secret } from '../games/avalon/deal';
 import type { OptionalRole } from '../games/avalon/rules';
 import type { LadyPick, Proposal, QuestTally, Vote } from '../games/avalon/state';
 import { useGameStore } from '../store';
+import { newCode } from './roomCode';
 
 // Avalon rooms in Firestore. firestore.rules checks every write here, and
 // tests/rules/avalon.test.ts mirrors them. Each player writes only their own actions; the
@@ -37,9 +38,6 @@ export interface Room {
 
 const roomRef = (code: string) => doc(db, 'rooms', code);
 
-/** Letters that can't be mistaken for each other when read out across a table. */
-const LETTERS = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
-const newCode = () => Array.from(crypto.getRandomValues(new Uint32Array(4)), (n) => LETTERS[n % LETTERS.length]).join('');
 
 function me() {
   const { uid, player } = useGameStore.getState();

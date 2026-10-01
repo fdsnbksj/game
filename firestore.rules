@@ -346,5 +346,77 @@ service cloud.firestore {
           && request.resource.data.evil == (roleOf(code, request.auth.uid) in evilRoles());
       }
     }
+
+    // ---------- Rival Wonders ----------
+    // Two players; the seed (written by the host at the start) decides the layouts, and
+    // each move is a document appended in order by the player making it. The rules can't
+    // judge a move: both phones replay the same moves and skip any the game refuses.
+
+    function duel(code) {
+      return get(/databases/$(database)/documents/duels/$(code)).data;
+    }
+
+    function isDuelPlayer(code) {
+      return request.auth != null && request.auth.uid in duel(code).playerIds;
+    }
+
+    match /duels/{code} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+        && code.matches('[A-Z]{4}')
+        && hasExactly(request.resource.data, ['host', 'playerIds', 'names', 'status', 'createdAt'])
+        && request.resource.data.host == request.auth.uid
+        && request.resource.data.playerIds == [request.auth.uid]
+        && request.resource.data.names.keys().hasOnly([request.auth.uid])
+        && isValidName(request.resource.data.names[request.auth.uid])
+        && request.resource.data.status == 'lobby'
+        && request.resource.data.createdAt == request.time;
+      allow update: if request.auth != null && (isDuelJoin() || isDuelStart() || isDuelFinish());
+
+      match /moves/{n} {
+        allow read: if isDuelPlayer(code);
+        allow create: if isDuelPlayer(code)
+          && duel(code).status == 'playing'
+          && hasExactly(request.resource.data, ['n', 'by', 'move'])
+          && request.resource.data.by == request.auth.uid
+          && request.resource.data.n is int && request.resource.data.n >= 0
+          && string(request.resource.data.n) == n
+          && (request.resource.data.n == 0
+            || exists(/databases/$(database)/documents/duels/$(code)/moves/$(string(request.resource.data.n - 1))))
+          && request.resource.data.move is map;
+      }
+    }
+
+    function isDuelJoin() {
+      let before = resource.data;
+      let after = request.resource.data;
+      return before.status == 'lobby'
+        && before.playerIds.size() == 1
+        && !(request.auth.uid in before.playerIds)
+        && after.diff(before).affectedKeys().hasOnly(['playerIds', 'names'])
+        && after.playerIds == before.playerIds.concat([request.auth.uid])
+        && after.names.diff(before.names).affectedKeys().hasOnly([request.auth.uid])
+        && isValidName(after.names[request.auth.uid]);
+    }
+
+    function isDuelStart() {
+      let before = resource.data;
+      let after = request.resource.data;
+      return before.status == 'lobby' && request.auth.uid == before.host
+        && before.playerIds.size() == 2
+        && after.diff(before).affectedKeys().hasOnly(['status', 'seed', 'startedAt'])
+        && after.status == 'playing'
+        && after.seed is string && after.seed.size() >= 6 && after.seed.size() <= 40
+        && after.startedAt == request.time;
+    }
+
+    function isDuelFinish() {
+      let before = resource.data;
+      let after = request.resource.data;
+      return before.status == 'playing' && request.auth.uid in before.playerIds
+        && after.diff(before).affectedKeys().hasOnly(['status', 'endedAt'])
+        && after.status == 'done'
+        && after.endedAt == request.time;
+    }
   }
 }

@@ -41,6 +41,20 @@
   /* The Lady of the Lake's token. */
   --lady: #8fb0ff;
   --lady-soft: rgb(143 176 255 / 0.14);
+  /* Rival Wonders: card types and resources, colours that carry meaning. */
+  --card-brown: #a3784c;
+  --card-grey: #8b909b;
+  --card-blue: #4f8ff0;
+  --card-green: #3fbf88;
+  --card-red: #f0616d;
+  --card-yellow: #e8b339;
+  --card-purple: #a77cf2;
+  --res-wood: #8f6136;
+  --res-clay: #c4703f;
+  --res-stone: #8c939c;
+  --res-glass: #4fb3c8;
+  --res-papyrus: #cdb98a;
+  --on-card: #0a0b0d;
   /* Percival's Merlin-or-Morgana pair: its own colour, apart from the leader's amber. */
   --maybe: #b48cff;
   --maybe-soft: rgb(180 140 255 / 0.14);
@@ -1208,4 +1222,334 @@ button.seat:disabled {
 
 .legend .mark {
   flex: none;
+}
+
+/* ---------- Rival Wonders ---------- */
+
+.duel-status {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-height: 40px;
+}
+
+.duel-status strong {
+  font-size: var(--fs-md);
+  font-weight: 600;
+}
+
+.duel-status strong.yours {
+  color: var(--accent);
+}
+
+.age-label {
+  margin: 4px 0 -4px;
+  text-align: center;
+}
+
+/* The cards on the table: absolutely placed, later rows on top of earlier ones. */
+.structure {
+  position: relative;
+  width: 100%;
+}
+
+.dcard {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2px;
+  padding: 0 0 4px;
+  overflow: hidden;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  background: var(--surface-2);
+  color: var(--label);
+  font: inherit;
+  text-align: center;
+  cursor: pointer;
+}
+
+.dcard.back {
+  align-items: center;
+  justify-content: center;
+  background: var(--surface);
+  cursor: default;
+}
+
+.dcard-age {
+  color: var(--label-3);
+  font-size: var(--fs-cap);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+}
+
+.dcard-band {
+  height: 6px;
+  background: var(--band);
+}
+
+.dcard-name {
+  padding: 0 2px;
+  font-size: 0.5625rem;
+  font-weight: 600;
+  line-height: 1.15;
+}
+
+.dcard-effect {
+  padding: 0 2px;
+  color: var(--label-2);
+  font-size: 0.5rem;
+  line-height: 1.15;
+}
+
+.dcard.open {
+  border-color: var(--label-3);
+}
+
+.dcard.open.mine {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.c-brown { --band: var(--card-brown); }
+.c-grey { --band: var(--card-grey); }
+.c-blue { --band: var(--card-blue); }
+.c-green { --band: var(--card-green); }
+.c-red { --band: var(--card-red); }
+.c-yellow { --band: var(--card-yellow); }
+.c-purple { --band: var(--card-purple); }
+
+.c-text-brown { color: var(--card-brown); }
+.c-text-grey { color: var(--card-grey); }
+.c-text-blue { color: var(--card-blue); }
+.c-text-green { color: var(--card-green); }
+.c-text-red { color: var(--card-red); }
+.c-text-yellow { color: var(--card-yellow); }
+.c-text-purple { color: var(--card-purple); }
+
+.wonder-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.wonder-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  color: var(--label);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.wonder-card:disabled {
+  cursor: default;
+}
+
+.city {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+}
+
+.city-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.city-figures {
+  display: flex;
+  gap: 10px;
+}
+
+.coins {
+  color: var(--accent);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.city-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.res,
+.chip,
+.pip {
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: var(--fs-label);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.res {
+  background: var(--res);
+  color: var(--on-card);
+}
+
+.res-wood { --res: var(--res-wood); }
+.res-clay { --res: var(--res-clay); }
+.res-stone { --res: var(--res-stone); }
+.res-glass { --res: var(--res-glass); }
+.res-papyrus { --res: var(--res-papyrus); }
+
+.pip {
+  min-width: 20px;
+  background: var(--band);
+  color: var(--on-card);
+  text-align: center;
+}
+
+.chip {
+  border: 1px solid var(--border-strong);
+  color: var(--label-2);
+  background: none;
+  font-family: inherit;
+}
+
+.chip.token {
+  border-color: var(--success);
+  color: var(--success);
+}
+
+.chip.token.on {
+  background: var(--success-soft);
+}
+
+.chip.wonder.built {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.chip.wonder.out {
+  text-decoration: line-through;
+  opacity: 0.5;
+}
+
+.military {
+  display: grid;
+  grid-template-columns: repeat(19, 1fr);
+  gap: 2px;
+}
+
+.track {
+  display: grid;
+  place-items: center;
+  height: 22px;
+  border-radius: 3px;
+  background: var(--surface-2);
+  color: var(--label-3);
+  font-size: 0.5625rem;
+  font-weight: 700;
+}
+
+.track.capital {
+  background: var(--fill-1);
+}
+
+.track.loot {
+  color: var(--accent);
+}
+
+.track.pawn {
+  background: var(--danger-soft);
+  color: var(--danger);
+  font-size: var(--fs-cap);
+}
+
+.board-tokens {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px;
+}
+
+.token-text {
+  text-align: center;
+}
+
+.duel-sheet {
+  max-height: 85dvh;
+  overflow-y: auto;
+  border: 1px solid var(--separator);
+  border-radius: var(--r-lg) var(--r-lg) 0 0;
+  background: var(--surface);
+}
+
+.sheet-title {
+  margin: 0;
+  font-size: var(--fs-md);
+  font-weight: 600;
+}
+
+.sheet-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.wonder-button,
+.choice-row {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  text-align: left;
+}
+
+.wonder-button small,
+.choice-row small {
+  color: var(--label-2);
+  font-size: var(--fs-cap);
+  font-weight: 400;
+}
+
+.scores {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.scores th,
+.scores td {
+  padding: 4px 6px;
+  border-bottom: 1px solid var(--separator);
+  text-align: right;
+}
+
+.scores th:first-child,
+.scores td:first-child {
+  text-align: left;
+  color: var(--label-2);
+}
+
+.scores tr.total td {
+  border-bottom: none;
+  color: var(--label);
+  font-weight: 700;
+}
+
+.military-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.military-ends {
+  display: flex;
+  justify-content: space-between;
+  color: var(--label-3);
+  font-size: var(--fs-label);
+  letter-spacing: 0.04em;
 }
