@@ -322,7 +322,7 @@ function CardSheet({ state, slot, me, canAct, onMove, onClose }: { state: DuelSt
     <Sheet onClose={onClose}>
       <span className={`micro c-text-${card.color}`}>{COLOR_NAMES[card.color]}</span>
       <h3 className="sheet-title">{card.name}</h3>
-      <p className="note">Costs {costText(card.cost)}.</p>
+      <p className="note">{costText(card.cost) === 'Free' ? 'Free to build.' : `Costs ${costText(card.cost)}.`}</p>
       {cardText(card).map((line) => (
         <p key={line} className="note">
           {line}

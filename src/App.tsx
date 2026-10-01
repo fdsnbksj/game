@@ -6,6 +6,8 @@ import { AvalonHome } from './screens/avalon/AvalonHome';
 import { Room } from './screens/avalon/Room';
 import { DuelHome } from './screens/duel/DuelHome';
 import { DuelRoom } from './screens/duel/DuelRoom';
+import { WondersHome } from './screens/wonders/WondersHome';
+import { WondersRoom } from './screens/wonders/WondersRoom';
 import { Home } from './screens/Home';
 import { Play } from './screens/Play';
 import { Rankings } from './screens/Rankings';
@@ -28,6 +30,8 @@ export function App() {
         <Route path="/avalon/:code" element={<Room />} />
         <Route path="/duel" element={<DuelHome />} />
         <Route path="/duel/:code" element={<DuelRoom />} />
+        <Route path="/wonders" element={<WondersHome />} />
+        <Route path="/wonders/:code" element={<WondersRoom />} />
         <Route path="/saved" element={<Saved />} />
         <Route path="/ranks" element={<Rankings />} />
         <Route path="/settings" element={<Settings />} />

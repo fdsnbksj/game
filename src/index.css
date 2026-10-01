@@ -68,6 +68,8 @@
   --res-stone: #8c939c;
   --res-glass: #4fb3c8;
   --res-papyrus: #cdb98a;
+  --res-ore: #6f7a8a;
+  --res-cloth: #b98bc4;
   --on-card: #0a0b0d;
   /* The home screen's game tiles. */
   --game-nonogram: #eebb45;
@@ -76,6 +78,8 @@
   --game-avalon-soft: rgb(143 176 255 / 0.14);
   --game-duel: #b48cff;
   --game-duel-soft: rgb(180 140 255 / 0.14);
+  --game-wonders: #4fb3c8;
+  --game-wonders-soft: rgb(79 179 200 / 0.14);
   /* Avalon's table: a dark felt. */
   --felt: radial-gradient(ellipse at 50% 35%, #1f2a26, #141a18 70%);
   --felt-edge: #2b3a34;
@@ -1868,4 +1872,98 @@ button.seat:disabled {
   color: var(--label-3);
   font-size: var(--fs-label);
   letter-spacing: 0.04em;
+}
+
+/* ---------- Ancient Wonders ---------- */
+
+.game-glyph.wonders {
+  background: var(--game-wonders-soft);
+  color: var(--game-wonders);
+}
+
+.res-ore { --res: var(--res-ore); }
+.res-cloth { --res: var(--res-cloth); }
+
+/* The hand: two cards a row, big enough to read and tap. */
+.hand {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.hand-card {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-height: 84px;
+  padding: 0 0 8px;
+  overflow: hidden;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  color: var(--label);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.hand-card strong,
+.hand-card small {
+  padding: 0 10px;
+}
+
+.hand-card strong {
+  margin-top: 4px;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+
+.hand-card small {
+  color: var(--label-2);
+  font-size: var(--fs-cap);
+}
+
+.hand-card .hand-cost {
+  color: var(--label-3);
+}
+
+.hand-card:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.city.mine {
+  border-color: var(--accent-line);
+}
+
+.wonder-line {
+  margin-top: -4px;
+}
+
+.stages {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.stage {
+  padding: 3px 8px;
+  border: 1px dashed var(--border-strong);
+  border-radius: 6px;
+  color: var(--label-2);
+  font-size: var(--fs-cap);
+}
+
+.stage.built {
+  border-style: solid;
+  border-color: var(--accent-line);
+  color: var(--accent);
+}
+
+.built-list {
+  font-size: var(--fs-cap);
+}
+
+.scores-wrap {
+  overflow-x: auto;
 }

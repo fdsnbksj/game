@@ -48,6 +48,14 @@ const DuelGlyph = () => (
   </svg>
 );
 
+const WondersGlyph = () => (
+  <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true">
+    <path d="M12 3 4 20h16L12 3z" fill="currentColor" opacity="0.9" />
+    <path d="M12 3 8 20h8L12 3z" fill="currentColor" />
+    <rect x="2" y="20" width="20" height="1.6" rx="0.8" fill="currentColor" />
+  </svg>
+);
+
 function greeting() {
   const hour = new Date().getHours();
   if (hour < 5) return 'Good night';
@@ -122,6 +130,16 @@ export function Home() {
             <small>Two rival cities, three ages</small>
           </div>
           <span className="tile-chip">2</span>
+        </Link>
+        <Link className="game-tile" to="/wonders">
+          <span className="game-glyph wonders">
+            <WondersGlyph />
+          </span>
+          <div>
+            <strong>Ancient Wonders</strong>
+            <small>Seven cities, three ages, bots welcome</small>
+          </div>
+          <span className="tile-chip">3–7</span>
         </Link>
       </nav>
 

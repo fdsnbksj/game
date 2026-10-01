@@ -418,5 +418,109 @@ service cloud.firestore {
         && after.status == 'done'
         && after.endedAt == request.time;
     }
+
+    // ---------- Ancient Wonders ----------
+    // 3–7 seats, some of them bots (`bot:1`…`bot:6`) that the host's phone plays. The seed
+    // decides the boards and the hands; each pick is a move appended in order. The rules
+    // can't judge a pick: every phone replays the moves and skips any the game refuses.
+
+    function botIds() {
+      return ['bot:1', 'bot:2', 'bot:3', 'bot:4', 'bot:5', 'bot:6'];
+    }
+
+    function wondersRoom(code) {
+      return get(/databases/$(database)/documents/wonders/$(code)).data;
+    }
+
+    function isWondersPlayer(code) {
+      return request.auth != null && request.auth.uid in wondersRoom(code).seats;
+    }
+
+    match /wonders/{code} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+        && code.matches('[A-Z]{4}')
+        && hasExactly(request.resource.data, ['host', 'seats', 'names', 'status', 'sides', 'createdAt'])
+        && request.resource.data.host == request.auth.uid
+        && request.resource.data.seats == [request.auth.uid]
+        && request.resource.data.names.keys().hasOnly([request.auth.uid])
+        && isValidName(request.resource.data.names[request.auth.uid])
+        && request.resource.data.status == 'lobby'
+        && request.resource.data.sides in ['A', 'B', 'random']
+        && request.resource.data.createdAt == request.time;
+      allow update: if request.auth != null
+        && (isWondersJoin() || isWondersLeave() || isWondersSetup() || isWondersStart() || isWondersFinish());
+
+      match /moves/{n} {
+        allow read: if isWondersPlayer(code);
+        allow create: if isWondersPlayer(code)
+          && wondersRoom(code).status == 'playing'
+          && hasExactly(request.resource.data, ['n', 'by', 'move'])
+          && (request.resource.data.by == request.auth.uid
+            || (request.resource.data.by in botIds() && request.resource.data.by in wondersRoom(code).seats
+              && request.auth.uid == wondersRoom(code).host))
+          && request.resource.data.n is int && request.resource.data.n >= 0
+          && string(request.resource.data.n) == n
+          && (request.resource.data.n == 0
+            || exists(/databases/$(database)/documents/wonders/$(code)/moves/$(string(request.resource.data.n - 1))))
+          && request.resource.data.move is map;
+      }
+    }
+
+    function isWondersJoin() {
+      let before = resource.data;
+      let after = request.resource.data;
+      return before.status == 'lobby'
+        && !(request.auth.uid in before.seats)
+        && before.seats.size() < 7
+        && after.diff(before).affectedKeys().hasOnly(['seats', 'names'])
+        && after.seats == before.seats.concat([request.auth.uid])
+        && after.names.diff(before.names).affectedKeys().hasOnly([request.auth.uid])
+        && isValidName(after.names[request.auth.uid]);
+    }
+
+    function isWondersLeave() {
+      let before = resource.data;
+      let after = request.resource.data;
+      return before.status == 'lobby'
+        && request.auth.uid in before.seats && request.auth.uid != before.host
+        && after.diff(before).affectedKeys().hasOnly(['seats'])
+        && after.seats == before.seats.removeAll([request.auth.uid]);
+    }
+
+    // The host's lobby controls: the wonder sides, adding and removing bots, and the
+    // seating order. No person can be added or removed this way.
+    function isWondersSetup() {
+      let before = resource.data;
+      let after = request.resource.data;
+      return before.status == 'lobby' && request.auth.uid == before.host
+        && after.diff(before).affectedKeys().hasOnly(['seats', 'names', 'sides'])
+        && after.sides in ['A', 'B', 'random']
+        && after.seats.size() >= 1 && after.seats.size() <= 7
+        && after.seats.toSet().size() == after.seats.size()
+        && after.seats.toSet().difference(before.seats.toSet()).hasOnly(botIds())
+        && before.seats.toSet().difference(after.seats.toSet()).hasOnly(botIds())
+        && after.names.diff(before.names).affectedKeys().hasOnly(botIds());
+    }
+
+    function isWondersStart() {
+      let before = resource.data;
+      let after = request.resource.data;
+      return before.status == 'lobby' && request.auth.uid == before.host
+        && before.seats.size() >= 3 && before.seats.size() <= 7
+        && after.diff(before).affectedKeys().hasOnly(['status', 'seed', 'startedAt'])
+        && after.status == 'playing'
+        && after.seed is string && after.seed.size() >= 6 && after.seed.size() <= 40
+        && after.startedAt == request.time;
+    }
+
+    function isWondersFinish() {
+      let before = resource.data;
+      let after = request.resource.data;
+      return before.status == 'playing' && request.auth.uid in before.seats
+        && after.diff(before).affectedKeys().hasOnly(['status', 'endedAt'])
+        && after.status == 'done'
+        && after.endedAt == request.time;
+    }
   }
 }

@@ -12,7 +12,7 @@ import './index.css';
 const updateSW = registerSW({
   onNeedRefresh() {
     // On a game screen (the puzzle, or an Avalon or Rival Wonders room), wait until the app is in the background.
-    const playing = () => location.pathname === '/nonograms' || /^\/(avalon|duel)\//.test(location.pathname);
+    const playing = () => location.pathname === '/nonograms' || /^\/(avalon|duel|wonders)\//.test(location.pathname);
     const idle = () => !playing() || document.visibilityState === 'hidden';
     if (idle()) return void updateSW(true);
     const timer = setInterval(() => {
