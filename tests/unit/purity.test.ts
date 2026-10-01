@@ -11,7 +11,7 @@ const FORBIDDEN = [
   /\bfrom ['"](phaser|react|firebase)/,
 ];
 
-for (const folder of ['nonogram', 'learn', 'games/avalon', 'games/duel']) {
+for (const folder of ['nonogram', 'learn', 'games/avalon', 'games/duel', 'games/wonders']) {
   describe(`src/${folder}`, () => {
     const dir = new URL(`../../src/${folder}/`, import.meta.url);
     for (const file of readdirSync(dir).filter((name) => name.endsWith('.ts'))) {
