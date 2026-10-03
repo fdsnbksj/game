@@ -1942,6 +1942,25 @@ button.seat:disabled {
 
 .hand-card .hand-cost {
   color: var(--label-3);
+  font-size: var(--fs-cap);
+}
+
+/* The hand is the decision: big cards. One you can't build is dimmed, still tappable. */
+.hand-card {
+  min-height: 104px;
+}
+
+.hand-card strong {
+  font-size: var(--fs-md);
+}
+
+.hand-card.unaffordable:not(:disabled) {
+  opacity: 0.55;
+}
+
+.hand-card .hand-cost .free {
+  color: var(--success);
+  font-weight: 600;
 }
 
 .hand-card:disabled {

@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { createPortal } from 'react-dom';
 import { Link, useParams } from 'react-router';
 import { Page } from '../../components/Page';
 import { Lobby as LobbyFrame } from '../../components/RoomSetup';
+import { Sheet } from '../../components/Sheet';
+import { SummaryRow } from '../../components/SummaryRow';
 import { botMove } from '../../games/wonders/bot';
 import { boardOf, cardOf, RESOURCES, type Color } from '../../games/wonders/cards';
 import { cardText, COLOR_NAMES, costText, RES_NAMES, stageText } from '../../games/wonders/describe';
@@ -221,70 +222,71 @@ function Game({ room, moves, uid }: { room: Room; moves: WondersData['moves']; u
 
   const mine = waiting.includes(me);
   const reviving = state.reviving[0] === me;
-  const turns = state.turn === 7 ? 'Last card' : `Turn ${state.turn} of 6`;
-  const pass = state.age === 2 ? 'pass right →' : 'pass left ←';
+  const turns = state.turn === 7 ? 'last card' : `turn ${state.turn} of 6`;
+  const pass = state.age === 2 ? '→' : '←';
+  const picked = me >= 0 ? state.picks[me] : null;
+  const others = waiting.filter((seat) => seat !== me).map(name);
+  const left = leftOf(state, me);
+  const right = rightOf(state, me);
+  const city = state.cities[me];
 
   return (
     <>
-      <div className="duel-status">
-        <strong className={mine ? 'yours' : undefined}>
-          {state.phase === 'over' ? 'Game over' : reviving ? 'Choose from the discards' : mine ? 'Pick a card' : 'Waiting…'}
-        </strong>
-        {state.phase !== 'over' && (
-          <span className="note">
-            Age {['I', 'II', 'III'][state.age - 1]} · {turns} · hands {pass}
-            {!mine && waiting.length > 0 && ` · waiting for ${waiting.map(name).join(', ')}`}
-          </span>
-        )}
-      </div>
-
-      <LastTurn state={state} name={name} />
-
-      {state.phase !== 'over' && me >= 0 && (
+      {state.phase === 'over' ? (
+        <Outcome state={state} name={name} />
+      ) : (
         <>
-          <p className="group-title">Your hand{state.picks[me] ? ' · picked' : ''}</p>
-          {state.picks[me] ? (
-            <p className="note section-note">
-              You {state.picks[me]!.as === 'discard' ? 'discard' : state.picks[me]!.as === 'wonder' ? 'build a wonder stage with' : 'build'}{' '}
-              {cardOf(baseId(state.picks[me]!.card)).name}. It's revealed when everyone has picked.
+          <div className="duel-status">
+            <strong className={mine && !picked ? 'yours' : undefined}>
+              {reviving ? 'Choose from the discards' : picked ? `You picked ${cardOf(baseId(picked.card)).name}` : mine ? 'Pick a card' : 'Waiting…'}
+            </strong>
+            <span className="note">
+              {picked || !mine ? (others.length ? `Waiting for ${others.join(', ')}` : 'Revealing…') : `Age ${['I', 'II', 'III'][state.age - 1]}, ${turns} · hands pass ${pass}`}
+            </span>
+          </div>
+
+          {picked ? (
+            <p className="note center-note">
+              {picked.as === 'discard' ? 'Discarding it for 3 coins' : picked.as === 'wonder' ? 'Building a wonder stage with it' : 'Building it'}. Everyone's picks show when the last one is in.
             </p>
           ) : (
-            <div className="hand">
-              {state.hands[me].map((card) => {
-                const c = cardOf(baseId(card));
-                return (
-                  <button key={card} className={`hand-card c-${c.color}`} disabled={!mine} onClick={() => setViewing(card)}>
-                    <span className="dcard-band" />
-                    <strong>{c.name}</strong>
-                    <span className="hand-effect">
-                      <CardEffect card={c} size={15} />
-                    </span>
-                    <span className="hand-cost">
-                      {c.chainFrom?.some((from) => state.cities[me].cards.includes(from)) ? (
-                        <span className="icons free">
-                          <Icon name="chain" size={13} /> Free by chain
-                        </span>
-                      ) : (
-                        <CostIcons cost={c.cost} size={13} />
-                      )}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
+            me >= 0 && <Hand state={state} me={me} disabled={!mine} onOpen={setViewing} />
           )}
+          {error && <p className="error">{error}</p>}
         </>
       )}
 
-      <CityPanel state={state} seat={me} name={name} mine />
-      <p className="group-title">Neighbours</p>
-      <CityPanel state={state} seat={leftOf(state, me)} name={name} label="Left" />
-      {state.n > 2 && rightOf(state, me) !== leftOf(state, me) && <CityPanel state={state} seat={rightOf(state, me)} name={name} label="Right" />}
-      {state.n > 3 && <TableSummary state={state} me={me} name={name} />}
-
-      {error && <p className="error">{error}</p>}
-      {state.phase === 'over' && <Outcome state={state} name={name} />}
-      {state.phase !== 'over' && <IconKey />}
+      {me >= 0 && (
+        <SummaryRow
+          mine
+          label="You"
+          title={`You · ${boardOf(city.board).name}`}
+          figures={<Figures state={state} seat={me} stages />}
+        >
+          <CityPanel state={state} seat={me} name={name} mine />
+          <IconKey />
+        </SummaryRow>
+      )}
+      <SummaryRow
+        label={left === right ? `Neighbour: ${name(left)}` : `◀ ${name(left)} · ${name(right)} ▶`}
+        title="Your neighbours"
+        figures={
+          <>
+            <Count name="shield" n={shieldsOf(state.cities[left])} />
+            {left !== right && <Count name="shield" n={shieldsOf(state.cities[right])} />}
+          </>
+        }
+      >
+        <p className="note">You trade with and fight only these two. Your shields: {shieldsOf(city)}.</p>
+        <CityPanel state={state} seat={left} name={name} label="Left" />
+        {left !== right && <CityPanel state={state} seat={right} name={name} label="Right" />}
+      </SummaryRow>
+      {state.n > 3 && (
+        <SummaryRow label="Across the table" figures={<span className="note">{state.n - 3} more</span>}>
+          <TableSummary state={state} me={me} name={name} />
+        </SummaryRow>
+      )}
+      <LastTurn state={state} name={name} />
 
       {viewing && mine && !reviving && <CardSheet state={state} me={me} card={viewing} name={name} onMove={play} onClose={() => setViewing(null)} />}
       {reviving && <ReviveSheet state={state} me={me} onMove={play} />}
@@ -292,7 +294,57 @@ function Game({ room, moves, uid }: { room: Room; moves: WondersData['moves']; u
   );
 }
 
-/** What everyone did last turn, and the battles at the end of an age. */
+/** Coins, shields and points (and wonder stages built) on one line. */
+function Figures({ state, seat, stages }: { state: WondersState; seat: number; stages?: boolean }) {
+  const city = state.cities[seat];
+  return (
+    <>
+      <Count name="coin" n={city.coins} />
+      <Count name="shield" n={shieldsOf(city)} />
+      {stages && <Count name="stage" n={`${city.stages}/${stagesOf(city).length}`} />}
+      <Count name="points" n={score(state, seat).total} />
+    </>
+  );
+}
+
+/** Your hand, big: each card's name, what it gives, and what it would cost you now. */
+function Hand({ state, me, disabled, onOpen }: { state: WondersState; me: number; disabled: boolean; onOpen: (card: string) => void }) {
+  return (
+    <div className="hand">
+      {state.hands[me].map((card) => {
+        const c = cardOf(baseId(card));
+        const owned = state.cities[me].cards.includes(c.id);
+        const cost = buildCost(state, me, c.id);
+        return (
+          <button key={card} className={`hand-card c-${c.color}${cost ? '' : ' unaffordable'}`} disabled={disabled} onClick={() => onOpen(card)}>
+            <span className="dcard-band" />
+            <strong>{c.name}</strong>
+            <span className="hand-effect">
+              <CardEffect card={c} size={16} />
+            </span>
+            <span className="hand-cost">
+              {owned ? (
+                'Already built'
+              ) : !cost ? (
+                'Can’t build'
+              ) : cost.chained ? (
+                <span className="icons free">
+                  <Icon name="chain" size={13} /> Free
+                </span>
+              ) : cost.total === 0 ? (
+                <span className="free">Free</span>
+              ) : (
+                <Count name="coin" n={cost.total} size={13} />
+              )}
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/** Last turn in a line; the full picks and the battles open on tap. */
 function LastTurn({ state, name }: { state: WondersState; name: (s: number) => string }) {
   if (!state.last) return null;
   const lines = state.last.picks.flatMap((p, seat) =>
@@ -300,18 +352,30 @@ function LastTurn({ state, name }: { state: WondersState; name: (s: number) => s
   );
   const military = state.last.military;
   return (
-    <div className="group card-pad history">
-      {lines.length > 0 && <p className="note">Last turn: {lines.join('; ')}.</p>}
+    <SummaryRow label={military ? 'Last turn · battles' : 'Last turn'} title="Last turn">
+      <ul className="group players">
+        {lines.map((line) => (
+          <li key={line} className="row">
+            {line}
+          </li>
+        ))}
+      </ul>
       {military && (
-        <p className="note">
-          Battles:{' '}
-          {military
-            .map((m) => `${name(m.seat)} ${m.vsLeft > 0 && m.vsRight > 0 ? 'won both' : m.vsLeft < 0 && m.vsRight < 0 ? 'lost both' : m.vsLeft + m.vsRight > 0 ? 'won one' : m.vsLeft + m.vsRight < 0 ? 'lost one' : 'held'}`)
-            .join('; ')}
-          .
-        </p>
+        <>
+          <p className="group-title">Battles at the end of the age</p>
+          <ul className="group players">
+            {military.map((m) => (
+              <li key={m.seat} className="row">
+                <span>{name(m.seat)}</span>
+                <span className="row-detail">
+                  {m.vsLeft > 0 && m.vsRight > 0 ? 'won both' : m.vsLeft < 0 && m.vsRight < 0 ? 'lost both' : m.vsLeft + m.vsRight > 0 ? 'won one' : m.vsLeft + m.vsRight < 0 ? 'lost one' : 'held'}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </>
       )}
-    </div>
+    </SummaryRow>
   );
 }
 
@@ -405,7 +469,6 @@ function TableSummary({ state, me, name }: { state: WondersState; me: number; na
   if (!others.length) return null;
   return (
     <>
-      <p className="group-title">Across the table</p>
       <ol className="group players">
         {others.map((seat) => (
           <li key={seat} className="row">
@@ -467,17 +530,6 @@ function IconKey() {
   );
 }
 
-function Sheet({ children, onClose }: { children: ReactNode; onClose?: () => void }) {
-  return createPortal(
-    <div className="sheet-backdrop" onClick={onClose}>
-      <div className="sheet duel-sheet" role="dialog" onClick={(event) => event.stopPropagation()}>
-        {children}
-      </div>
-    </div>,
-    document.body,
-  );
-}
-
 function CardSheet({ state, me, card, name, onMove, onClose }: { state: WondersState; me: number; card: string; name: (s: number) => string; onMove: (m: Move) => void; onClose: () => void }) {
   const c = cardOf(baseId(card));
   const at = { type: 'pick' as const, age: state.age, turn: state.turn, card };
@@ -491,6 +543,21 @@ function CardSheet({ state, me, card, name, onMove, onClose }: { state: WondersS
     const parts = [...(p.coins ? [`${coins(p.coins)} to the bank`] : []), ...(p.left ? [`${coins(p.left)} to ${name(leftOf(state, me))}`] : []), ...(p.right ? [`${coins(p.right)} to ${name(rightOf(state, me))}`] : [])];
     return parts.length ? parts.join(', ') : 'free';
   };
+  // The one that most likely makes sense goes first: build, else a wonder stage, else discard.
+  const actions: { key: string; label: string; detail?: string; move: Move | null }[] = [
+    {
+      key: 'build',
+      label: owned ? 'You already have this' : cost ? (cost.chained ? 'Build: free through a chain' : `Build: ${payText(cost)}`) : 'Can’t afford to build',
+      move: cost ? { ...at, as: 'build' } : null,
+    },
+    ...(free && !cost?.chained ? [{ key: 'free', label: 'Build free (once this age)', move: { ...at, as: 'build' as const, free: true } }] : []),
+    ...(stage
+      ? [{ key: 'wonder', label: `Wonder stage ${state.cities[me].stages + 1}: ${stagePay ? payText(stagePay) : 'can’t afford'}`, detail: stageText(stage), move: stagePay ? { ...at, as: 'wonder' as const } : null }]
+      : []),
+    { key: 'discard', label: 'Discard for 3 coins', move: { ...at, as: 'discard' } },
+  ];
+  const best = cost ? 'build' : stagePay && stage ? 'wonder' : 'discard';
+  actions.sort((x, y) => Number(y.key === best) - Number(x.key === best));
   return (
     <Sheet onClose={onClose}>
       <span className={`micro c-text-${c.color}`}>{COLOR_NAMES[c.color]}</span>
@@ -508,22 +575,14 @@ function CardSheet({ state, me, card, name, onMove, onClose }: { state: WondersS
         </p>
       ))}
       <div className="sheet-actions">
-        <button className="button primary" disabled={!cost} onClick={() => onMove({ ...at, as: 'build' })}>
-          {owned ? 'You already have this' : cost ? (cost.chained ? 'Build: free through a chain' : `Build: ${payText(cost)}`) : 'Can’t afford to build'}
-        </button>
-        {free && !cost?.chained && (
-          <button className="button" onClick={() => onMove({ ...at, as: 'build', free: true })}>
-            Build free (once this age)
+        {actions.map(({ key, label, detail, move }) => (
+          <button key={key} className={`button${key === best ? ' primary' : ''}${key === 'wonder' ? ' wonder-button' : ''}`} disabled={!move} onClick={() => move && onMove(move)}>
+            <span>{label}</span>
+            {detail && <small>{detail}</small>}
           </button>
-        )}
-        {stage && (
-          <button className="button wonder-button" disabled={!stagePay} onClick={() => onMove({ ...at, as: 'wonder' })}>
-            <span>Wonder stage {state.cities[me].stages + 1}: {stagePay ? payText(stagePay) : 'can’t afford'}</span>
-            <small>{stageText(stage)}</small>
-          </button>
-        )}
-        <button className="button" onClick={() => onMove({ ...at, as: 'discard' })}>
-          Discard for 3 coins
+        ))}
+        <button className="button ghost" onClick={onClose}>
+          Back to your hand
         </button>
       </div>
     </Sheet>
