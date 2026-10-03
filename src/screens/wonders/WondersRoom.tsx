@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useParams } from 'react-router';
 import { Page } from '../../components/Page';
+import { Lobby as LobbyFrame } from '../../components/RoomSetup';
 import { botMove } from '../../games/wonders/bot';
 import { boardOf, cardOf, RESOURCES, type Color } from '../../games/wonders/cards';
 import { cardText, COLOR_NAMES, costText, RES_NAMES, stageText } from '../../games/wonders/describe';
@@ -94,81 +95,87 @@ function Lobby({ room, uid }: { room: Room; uid: string }) {
     ['B', 'Side B'],
     ['random', 'Mixed'],
   ];
+  const label = (seat: string) => (seat === uid ? 'You' : room.names[seat]);
 
   return (
-    <>
-      <div className="room-code">
-        <span className="micro">Room code</span>
-        <strong>{room.code}</strong>
-        <span className="note">Everyone joins on their own phone: Ancient Wonders → Join a room.</span>
-      </div>
-
-      <p className="group-title">Seats · {n} of 7, clockwise</p>
-      {isHost && <p className="note section-note">Seat everyone as they sit: your left neighbour is the next seat down.</p>}
-      <ol className="group players">
-        {room.seats.map((seat, i) => (
-          <li key={seat} className="row">
-            <span>
-              {i + 1}. {seat === uid ? 'You' : room.names[seat]}
-            </span>
-            {seat === room.host && <span className="row-detail">Host</span>}
-            {isBot(seat) && <span className="row-detail">Bot</span>}
-            {isHost && (
-              <span className="seat-moves">
-                {n > 1 && (
-                  <>
+    <LobbyFrame
+      code={room.code}
+      players={
+        <>
+          <p className="group-title">Players · {n} of 7</p>
+          <ol className="group players">
+            {room.seats.map((seat) => (
+              <li key={seat} className="row">
+                <span>{label(seat)}</span>
+                {seat === room.host && <span className="row-detail">Host</span>}
+                {isBot(seat) && <span className="row-detail">Bot</span>}
+                {isHost && isBot(seat) && (
+                  <button className="icon-button small" aria-label="Remove this bot" onClick={() => act(setup(room, { seats: room.seats.filter((s) => s !== seat) }))}>
+                    ✕
+                  </button>
+                )}
+              </li>
+            ))}
+          </ol>
+          {isHost && n < 7 && (
+            <button className="button" onClick={() => act(addBot(room))}>
+              Add a bot
+            </button>
+          )}
+        </>
+      }
+      options={
+        isHost && (
+          <>
+            <p className="group-title">Wonder boards</p>
+            <div className="segmented" role="radiogroup" aria-label="Wonder board sides">
+              {sides.map(([value, text]) => (
+                <button key={value} role="radio" aria-checked={room.sides === value} onClick={() => act(setup(room, { sides: value }))}>
+                  {text}
+                </button>
+              ))}
+            </div>
+            <p className="note section-note">Side B wonders are trickier. Mixed gives each city a random side.</p>
+            <p className="group-title">Seating, clockwise</p>
+            <p className="note section-note">Match how people sit: your left neighbour is the next seat.</p>
+            <ol className="group players">
+              {room.seats.map((seat, i) => (
+                <li key={seat} className="row">
+                  <span>
+                    {i + 1}. {label(seat)}
+                  </span>
+                  <span className="seat-moves">
                     <button className="icon-button small" aria-label="Move up a seat" onClick={() => move(i, -1)}>
                       ↑
                     </button>
                     <button className="icon-button small" aria-label="Move down a seat" onClick={() => move(i, 1)}>
                       ↓
                     </button>
-                  </>
-                )}
-                {isBot(seat) && (
-                  <button className="icon-button small" aria-label="Remove this bot" onClick={() => act(setup(room, { seats: room.seats.filter((s) => s !== seat) }))}>
-                    ✕
-                  </button>
-                )}
-              </span>
-            )}
-          </li>
-        ))}
-      </ol>
-      {isHost && n < 7 && (
-        <button className="button" onClick={() => act(addBot(room))}>
-          Add a bot
-        </button>
-      )}
-
-      <p className="group-title">Wonder boards</p>
-      {isHost ? (
-        <div className="segmented" role="radiogroup" aria-label="Wonder board sides">
-          {sides.map(([value, label]) => (
-            <button key={value} role="radio" aria-checked={room.sides === value} onClick={() => act(setup(room, { sides: value }))}>
-              {label}
-            </button>
-          ))}
-        </div>
-      ) : (
-        <p className="note">{sides.find(([v]) => v === room.sides)?.[1]}</p>
-      )}
-      <p className="note section-note">Side B boards have trickier wonders. Mixed gives each city a random side.</p>
-
-      {error && <p className="error">{error}</p>}
-      {isHost ? (
-        <button className="button primary" disabled={n < 3} onClick={() => act(startGame(room.code))}>
-          {n < 3 ? `Need ${3 - n} more (add bots?)` : 'Start'}
-        </button>
-      ) : (
+                  </span>
+                </li>
+              ))}
+            </ol>
+          </>
+        )
+      }
+      action={
         <>
-          <p className="note">The host starts when everyone is in.</p>
-          <button className="button ghost" onClick={() => act(leaveRoom(room))}>
-            Leave the room
-          </button>
+          {error && <p className="error">{error}</p>}
+          {isHost ? (
+            <button className="button primary" disabled={n < 3} onClick={() => act(startGame(room.code))}>
+              {n < 3 ? `Need ${3 - n} more: add a bot?` : 'Start'}
+            </button>
+          ) : (
+            <>
+              <p className="note center-note">The host starts when everyone is in.</p>
+              <button className="button ghost" onClick={() => act(leaveRoom(room))}>
+                Leave the room
+              </button>
+            </>
+          )}
         </>
-      )}
-    </>
+      }
+    />
   );
 }
 

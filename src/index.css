@@ -2155,3 +2155,90 @@ button.seat:disabled {
 .wonder-icons .arrow {
   color: var(--label-3);
 }
+
+/* ---------- Simpler screens: summaries, front doors, lobbies ---------- */
+
+.summary-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 52px;
+  padding: 10px 14px;
+  border: 1px solid var(--separator);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  color: var(--label);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.summary-row.mine {
+  border-color: var(--accent-line);
+}
+
+.summary-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.summary-figures {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.front-door {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.front-door .button.primary {
+  min-height: 56px;
+}
+
+.join-inline {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+}
+
+.how-to {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  color: var(--label-2);
+  line-height: 1.5;
+}
+
+.how-to p {
+  margin: 0;
+}
+
+.options-toggle {
+  align-self: center;
+}
+
+.lobby-options {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.lobby-action {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: auto;
+}
+
+.center-note {
+  text-align: center;
+}

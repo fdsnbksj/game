@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Link, useParams } from 'react-router';
 import { Page, Toggle } from '../../components/Page';
+import { Lobby as LobbyFrame } from '../../components/RoomSetup';
 import type { Secret } from '../../games/avalon/deal';
 import { failsToSink, isEvil, MAX_PLAYERS, MAX_REJECTIONS, MIN_PLAYERS, OPTIONAL_ROLES, QUESTS, ROLE_NAMES, roleList, TEAM_SIZES, type OptionalRole } from '../../games/avalon/rules';
 import { derive, type GameState } from '../../games/avalon/state';
@@ -84,82 +85,80 @@ function Lobby({ room, uid }: { room: RoomDoc; uid: string }) {
     void seat(room.code, order);
   };
 
+  const inPlay = ['Merlin', 'Assassin', ...OPTIONAL_ROLES.filter((r) => room.optional.includes(r)).map((r) => ROLE_NAMES[r]), ...(room.lady ? ['Lady of the Lake'] : [])];
+
   return (
-    <>
-      <div className="room-code">
-        <span className="micro">Room code</span>
-        <strong>{room.code}</strong>
-        <span className="note">Everyone joins on their own phone: Avalon → Join a room.</span>
-      </div>
-
-      <TableView playerIds={room.playerIds} names={room.names} marks={(p) => ({ you: p === uid })} />
-
-      <p className="group-title">
-        Seats · {count} of {MAX_PLAYERS}
-      </p>
-      {isHost && <p className="note section-note">Put everyone in the order they sit, going clockwise. The lead passes that way.</p>}
-      <ol className="group players">
-        {room.playerIds.map((p, i) => (
-          <li key={p} className="row">
-            <span>
-              {i + 1}. {name(p)}
-            </span>
-            {p === room.host && <span className="row-detail">Host</span>}
-            {isHost && count > 1 && (
-              <span className="seat-moves">
-                <button className="icon-button small" aria-label={`Move ${name(p)} back a seat`} onClick={() => move(i, -1)}>
-                  ↑
-                </button>
-                <button className="icon-button small" aria-label={`Move ${name(p)} on a seat`} onClick={() => move(i, 1)}>
-                  ↓
-                </button>
-              </span>
-            )}
-          </li>
-        ))}
-      </ol>
-
-      <p className="group-title">Roles</p>
-      <div className="group">
-        <div className="row">
-          <span>Merlin and the Assassin</span>
-          <span className="row-detail">Always</span>
-        </div>
-        {OPTIONAL_ROLES.map((role) =>
-          isHost ? (
-            <Toggle key={role} label={ROLE_NAMES[role]} on={room.optional.includes(role)} onChange={(on) => toggle(role, on)} />
-          ) : (
-            <div key={role} className="row">
-              <span>{ROLE_NAMES[role]}</span>
-              <span className="row-detail">{room.optional.includes(role) ? 'In' : 'Out'}</span>
-            </div>
-          ),
-        )}
-        {isHost ? (
-          <Toggle label="Lady of the Lake (best with 7+)" on={room.lady} onChange={(on) => void setLady(room.code, on)} />
-        ) : (
-          <div className="row">
-            <span>Lady of the Lake</span>
-            <span className="row-detail">{room.lady ? 'In' : 'Out'}</span>
-          </div>
-        )}
-      </div>
-
-      {problem && <p className="note">{problem}</p>}
-      {error && <p className="error">{error}</p>}
-      {isHost ? (
-        <button className="button primary" disabled={problem !== null} onClick={() => void startGame(room).catch((e) => setError(String(e)))}>
-          Deal the roles
-        </button>
-      ) : (
+    <LobbyFrame
+      code={room.code}
+      players={
         <>
-          <p className="note">The host deals the roles when everyone is in.</p>
-          <button className="button ghost" onClick={() => void leaveRoom(room)}>
-            Leave the room
-          </button>
+          <p className="group-title">
+            Players · {count} of {MAX_PLAYERS}
+          </p>
+          <ol className="group players">
+            {room.playerIds.map((p) => (
+              <li key={p} className="row">
+                <span>{name(p)}</span>
+                {p === room.host && <span className="row-detail">Host</span>}
+              </li>
+            ))}
+          </ol>
+          <p className="note section-note">With: {inPlay.join(', ')}.</p>
         </>
-      )}
-    </>
+      }
+      options={
+        isHost && (
+          <>
+            <p className="group-title">Roles</p>
+            <div className="group">
+              {OPTIONAL_ROLES.map((role) => (
+                <Toggle key={role} label={ROLE_NAMES[role]} on={room.optional.includes(role)} onChange={(on) => toggle(role, on)} />
+              ))}
+              <Toggle label="Lady of the Lake (best with 7+)" on={room.lady} onChange={(on) => void setLady(room.code, on)} />
+            </div>
+            <p className="group-title">Seating, clockwise</p>
+            <p className="note section-note">Match how people sit: the lead passes to the next seat.</p>
+            <ol className="group players">
+              {room.playerIds.map((p, i) => (
+                <li key={p} className="row">
+                  <span>
+                    {i + 1}. {name(p)}
+                  </span>
+                  {count > 1 && (
+                    <span className="seat-moves">
+                      <button className="icon-button small" aria-label={`Move ${name(p)} back a seat`} onClick={() => move(i, -1)}>
+                        ↑
+                      </button>
+                      <button className="icon-button small" aria-label={`Move ${name(p)} on a seat`} onClick={() => move(i, 1)}>
+                        ↓
+                      </button>
+                    </span>
+                  )}
+                </li>
+              ))}
+            </ol>
+          </>
+        )
+      }
+      action={
+        <>
+          {problem && <p className="note center-note">{problem}</p>}
+          {error && <p className="error">{error}</p>}
+          {isHost ? (
+            <button className="button primary" disabled={problem !== null} onClick={() => void startGame(room).catch((e) => setError(String(e)))}>
+              Deal the roles
+            </button>
+          ) : (
+            <>
+              <p className="note center-note">The host deals the roles when everyone is in.</p>
+              <button className="button ghost" onClick={() => void leaveRoom(room)}>
+                Leave the room
+              </button>
+            </>
+          )}
+        </>
+      }
+    />
   );
 }
 

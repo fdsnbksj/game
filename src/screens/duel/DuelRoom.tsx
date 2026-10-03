@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useParams } from 'react-router';
 import { Page } from '../../components/Page';
+import { Lobby as LobbyFrame } from '../../components/RoomSetup';
 import { cardOf, RESOURCES, tokenOf, wonderOf, type TokenId } from '../../games/duel/cards';
 import { cardText, COLOR_NAMES, costText, RES_NAMES, SCIENCE_NAMES, wonderText } from '../../games/duel/describe';
 import { production } from '../../games/duel/pay';
@@ -62,34 +63,36 @@ function Lobby({ room, uid }: { room: Duel; uid: string }) {
   const [error, setError] = useState<string | null>(null);
   const ready = room.playerIds.length === 2;
   return (
-    <>
-      <div className="room-code">
-        <span className="micro">Room code</span>
-        <strong>{room.code}</strong>
-        <span className="note">Your rival joins on their phone: Rival Wonders → Join a room.</span>
-      </div>
-      <ol className="group players">
-        {room.playerIds.map((p) => (
-          <li key={p} className="row">
-            <span>{p === uid ? 'You' : room.names[p]}</span>
-            {p === room.host && <span className="row-detail">Host</span>}
-          </li>
-        ))}
-        {!ready && (
-          <li className="row">
-            <span className="note">Waiting for a rival…</span>
-          </li>
-        )}
-      </ol>
-      {error && <p className="error">{error}</p>}
-      {room.host === uid ? (
-        <button className="button primary" disabled={!ready} onClick={() => void startDuel(room.code).catch((e) => setError(String(e)))}>
-          Start
-        </button>
-      ) : (
-        <p className="note">The host starts the game.</p>
-      )}
-    </>
+    <LobbyFrame
+      code={room.code}
+      players={
+        <ol className="group players">
+          {room.playerIds.map((p) => (
+            <li key={p} className="row">
+              <span>{p === uid ? 'You' : room.names[p]}</span>
+              {p === room.host && <span className="row-detail">Host</span>}
+            </li>
+          ))}
+          {!ready && (
+            <li className="row">
+              <span className="note">Waiting for a rival…</span>
+            </li>
+          )}
+        </ol>
+      }
+      action={
+        <>
+          {error && <p className="error">{error}</p>}
+          {room.host === uid ? (
+            <button className="button primary" disabled={!ready} onClick={() => void startDuel(room.code).catch((e) => setError(String(e)))}>
+              {ready ? 'Start' : 'Waiting for a rival'}
+            </button>
+          ) : (
+            <p className="note center-note">The host starts the game.</p>
+          )}
+        </>
+      }
+    />
   );
 }
 
