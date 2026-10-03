@@ -1,13 +1,9 @@
 import { Link } from 'react-router';
-import { sizeFor } from '../nonogram/generate';
+import { lastRoom } from '../lastPage';
 import { useNonogramStore } from '../nonogramStore';
 import { useGameStore } from '../store';
 
-const Chevron = () => (
-  <svg className="chevron" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-    <path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-  </svg>
-);
+const GAME_NAMES: Record<string, string> = { avalon: 'Avalon', duel: 'Rival Wonders', wonders: 'Ancient Wonders' };
 
 /** A few squares filled in, like a puzzle half done. */
 const NonogramGlyph = () => (
@@ -67,10 +63,11 @@ function greeting() {
 /** The games, and who you are. */
 export function Home() {
   const player = useGameStore((s) => s.player);
-  const email = useGameStore((s) => s.email);
   const level = useNonogramStore((s) => s.level);
   const name = player?.displayName;
-  const size = sizeFor(level);
+  // A party game you were in the middle of; the nonogram tile already shows your level.
+  const path = lastRoom();
+  const room = path && { path, game: GAME_NAMES[path.split('/')[1]], code: path.split('/')[2] };
 
   return (
     <main className="screen">
@@ -84,20 +81,20 @@ export function Home() {
         </Link>
       </header>
 
-      <Link className="continue-card" to="/nonograms">
-        <div>
-          <span className="micro">Continue</span>
-          <strong>Nonograms · Level {level}</strong>
-          <span className="note">
-            {size}×{size} grid, right where you left it
+      {room && (
+        <Link className="continue-card" to={room.path}>
+          <div>
+            <span className="micro">Continue</span>
+            <strong>{room.game}</strong>
+            <span className="note">Room {room.code}</span>
+          </div>
+          <span className="continue-play" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="20" height="20">
+              <path d="M8 5.5v13l10.5-6.5L8 5.5z" fill="currentColor" />
+            </svg>
           </span>
-        </div>
-        <span className="continue-play" aria-hidden="true">
-          <svg viewBox="0 0 24 24" width="20" height="20">
-            <path d="M8 5.5v13l10.5-6.5L8 5.5z" fill="currentColor" />
-          </svg>
-        </span>
-      </Link>
+        </Link>
+      )}
 
       <p className="group-title">Games</p>
       <nav className="game-tiles" aria-label="Games">
@@ -107,7 +104,7 @@ export function Home() {
           </span>
           <div>
             <strong>Nonograms</strong>
-            <small>Logic puzzles for between chapters</small>
+            <small>Puzzles for between chapters</small>
           </div>
           <span className="tile-chip">Lv {level}</span>
         </Link>
@@ -117,7 +114,7 @@ export function Home() {
           </span>
           <div>
             <strong>Avalon</strong>
-            <small>Hidden loyalty at one table</small>
+            <small>Hidden roles, one table</small>
           </div>
           <span className="tile-chip">5–10</span>
         </Link>
@@ -127,7 +124,7 @@ export function Home() {
           </span>
           <div>
             <strong>Rival Wonders</strong>
-            <small>Two rival cities, three ages</small>
+            <small>Two cities, head to head</small>
           </div>
           <span className="tile-chip">2</span>
         </Link>
@@ -137,20 +134,12 @@ export function Home() {
           </span>
           <div>
             <strong>Ancient Wonders</strong>
-            <small>Seven cities, three ages, bots welcome</small>
+            <small>Build a city, bots welcome</small>
           </div>
           <span className="tile-chip">3–7</span>
         </Link>
       </nav>
 
-      <div className="spacer" />
-      <div className="group">
-        <Link className="row" to="/account">
-          <span>Account</span>
-          <span className="row-detail">{player ? (email ? 'Signed in' : 'Guest') : 'Connecting…'}</span>
-          <Chevron />
-        </Link>
-      </div>
     </main>
   );
 }

@@ -25,6 +25,7 @@ import {
   type Room as RoomDoc,
   type RoomData,
 } from '../../services/avalon';
+import { forgetRoom } from '../../lastPage';
 import { useGameStore } from '../../store';
 import { TableView, type SeatMarks } from './TableView';
 
@@ -35,6 +36,11 @@ export function Room() {
   const [data, setData] = useState<RoomData>(emptyRoom);
 
   useEffect(() => (uid ? watchRoom(code, uid, setData) : undefined), [code, uid]);
+  // Home offers this room until its game is over, or it's gone, or you're not in it.
+  const ended = data.missing || data.room?.status === 'done' || (!!uid && !!data.room && data.room.status !== 'lobby' && !data.room.playerIds.includes(uid));
+  useEffect(() => {
+    if (ended) forgetRoom(`/avalon/${code}`);
+  }, [ended, code]);
 
   const room = data.room;
   let body: ReactNode;

@@ -9,6 +9,7 @@ export function Account() {
   const uid = useGameStore((s) => s.uid);
   const player = useGameStore((s) => s.player);
   const email = useGameStore((s) => s.email);
+  const [signingIn, setSigningIn] = useState(false);
 
   return (
     <Page title="Account">
@@ -32,15 +33,18 @@ export function Account() {
         </>
       ) : (
         <>
-          <p className="note">
-            You're playing as a guest, <strong>{player.displayName}</strong>. Create an account to keep your progress and play
-            Avalon with friends under your name, on any phone.
-          </p>
-          <EmailForm />
           <p className="group-title">Your name</p>
           <div className="group card-pad">
             <NameEditor name={player.displayName} />
           </div>
+          <p className="note">You're playing as a guest. An account keeps your progress and name on any phone.</p>
+          {signingIn ? (
+            <EmailForm />
+          ) : (
+            <button className="button primary" onClick={() => setSigningIn(true)}>
+              Sign in or create account
+            </button>
+          )}
         </>
       )}
 

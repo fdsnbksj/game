@@ -20,6 +20,7 @@ import {
   type Player,
 } from '../../games/duel/state';
 import { finishDuel, joinDuel, sendMove, startDuel, watchDuel, type Duel, type DuelData } from '../../services/duel';
+import { forgetRoom } from '../../lastPage';
 import { useGameStore } from '../../store';
 import { Structure } from './Structure';
 import { CardEffect, CostIcons, WonderEffect } from './CardIcons';
@@ -30,6 +31,11 @@ export function DuelRoom() {
   const uid = useGameStore((s) => s.uid);
   const [data, setData] = useState<DuelData>({ room: null, missing: false, moves: [] });
   useEffect(() => (uid ? watchDuel(code, uid, setData) : undefined), [code, uid]);
+  // Home offers this room until its game is over, or it's gone, or you're not in it.
+  const ended = data.missing || data.room?.status === 'done' || (!!uid && !!data.room && data.room.status !== 'lobby' && !data.room.playerIds.includes(uid));
+  useEffect(() => {
+    if (ended) forgetRoom(`/duel/${code}`);
+  }, [ended, code]);
 
   const room = data.room;
   let body: ReactNode;

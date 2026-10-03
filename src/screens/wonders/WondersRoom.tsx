@@ -26,6 +26,7 @@ import {
   type WondersState,
 } from '../../games/wonders/state';
 import { addBot, finishGame, isBot, joinRoom, leaveRoom, sendMove, setup, startGame, watchRoom, type WondersData, type WondersRoom as Room } from '../../services/wonders';
+import { forgetRoom } from '../../lastPage';
 import { useGameStore } from '../../store';
 import { CardEffect, CostIcons, StageEffect } from './CardIcons';
 import { Count, Icon, type IconName } from '../../components/GameIcons';
@@ -35,6 +36,11 @@ export function WondersRoom() {
   const uid = useGameStore((s) => s.uid);
   const [data, setData] = useState<WondersData>({ room: null, missing: false, moves: [] });
   useEffect(() => (uid ? watchRoom(code, uid, setData) : undefined), [code, uid]);
+  // Home offers this room until its game is over, or it's gone, or you're not in it.
+  const ended = data.missing || data.room?.status === 'done' || (!!uid && !!data.room && data.room.status !== 'lobby' && !data.room.seats.includes(uid));
+  useEffect(() => {
+    if (ended) forgetRoom(`/wonders/${code}`);
+  }, [ended, code]);
 
   const room = data.room;
   let body: ReactNode;
