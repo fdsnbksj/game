@@ -68,8 +68,25 @@
   --res-stone: #8c939c;
   --res-glass: #4fb3c8;
   --res-papyrus: #cdb98a;
-  --res-ore: #6f7a8a;
+  --res-ore: #9aa7ba;
   --res-cloth: #b98bc4;
+  /* Game icons (src/components/GameIcons.tsx). */
+  --icon-coin: #f2c14e;
+  --icon-coin-edge: #b07f22;
+  --icon-points: #7cc7ff;
+  --icon-shield: #e2545f;
+  --icon-defeat: #8c3a43;
+  --icon-stage: #c9a35a;
+  --icon-trade: #8fb0ff;
+  --icon-science: #3fbf88;
+  --icon-wood-end: #c9995e;
+  --icon-clay-top: #d98a5c;
+  --icon-clay-side: #9c5530;
+  --icon-glint: #e8eef5;
+  --icon-cloth-dark: #8f6a9a;
+  --icon-scroll-roll: #a8946a;
+  --icon-on-dark: #0a0b0d;
+  --icon-on-light: #3a3020;
   --on-card: #0a0b0d;
   /* The home screen's game tiles. */
   --game-nonogram: #eebb45;
@@ -1966,4 +1983,138 @@ button.seat:disabled {
 
 .scores-wrap {
   overflow-x: auto;
+}
+
+/* ---------- Game icons ---------- */
+
+.game-icon {
+  display: inline-block;
+  flex: none;
+  vertical-align: -2px;
+}
+
+.icons {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px;
+}
+
+.icons.effect {
+  gap: 6px;
+}
+
+.icons.free {
+  color: var(--label-3);
+  font-size: var(--fs-cap);
+}
+
+.icon-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.icons .slash,
+.icons .where,
+.icons .words {
+  color: var(--label-3);
+  font-size: var(--fs-label);
+  font-weight: 600;
+}
+
+.icons .words {
+  color: var(--label-2);
+  font-size: var(--fs-cap);
+}
+
+.card-pip {
+  display: inline-block;
+  width: 9px;
+  height: 12px;
+  border-radius: 2px;
+  background: var(--band);
+}
+
+/* Ancient Wonders with icons */
+.city-figures .icon-count {
+  font-size: var(--fs-base);
+}
+
+.have {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px 6px;
+  border-radius: 6px;
+  background: var(--surface-2);
+  font-size: var(--fs-cap);
+}
+
+.have.choice {
+  border: 1px dashed var(--border-strong);
+  background: none;
+}
+
+.stage {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.stage .arrow {
+  color: var(--label-3);
+  font-size: var(--fs-label);
+}
+
+.hand-effect,
+.hand-cost {
+  display: flex;
+  padding: 0 10px;
+  min-height: 18px;
+  align-items: center;
+}
+
+.hand-effect {
+  margin-top: 2px;
+}
+
+.sheet-icons {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 12px;
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+}
+
+.icon-key summary {
+  color: var(--label-2);
+  font-size: var(--fs-sm);
+  cursor: pointer;
+}
+
+.icon-key ul {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 12px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.icon-key li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--label-2);
+  font-size: var(--fs-cap);
+}
+
+.icon-key .where {
+  color: var(--label-3);
+  font-weight: 600;
 }

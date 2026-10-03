@@ -4,7 +4,7 @@ import { Link, useParams } from 'react-router';
 import { Page } from '../../components/Page';
 import { botMove } from '../../games/wonders/bot';
 import { boardOf, cardOf, RESOURCES, type Color } from '../../games/wonders/cards';
-import { cardText, COLOR_NAMES, costText, RES_NAMES, shortEffect, stageText } from '../../games/wonders/describe';
+import { cardText, COLOR_NAMES, costText, RES_NAMES, stageText } from '../../games/wonders/describe';
 import { baseId, type SideChoice } from '../../games/wonders/setup';
 import {
   buildCost,
@@ -25,6 +25,8 @@ import {
 } from '../../games/wonders/state';
 import { addBot, finishGame, isBot, joinRoom, leaveRoom, sendMove, setup, startGame, watchRoom, type WondersData, type WondersRoom as Room } from '../../services/wonders';
 import { useGameStore } from '../../store';
+import { CardEffect, CostIcons, StageEffect } from './CardIcons';
+import { Count, Icon, type IconName } from '../../components/GameIcons';
 
 export function WondersRoom() {
   const { code = '' } = useParams();
@@ -247,8 +249,18 @@ function Game({ room, moves, uid }: { room: Room; moves: WondersData['moves']; u
                   <button key={card} className={`hand-card c-${c.color}`} disabled={!mine} onClick={() => setViewing(card)}>
                     <span className="dcard-band" />
                     <strong>{c.name}</strong>
-                    <small>{shortEffect(c)}</small>
-                    <small className="hand-cost">{costText(c.cost)}</small>
+                    <span className="hand-effect">
+                      <CardEffect card={c} size={15} />
+                    </span>
+                    <span className="hand-cost">
+                      {c.chainFrom?.some((from) => state.cities[me].cards.includes(from)) ? (
+                        <span className="icons free">
+                          <Icon name="chain" size={13} /> Free by chain
+                        </span>
+                      ) : (
+                        <CostIcons cost={c.cost} size={13} />
+                      )}
+                    </span>
                   </button>
                 );
               })}
@@ -265,6 +277,7 @@ function Game({ room, moves, uid }: { room: Room; moves: WondersData['moves']; u
 
       {error && <p className="error">{error}</p>}
       {state.phase === 'over' && <Outcome state={state} name={name} />}
+      {state.phase !== 'over' && <IconKey />}
 
       {viewing && mine && !reviving && <CardSheet state={state} me={me} card={viewing} name={name} onMove={play} onClose={() => setViewing(null)} />}
       {reviving && <ReviveSheet state={state} me={me} onMove={play} />}
@@ -305,6 +318,9 @@ function CityPanel({ state, seat, name, mine, label }: { state: WondersState; se
   const board = boardOf(city.board);
   const supply = ownSupply(city);
   const stages = stagesOf(city);
+  const cards = city.cards.map(cardOf);
+  const science = (['compass', 'gear', 'tablet'] as const).map((sym) => [sym, cards.filter((c) => c.science === sym).length] as const);
+  const wins = city.victories.reduce((a, b) => a + b, 0);
   return (
     <section className={mine ? 'group card-pad city mine' : 'group card-pad city'}>
       <header className="city-head">
@@ -312,35 +328,58 @@ function CityPanel({ state, seat, name, mine, label }: { state: WondersState; se
           {label ? `${label}: ` : ''}
           {name(seat)}
         </strong>
-        <span className="city-figures">
-          <span className="coins">
-            {city.coins} {city.coins === 1 ? 'coin' : 'coins'}
-          </span>
-          <span className="note">{shieldsOf(city)} shields</span>
-          <span className="note">{pts(score(state, seat).total)}</span>
+        <span className="city-figures" aria-label={`${city.coins} coins, ${shieldsOf(city)} shields, ${pts(score(state, seat).total)}`}>
+          <Count name="coin" n={city.coins} size={16} />
+          <Count name="shield" n={shieldsOf(city)} size={16} />
+          <Count name="points" n={score(state, seat).total} size={16} />
         </span>
       </header>
       <p className="note wonder-line">
-        {board.name} · side {city.side}
+        <Icon name="stage" size={13} /> {board.name} · side {city.side}
       </p>
       <div className="stages">
         {stages.map((st, i) => (
           <span key={i} className={i < city.stages ? 'stage built' : 'stage'} title={stageText(st)}>
-            {i < city.stages ? '✓ ' : ''}
-            {mine ? stageText(st) : `Stage ${i + 1}`}
-            {mine && i >= city.stages ? ` (${costText(st.cost)})` : ''}
+            {i < city.stages ? '✓' : `${i + 1}`}
+            {mine && i >= city.stages && <CostIcons cost={st.cost} size={12} />}
+            {mine && <span className="arrow">→</span>}
+            {mine ? <StageEffect stage={st} size={12} /> : null}
           </span>
         ))}
       </div>
       <div className="city-row">
         {RESOURCES.filter((r) => supply.fixed[r] > 0).map((r) => (
-          <span key={r} className={`res res-${r}`}>
-            {RES_NAMES[r]} {supply.fixed[r]}
+          <span key={r} className="have" title={RES_NAMES[r]}>
+            <Count name={r} n={supply.fixed[r]} size={15} />
           </span>
         ))}
-        {supply.choices.length > 0 && <span className="chip">+{supply.choices.length} choice</span>}
+        {supply.choices.map((choice, i) => (
+          <span key={`c${i}`} className="have choice" title="One of these each turn">
+            {choice.map((r, k) => (
+              <span key={r} className="icons">
+                {k > 0 && <span className="slash">/</span>}
+                <Icon name={r} size={13} />
+              </span>
+            ))}
+          </span>
+        ))}
+        {science
+          .filter(([, n]) => n > 0)
+          .map(([sym, n]) => (
+            <span key={sym} className="have">
+              <Count name={sym} n={n} size={15} />
+            </span>
+          ))}
+        {(wins > 0 || city.defeats > 0) && (
+          <span className="have" title="Battle points and defeats">
+            {wins > 0 && <Count name="points" n={`+${wins}`} size={13} />}
+            {city.defeats > 0 && <Count name="defeat" n={`−${city.defeats}`} size={13} />}
+          </span>
+        )}
+      </div>
+      <div className="city-row">
         {COLORS.map((c) => {
-          const n = city.cards.filter((id) => cardOf(id).color === c).length;
+          const n = cards.filter((card) => card.color === c).length;
           return n ? (
             <span key={c} className={`pip c-${c}`} title={COLOR_NAMES[c]}>
               {n}
@@ -348,7 +387,7 @@ function CityPanel({ state, seat, name, mine, label }: { state: WondersState; se
           ) : null;
         })}
       </div>
-      {mine && city.cards.length > 0 && <p className="note built-list">{city.cards.map((id) => cardOf(id).name).join(', ')}</p>}
+      {mine && city.cards.length > 0 && <p className="note built-list">{cards.map((c) => c.name).join(', ')}</p>}
     </section>
   );
 }
@@ -364,13 +403,60 @@ function TableSummary({ state, me, name }: { state: WondersState; me: number; na
         {others.map((seat) => (
           <li key={seat} className="row">
             <span>{name(seat)}</span>
-            <span className="row-detail">
-              {state.cities[seat].coins}c · {shieldsOf(state.cities[seat])} shields · {state.cities[seat].stages}/{stagesOf(state.cities[seat]).length} stages · {pts(score(state, seat).total)}
+            <span className="row-detail icons effect">
+              <Count name="coin" n={state.cities[seat].coins} />
+              <Count name="shield" n={shieldsOf(state.cities[seat])} />
+              <Count name="stage" n={`${state.cities[seat].stages}/${stagesOf(state.cities[seat]).length}`} />
+              <Count name="points" n={score(state, seat).total} />
             </span>
           </li>
         ))}
       </ol>
     </>
+  );
+}
+
+const KEY: [IconName, string][] = [
+  ['coin', 'Coins'],
+  ['points', 'Points at the end'],
+  ['shield', 'Shields: win battles with your neighbours'],
+  ['defeat', 'A lost battle: −1 point'],
+  ['stage', 'Wonder stage'],
+  ['chain', 'Free by chain'],
+  ['wood', 'Wood'],
+  ['stone', 'Stone'],
+  ['clay', 'Clay'],
+  ['ore', 'Ore'],
+  ['glass', 'Glass'],
+  ['cloth', 'Cloth'],
+  ['papyrus', 'Papyrus'],
+  ['compass', 'Science: compass'],
+  ['gear', 'Science: gear'],
+  ['tablet', 'Science: tablet'],
+];
+
+/** What the icons mean, folded away until wanted. */
+function IconKey() {
+  return (
+    <details className="group card-pad icon-key">
+      <summary>What the icons mean</summary>
+      <ul>
+        {KEY.map(([icon, text]) => (
+          <li key={icon}>
+            <Icon name={icon} size={18} />
+            <span>{text}</span>
+          </li>
+        ))}
+        <li>
+          <span className="where">◀ ▶</span>
+          <span>Your left and right neighbours (◀•▶: them and you)</span>
+        </li>
+        <li>
+          <span className="where">/</span>
+          <span>One of these, your choice, each turn</span>
+        </li>
+      </ul>
+    </details>
   );
 }
 
@@ -402,6 +488,12 @@ function CardSheet({ state, me, card, name, onMove, onClose }: { state: WondersS
     <Sheet onClose={onClose}>
       <span className={`micro c-text-${c.color}`}>{COLOR_NAMES[c.color]}</span>
       <h3 className="sheet-title">{c.name}</h3>
+      <div className="sheet-icons">
+        <span className="micro">Gives</span>
+        <CardEffect card={c} size={20} />
+        <span className="micro">Costs</span>
+        <CostIcons cost={c.cost} size={18} />
+      </div>
       <p className="note">{costText(c.cost) === 'Free' ? 'Free to build.' : `Costs ${costText(c.cost)}.`}</p>
       {cardText(c).map((line) => (
         <p key={line} className="note">
