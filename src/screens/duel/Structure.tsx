@@ -1,6 +1,6 @@
 import type { CSSProperties } from 'react';
 import { cardOf } from '../../games/duel/cards';
-import { shortEffect } from '../../games/duel/describe';
+import { CardEffect, CostIcons } from './CardIcons';
 import { LAYOUTS } from '../../games/duel/setup';
 import { accessible, visible, type DuelState } from '../../games/duel/state';
 
@@ -46,7 +46,12 @@ export function Structure({ state, mine, onPick }: { state: DuelState; mine: boo
               <>
                 <span className="dcard-band" />
                 <span className="dcard-name">{card.name}</span>
-                <span className="dcard-effect">{shortEffect(card)}</span>
+                <span className="dcard-effect">
+                  <CardEffect card={card} size={11} />
+                </span>
+                <span className="dcard-cost">
+                  <CostIcons cost={card.cost} size={9} />
+                </span>
               </>
             ) : (
               <span className="dcard-age">{['I', 'II', 'III'][state.age - 1]}</span>

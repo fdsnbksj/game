@@ -19,7 +19,16 @@ export type IconName =
   | 'papyrus'
   | 'compass'
   | 'gear'
-  | 'tablet';
+  | 'tablet'
+  // Rival Wonders' science symbols, and its extra turn.
+  | 'wheel'
+  | 'mortar'
+  | 'quill'
+  | 'plumb'
+  | 'sundial'
+  | 'globe'
+  | 'law'
+  | 'again';
 
 const LABELS: Record<IconName, string> = {
   coin: 'coin',
@@ -39,6 +48,14 @@ const LABELS: Record<IconName, string> = {
   compass: 'compass',
   gear: 'gear',
   tablet: 'tablet',
+  wheel: 'wheel',
+  mortar: 'mortar',
+  quill: 'quill',
+  plumb: 'plumb line',
+  sundial: 'sundial',
+  globe: 'globe',
+  law: 'scales',
+  again: 'another turn',
 };
 
 function Shape({ name }: { name: IconName }) {
@@ -165,6 +182,67 @@ function Shape({ name }: { name: IconName }) {
           <path d="M6 4h12a1 1 0 0 1 1 1v15H5V5a1 1 0 0 1 1-1z" fill="var(--icon-science)" />
           <path d="M8 8h8M8 11h8M8 14h5" stroke="var(--icon-on-dark)" strokeWidth="1.4" strokeLinecap="round" />
         </>
+      );
+    case 'wheel':
+      return (
+        <g stroke="var(--icon-science)" fill="none" strokeWidth="2">
+          <circle cx="12" cy="12" r="8" />
+          <circle cx="12" cy="12" r="1.8" fill="var(--icon-science)" />
+          <path d="M12 4v16M4 12h16M6.3 6.3l11.4 11.4M17.7 6.3 6.3 17.7" strokeWidth="1.3" />
+        </g>
+      );
+    case 'mortar':
+      return (
+        <>
+          <path d="M14 3.5 18.5 8l-6 6" stroke="var(--icon-science)" strokeWidth="2.2" strokeLinecap="round" fill="none" />
+          <path d="M3.5 11h17c0 5-3.8 8.5-8.5 8.5S3.5 16 3.5 11z" fill="var(--icon-science)" />
+        </>
+      );
+    case 'quill':
+      return (
+        <>
+          <path d="M20 3C12 4 6.5 10 5 19l2 .5C9 12 14 7.5 20 3z" fill="var(--icon-science)" />
+          <path d="M4 21 7.5 16" stroke="var(--icon-science)" strokeWidth="1.8" strokeLinecap="round" />
+        </>
+      );
+    case 'plumb':
+      return (
+        <g fill="var(--icon-science)">
+          <rect x="4" y="3" width="16" height="2.2" rx="1" />
+          <path d="M12 5v8" stroke="var(--icon-science)" strokeWidth="1.6" />
+          <path d="M12 12.5 16 18l-4 3.5L8 18z" />
+        </g>
+      );
+    case 'sundial':
+      return (
+        <>
+          <circle cx="12" cy="13" r="8" fill="none" stroke="var(--icon-science)" strokeWidth="2" />
+          <path d="M12 5v8l6 3" stroke="var(--icon-science)" strokeWidth="2" strokeLinecap="round" fill="none" />
+          <path d="M12 2.5v3" stroke="var(--icon-science)" strokeWidth="2" />
+        </>
+      );
+    case 'globe':
+      return (
+        <g fill="none" stroke="var(--icon-science)" strokeWidth="1.8">
+          <circle cx="12" cy="12" r="8.5" />
+          <ellipse cx="12" cy="12" rx="3.5" ry="8.5" />
+          <path d="M3.5 12h17M5 7.5h14M5 16.5h14" strokeWidth="1.3" />
+        </g>
+      );
+    case 'law':
+      // Scales.
+      return (
+        <g stroke="var(--icon-science)" strokeWidth="1.8" fill="none" strokeLinecap="round">
+          <path d="M12 3v17M7 20h10M5 7h14" />
+          <path d="M5 7 2.5 13h5zM19 7l-2.5 6h5z" fill="var(--icon-science)" />
+        </g>
+      );
+    case 'again':
+      return (
+        <g fill="none" stroke="var(--icon-trade)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M19 12a7 7 0 1 1-2.1-5" />
+          <path d="M18 3.5v4h-4" />
+        </g>
       );
   }
 }

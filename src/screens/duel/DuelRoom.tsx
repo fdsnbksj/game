@@ -20,6 +20,8 @@ import {
 import { finishDuel, joinDuel, sendMove, startDuel, watchDuel, type Duel, type DuelData } from '../../services/duel';
 import { useGameStore } from '../../store';
 import { Structure } from './Structure';
+import { CardEffect, CostIcons, WonderEffect } from './CardIcons';
+import { Count, Icon } from '../../components/GameIcons';
 
 export function DuelRoom() {
   const { code = '' } = useParams();
@@ -182,7 +184,11 @@ function Draft({ state, me, turn, name, onPick }: { state: DuelState; me: Player
           <li key={id}>
             <button className="group card-pad wonder-card" disabled={turn !== me} onClick={() => onPick(id)}>
               <strong>{wonderOf(id).name}</strong>
-              <span className="note">Costs {costText(wonderOf(id).cost)}</span>
+              <span className="wonder-icons">
+                <CostIcons cost={wonderOf(id).cost} size={16} />
+                <span className="arrow">→</span>
+                <WonderEffect wonder={wonderOf(id)} size={16} />
+              </span>
               <span className="note">{wonderText(wonderOf(id)).join(' ')}</span>
             </button>
           </li>
@@ -209,16 +215,14 @@ function CityStrip({ state, p, name }: { state: DuelState; p: Player; name: (p: 
       <header className="city-head">
         <strong>{name(p)}</strong>
         <span className="city-figures">
-          <span className="coins">
-            {city.coins} {city.coins === 1 ? 'coin' : 'coins'}
-          </span>
-          <span className="note">{points} pts</span>
+          <Count name="coin" n={city.coins} size={16} />
+          <Count name="points" n={points} size={16} />
         </span>
       </header>
       <div className="city-row">
         {RESOURCES.filter((r) => made[r] > 0).map((r) => (
-          <span key={r} className={`res res-${r}`}>
-            {RES_NAMES[r]} {made[r]}
+          <span key={r} className="have" title={RES_NAMES[r]}>
+            <Count name={r} n={made[r]} size={15} />
           </span>
         ))}
         {colors.map((c) => {
@@ -233,8 +237,8 @@ function CityStrip({ state, p, name }: { state: DuelState; p: Player; name: (p: 
       {(sci.length > 0 || city.tokens.length > 0) && (
         <div className="city-row">
           {sci.map((s, i) => (
-            <span key={`${s}-${i}`} className="chip">
-              {SCIENCE_NAMES[s]}
+            <span key={`${s}-${i}`} className="have" title={SCIENCE_NAMES[s]}>
+              <Icon name={s} size={15} />
             </span>
           ))}
           {city.tokens.map((t) => (
@@ -322,6 +326,12 @@ function CardSheet({ state, slot, me, canAct, onMove, onClose }: { state: DuelSt
     <Sheet onClose={onClose}>
       <span className={`micro c-text-${card.color}`}>{COLOR_NAMES[card.color]}</span>
       <h3 className="sheet-title">{card.name}</h3>
+      <div className="sheet-icons">
+        <span className="micro">Gives</span>
+        <CardEffect card={card} size={20} />
+        <span className="micro">Costs</span>
+        <CostIcons cost={card.cost} size={18} />
+      </div>
       <p className="note">{costText(card.cost) === 'Free' ? 'Free to build.' : `Costs ${costText(card.cost)}.`}</p>
       {cardText(card).map((line) => (
         <p key={line} className="note">
@@ -345,7 +355,7 @@ function CardSheet({ state, slot, me, canAct, onMove, onClose }: { state: DuelSt
                   <span>
                     Build {wonderOf(w.id).name} {c ? (c.total ? `for ${coinsText(c.total)}` : 'free') : '(can’t afford)'}
                   </span>
-                  <small>{wonderText(wonderOf(w.id)).join(' ')}</small>
+                  <WonderEffect wonder={wonderOf(w.id)} size={15} />
                 </button>
               );
             })}

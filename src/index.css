@@ -2118,3 +2118,40 @@ button.seat:disabled {
   color: var(--label-3);
   font-weight: 600;
 }
+
+/* Rival Wonders with icons: effect and cost rows on the small table cards. */
+.dcard-effect,
+.dcard-cost {
+  display: flex;
+  justify-content: center;
+}
+
+.dcard-effect .icons.effect {
+  gap: 3px;
+  justify-content: center;
+}
+
+.dcard-effect .icon-count {
+  font-size: 0.625rem;
+}
+
+.dcard-cost .icon-count,
+.dcard-cost .icons.free {
+  font-size: 0.5rem;
+}
+
+.dcard-effect .slash,
+.dcard-cost .slash {
+  font-size: 0.5rem;
+}
+
+.wonder-icons {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.wonder-icons .arrow {
+  color: var(--label-3);
+}
