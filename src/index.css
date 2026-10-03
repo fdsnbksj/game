@@ -1784,7 +1784,7 @@ button.seat:disabled {
 .track {
   display: grid;
   place-items: center;
-  height: 22px;
+  height: 14px;
   border-radius: 3px;
   background: var(--surface-2);
   color: var(--label-3);
@@ -1881,6 +1881,30 @@ button.seat:disabled {
   display: flex;
   flex-direction: column;
   gap: 3px;
+}
+
+/* Rival Wonders: the age on the left, the progress tokens chip on the right. */
+.age-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 32px;
+}
+
+.age-row .chip.token {
+  padding: 6px 12px;
+  cursor: pointer;
+}
+
+.wonder-rows .row {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.row.out {
+  opacity: 0.5;
 }
 
 .military-ends {

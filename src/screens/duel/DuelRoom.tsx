@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { createPortal } from 'react-dom';
 import { Link, useParams } from 'react-router';
 import { Page } from '../../components/Page';
 import { Lobby as LobbyFrame } from '../../components/RoomSetup';
+import { Sheet } from '../../components/Sheet';
+import { SummaryRow } from '../../components/SummaryRow';
 import { cardOf, RESOURCES, tokenOf, wonderOf, type TokenId } from '../../games/duel/cards';
 import { cardText, COLOR_NAMES, costText, RES_NAMES, SCIENCE_NAMES, wonderText } from '../../games/duel/describe';
 import { production } from '../../games/duel/pay';
@@ -151,17 +152,19 @@ function Game({ room, moves, uid }: { room: Duel; moves: DuelData['moves']; uid:
         <Draft state={state} me={me} turn={turn} name={name} onPick={(wonder) => play({ type: 'pickWonder', wonder })} />
       ) : (
         <>
-          <CityStrip state={state} p={them} name={name} />
+          <CityRow state={state} p={them} name={name} />
           <Military state={state} me={me} rival={name(them)} />
-          <Tokens tokens={state.boardTokens} />
-          <p className="micro age-label">Age {['I', 'II', 'III'][state.age - 1]}</p>
+          <div className="age-row">
+            <span className="micro">Age {['I', 'II', 'III'][state.age - 1]}</span>
+            <Tokens tokens={state.boardTokens} />
+          </div>
           {state.taken.every(Boolean) ? (
             // Between ages, or the end: no empty table taking up the screen.
             <p className="note age-label">{state.phase === 'over' ? 'Every card is taken.' : `Age ${['I', 'II'][state.age - 1]} is over.`}</p>
           ) : (
             <Structure state={state} mine={turn === me && !state.pending.length && state.phase === 'play'} onPick={setViewing} />
           )}
-          <CityStrip state={state} p={me} name={name} />
+          <CityRow state={state} p={me} name={name} mine />
         </>
       )}
 
@@ -177,22 +180,20 @@ function Game({ room, moves, uid }: { room: Duel; moves: DuelData['moves']; uid:
 }
 
 function Draft({ state, me, turn, name, onPick }: { state: DuelState; me: Player; turn: Player | null; name: (p: Player) => string; onPick: (w: string) => void }) {
+  const [shown, setShown] = useState<string | null>(null);
   return (
     <>
-      <p className="note">
-        {turn === me ? 'Choose a wonder. Each of you drafts four.' : `${name(turn ?? 0)} is choosing a wonder.`}
-      </p>
+      <p className="note">{turn === me ? 'Choose a wonder. Each of you drafts four.' : `${name(turn ?? 0)} is choosing a wonder.`}</p>
       <ul className="wonder-list">
         {state.draft.offered.map((id) => (
           <li key={id}>
-            <button className="group card-pad wonder-card" disabled={turn !== me} onClick={() => onPick(id)}>
+            <button className="group card-pad wonder-card" onClick={() => setShown(id)}>
               <strong>{wonderOf(id).name}</strong>
               <span className="wonder-icons">
-                <CostIcons cost={wonderOf(id).cost} size={16} />
+                <CostIcons cost={wonderOf(id).cost} size={18} />
                 <span className="arrow">→</span>
-                <WonderEffect wonder={wonderOf(id)} size={16} />
+                <WonderEffect wonder={wonderOf(id)} size={18} />
               </span>
-              <span className="note">{wonderText(wonderOf(id)).join(' ')}</span>
             </button>
           </li>
         ))}
@@ -202,7 +203,86 @@ function Draft({ state, me, turn, name, onPick }: { state: DuelState; me: Player
           {name(p as Player)}: {state.cities[p].wonders.map((w) => wonderOf(w.id).name).join(', ') || 'none yet'}
         </p>
       ))}
+      {shown && (
+        <Sheet title={wonderOf(shown).name} onClose={() => setShown(null)}>
+          <div className="sheet-icons">
+            <span className="micro">Gives</span>
+            <WonderEffect wonder={wonderOf(shown)} size={20} />
+            <span className="micro">Costs</span>
+            <CostIcons cost={wonderOf(shown).cost} size={18} />
+          </div>
+          {wonderText(wonderOf(shown)).map((line) => (
+            <p key={line} className="note">
+              {line}
+            </p>
+          ))}
+          <div className="sheet-actions">
+            {turn === me && state.draft.offered.includes(shown) && (
+              <button
+                className="button primary"
+                onClick={() => {
+                  setShown(null);
+                  onPick(shown);
+                }}
+              >
+                Take this wonder
+              </button>
+            )}
+            <button className="button ghost" onClick={() => setShown(null)}>
+              Close
+            </button>
+          </div>
+        </Sheet>
+      )}
     </>
+  );
+}
+
+/** A player in one line (coins, points, wonders built), opening their whole city. */
+function CityRow({ state, p, name, mine }: { state: DuelState; p: Player; name: (p: Player) => string; mine?: boolean }) {
+  const city = state.cities[p];
+  return (
+    <SummaryRow
+      mine={mine}
+      label={name(p)}
+      title={mine ? 'Your city' : `${name(p)}’s city`}
+      figures={
+        <>
+          <Count name="coin" n={city.coins} />
+          <Count name="stage" n={`${city.wonders.filter((w) => w.built).length}/${city.wonders.filter((w) => !w.out).length}`} />
+          <Count name="points" n={score(state)[p].total} />
+        </>
+      }
+    >
+      <CityStrip state={state} p={p} name={name} />
+      <p className="group-title">Wonders</p>
+      <ul className="group players wonder-rows">
+        {city.wonders.map((w) => (
+          <li key={w.id} className={w.out ? 'row out' : 'row'}>
+            <span>
+              {w.built ? '✓ ' : ''}
+              {wonderOf(w.id).name}
+              {w.out ? ' (out of play)' : ''}
+            </span>
+            <span className="row-detail icons effect">
+              {!w.built && !w.out && <CostIcons cost={wonderOf(w.id).cost} size={13} />}
+              <span className="arrow">→</span>
+              <WonderEffect wonder={wonderOf(w.id)} size={13} />
+            </span>
+          </li>
+        ))}
+      </ul>
+      {city.tokens.length > 0 && (
+        <>
+          <p className="group-title">Progress tokens</p>
+          {city.tokens.map((t) => (
+            <p key={t} className="note">
+              <strong>{tokenOf(t).name}</strong>: {tokenOf(t).text}
+            </p>
+          ))}
+        </>
+      )}
+    </SummaryRow>
   );
 }
 
@@ -237,27 +317,15 @@ function CityStrip({ state, p, name }: { state: DuelState; p: Player; name: (p: 
           ) : null;
         })}
       </div>
-      {(sci.length > 0 || city.tokens.length > 0) && (
+      {sci.length > 0 && (
         <div className="city-row">
           {sci.map((s, i) => (
             <span key={`${s}-${i}`} className="have" title={SCIENCE_NAMES[s]}>
               <Icon name={s} size={15} />
             </span>
           ))}
-          {city.tokens.map((t) => (
-            <span key={t} className="chip token">
-              {tokenOf(t).name}
-            </span>
-          ))}
         </div>
       )}
-      <div className="city-row">
-        {city.wonders.map((w) => (
-          <span key={w.id} className={w.built ? 'chip wonder built' : w.out ? 'chip wonder out' : 'chip wonder'}>
-            {wonderOf(w.id).name}
-          </span>
-        ))}
-      </div>
     </section>
   );
 }
@@ -282,38 +350,37 @@ function Military({ state, me, rival }: { state: DuelState; me: Player; rival: s
         })}
       </div>
       <div className="military-ends">
-        <span>Your capital</span>
-        <span>{rival}’s capital</span>
+        <span>◀ Your capital</span>
+        <span>{lead > 0 ? `You lead by ${lead}` : lead < 0 ? `${rival} leads by ${-lead}` : 'Level'}</span>
+        <span>{rival} ▶</span>
       </div>
     </div>
   );
 }
 
+/** The progress tokens still on the table: one chip, the list on tap. */
 function Tokens({ tokens }: { tokens: TokenId[] }) {
-  const [shown, setShown] = useState<TokenId | null>(null);
+  const [open, setOpen] = useState(false);
   if (!tokens.length) return null;
   return (
     <>
-      <div className="board-tokens">
-        {tokens.map((t) => (
-          <button key={t} className={shown === t ? 'chip token on' : 'chip token'} onClick={() => setShown(shown === t ? null : t)}>
-            {tokenOf(t).name}
+      <button className="chip token" onClick={() => setOpen(true)}>
+        Progress tokens ({tokens.length}) ›
+      </button>
+      {open && (
+        <Sheet title="Progress tokens" onClose={() => setOpen(false)}>
+          <p className="note">Pair two matching science symbols to take one.</p>
+          {tokens.map((t) => (
+            <p key={t} className="note">
+              <strong>{tokenOf(t).name}</strong>: {tokenOf(t).text}
+            </p>
+          ))}
+          <button className="button" onClick={() => setOpen(false)}>
+            Close
           </button>
-        ))}
-      </div>
-      {shown && <p className="note token-text">{tokenOf(shown).text}</p>}
+        </Sheet>
+      )}
     </>
-  );
-}
-
-function Sheet({ children, onClose }: { children: ReactNode; onClose?: () => void }) {
-  return createPortal(
-    <div className="sheet-backdrop" onClick={onClose}>
-      <div className="sheet duel-sheet" role="dialog" onClick={(event) => event.stopPropagation()}>
-        {children}
-      </div>
-    </div>,
-    document.body,
   );
 }
 
