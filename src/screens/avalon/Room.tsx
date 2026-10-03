@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Link, useParams } from 'react-router';
 import { Page, Toggle } from '../../components/Page';
 import { Lobby as LobbyFrame } from '../../components/RoomSetup';
+import { SummaryRow } from '../../components/SummaryRow';
 import type { Secret } from '../../games/avalon/deal';
 import { failsToSink, isEvil, MAX_PLAYERS, MAX_REJECTIONS, MIN_PLAYERS, OPTIONAL_ROLES, QUESTS, ROLE_NAMES, roleList, TEAM_SIZES, type OptionalRole } from '../../games/avalon/rules';
 import { derive, type GameState } from '../../games/avalon/state';
@@ -266,6 +267,7 @@ function Game({ room, data, uid }: { room: RoomDoc; data: RoomData; uid: string 
 
   return (
     <>
+      <Board state={state} n={n} />
       {data.mine && room.status !== 'done' && <RoleCard secret={data.mine} name={name} shown={revealing} setShown={setRevealing} />}
       <TableView
         playerIds={room.playerIds}
@@ -277,7 +279,6 @@ function Game({ room, data, uid }: { room: RoomDoc; data: RoomData; uid: string 
         center={<strong className="table-caption">{caption}</strong>}
       />
       {knowing && <Legend secret={knowing} />}
-      <Board state={state} n={n} />
       <PhasePanel state={state} room={room} data={data} uid={uid} name={name} picked={picked} picking={picking} />
       <History state={state} data={data} uid={uid} name={name} />
       {room.status === 'done' && <Reveal room={room} secrets={data.secrets} name={name} />}
@@ -325,10 +326,7 @@ function RoleCard({
           <span className="note">{knows}</span>
         </>
       ) : (
-        <>
-          <strong>Hold to see your role</strong>
-          <span className="note">Keep the screen turned away from others.</span>
-        </>
+        <strong>Hold to see your role</strong>
       )}
     </button>
   );
@@ -355,30 +353,28 @@ function Legend({ secret }: { secret: Secret }) {
   );
 }
 
+/** The five quests (team sizes; a double ring needs two fails) and the rejected teams, in one strip. */
 function Board({ state, n }: { state: GameState; n: number }) {
   return (
-    <div className="group card-pad board-track">
-      <ol className="quests">
+    <div className="quest-strip">
+      <ol className="quests compact">
         {Array.from({ length: QUESTS }, (_, q) => {
           const result = state.results.find((r) => r.quest === q);
           const current = q === state.quest && !result && state.phase.kind !== 'over' && state.phase.kind !== 'assassinating';
-          const cls = ['quest', result ? (result.succeeded ? 'won' : 'lost') : '', current ? 'current' : ''].join(' ');
+          const two = failsToSink(n, q) === 2;
+          const cls = ['quest', result ? (result.succeeded ? 'won' : 'lost') : '', current ? 'current' : '', two ? 'two-fails' : ''].join(' ');
           return (
-            <li key={q} className={cls}>
+            <li key={q} className={cls} aria-label={`Quest ${q + 1}: team of ${TEAM_SIZES[n][q]}${two ? ', needs two fails' : ''}`}>
               {TEAM_SIZES[n][q]}
-              {failsToSink(n, q) === 2 && <small>2 fails</small>}
             </li>
           );
         })}
       </ol>
-      <div className="track-foot">
-        <span className="note">Rejected teams</span>
-        <span className="rejections" aria-label={`${state.rejections} of ${MAX_REJECTIONS} teams rejected`}>
-          {Array.from({ length: MAX_REJECTIONS }, (_, i) => (
-            <span key={i} className={i < state.rejections ? 'on' : undefined} />
-          ))}
-        </span>
-      </div>
+      <span className="rejections" aria-label={`${state.rejections} of ${MAX_REJECTIONS} teams rejected`} title="Rejected teams">
+        {Array.from({ length: MAX_REJECTIONS }, (_, i) => (
+          <span key={i} className={i < state.rejections ? 'on' : undefined} />
+        ))}
+      </span>
     </div>
   );
 }
@@ -412,6 +408,7 @@ function PhasePanel({
         <>
           <p className="lead-line">
             You lead. Tap {phase.teamSize} players on the table for quest {state.quest + 1} ({picked.length} of {phase.teamSize}).
+            {failsToSink(room.playerIds.length, state.quest) === 2 && ' This quest needs two fails to sink.'}
           </p>
           <button
             className="button primary"
@@ -531,42 +528,51 @@ function PhasePanel({
   );
 }
 
-/** The last vote, the Lady's checks, and the quests so far. */
+/** What the Lady showed you stays in view; the votes and quests so far fold into one line. */
 function History({ state, data, uid, name }: { state: GameState; data: RoomData; uid: string; name: (p: string) => string }) {
   const last = state.votes.at(-1);
-  if (!last && state.results.length === 0 && state.ladyPicks.length === 0) return null;
+  const seen = state.ladyPicks.filter((p) => p.holder === uid);
   return (
-    <div className="group card-pad history">
-      {state.ladyPicks
-        .filter((p) => p.holder === uid)
-        .map((p) => (
-          <p key={`seen-${p.quest}`} className={data.ladySeen[p.quest] === undefined ? 'note' : data.ladySeen[p.quest] ? 'lady-seen evil' : 'lady-seen good'}>
-            {data.ladySeen[p.quest] === undefined ? (
-              `Waiting for ${name(p.target)}'s phone to answer the Lady…`
-            ) : (
-              <>
-                The Lady shows you: <strong>{name(p.target)}</strong> is <strong>{data.ladySeen[p.quest] ? 'evil' : 'good'}</strong>. Only you
-                can see this.
-              </>
-            )}
-          </p>
-        ))}
-      {last && (
-        <p className="note">
-          Last vote on {last.proposal.team.map(name).join(', ')}: <strong>{last.approved ? 'approved' : 'rejected'}</strong>{' '}
-          {last.approvals.length}–{last.rejections.length}. For: {last.approvals.map(name).join(', ') || 'no one'}.
-        </p>
-      )}
-      {state.results.map((r) => (
-        <p key={r.quest} className="note">
-          Quest {r.quest + 1}: <strong>{r.succeeded ? 'succeeded' : 'failed'}</strong>
-          {r.fails > 0 ? ` with ${r.fails} ${r.fails === 1 ? 'fail' : 'fails'}` : ''}.
-          {state.ladyPicks
-            .filter((p) => p.quest === r.quest)
-            .map((p) => ` ${name(p.holder)} examined ${name(p.target)} with the Lady.`)}
+    <>
+      {seen.map((p) => (
+        <p key={`seen-${p.quest}`} className={data.ladySeen[p.quest] === undefined ? 'note' : data.ladySeen[p.quest] ? 'lady-seen evil' : 'lady-seen good'}>
+          {data.ladySeen[p.quest] === undefined ? (
+            `Waiting for ${name(p.target)}'s phone to answer the Lady…`
+          ) : (
+            <>
+              The Lady shows you: <strong>{name(p.target)}</strong> is <strong>{data.ladySeen[p.quest] ? 'evil' : 'good'}</strong>. Only you can
+              see this.
+            </>
+          )}
         </p>
       ))}
-    </div>
+      {(last || state.results.length > 0) && (
+        <SummaryRow
+          label="History"
+          figures={last && <span className="note">Last team {last.approved ? 'approved' : 'rejected'} {last.approvals.length}–{last.rejections.length}</span>}
+        >
+          {state.votes
+            .slice()
+            .reverse()
+            .map((v, i) => (
+              <p key={i} className="note">
+                Quest {v.proposal.quest + 1}, {v.proposal.team.map(name).join(', ')}: <strong>{v.approved ? 'approved' : 'rejected'}</strong> {v.approvals.length}–
+                {v.rejections.length}. For: {v.approvals.map(name).join(', ') || 'no one'}.
+              </p>
+            ))}
+          {state.results.length > 0 && <p className="group-title">Quests</p>}
+          {state.results.map((r) => (
+            <p key={r.quest} className="note">
+              Quest {r.quest + 1}: <strong>{r.succeeded ? 'succeeded' : 'failed'}</strong>
+              {r.fails > 0 ? ` with ${r.fails} ${r.fails === 1 ? 'fail' : 'fails'}` : ''}.
+              {state.ladyPicks
+                .filter((p) => p.quest === r.quest)
+                .map((p) => ` ${name(p.holder)} examined ${name(p.target)} with the Lady.`)}
+            </p>
+          ))}
+        </SummaryRow>
+      )}
+    </>
   );
 }
 

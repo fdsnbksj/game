@@ -1137,9 +1137,9 @@ button.icon-button:active:not(:disabled) {
   align-items: center;
   justify-content: center;
   gap: 6px;
-  min-height: 132px;
+  min-height: 52px;
   width: 100%;
-  padding: 16px;
+  padding: 12px 16px;
   color: var(--label);
   font: inherit;
   text-align: center;
@@ -1153,6 +1153,10 @@ button.icon-button:active:not(:disabled) {
 .role-card strong {
   font-size: var(--fs-md);
   font-weight: 600;
+}
+
+.role-card.shown {
+  min-height: 132px;
 }
 
 .role-card.shown strong {
@@ -1231,6 +1235,34 @@ button.icon-button:active:not(:disabled) {
   border-color: var(--danger-line);
   background: var(--danger-soft);
   color: var(--danger);
+}
+
+/* The quests and rejected teams in one strip at the top of the game. */
+.quest-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+  border: 1px solid var(--separator);
+  border-radius: var(--r-md);
+  background: var(--surface);
+}
+
+.quests.compact {
+  display: flex;
+  gap: 6px;
+}
+
+.quests.compact .quest {
+  width: 30px;
+  font-size: var(--fs-sm);
+}
+
+/* Two fails needed: a second ring. */
+.quest.two-fails {
+  outline: 1px solid var(--border-strong);
+  outline-offset: 2px;
 }
 
 .track-foot {
@@ -1337,8 +1369,8 @@ button.icon-button:active:not(:disabled) {
 .table-view {
   position: relative;
   width: 100%;
-  aspect-ratio: 1 / 0.86;
-  margin: 4px 0;
+  aspect-ratio: 1 / 0.8;
+  margin: 0;
 }
 
 .table-top {
