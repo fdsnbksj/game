@@ -3,7 +3,7 @@ import { lastRoom } from '../lastPage';
 import { useNonogramStore } from '../nonogramStore';
 import { useGameStore } from '../store';
 
-const GAME_NAMES: Record<string, string> = { avalon: 'Avalon', duel: 'Rival Wonders', wonders: 'Ancient Wonders' };
+const GAME_NAMES: Record<string, string> = { avalon: 'Avalon', duel: 'Rival Wonders', wonders: 'Ancient Wonders', isle: 'Island Settlers' };
 
 /** A few squares filled in, like a puzzle half done. */
 const NonogramGlyph = () => (
@@ -49,6 +49,14 @@ const WondersGlyph = () => (
     <path d="M12 3 4 20h16L12 3z" fill="currentColor" opacity="0.9" />
     <path d="M12 3 8 20h8L12 3z" fill="currentColor" />
     <rect x="2" y="20" width="20" height="1.6" rx="0.8" fill="currentColor" />
+  </svg>
+);
+
+const IsleGlyph = () => (
+  <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true">
+    <path d="M12 2.5 20.2 7.25v9.5L12 21.5l-8.2-4.75v-9.5z" fill="currentColor" opacity="0.35" />
+    <path d="M7 15.5V12l3-2.8 3 2.8v3.5z" fill="currentColor" />
+    <path d="M13.5 15.5v-2.5l2.2-2 2.2 2v2.5z" fill="currentColor" opacity="0.85" />
   </svg>
 );
 
@@ -137,6 +145,16 @@ export function Home() {
             <small>Build a city, bots welcome</small>
           </div>
           <span className="tile-chip">3–7</span>
+        </Link>
+        <Link className="game-tile" to="/isle">
+          <span className="game-glyph isle">
+            <IsleGlyph />
+          </span>
+          <div>
+            <strong>Island Settlers</strong>
+            <small>Build, trade, bots welcome</small>
+          </div>
+          <span className="tile-chip">3–4</span>
         </Link>
       </nav>
 

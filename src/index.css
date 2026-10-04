@@ -88,6 +88,27 @@
   --icon-on-dark: #0a0b0d;
   --icon-on-light: #3a3020;
   --on-card: #0a0b0d;
+  /* Island Settlers: its two new resources, what you build, the land and the players. */
+  --res-wool: #dfe6d2;
+  --res-grain: #e2c25c;
+  --icon-build: #c7ccd6;
+  --icon-devcard: #a77cf2;
+  --isle-sea: #12263a;
+  --isle-coast: #1d3a55;
+  --isle-forest: #2e6a44;
+  --isle-pasture: #79a955;
+  --isle-fields: #c8a548;
+  --isle-hills: #b4613a;
+  --isle-mountains: #6f7887;
+  --isle-desert: #c9b78c;
+  --isle-token: #f1e9d2;
+  --isle-token-text: #2a2418;
+  --isle-token-hot: #c8323f;
+  --isle-robber: #121317;
+  --isle-p1: #ef5a63;
+  --isle-p2: #5c9cf5;
+  --isle-p3: #eceae4;
+  --isle-p4: #44c58c;
   /* The home screen's game tiles. */
   --game-nonogram: #eebb45;
   --game-nonogram-soft: rgb(238 187 69 / 0.14);
@@ -97,6 +118,8 @@
   --game-duel-soft: rgb(180 140 255 / 0.14);
   --game-wonders: #4fb3c8;
   --game-wonders-soft: rgb(79 179 200 / 0.14);
+  --game-isle: #79a955;
+  --game-isle-soft: rgb(121 169 85 / 0.14);
   /* Avalon's table: a dark felt. */
   --felt: radial-gradient(ellipse at 50% 35%, #1f2a26, #141a18 70%);
   --felt-edge: #2b3a34;
@@ -2316,4 +2339,333 @@ button.seat:disabled {
 
 .center-note {
   text-align: center;
+}
+
+/* ---------- Island Settlers ---------- */
+
+.game-glyph.isle {
+  background: var(--game-isle-soft);
+  color: var(--game-isle);
+}
+
+/* The island: as wide as the screen, the sea a shade off the page. */
+.island {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin: -4px 0;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.isle-sea {
+  fill: var(--isle-sea);
+  stroke: var(--isle-coast);
+  stroke-width: 0.08;
+  stroke-linejoin: round;
+}
+
+.isle-hex {
+  stroke: var(--isle-sea);
+  stroke-width: 0.07;
+  stroke-linejoin: round;
+}
+
+.isle-hex.t-forest { fill: var(--isle-forest); }
+.isle-hex.t-pasture { fill: var(--isle-pasture); }
+.isle-hex.t-fields { fill: var(--isle-fields); }
+.isle-hex.t-hills { fill: var(--isle-hills); }
+.isle-hex.t-mountains { fill: var(--isle-mountains); }
+.isle-hex.t-desert { fill: var(--isle-desert); }
+
+.isle-token circle {
+  fill: var(--isle-token);
+}
+
+.isle-token text {
+  fill: var(--isle-token-text);
+  font-size: 0.32px;
+  font-weight: 700;
+  text-anchor: middle;
+  dominant-baseline: middle;
+}
+
+.isle-token .pip {
+  fill: var(--isle-token-text);
+}
+
+.isle-token.hot text,
+.isle-token.hot .pip {
+  fill: var(--isle-token-hot);
+}
+
+.isle-harbour line {
+  stroke: var(--isle-token);
+  stroke-width: 0.04;
+  stroke-dasharray: 0.06 0.06;
+  opacity: 0.6;
+}
+
+.isle-harbour circle {
+  fill: var(--surface-2);
+  stroke: var(--isle-token);
+  stroke-width: 0.03;
+}
+
+.isle-harbour text {
+  fill: var(--label);
+  font-weight: 700;
+  text-anchor: middle;
+  dominant-baseline: middle;
+}
+
+.isle-harbour-rate { font-size: 0.17px; }
+.isle-harbour-res { font-size: 0.13px; fill: var(--label-2) !important; }
+
+.isle-robber {
+  fill: var(--isle-robber);
+  stroke: var(--isle-token);
+  stroke-width: 0.025;
+}
+
+.isle-road {
+  stroke-width: 0.15;
+  stroke-linecap: round;
+}
+
+.isle-piece {
+  stroke: var(--isle-robber);
+  stroke-width: 0.035;
+  stroke-linejoin: round;
+}
+
+/* Where you can tap now: a gold ring that breathes, and a bigger invisible hit area. */
+.isle-target {
+  cursor: pointer;
+}
+
+.isle-target .hit {
+  fill: transparent;
+}
+
+.isle-target .ring {
+  fill: var(--accent-soft);
+  stroke: var(--accent);
+  stroke-width: 0.05;
+  animation: isle-breathe 1.6s var(--ease) infinite alternate;
+}
+
+.isle-target.hex polygon {
+  fill: var(--accent-soft);
+  stroke: var(--accent-line);
+  stroke-width: 0.04;
+}
+
+.isle-target.hex circle {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 0.05;
+}
+
+@keyframes isle-breathe {
+  from { opacity: 0.55; }
+  to { opacity: 1; }
+}
+
+/* Your hand: five resources and your development cards, one row. */
+.isle-hand {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 6px;
+}
+
+.isle-res {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 7px 0 6px;
+  border: 1px solid var(--separator);
+  border-radius: var(--r-sm);
+  background: var(--fill-1);
+  font-variant-numeric: tabular-nums;
+}
+
+.isle-res.none {
+  opacity: 0.4;
+}
+
+.isle-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.isle-actions:empty {
+  display: none;
+}
+
+.isle-row {
+  display: flex;
+  gap: 8px;
+}
+
+.isle-row > .button {
+  flex: 1;
+}
+
+.isle-choices {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.isle-choices .button,
+.isle-who,
+.isle-chip {
+  gap: 8px;
+}
+
+.isle-who,
+.isle-chip {
+  display: inline-flex;
+  align-items: center;
+}
+
+.isle-chip {
+  gap: 4px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.isle-chip.current {
+  color: var(--accent);
+}
+
+.isle-dot {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.isle-badge {
+  display: inline-grid;
+  place-items: center;
+  min-width: 18px;
+  height: 18px;
+  margin-left: 4px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: var(--fs-label);
+  font-weight: 700;
+}
+
+.isle-offer {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border-color: var(--accent-line);
+}
+
+.isle-offer p {
+  margin: 0;
+  line-height: 1.6;
+}
+
+.isle-build {
+  align-items: stretch;
+}
+
+.isle-build-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.isle-build-head .icons {
+  margin-left: auto;
+}
+
+.isle-steppers {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+  gap: 6px;
+}
+
+.isle-stepper {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  padding: 2px 4px 2px 10px;
+  border: 1px solid var(--separator);
+  border-radius: var(--r-sm);
+  background: var(--fill-1);
+  font-variant-numeric: tabular-nums;
+}
+
+.isle-stepper strong {
+  min-width: 1.2em;
+  text-align: center;
+}
+
+.isle-pick {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+}
+
+.isle-pick-res {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  min-height: 58px;
+  padding: 8px 0 6px;
+  border: 1px solid var(--separator);
+  border-radius: var(--r-sm);
+  background: var(--fill-1);
+  color: var(--label-2);
+  font: inherit;
+  font-size: var(--fs-label);
+  cursor: pointer;
+  transition: transform var(--dur-fast) var(--ease);
+}
+
+.isle-pick-res:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+.isle-pick-res[aria-pressed='true'] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.isle-pick-res:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.isle-player .row-detail {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.isle-award {
+  color: var(--accent);
+  font-size: var(--fs-label);
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+/* The log's last line stands for the whole log. */
+.isle-last {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }

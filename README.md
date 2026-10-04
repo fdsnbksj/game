@@ -1,6 +1,6 @@
 # a game
 
-A small collection of games: nonograms for between chapters, Avalon for a table of friends, Rival Wonders, a two-player duel of ancient wonders, and Ancient Wonders for 3 to 7 players (with bots for empty seats).
+A small collection of games: nonograms for between chapters, Avalon for a table of friends, Rival Wonders, a two-player duel of ancient wonders, Ancient Wonders for 3 to 7 players, and Island Settlers, a hex-island trading game for 3 or 4 (both with bots for empty seats).
 
 Nonograms are small logic puzzles for between chapters. Each one is a nonogram: fill in squares so that every row and column matches the numbers beside it, and a picture appears. It's built for a train ride with a book. Everything works with one thumb, nothing needs sound, there's no clock and no way to lose, and every tap is saved, so you can close it at your stop, even without a signal. Levels go on forever, grow from 5×5 to 10×10 and are ranked.
 
@@ -45,6 +45,7 @@ npm run build       # type-check + production build
 | `src/games/avalon/`, `src/services/avalon.ts` | Avalon: rules, dealing and state as pure code; rooms in Firestore |
 | `src/games/duel/`, `src/services/duel.ts`, `src/screens/duel/` | Rival Wonders: cards, layouts, payment and the rules as pure code; rooms and moves in Firestore |
 | `src/games/wonders/`, `src/services/wonders.ts`, `src/screens/wonders/` | Ancient Wonders: cards, boards, neighbour trade, simultaneous turns, scoring and bots as pure code; rooms and moves in Firestore |
+| `src/games/isle/`, `src/services/isle.ts`, `src/screens/isle/` | Island Settlers: the island's geometry, a seeded deal, the rules (dice, robber, trades, development cards, longest road) and bots as pure code; rooms and moves in Firestore |
 | `src/services/` | Firestore reads and writes: session, players, solves and rankings |
 | `tests/unit/`, `tests/rules/` | Puzzle tests, and Firestore rules tests |
 | `firestore.rules` | The only server-side validation (Spark has no Cloud Functions) |

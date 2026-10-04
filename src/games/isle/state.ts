@@ -28,6 +28,8 @@ export interface Offer {
   give: Hand;
   get: Hand;
   declined: number[];
+  /** When it was made (the move count): tells one offer from the next. */
+  at: number;
 }
 
 export type Phase = 'setup' | 'roll' | 'discard' | 'robber' | 'main' | 'over';
@@ -507,7 +509,7 @@ function act(s: IsleState, m: Move, seat: number): boolean {
       const give = readHand(m.give);
       const get = readHand(m.get);
       if (!give || !get || !handSize(give) || !handSize(get) || RESOURCES.some((r) => give[r] && get[r]) || !canAfford(me.hand, give)) return false;
-      s.offer = { give, get, declined: [] };
+      s.offer = { give, get, declined: [], at: s.count };
       return true;
     }
     case 'cancel': {

@@ -6,7 +6,7 @@ import { Sheet } from './Sheet';
 
 /**
  * A party game's front door: what it is in a line, Host a game, Join with a code, and
- * the rules a tap away. Shared by Avalon, Rival Wonders and Ancient Wonders.
+ * the rules a tap away. Shared by every party game.
  */
 export function GameHome({
   title,
@@ -18,7 +18,7 @@ export function GameHome({
 }: {
   title: string;
   tagline: string;
-  /** Where rooms live: `/avalon`, `/duel`, `/wonders`. */
+  /** Where rooms live: `/avalon`, `/duel`, `/wonders`, `/isle`. */
   base: string;
   howTo: ReactNode;
   onHost: () => Promise<string>;
