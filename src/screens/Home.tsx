@@ -60,6 +60,15 @@ const IsleGlyph = () => (
   </svg>
 );
 
+/** Two blades crossed over the island they fight on. */
+const BrawlGlyph = () => (
+  <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true">
+    <path d="M18.6 2.8 20.2 4.4 9.4 15.2l-1.6-1.6z" fill="currentColor" />
+    <path d="M5.4 2.8 3.8 4.4l10.8 10.8 1.6-1.6z" fill="currentColor" opacity="0.6" />
+    <rect x="3" y="18.5" width="18" height="2.6" rx="1.3" fill="currentColor" />
+  </svg>
+);
+
 function greeting() {
   const hour = new Date().getHours();
   if (hour < 5) return 'Good night';
@@ -155,6 +164,16 @@ export function Home() {
             <small>Build, trade, bots welcome</small>
           </div>
           <span className="tile-chip">3–4</span>
+        </Link>
+        <Link className="game-tile" to="/brawl">
+          <span className="game-glyph brawl">
+            <BrawlGlyph />
+          </span>
+          <div>
+            <strong>Sky Brawl</strong>
+            <small>Fight bots, one thumb</small>
+          </div>
+          <span className="tile-chip">1–3 bots</span>
         </Link>
       </nav>
 

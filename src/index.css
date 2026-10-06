@@ -120,6 +120,24 @@
   --game-wonders-soft: rgb(79 179 200 / 0.14);
   --game-isle: #79a955;
   --game-isle-soft: rgb(121 169 85 / 0.14);
+  --game-brawl: #f08a5d;
+  --game-brawl-soft: rgb(240 138 93 / 0.14);
+  /* Sky Brawl: a night sky, a stone island, and a colour per fighter (gold is you). */
+  --brawl-sky-top: #141a2a;
+  --brawl-sky-bottom: #0a0b0d;
+  --brawl-glow: rgb(238 187 69 / 0.1);
+  --brawl-stage: #343a48;
+  --brawl-stage-top: #5d6577;
+  --brawl-stage-edge: #1c1f27;
+  --brawl-ledge: #4a5162;
+  --brawl-p1: #eebb45;
+  --brawl-p2: #5c9cf5;
+  --brawl-p3: #ef5a63;
+  --brawl-p4: #44c58c;
+  --brawl-flash: #ffffff;
+  --brawl-steel: #d4d9e2;
+  --brawl-wood: #9a6b3d;
+  --brawl-eye: #0a0b0d;
   /* Avalon's table: a dark felt. */
   --felt: radial-gradient(ellipse at 50% 35%, #1f2a26, #141a18 70%);
   --felt-edge: #2b3a34;
@@ -2668,4 +2686,216 @@ button.seat:disabled {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* ---------- Sky Brawl ---------- */
+
+.game-glyph.brawl {
+  background: var(--game-brawl-soft);
+  color: var(--game-brawl);
+}
+
+.brawl-fighters {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.brawl-fighter {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 14px 8px;
+  border: 1px solid var(--separator);
+  border-radius: var(--r-lg);
+  background: var(--surface-grad);
+  box-shadow: var(--highlight), var(--shadow-1);
+  color: var(--label);
+  font: inherit;
+  text-align: center;
+  cursor: pointer;
+  transition: transform var(--dur-fast) var(--ease), border-color var(--dur) var(--ease);
+}
+
+.brawl-fighter:active {
+  transform: scale(0.97);
+}
+
+.brawl-fighter[aria-checked='true'] {
+  border-color: var(--accent-line);
+  background: var(--accent-soft);
+}
+
+.brawl-fighter small {
+  color: var(--label-2);
+  font-size: var(--fs-cap);
+  line-height: 1.35;
+}
+
+/* The fight never scrolls: the arena on top, the thumb's space below. */
+.screen.brawl {
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+  gap: 8px;
+}
+
+.screen.brawl .bar {
+  grid-template-columns: 44px 1fr 44px;
+  gap: 6px;
+}
+
+.brawl-hud {
+  display: grid;
+  gap: 4px;
+}
+
+.brawl-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  min-width: 0;
+  padding: 4px 2px 5px;
+  border-radius: 10px;
+  background: var(--fill-1);
+  font-variant-numeric: tabular-nums;
+}
+
+.brawl-chip.out {
+  opacity: 0.4;
+}
+
+.brawl-chip-name {
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--label-2);
+  font-size: var(--fs-label);
+  letter-spacing: 0.08em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.brawl-chip strong {
+  font-size: var(--fs-md);
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.brawl-chip strong.warm {
+  color: var(--accent);
+}
+
+.brawl-chip strong.hot {
+  color: var(--danger);
+}
+
+.brawl-stocks {
+  display: flex;
+  gap: 3px;
+}
+
+.brawl-stocks i {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--fill-3);
+}
+
+.brawl-chip.p1 .brawl-stocks i.on { background: var(--brawl-p1); }
+.brawl-chip.p2 .brawl-stocks i.on { background: var(--brawl-p2); }
+.brawl-chip.p3 .brawl-stocks i.on { background: var(--brawl-p3); }
+.brawl-chip.p4 .brawl-stocks i.on { background: var(--brawl-p4); }
+
+.brawl-arena {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid var(--separator);
+  border-radius: var(--r-lg);
+  background: var(--brawl-sky-bottom);
+}
+
+.brawl-arena canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.brawl-thumb {
+  position: relative;
+  flex: 0 0 38dvh;
+  overflow: hidden;
+  border: 1px solid var(--separator);
+  border-radius: var(--r-lg);
+  background: var(--fill-1);
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.brawl-thumb-hint {
+  position: absolute;
+  inset: auto 0 14px;
+  margin: 0;
+  color: var(--label-3);
+  font-size: var(--fs-cap);
+  line-height: 1.6;
+  text-align: center;
+  pointer-events: none;
+}
+
+.brawl-stick {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+}
+
+.brawl-stick[hidden] {
+  display: none;
+}
+
+.brawl-ring,
+.brawl-knob {
+  position: absolute;
+  border-radius: 50%;
+}
+
+/* The stick's base: fills gold as a heavy charges. */
+.brawl-ring {
+  --charge: 0;
+  top: -44px;
+  left: -44px;
+  width: 88px;
+  height: 88px;
+  background:
+    radial-gradient(closest-side, var(--bg) 86%, transparent 88%),
+    conic-gradient(var(--accent-line) calc(var(--charge) * 360deg), var(--fill-2) 0);
+  opacity: 0.9;
+}
+
+.brawl-ring.ready {
+  background:
+    radial-gradient(closest-side, var(--accent-soft) 86%, transparent 88%),
+    conic-gradient(var(--accent) 360deg, var(--accent) 0);
+}
+
+.brawl-knob {
+  top: -22px;
+  left: -22px;
+  width: 44px;
+  height: 44px;
+  background: var(--fill-3);
+  box-shadow: var(--highlight);
+}
+
+.brawl-result {
+  margin: 0;
+  font-size: var(--fs-lg);
+  font-weight: 700;
 }

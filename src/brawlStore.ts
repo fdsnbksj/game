@@ -1,0 +1,77 @@
+import { create } from 'zustand';
+import type { FighterId } from './games/brawl/fighters';
+import { BRAWL_VERSION, newMatch, type BotLevel, type Match } from './games/brawl/state';
+
+// Sky Brawl's choices and the fight in progress, saved to localStorage so a fight put down
+// at a stop picks up where it was. A key of its own: the other games' saves are untouched.
+
+const KEY = 'game:brawl';
+
+interface Saved {
+  fighter: FighterId;
+  bots: 1 | 2 | 3;
+  level: 1 | 2 | 3;
+  match: Match | null;
+  wins: number;
+  fights: number;
+}
+
+const fresh = (): Saved => ({ fighter: 'knight', bots: 1, level: 2, match: null, wins: 0, fights: 0 });
+
+function load(): Saved {
+  try {
+    const saved = { ...fresh(), ...(JSON.parse(localStorage.getItem(KEY) ?? 'null') as Partial<Saved> | null) };
+    // A fight saved by an older engine would play differently now: let it go.
+    // A finished fight is never worth reopening.
+    if (saved.match && (saved.match.v !== BRAWL_VERSION || saved.match.winner !== null)) saved.match = null;
+    return saved;
+  } catch {
+    return fresh();
+  }
+}
+
+function save(state: Saved) {
+  const { fighter, bots, level, match, wins, fights } = state;
+  try {
+    localStorage.setItem(KEY, JSON.stringify({ fighter, bots, level, match, wins, fights }));
+  } catch {
+    // Private mode or full storage: the fight lasts this visit.
+  }
+}
+
+const OTHERS: FighterId[] = ['knight', 'smith', 'lancer'];
+
+interface BrawlStore extends Saved {
+  choose: (change: Partial<Pick<Saved, 'fighter' | 'bots' | 'level'>>) => void;
+  /** A new fight: you in seat 0, bots in the rest. */
+  start: (seed: string) => void;
+  /** Saves where the fight is; called now and then, and whenever the screen is left. */
+  keep: (match: Match) => void;
+  /** Counts a finished fight once and clears it. */
+  finish: (won: boolean) => void;
+  quit: () => void;
+}
+
+export const useBrawlStore = create<BrawlStore>()((set, get) => {
+  const update = (change: Partial<Saved>) => {
+    set(change);
+    save(get());
+  };
+  return {
+    ...load(),
+    choose: (change) => update(change),
+    start: (seed) => {
+      const { fighter, bots, level } = get();
+      // Bots take the other fighters in turn, so a fight shows the variety.
+      const rest = OTHERS.filter((f) => f !== fighter);
+      const seats = [{ fighter, bot: 0 as BotLevel }, ...Array.from({ length: bots }, (_, i) => ({ fighter: rest[i % rest.length], bot: level as BotLevel }))];
+      update({ match: newMatch(seed, seats) });
+    },
+    keep: (match) => {
+      // A finished fight is counted by finish(); keeping it would reopen it with no way on.
+      if (match.winner === null && get().match !== null) update({ match });
+    },
+    finish: (won) => update({ match: null, fights: get().fights + 1, wins: get().wins + (won ? 1 : 0) }),
+    quit: () => update({ match: null }),
+  };
+});
