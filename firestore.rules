@@ -620,5 +620,103 @@ service cloud.firestore {
         && after.status == 'done'
         && after.endedAt == request.time;
     }
+
+    // ---------- Sky Brawl online ----------
+    // Two phones fight each other directly over WebRTC. Firestore holds only the room
+    // (who's in, their fighters, the seed) and one handshake each way: the host's offer
+    // and the guest's answer, one document each per attempt (offer, offer-1, ...). The
+    // fight itself never touches Firestore, so there's nothing in it for the rules to check.
+
+    function brawl(code) {
+      return get(/databases/$(database)/documents/brawls/$(code)).data;
+    }
+
+    function isFighter(f) {
+      return f in ['knight', 'smith', 'lancer'];
+    }
+
+    match /brawls/{code} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+        && code.matches('[A-Z]{4}')
+        && hasExactly(request.resource.data, ['host', 'playerIds', 'names', 'fighters', 'status', 'createdAt'])
+        && request.resource.data.host == request.auth.uid
+        && request.resource.data.playerIds == [request.auth.uid]
+        && request.resource.data.names.keys().hasOnly([request.auth.uid])
+        && isValidName(request.resource.data.names[request.auth.uid])
+        && request.resource.data.fighters.keys().hasOnly([request.auth.uid])
+        && isFighter(request.resource.data.fighters[request.auth.uid])
+        && request.resource.data.status == 'lobby'
+        && request.resource.data.createdAt == request.time;
+      allow update: if request.auth != null && (isBrawlJoin() || isBrawlPick() || isBrawlStart() || isBrawlFinish());
+
+      match /signals/{id} {
+        allow read: if request.auth != null && request.auth.uid in brawl(code).playerIds;
+        allow create: if request.auth != null
+          && id.matches('(offer|answer)(-[0-9])?')
+          && brawl(code).status == 'playing'
+          && hasExactly(request.resource.data, ['sdp', 'at'])
+          && request.resource.data.sdp is string
+          && request.resource.data.sdp.size() > 0 && request.resource.data.sdp.size() <= 20000
+          && request.resource.data.at == request.time
+          && (isBrawlOffer(code, id) || isBrawlAnswer(code, id));
+      }
+    }
+
+    function isBrawlOffer(code, id) {
+      return id.matches('offer(-[0-9])?') && request.auth.uid == brawl(code).host;
+    }
+
+    // Only the guest answers, and only an offer that's there.
+    function isBrawlAnswer(code, id) {
+      return id.matches('answer(-[0-9])?')
+        && brawl(code).playerIds.size() == 2
+        && request.auth.uid == brawl(code).playerIds[1]
+        && exists(/databases/$(database)/documents/brawls/$(code)/signals/$(id.replace('answer', 'offer')));
+    }
+
+    function isBrawlJoin() {
+      let before = resource.data;
+      let after = request.resource.data;
+      return before.status == 'lobby'
+        && before.playerIds.size() == 1
+        && !(request.auth.uid in before.playerIds)
+        && after.diff(before).affectedKeys().hasOnly(['playerIds', 'names', 'fighters'])
+        && after.playerIds == before.playerIds.concat([request.auth.uid])
+        && after.names.diff(before.names).affectedKeys().hasOnly([request.auth.uid])
+        && isValidName(after.names[request.auth.uid])
+        && after.fighters.diff(before.fighters).affectedKeys().hasOnly([request.auth.uid])
+        && isFighter(after.fighters[request.auth.uid]);
+    }
+
+    function isBrawlPick() {
+      let before = resource.data;
+      let after = request.resource.data;
+      return before.status == 'lobby'
+        && request.auth.uid in before.playerIds
+        && after.diff(before).affectedKeys().hasOnly(['fighters'])
+        && after.fighters.diff(before.fighters).affectedKeys().hasOnly([request.auth.uid])
+        && isFighter(after.fighters[request.auth.uid]);
+    }
+
+    function isBrawlStart() {
+      let before = resource.data;
+      let after = request.resource.data;
+      return before.status == 'lobby' && request.auth.uid == before.host
+        && before.playerIds.size() == 2
+        && after.diff(before).affectedKeys().hasOnly(['status', 'seed', 'startedAt'])
+        && after.status == 'playing'
+        && after.seed is string && after.seed.size() >= 6 && after.seed.size() <= 40
+        && after.startedAt == request.time;
+    }
+
+    function isBrawlFinish() {
+      let before = resource.data;
+      let after = request.resource.data;
+      return before.status == 'playing' && request.auth.uid in before.playerIds
+        && after.diff(before).affectedKeys().hasOnly(['status', 'endedAt'])
+        && after.status == 'done'
+        && after.endedAt == request.time;
+    }
   }
 }

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router';
 import { useBrawlStore } from '../../brawlStore';
 import { FIGHTER_IDS, FIGHTERS } from '../../games/brawl/fighters';
 import type { Match } from '../../games/brawl/state';
@@ -128,6 +129,9 @@ function FrontDoor() {
         <button className="button primary" onClick={() => start(newSeed())}>
           Fight
         </button>
+        <Link className="button" to="/brawl/online">
+          Play a friend
+        </Link>
         <button className="button ghost" onClick={() => setRules(true)}>
           How to play
         </button>

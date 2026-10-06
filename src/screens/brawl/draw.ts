@@ -165,13 +165,14 @@ function weaponAim(move: Move | null, frame: number, facing: number): [number, n
   return [reach[0] * (1 - t) + facing * 0.5 * t, reach[1] * (1 - t) - t];
 }
 
-function drawFighter(ctx: CanvasRenderingContext2D, m: Match, seat: number, p: Palette) {
+function drawFighter(ctx: CanvasRenderingContext2D, m: Match, seat: number, p: Palette, local: number) {
   const f = m.fighters[seat];
   if (!inPlay(f)) return;
   const fighter = FIGHTERS[m.seats[seat].fighter];
   const x = f.x / SUB;
   const y = f.y / SUB;
-  const colour = p.seats[seat % p.seats.length];
+  // Your own fighter is always the first colour, gold.
+  const colour = p.seats[(seat - local + m.fighters.length) % m.fighters.length];
   const move = moveOf(m, seat);
 
   ctx.save();
@@ -217,11 +218,11 @@ function drawFighter(ctx: CanvasRenderingContext2D, m: Match, seat: number, p: P
   ctx.restore();
 }
 
-function drawBurst(ctx: CanvasRenderingContext2D, b: Burst, p: Palette) {
+function drawBurst(ctx: CanvasRenderingContext2D, b: Burst, colour: string) {
   const t = b.age / 40;
   ctx.save();
   ctx.globalAlpha = 1 - t;
-  ctx.strokeStyle = p.seats[b.seat % p.seats.length];
+  ctx.strokeStyle = colour;
   ctx.lineWidth = 6 * (1 - t) + 1;
   ctx.beginPath();
   ctx.arc(b.x, b.y, 30 + t * 140, 0, Math.PI * 2);
@@ -229,7 +230,7 @@ function drawBurst(ctx: CanvasRenderingContext2D, b: Burst, p: Palette) {
   ctx.restore();
 }
 
-export function draw(ctx: CanvasRenderingContext2D, width: number, height: number, m: Match, cam: Camera, p: Palette, bursts: Burst[]) {
+export function draw(ctx: CanvasRenderingContext2D, width: number, height: number, m: Match, cam: Camera, p: Palette, bursts: Burst[], local = 0) {
   const sky = ctx.createLinearGradient(0, 0, 0, height);
   sky.addColorStop(0, p.skyTop);
   sky.addColorStop(1, p.skyBottom);
@@ -249,6 +250,7 @@ export function draw(ctx: CanvasRenderingContext2D, width: number, height: numbe
 
   drawStage(ctx, p);
   // You on top, so your own fighter is never lost in a crowd.
-  for (let seat = m.fighters.length - 1; seat >= 0; seat--) drawFighter(ctx, m, seat, p);
-  for (const b of bursts) drawBurst(ctx, b, p);
+  const n = m.fighters.length;
+  for (let k = n - 1; k >= 0; k--) drawFighter(ctx, m, (local + k) % n, p, local);
+  for (const b of bursts) drawBurst(ctx, b, p.seats[(b.seat - local + n) % n]);
 }

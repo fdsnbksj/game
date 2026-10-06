@@ -11,6 +11,8 @@ import { WondersRoom } from './screens/wonders/WondersRoom';
 import { IsleHome } from './screens/isle/IsleHome';
 import { IsleRoom } from './screens/isle/IsleRoom';
 import { Brawl } from './screens/brawl/Brawl';
+import { BrawlOnline } from './screens/brawl/BrawlOnline';
+import { BrawlRoom } from './screens/brawl/BrawlRoom';
 import { Home } from './screens/Home';
 import { Play } from './screens/Play';
 import { Rankings } from './screens/Rankings';
@@ -38,6 +40,8 @@ export function App() {
         <Route path="/isle" element={<IsleHome />} />
         <Route path="/isle/:code" element={<IsleRoom />} />
         <Route path="/brawl" element={<Brawl />} />
+        <Route path="/brawl/online" element={<BrawlOnline />} />
+        <Route path="/brawl/:code" element={<BrawlRoom />} />
         <Route path="/saved" element={<Saved />} />
         <Route path="/ranks" element={<Rankings />} />
         <Route path="/settings" element={<Settings />} />

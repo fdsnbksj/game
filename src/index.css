@@ -2899,3 +2899,19 @@ button.seat:disabled {
   font-size: var(--fs-lg);
   font-weight: 700;
 }
+
+/* Over the arena while the other phone has gone quiet. */
+.brawl-waiting {
+  position: fixed;
+  top: 30%;
+  left: 50%;
+  z-index: 20;
+  margin: 0;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: var(--bar-bg);
+  color: var(--label-2);
+  font-size: var(--fs-sm);
+  transform: translateX(-50%);
+  pointer-events: none;
+}
