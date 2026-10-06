@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DOWN, HEAVY, JUMP, LEFT, LIGHT, RIGHT, type Input } from '../../src/games/brawl/input';
+import { DOWN, JUMP, LEFT, RIGHT, SKILL1, SKILL2, type Input } from '../../src/games/brawl/input';
 import { decode, encode, type Message } from '../../src/games/brawl/net';
 import { INPUT_DELAY, MAX_ROLLBACK, Session } from '../../src/games/brawl/rollback';
 import { SUB } from '../../src/games/brawl/stage';
@@ -8,17 +8,14 @@ import { stream } from '../../src/nonogram/rng';
 
 /** Two fighters close together, so the scripted thumbs trade blows. */
 function start(): Match {
-  const m = newMatch('online', [
-    { fighter: 'knight', bot: 0 },
-    { fighter: 'lancer', bot: 0 },
-  ]);
+  const m = newMatch('online', [{ bot: 0 }, { bot: 0 }]);
   return { ...m, fighters: m.fighters.map((f, i) => ({ ...f, x: (i === 0 ? -30 : 30) * SUB })) };
 }
 
 /** What each seat's thumb does at the moment frame `f` is played locally: different on each side. */
 const thumb = (seat: number, f: number): Input => {
-  const a = [LIGHT | RIGHT, 0, LIGHT, RIGHT, HEAVY | RIGHT, LEFT, LIGHT | LEFT, JUMP, LIGHT | DOWN, RIGHT][Math.floor(f / 6) % 10];
-  const b = [LIGHT | LEFT, LEFT, LIGHT, HEAVY | LEFT, 0, LIGHT | RIGHT, JUMP, LIGHT, RIGHT][Math.floor(f / 5) % 9];
+  const a = [SKILL1 | RIGHT, 0, SKILL1, RIGHT, SKILL2 | RIGHT, LEFT, SKILL1 | LEFT, JUMP, SKILL1 | DOWN, RIGHT][Math.floor(f / 6) % 10];
+  const b = [SKILL1 | LEFT, LEFT, SKILL1, SKILL2 | LEFT, 0, SKILL1 | RIGHT, JUMP, SKILL1, RIGHT][Math.floor(f / 5) % 9];
   // Actions only on the first frame of each stretch, like a tap.
   const raw = seat === 0 ? a : b;
   const first = seat === 0 ? f % 6 === 0 : f % 5 === 0;
@@ -131,7 +128,7 @@ describe('Sky Brawl rollback', () => {
 
   it('ignores late messages from the fight before', () => {
     const s = new Session(start(), 0, 1);
-    s.receive({ t: 'in', round: 0, from: 0, inputs: Array(20).fill(LIGHT), frame: 20, lead: 0, ack: 0 });
+    s.receive({ t: 'in', round: 0, from: 0, inputs: Array(20).fill(SKILL1), frame: 20, lead: 0, ack: 0 });
     expect(s.heard).toBe(INPUT_DELAY);
   });
 

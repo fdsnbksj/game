@@ -138,6 +138,9 @@
   --brawl-steel: #d4d9e2;
   --brawl-wood: #9a6b3d;
   --brawl-eye: #0a0b0d;
+  --brawl-bomb: #23262e;
+  --brawl-spark: #ffb347;
+  --brawl-item-glow: rgb(238 187 69 / 0.45);
   /* Avalon's table: a dark felt. */
   --felt: radial-gradient(ellipse at 50% 35%, #1f2a26, #141a18 70%);
   --felt-edge: #2b3a34;
@@ -2881,7 +2884,7 @@ button.seat:disabled {
 
 .brawl-ring.ready {
   background:
-    radial-gradient(closest-side, var(--accent-soft) 86%, transparent 88%),
+    radial-gradient(closest-side, var(--bg) 86%, transparent 88%),
     conic-gradient(var(--accent) 360deg, var(--accent) 0);
 }
 
@@ -2914,4 +2917,42 @@ button.seat:disabled {
   font-size: var(--fs-sm);
   transform: translateX(-50%);
   pointer-events: none;
+}
+
+/* The strong skill's aim while it charges: an arrow out of the ring. */
+.brawl-aim {
+  position: absolute;
+  top: -2px;
+  left: 0;
+  width: 64px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--accent);
+  transform-origin: 0 50%;
+}
+
+.brawl-aim[hidden] {
+  display: none;
+}
+
+.brawl-chip-name svg {
+  margin-right: 3px;
+  vertical-align: -1px;
+}
+
+.brawl-weapons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  margin: 0;
+  padding: 0;
+  color: var(--label);
+  font-size: var(--fs-sm);
+  list-style: none;
+}
+
+.brawl-weapons li {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
 }

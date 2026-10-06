@@ -1,6 +1,6 @@
-import { FIGHTERS, totalFrames, type Move } from '../../games/brawl/fighters';
 import { BLAST, BODY_H, BODY_W, PLATFORMS, SUB } from '../../games/brawl/stage';
-import { hitbox, inPlay, isActive, moveOf, type Match } from '../../games/brawl/state';
+import { hitbox, inPlay, isActive, ITEM_LIFE, skillOf, type Blast, type FighterState, type Item, type Match, type Projectile } from '../../games/brawl/state';
+import { aimVector, skillFrames, WEAPON_FRAMES, type WeaponId } from '../../games/brawl/weapons';
 
 /** The colours, read once from the tokens in index.css. */
 export interface Palette {
@@ -16,6 +16,9 @@ export interface Palette {
   steel: string;
   wood: string;
   eye: string;
+  bomb: string;
+  spark: string;
+  itemGlow: string;
 }
 
 export function readPalette(): Palette {
@@ -34,6 +37,9 @@ export function readPalette(): Palette {
     steel: v('--brawl-steel'),
     wood: v('--brawl-wood'),
     eye: v('--brawl-eye'),
+    bomb: v('--brawl-bomb'),
+    spark: v('--brawl-spark'),
+    itemGlow: v('--brawl-item-glow'),
   };
 }
 
@@ -103,15 +109,21 @@ function drawStage(ctx: CanvasRenderingContext2D, p: Palette) {
   }
 }
 
-/** The weapon, held out along a direction from the hand: a sword, a hammer or a spear. */
-function drawWeapon(ctx: CanvasRenderingContext2D, kind: 'sword' | 'hammer' | 'spear', hx: number, hy: number, dx: number, dy: number, p: Palette, length: number) {
+/** A weapon held out along a direction from the hand. */
+function drawWeapon(ctx: CanvasRenderingContext2D, kind: WeaponId, hx: number, hy: number, dx: number, dy: number, p: Palette, colour: string) {
   const len = Math.hypot(dx, dy) || 1;
   const ux = dx / len;
   const uy = dy / len;
+  const length = kind === 'spear' ? 54 : kind === 'hammer' ? 34 : kind === 'sword' ? 40 : 14;
   const tx = hx + ux * length;
   const ty = hy + uy * length;
   ctx.lineCap = 'round';
-  if (kind === 'spear') {
+  if (kind === 'fists') {
+    ctx.fillStyle = colour;
+    ctx.beginPath();
+    ctx.arc(tx, ty, 6, 0, Math.PI * 2);
+    ctx.fill();
+  } else if (kind === 'spear') {
     ctx.strokeStyle = p.wood;
     ctx.lineWidth = 3;
     ctx.beginPath();
@@ -138,7 +150,7 @@ function drawWeapon(ctx: CanvasRenderingContext2D, kind: 'sword' | 'hammer' | 's
     roundRect(ctx, -6, -11, 16, 22, 3);
     ctx.fill();
     ctx.restore();
-  } else {
+  } else if (kind === 'sword') {
     ctx.strokeStyle = p.steel;
     ctx.lineWidth = 4;
     ctx.beginPath();
@@ -151,45 +163,68 @@ function drawWeapon(ctx: CanvasRenderingContext2D, kind: 'sword' | 'hammer' | 's
     ctx.moveTo(hx - uy * 7 + ux * 5, hy + ux * 7 + uy * 5);
     ctx.lineTo(hx + uy * 7 + ux * 5, hy - ux * 7 + uy * 5);
     ctx.stroke();
+  } else if (kind === 'bow') {
+    // A curve facing the aim, with its string.
+    const a = Math.atan2(uy, ux);
+    ctx.strokeStyle = p.wood;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(hx, hy, 16, a - 1.1, a + 1.1);
+    ctx.stroke();
+    ctx.strokeStyle = p.steel;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(hx + Math.cos(a - 1.1) * 16, hy + Math.sin(a - 1.1) * 16);
+    ctx.lineTo(hx + Math.cos(a + 1.1) * 16, hy + Math.sin(a + 1.1) * 16);
+    ctx.stroke();
+  } else {
+    ctx.fillStyle = p.bomb;
+    ctx.beginPath();
+    ctx.arc(hx + ux * 10, hy + uy * 10, 7, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = p.spark;
+    ctx.beginPath();
+    ctx.arc(hx + ux * 10 + 4, hy + uy * 10 - 7, 2, 0, Math.PI * 2);
+    ctx.fill();
   }
 }
 
-/** Where the weapon points: resting, winding up, or out at the hitbox. */
-function weaponAim(move: Move | null, frame: number, facing: number): [number, number] {
-  if (!move) return [facing * 0.5, -1];
-  const box = move.box;
-  const reach: [number, number] = [facing * (box.x + box.w / 2), box.y + box.h / 2 + BODY_H * 0.55];
-  if (frame <= move.startup) return [-facing * 0.6, -1];
-  if (frame <= move.startup + move.active) return reach;
-  const t = (frame - move.startup - move.active) / Math.max(1, totalFrames(move) - move.startup - move.active);
-  return [reach[0] * (1 - t) + facing * 0.5 * t, reach[1] * (1 - t) - t];
+/** Where the weapon points: resting, winding up, or out along the aim. */
+function weaponAim(f: FighterState): [number, number] {
+  const skill = skillOf(f);
+  if (!skill) return [f.facing * 0.5, -1];
+  const [ax, ay] = aimVector(f.aimX, f.aimY);
+  if (f.skillFrame <= skill.startup) return [-ax - f.facing * 0.3, -ay - 0.6];
+  const out = skill.kind === 'melee' ? skill.startup + skill.active : skill.startup + 4;
+  if (f.skillFrame <= out) return [ax, ay];
+  const t = (f.skillFrame - out) / Math.max(1, skillFrames(skill) - out);
+  return [ax * (1 - t) + f.facing * 0.5 * t, ay * (1 - t) - t];
 }
 
 function drawFighter(ctx: CanvasRenderingContext2D, m: Match, seat: number, p: Palette, local: number) {
   const f = m.fighters[seat];
   if (!inPlay(f)) return;
-  const fighter = FIGHTERS[m.seats[seat].fighter];
   const x = f.x / SUB;
   const y = f.y / SUB;
   // Your own fighter is always the first colour, gold.
   const colour = p.seats[(seat - local + m.fighters.length) % m.fighters.length];
-  const move = moveOf(m, seat);
+  const skill = skillOf(f);
 
   ctx.save();
-  const blinking = f.invulnerable > 0 && f.dodge === 0 && Math.floor(m.frame / 4) % 2 === 0;
-  ctx.globalAlpha = f.dodge > 0 ? 0.4 : blinking ? 0.55 : 1;
+  const blinking = f.invulnerable > 0 && Math.floor(m.frame / 4) % 2 === 0;
+  ctx.globalAlpha = blinking ? 0.55 : 1;
 
   // The swing: a soft sweep where the hitbox is, while it's out.
-  if (move && isActive(f, move)) {
-    const box = hitbox(f, move);
+  if (isActive(f, skill)) {
+    const box = hitbox(f, skill);
     ctx.fillStyle = colour;
-    ctx.globalAlpha *= move.heavy ? 0.32 : 0.22;
+    ctx.globalAlpha *= f.skill === 2 ? 0.32 : 0.22;
     roundRect(ctx, box.left / SUB, box.top / SUB, (box.right - box.left) / SUB, (box.bottom - box.top) / SUB, 14);
     ctx.fill();
-    ctx.globalAlpha = f.dodge > 0 ? 0.4 : 1;
+    ctx.globalAlpha = blinking ? 0.55 : 1;
   }
-  // A heavy winding up glows.
-  if (move?.heavy && f.moveFrame <= move.startup) {
+  // A strong skill winding up glows.
+  if (skill && f.skill === 2 && f.skillFrame <= skill.startup) {
     ctx.shadowColor = colour;
     ctx.shadowBlur = 18;
   }
@@ -212,9 +247,84 @@ function drawFighter(ctx: CanvasRenderingContext2D, m: Match, seat: number, p: P
   ctx.arc(x + f.facing * 4.5, y - BODY_H + 8, 2.2, 0, Math.PI * 2);
   ctx.fill();
 
-  const [ax, ay] = weaponAim(move, f.moveFrame, f.facing);
-  const length = fighter.weapon === 'spear' ? 54 : fighter.weapon === 'hammer' ? 34 : 40;
-  drawWeapon(ctx, fighter.weapon, x + f.facing * 10, y - BODY_H * 0.55, ax, ay, p, length);
+  const [ax, ay] = weaponAim(f);
+  drawWeapon(ctx, f.weapon, x + f.facing * 10, y - BODY_H * 0.55, ax, ay, p, colour);
+
+  // The weapon's time left: a ring over the head that runs down.
+  if (f.weapon !== 'fists' && f.weaponLeft > 0) {
+    const left = f.weaponLeft / WEAPON_FRAMES;
+    ctx.strokeStyle = colour;
+    ctx.lineWidth = 3;
+    ctx.globalAlpha = left < 0.2 && Math.floor(m.frame / 6) % 2 === 0 ? 0.3 : 0.9;
+    ctx.beginPath();
+    ctx.arc(x, y - BODY_H - 14, 7, -Math.PI / 2, -Math.PI / 2 + left * Math.PI * 2);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+/** A weapon waiting on the ground: bobbing, glowing, blinking as it's about to fade. */
+function drawItem(ctx: CanvasRenderingContext2D, it: Item, p: Palette) {
+  const x = it.x / SUB;
+  const y = it.y / SUB - 18 + Math.sin(it.age / 12) * 3;
+  ctx.save();
+  if (it.age > ITEM_LIFE - 120 && Math.floor(it.age / 6) % 2 === 0) ctx.globalAlpha = 0.35;
+  // It drops in from above.
+  const fall = Math.max(0, 20 - it.age) * 6;
+  const glow = ctx.createRadialGradient(x, y - fall, 2, x, y - fall, 26);
+  glow.addColorStop(0, p.itemGlow);
+  glow.addColorStop(1, 'transparent');
+  ctx.fillStyle = glow;
+  ctx.fillRect(x - 28, y - fall - 28, 56, 56);
+  drawWeapon(ctx, it.weapon, x - 10, y - fall + 10, 1, -1, p, p.steel);
+  ctx.restore();
+}
+
+function drawProjectile(ctx: CanvasRenderingContext2D, pr: Projectile, p: Palette) {
+  const x = pr.x / SUB;
+  const y = pr.y / SUB;
+  if (pr.kind === 'arrow' || pr.kind === 'pierce') {
+    const len = Math.hypot(pr.vx, pr.vy) || 1;
+    const ux = pr.vx / len;
+    const uy = pr.vy / len;
+    const long = pr.kind === 'pierce' ? 34 : 24;
+    ctx.save();
+    if (pr.kind === 'pierce') {
+      ctx.shadowColor = p.spark;
+      ctx.shadowBlur = 10;
+    }
+    ctx.strokeStyle = p.steel;
+    ctx.lineWidth = pr.kind === 'pierce' ? 3 : 2;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(x - ux * long, y - uy * long);
+    ctx.lineTo(x, y);
+    ctx.stroke();
+    ctx.restore();
+    return;
+  }
+  const r = pr.kind === 'bigBomb' ? 10 : 7;
+  ctx.fillStyle = p.bomb;
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, Math.PI * 2);
+  ctx.fill();
+  // The fuse flickers faster as it burns down.
+  if (Math.floor(pr.age / Math.max(2, Math.trunc(pr.life / 8))) % 2 === 0) {
+    ctx.fillStyle = p.spark;
+    ctx.beginPath();
+    ctx.arc(x + r * 0.6, y - r, 2.5, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+function drawBlast(ctx: CanvasRenderingContext2D, b: Blast, p: Palette) {
+  const t = b.age / 18;
+  ctx.save();
+  ctx.globalAlpha = 0.55 * (1 - t);
+  ctx.fillStyle = p.spark;
+  ctx.beginPath();
+  ctx.arc(b.x / SUB, b.y / SUB, b.radius * (0.6 + t * 0.5), 0, Math.PI * 2);
+  ctx.fill();
   ctx.restore();
 }
 
@@ -249,8 +359,11 @@ export function draw(ctx: CanvasRenderingContext2D, width: number, height: numbe
   ctx.fillRect(-720, -700, 1440, 1000);
 
   drawStage(ctx, p);
+  for (const it of m.items) drawItem(ctx, it, p);
   // You on top, so your own fighter is never lost in a crowd.
   const n = m.fighters.length;
   for (let k = n - 1; k >= 0; k--) drawFighter(ctx, m, (local + k) % n, p, local);
+  for (const pr of m.projectiles) drawProjectile(ctx, pr, p);
+  for (const b of m.blasts) drawBlast(ctx, b, p);
   for (const b of bursts) drawBurst(ctx, b, p.seats[(b.seat - local + n) % n]);
 }

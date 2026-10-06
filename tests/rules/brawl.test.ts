@@ -19,7 +19,6 @@ async function seed(data: Record<string, unknown>) {
       host: 'ann',
       playerIds: ['ann', 'bob'],
       names: { ann: 'Ann', bob: 'Bob' },
-      fighters: { ann: 'knight', bob: 'smith' },
       createdAt: serverTimestamp(),
       ...data,
     });
@@ -33,32 +32,25 @@ afterAll(() => env.cleanup());
 beforeEach(() => env.clearFirestore());
 
 describe('brawl rooms', () => {
-  it('open with yourself as host and a fighter', async () => {
-    const room = { host: 'ann', playerIds: ['ann'], names: { ann: 'Ann' }, fighters: { ann: 'knight' }, status: 'lobby', createdAt: serverTimestamp() };
+  it('open with yourself as host', async () => {
+    const room = { host: 'ann', playerIds: ['ann'], names: { ann: 'Ann' }, status: 'lobby', createdAt: serverTimestamp() };
     await assertSucceeds(setDoc(ref(dbFor('ann')), room));
     await assertFails(setDoc(doc(dbFor('bob'), 'brawls', 'ABCD'), room));
-    await assertFails(setDoc(doc(dbFor('ann'), 'brawls', 'ABCD'), { ...room, fighters: { ann: 'wizard' } }));
+    await assertFails(setDoc(doc(dbFor('ann'), 'brawls', 'ABCD'), { ...room, fighters: { ann: 'knight' } }));
     await assertFails(setDoc(doc(dbFor('ann'), 'brawls', 'ABCD'), { ...room, status: 'playing' }));
   });
 
   it('take one more player, who adds only themselves', async () => {
-    await seed({ playerIds: ['ann'], names: { ann: 'Ann' }, fighters: { ann: 'knight' }, status: 'lobby' });
-    await assertFails(updateDoc(ref(dbFor('bob')), { playerIds: ['ann', 'eve'], names: { ann: 'Ann', eve: 'Eve' }, fighters: { ann: 'knight', eve: 'knight' } }));
-    await assertFails(updateDoc(ref(dbFor('bob')), { playerIds: ['ann', 'bob'], names: { ann: 'Ann', bob: 'Bob' }, fighters: { ann: 'lancer', bob: 'knight' } }));
-    await assertSucceeds(updateDoc(ref(dbFor('bob')), { playerIds: ['ann', 'bob'], names: { ann: 'Ann', bob: 'Bob' }, fighters: { ann: 'knight', bob: 'knight' } }));
-    await assertFails(
-      updateDoc(ref(dbFor('eve')), { playerIds: ['ann', 'bob', 'eve'], names: { ann: 'Ann', bob: 'Bob', eve: 'Eve' }, fighters: { ann: 'knight', bob: 'knight', eve: 'knight' } }),
-    );
+    await seed({ playerIds: ['ann'], names: { ann: 'Ann' }, status: 'lobby' });
+    await assertFails(updateDoc(ref(dbFor('bob')), { playerIds: ['ann', 'eve'], names: { ann: 'Ann', eve: 'Eve' } }));
+    await assertSucceeds(updateDoc(ref(dbFor('bob')), { playerIds: ['ann', 'bob'], names: { ann: 'Ann', bob: 'Bob' } }));
+    await assertFails(updateDoc(ref(dbFor('eve')), { playerIds: ['ann', 'bob', 'eve'], names: { ann: 'Ann', bob: 'Bob', eve: 'Eve' } }));
   });
 
-  it('let each player pick only their own fighter, in the lobby', async () => {
+  it('change nothing else in the lobby', async () => {
     await seed({ status: 'lobby' });
-    await assertSucceeds(updateDoc(ref(dbFor('bob')), { 'fighters.bob': 'lancer' }));
-    await assertFails(updateDoc(ref(dbFor('bob')), { 'fighters.ann': 'lancer' }));
-    await assertFails(updateDoc(ref(dbFor('bob')), { 'fighters.bob': 'wizard' }));
-    await assertFails(updateDoc(ref(dbFor('eve')), { 'fighters.eve': 'knight' }));
-    await seed({ status: 'playing', seed: 'abcdef' });
-    await assertFails(updateDoc(ref(dbFor('bob')), { 'fighters.bob': 'knight' }));
+    await assertFails(updateDoc(ref(dbFor('bob')), { 'fighters.bob': 'lancer' }));
+    await assertFails(updateDoc(ref(dbFor('bob')), { host: 'bob' }));
   });
 
   it('start only by the host, with two players', async () => {

@@ -1,17 +1,37 @@
+import { stream } from '../../nonogram/rng';
 import { hashSeed } from '../../shared/random';
-import { ANGLES, FIGHTERS, totalFrames, type FighterId, type Move, type MoveId } from './fighters';
-import { ACTIONS, DIRS, DODGE, DOWN, HEAVY, JUMP, LIGHT, UP, dirX, type Input } from './input';
+import { ACTIONS, DIRS, DOWN, JUMP, SKILL1, SKILL2, dirX, dirY, type Input } from './input';
 import { BLAST, BODY_H, BODY_W, PLATFORMS, RESPAWN, SPAWNS, SUB } from './stage';
+import {
+  ANGLES,
+  aimVector,
+  BODY,
+  PICKUPS,
+  PROJECTILES,
+  skillFrames,
+  WEAPON_FRAMES,
+  WEAPONS,
+  type Aim,
+  type Angle,
+  type Melee,
+  type ProjectileKind,
+  type Skill,
+  type WeaponId,
+} from './weapons';
 
 /**
  * Sky Brawl, frame by frame. `step(match, inputs)` moves the fight on by one 60th of a
- * second and is the whole game: no clock, no randomness, whole numbers only, so the same
- * inputs make the same fight on every device. That is what lets a match be saved and
- * resumed, and later lets two phones run the same fight from each other's inputs.
+ * second and is the whole game: no clock, no randomness beyond the match's seed, whole
+ * numbers only, so the same inputs make the same fight on every device. That is what lets
+ * a fight be saved and resumed, and two phones run the same fight from each other's inputs.
+ *
+ * Everyone starts with bare hands. Weapons drop onto the island now and then (where and
+ * which come from the seed); an unarmed fighter who touches one picks it up, and it lasts
+ * 10 seconds.
  */
 
 /** Bump when a change would make old saved matches play differently. */
-export const BRAWL_VERSION = 1;
+export const BRAWL_VERSION = 2;
 
 export const STOCKS = 3;
 
@@ -19,7 +39,6 @@ export const STOCKS = 3;
 export type BotLevel = 0 | 1 | 2 | 3;
 
 export interface Seat {
-  fighter: FighterId;
   bot: BotLevel;
 }
 
@@ -35,16 +54,24 @@ export interface FighterState {
   /** The platform stood on, or -1 in the air. */
   platform: number;
   airJumps: number;
+  /** The upward strong skill's leap, once per trip into the air. */
   recoveryUsed: boolean;
-  move: MoveId | null;
-  moveFrame: number;
-  /** Seats this move has already hit, as bits, so one swing hits each fighter once. */
-  moveHits: number;
+  weapon: WeaponId;
+  /** Frames left with the weapon in hand. */
+  weaponLeft: number;
+  /** The skill in progress (1 or 2), or 0. */
+  skill: 0 | 1 | 2;
+  skillFrame: number;
+  /** Where it's aimed: each -1, 0 or 1. */
+  aimX: number;
+  aimY: number;
+  /** Started in the air: landing ends it. */
+  skillAir: boolean;
+  /** Seats this swing has already hit, as bits. */
+  skillHits: number;
   hitstun: number;
-  /** Frames of landing lag after an air move. */
+  /** Frames of landing lag after an air skill. */
   lag: number;
-  dodge: number;
-  dodgeCooldown: number;
   invulnerable: number;
   /** The hit-pause: a few frames frozen when a hit lands, so it reads. */
   freeze: number;
@@ -53,7 +80,7 @@ export interface FighterState {
   dropThrough: number;
   downHeld: number;
   prevInput: Input;
-  /** An action pressed while busy, kept a few frames, with the direction it was aimed. */
+  /** A press made while busy, kept a few frames with its aim. */
   buffer: Input;
   bufferAge: number;
   lastHitBy: number;
@@ -63,12 +90,48 @@ export interface FighterState {
   dealt: number;
 }
 
+/** A weapon lying on the island. */
+export interface Item {
+  weapon: WeaponId;
+  x: number;
+  y: number;
+  age: number;
+}
+
+export interface Projectile {
+  kind: ProjectileKind;
+  owner: number;
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  /** Frames left: an arrow's flight, a bomb's fuse. */
+  life: number;
+  age: number;
+  /** Seats already hit, as bits (a piercing arrow hits each once). */
+  hits: number;
+}
+
+/** A bomb going off, kept a few frames to be drawn. */
+export interface Blast {
+  x: number;
+  y: number;
+  radius: number;
+  age: number;
+}
+
 export interface Match {
   v: number;
   seed: string;
   frame: number;
   seats: Seat[];
   fighters: FighterState[];
+  items: Item[];
+  projectiles: Projectile[];
+  blasts: Blast[];
+  /** The frame the next weapon drops, and how many have dropped. */
+  nextItem: number;
+  dropped: number;
   /** The seat left standing, once there is one. */
   winner: number | null;
 }
@@ -81,15 +144,22 @@ const GROUND_ACCEL = 160;
 const AIR_ACCEL = 70;
 const FRICTION = 120;
 const LAUNCH_DRAG = 30;
-const DODGE_FRAMES = 18;
-const DODGE_SPEED = 900;
-const DODGE_COOLDOWN = 54;
-const SPOT_DODGE_COOLDOWN = 30;
 const BUFFER_FRAMES = 8;
 const RESPAWN_FRAMES = 75;
 const RESPAWN_INVULNERABLE = 120;
 const DROP_HOLD = 10;
+const RECOVERY_LEAP = -1700;
+const LAND_LAG = 6;
 const HALF_W = (BODY_W / 2) * SUB;
+
+/** Weapons: the first drop, then one every 4–6 seconds, at most two lying about. */
+const FIRST_ITEM = 90;
+const ITEM_GAP = 240;
+const ITEM_GAP_SPREAD = 121;
+const MAX_ITEMS = 2;
+export const ITEM_LIFE = 720;
+const PICK_RANGE = 32;
+const BLAST_FRAMES = 18;
 
 export function newMatch(seed: string, seats: Seat[]): Match {
   return {
@@ -110,13 +180,16 @@ export function newMatch(seed: string, seats: Seat[]): Match {
         platform: 0,
         airJumps: 1,
         recoveryUsed: false,
-        move: null,
-        moveFrame: 0,
-        moveHits: 0,
+        weapon: 'fists',
+        weaponLeft: 0,
+        skill: 0,
+        skillFrame: 0,
+        aimX: 0,
+        aimY: 0,
+        skillAir: false,
+        skillHits: 0,
         hitstun: 0,
         lag: 0,
-        dodge: 0,
-        dodgeCooldown: 0,
         invulnerable: 0,
         freeze: 0,
         respawn: 0,
@@ -131,6 +204,11 @@ export function newMatch(seed: string, seats: Seat[]): Match {
         dealt: 0,
       };
     }),
+    items: [],
+    projectiles: [],
+    blasts: [],
+    nextItem: FIRST_ITEM,
+    dropped: 0,
     winner: null,
   };
 }
@@ -140,88 +218,116 @@ export const inPlay = (f: FighterState) => f.stocks > 0 && f.respawn === 0;
 /** Moves a value toward a target by at most `by`. */
 const approach = (value: number, target: number, by: number) => (value < target ? Math.min(target, value + by) : Math.max(target, value - by));
 
-export function moveOf(m: Match, seat: number): Move | null {
-  const f = m.fighters[seat];
-  return f.move ? FIGHTERS[m.seats[seat].fighter].moves[f.move] : null;
+export function skillOf(f: FighterState): Skill | null {
+  return f.skill ? WEAPONS[f.weapon].skills[f.skill - 1] : null;
 }
 
-/** Whether the move's hitbox is out this frame. */
-export function isActive(f: FighterState, move: Move | null) {
-  return move !== null && f.moveFrame > move.startup && f.moveFrame <= move.startup + move.active;
+/** Side, up or down: which version of a swing an aim picks. */
+export const aimClass = (f: { aimX: number; aimY: number }): Aim => (f.aimX === 0 && f.aimY < 0 ? 'up' : f.aimX === 0 && f.aimY > 0 ? 'down' : 'side');
+
+/** Whether a swing's hitbox is out this frame. */
+export function isActive(f: FighterState, skill: Skill | null): skill is Melee {
+  return skill !== null && skill.kind === 'melee' && f.skillFrame > skill.startup && f.skillFrame <= skill.startup + skill.active;
 }
 
-/** The move a press makes, from where the fighter is and the direction it was aimed. */
-export function chooseMove(f: FighterState, action: Input): MoveId | null {
-  const side = dirX(action) !== 0;
-  const grounded = f.platform >= 0;
-  if (action & LIGHT) {
-    if (grounded) return side ? 'sLight' : action & DOWN ? 'dLight' : 'nLight';
-    return side ? 'sAir' : action & DOWN ? 'dAir' : 'nAir';
+/** The nearest fighter in play, or -1. */
+export function nearest(m: Match, seat: number, fighters = m.fighters): number {
+  const me = fighters[seat];
+  let best = -1;
+  let bestD = Infinity;
+  fighters.forEach((f, i) => {
+    if (i === seat || !inPlay(f)) return;
+    const d = Math.abs(f.x - me.x) + Math.abs(f.y - me.y);
+    if (d < bestD) {
+      bestD = d;
+      best = i;
+    }
+  });
+  return best;
+}
+
+/**
+ * A skill's aim: the swipe's direction, or with no swipe, toward the nearest opponent
+ * (one of eight ways), or straight ahead if there's no one.
+ */
+function aimAt(m: Match, seat: number, fighters: FighterState[], action: Input): [number, number] {
+  const ax = dirX(action);
+  const ay = dirY(action);
+  if (ax !== 0 || ay !== 0) return [ax, ay];
+  const me = fighters[seat];
+  const t = nearest(m, seat, fighters);
+  if (t < 0) return [me.facing, 0];
+  const dx = fighters[t].x - me.x;
+  // Aim at their middle, not their feet.
+  const dy = fighters[t].y - me.y;
+  const sx = dx > 0 ? 1 : dx < 0 ? -1 : me.facing;
+  const sy = dy > 0 ? 1 : -1;
+  if (Math.abs(dy) * 2 <= Math.abs(dx)) return [sx, 0];
+  if (Math.abs(dx) * 2 <= Math.abs(dy)) return [0, sy];
+  return [sx, sy];
+}
+
+function startSkill(m: Match, seat: number, fighters: FighterState[], slot: 1 | 2, action: Input) {
+  const f = fighters[seat];
+  const [ax, ay] = aimAt(m, seat, fighters, action);
+  f.aimX = ax;
+  f.aimY = ay;
+  if (ax !== 0) f.facing = ax as 1 | -1;
+  f.skill = slot;
+  f.skillFrame = 0;
+  f.skillHits = 0;
+  f.skillAir = f.platform < 0;
+  // The strong skill aimed straight up is a leap back toward safety, once per trip into the air.
+  if (slot === 2 && ax === 0 && ay < 0 && !f.recoveryUsed) {
+    f.recoveryUsed = true;
+    f.vy = RECOVERY_LEAP;
+    f.platform = -1;
+    f.skillAir = true;
   }
-  if (grounded) {
-    if (action & UP) return 'recovery';
-    return side ? 'sSig' : action & DOWN ? 'dSig' : 'nSig';
-  }
-  if (action & DOWN) return 'pound';
-  return f.recoveryUsed ? null : 'recovery';
 }
 
-function startMove(f: FighterState, id: MoveId, action: Input) {
-  const dx = dirX(action);
-  if (dx !== 0) f.facing = dx as 1 | -1;
-  f.move = id;
-  f.moveFrame = 0;
-  f.moveHits = 0;
-  if (id === 'recovery') f.recoveryUsed = true;
-}
-
-function startDodge(f: FighterState, action: Input) {
-  f.dodge = DODGE_FRAMES;
-  f.invulnerable = Math.max(f.invulnerable, DODGE_FRAMES);
-  const dx = dirX(action);
-  const dy = (action & DOWN ? 1 : 0) - (action & UP ? 1 : 0);
-  const grounded = f.platform >= 0;
-  if (dx === 0 && dy === 0) {
-    f.vx = 0;
-    if (!grounded) f.vy = 0;
-    f.dodgeCooldown = SPOT_DODGE_COOLDOWN;
-    return;
-  }
-  // A diagonal moves about as far as a straight dodge (707 ≈ 1000/√2).
-  const scale = dx !== 0 && dy !== 0 ? 707 : 1000;
-  f.vx = Math.trunc((dx * DODGE_SPEED * scale) / 1000);
-  f.vy = grounded ? 0 : Math.trunc((dy * DODGE_SPEED * scale) / 1000);
-  if (dy < 0) f.platform = -1;
-  f.dodgeCooldown = DODGE_COOLDOWN;
-}
-
-function jump(f: FighterState, seat: Seat) {
-  const fighter = FIGHTERS[seat.fighter];
+function jump(f: FighterState) {
   if (f.platform >= 0) {
-    f.vy = fighter.jump;
+    f.vy = BODY.jump;
     f.platform = -1;
   } else if (f.airJumps > 0) {
     f.airJumps--;
-    f.vy = fighter.airJump;
+    f.vy = BODY.airJump;
   }
 }
 
-function land(f: FighterState, index: number, move: Move | null) {
+function land(f: FighterState, index: number) {
   f.platform = index;
   f.y = PLATFORMS[index].top * SUB;
   f.vy = 0;
   f.airJumps = 1;
   f.recoveryUsed = false;
-  if (move?.land !== undefined) {
-    f.move = null;
-    f.lag = move.land;
+  if (f.skill && f.skillAir) {
+    f.skill = 0;
+    f.lag = LAND_LAG;
   }
   if (f.hitstun > 0) f.hitstun = Math.trunc(f.hitstun / 2);
 }
 
+function launch(m: Match, x: number, y: number, kind: ProjectileKind, owner: number, ax: number, ay: number) {
+  const spec = PROJECTILES[kind];
+  const [ux, uy] = aimVector(ax, ay);
+  m.projectiles.push({
+    kind,
+    owner,
+    x,
+    y,
+    vx: Math.trunc((ux * spec.speed) / 1000),
+    vy: Math.trunc((uy * spec.speed) / 1000) + spec.lob,
+    life: spec.life,
+    age: 0,
+    hits: 0,
+  });
+}
+
 /** One fighter's frame: its input, its movement, and the stage. */
-function updateFighter(f: FighterState, seat: Seat, input: Input) {
-  const fighter = FIGHTERS[seat.fighter];
+function updateFighter(m: Match, seat: number, input: Input) {
+  const f = m.fighters[seat];
   const pressed = input & ~f.prevInput & ACTIONS;
   f.prevInput = input;
 
@@ -237,10 +343,13 @@ function updateFighter(f: FighterState, seat: Seat, input: Input) {
     return;
   }
   if (f.invulnerable > 0) f.invulnerable--;
-  if (f.dodgeCooldown > 0 && f.dodge === 0) f.dodgeCooldown--;
   if (f.dropThrough > 0) f.dropThrough--;
 
-  const busy = f.hitstun > 0 || f.move !== null || f.dodge > 0 || f.lag > 0;
+  // A weapon runs out; a swing already under way finishes first.
+  if (f.weapon !== 'fists' && f.skill === 0 && f.weaponLeft <= 0) f.weapon = 'fists';
+  if (f.weaponLeft > 0) f.weaponLeft--;
+
+  const busy = f.hitstun > 0 || f.skill !== 0 || f.lag > 0;
   if (f.hitstun > 0) f.hitstun--;
   else if (f.lag > 0) f.lag--;
 
@@ -248,60 +357,50 @@ function updateFighter(f: FighterState, seat: Seat, input: Input) {
     const action = f.buffer;
     f.buffer = 0;
     f.bufferAge = 0;
-    if (action & DODGE) {
-      if (f.dodgeCooldown === 0) startDodge(f, action);
-    } else if (action & (LIGHT | HEAVY)) {
-      const id = chooseMove(f, action);
-      if (id) startMove(f, id, action);
-    } else if (action & JUMP) {
-      jump(f, seat);
-    }
+    if (action & SKILL2) startSkill(m, seat, m.fighters, 2, action);
+    else if (action & SKILL1) startSkill(m, seat, m.fighters, 1, action);
+    else if (action & JUMP) jump(f);
   }
 
-  const grounded = f.platform >= 0;
-  const move = f.move ? fighter.moves[f.move] : null;
   const dx = dirX(input);
 
-  // Dropping through a soft ledge takes a moment of holding down, so a quick down-strike doesn't.
+  // Dropping through a soft ledge takes a moment of holding down.
   f.downHeld = input & DOWN ? f.downHeld + 1 : 0;
-  if (grounded && PLATFORMS[f.platform].soft && f.downHeld >= DROP_HOLD && !f.move && f.dodge === 0 && f.hitstun === 0) {
+  if (f.platform >= 0 && PLATFORMS[f.platform].soft && f.downHeld >= DROP_HOLD && !f.skill && f.hitstun === 0) {
     f.platform = -1;
     f.dropThrough = 14;
   }
 
-  if (f.dodge > 0) {
-    f.dodge--;
-    f.vx = approach(f.vx, 0, 40);
-    f.vy = f.platform >= 0 ? 0 : approach(f.vy, 0, 40);
-  } else {
-    if (move) {
-      if (f.moveFrame === move.startup) {
-        if (move.lunge) f.vx = move.lunge * f.facing;
-        if (move.leap) {
-          f.vy = move.leap;
-          if (move.leap < 0) f.platform = -1;
-        }
+  const skill = skillOf(f);
+  if (skill) {
+    if (f.skillFrame === skill.startup) {
+      if (skill.kind === 'melee' && skill.lunge) {
+        const [ux, uy] = aimVector(f.aimX, f.aimY);
+        f.vx = Math.trunc((ux * skill.lunge) / 1000);
+        if (uy < 0 && f.platform < 0) f.vy = Math.min(f.vy, Math.trunc((uy * skill.lunge) / 1000));
       }
-      f.moveFrame++;
-      if (f.moveFrame >= totalFrames(move)) f.move = null;
+      if (skill.kind === 'shot') launch(m, f.x + f.facing * 20 * SUB, f.y - 40 * SUB, skill.projectile, seat, f.aimX, f.aimY);
     }
+    f.skillFrame++;
+    if (f.skillFrame >= skillFrames(skill)) f.skill = 0;
+  }
 
-    const control = f.hitstun === 0 && f.lag === 0 && (!move || move.land !== undefined);
-    if (control) {
-      const ground = f.platform >= 0;
-      const target = dx * (ground ? fighter.run : fighter.air);
-      f.vx = approach(f.vx, target, ground ? GROUND_ACCEL : dx === 0 ? 20 : AIR_ACCEL);
-      if (ground && dx !== 0 && !move) f.facing = dx as 1 | -1;
-    } else if (f.platform >= 0) {
-      f.vx = approach(f.vx, 0, f.hitstun > 0 ? 50 : FRICTION / 2);
-    } else {
-      f.vx = approach(f.vx, 0, f.hitstun > 0 ? LAUNCH_DRAG : 20);
-    }
+  // Run on the ground, drift in the air; a swing on the ground plants the feet.
+  const control = f.hitstun === 0 && f.lag === 0 && (!f.skill || f.platform < 0);
+  if (control) {
+    const ground = f.platform >= 0;
+    const target = dx * (ground ? BODY.run : BODY.air);
+    f.vx = approach(f.vx, target, ground ? GROUND_ACCEL : dx === 0 ? 20 : AIR_ACCEL);
+    if (ground && dx !== 0 && !f.skill) f.facing = dx as 1 | -1;
+  } else if (f.platform >= 0) {
+    f.vx = approach(f.vx, 0, f.hitstun > 0 ? 50 : FRICTION / 2);
+  } else {
+    f.vx = approach(f.vx, 0, f.hitstun > 0 ? LAUNCH_DRAG : 20);
+  }
 
-    if (f.platform < 0) {
-      const cap = f.hitstun > 0 ? MAX_LAUNCH_FALL : input & DOWN && f.vy > 0 && f.move !== 'pound' ? FAST_FALL : f.move === 'pound' ? 1800 : MAX_FALL;
-      f.vy = Math.min(f.vy + GRAVITY, Math.max(cap, f.vy));
-    }
+  if (f.platform < 0) {
+    const cap = f.hitstun > 0 ? MAX_LAUNCH_FALL : input & DOWN && f.vy > 0 ? FAST_FALL : MAX_FALL;
+    f.vy = Math.min(f.vy + GRAVITY, Math.max(cap, f.vy));
   }
 
   // Move, then meet the stage.
@@ -326,7 +425,7 @@ function updateFighter(f: FighterState, seat: Seat, input: Input) {
         if (p.soft && f.dropThrough > 0) continue;
         const top = p.top * SUB;
         if (prevY <= top && f.y >= top && f.x >= p.left * SUB && f.x <= p.right * SUB) {
-          land(f, i, f.move ? fighter.moves[f.move] : null);
+          land(f, i);
           break;
         }
       }
@@ -350,9 +449,9 @@ function updateFighter(f: FighterState, seat: Seat, input: Input) {
   }
 }
 
-/** A hitbox in world sub-units. */
-export function hitbox(f: FighterState, move: Move) {
-  const { x, y, w, h } = move.box;
+/** A swing's hitbox in world sub-units. */
+export function hitbox(f: FighterState, skill: Melee) {
+  const { x, y, w, h } = skill.boxes[aimClass(f)];
   const near = f.x + x * SUB * f.facing;
   const far = f.x + (x + w) * SUB * f.facing;
   return { left: Math.min(near, far), right: Math.max(near, far), top: f.y + y * SUB, bottom: f.y + (y + h) * SUB };
@@ -363,19 +462,29 @@ function overlaps(box: { left: number; right: number; top: number; bottom: numbe
 }
 
 /** Knockback speed for a hit at the target's damage (after the hit), in sub-units a frame. */
-export function knockback(move: Move, damage: number, weight: number) {
-  return Math.trunc(((move.base + damage * move.growth) * 100) / weight);
+export function knockback(base: number, growth: number, damage: number) {
+  return Math.trunc(((base + damage * growth) * 100) / BODY.weight);
 }
 
-function hit(attacker: FighterState, a: number, target: FighterState, t: number, move: Move, weight: number) {
-  attacker.moveHits |= 1 << t;
-  target.damage = Math.min(999, target.damage + move.damage);
-  attacker.dealt += move.damage;
-  const speed = knockback(move, target.damage, weight);
-  const [ax, ay] = ANGLES[move.angle];
-  // Moves reaching behind the body (an overhead, a sweep) send a fighter the way they were from you.
-  const side = move.box.x >= 0 || target.x === attacker.x ? attacker.facing : target.x > attacker.x ? 1 : -1;
-  target.vx = Math.trunc((ax * speed) / 1000) * side;
+interface Hit {
+  by: number;
+  target: number;
+  damage: number;
+  base: number;
+  growth: number;
+  angle: Angle;
+  /** Which way along x the launch goes. */
+  side: number;
+}
+
+function applyHit(m: Match, h: Hit) {
+  const attacker = m.fighters[h.by];
+  const target = m.fighters[h.target];
+  target.damage = Math.min(999, target.damage + h.damage);
+  if (h.by !== h.target) attacker.dealt += h.damage;
+  const speed = knockback(h.base, h.growth, target.damage);
+  const [ax, ay] = ANGLES[h.angle];
+  target.vx = Math.trunc((ax * speed) / 1000) * h.side;
   target.vy = Math.trunc((ay * speed) / 1000);
   if (target.platform >= 0) {
     // A downward hit on someone standing bounces them up instead.
@@ -383,17 +492,132 @@ function hit(attacker: FighterState, a: number, target: FighterState, t: number,
     if (target.vy < 0) target.platform = -1;
   }
   target.hitstun = 8 + Math.trunc(speed / 60);
-  target.move = null;
-  target.dodge = 0;
+  target.skill = 0;
   target.lag = 0;
   target.buffer = 0;
   target.bufferAge = 0;
   target.airJumps = 1;
   target.recoveryUsed = false;
-  target.lastHitBy = a;
-  const pause = 3 + Math.trunc(move.damage / 3);
+  if (h.by !== h.target) target.lastHitBy = h.by;
+  const pause = 3 + Math.trunc(h.damage / 3);
   attacker.freeze = Math.max(attacker.freeze, pause);
   target.freeze = pause;
+}
+
+/** A blast's push: away from its centre, one of a few written-out angles. */
+function blastHit(by: number, target: number, f: FighterState, bx: number, by2: number, spec: { damage: number; base: number; growth: number }): Hit {
+  const dx = f.x - bx;
+  const dy = f.y - (BODY_H * SUB) / 2 - by2;
+  const side = dx > 0 ? 1 : dx < 0 ? -1 : f.facing;
+  const angle: Angle = dy > Math.abs(dx) ? 'spike' : Math.abs(dx) * 2 < Math.abs(dy) ? 'up' : 'diagonal';
+  return { by, target, damage: spec.damage, base: spec.base, growth: spec.growth, angle, side };
+}
+
+function explode(m: Match, p: Projectile, hits: Hit[]) {
+  const spec = PROJECTILES[p.kind];
+  const r = (spec.radius ?? 0) * SUB;
+  m.blasts.push({ x: p.x, y: p.y, radius: spec.radius ?? 0, age: 0 });
+  m.fighters.forEach((f, t) => {
+    if (!inPlay(f) || f.invulnerable > 0) return;
+    const cx = f.x;
+    const cy = f.y - (BODY_H * SUB) / 2;
+    // A box test against the blast's reach: close enough, and simple.
+    if (Math.abs(cx - p.x) <= r + HALF_W && Math.abs(cy - p.y) <= r + (BODY_H * SUB) / 2) hits.push(blastHit(p.owner, t, f, p.x, p.y, spec));
+  });
+}
+
+/** Arrows fly and bombs arc; each meets the island, the fighters, or its end. */
+function moveProjectiles(m: Match, hits: Hit[]) {
+  const kept: Projectile[] = [];
+  for (const p of m.projectiles) {
+    const spec = PROJECTILES[p.kind];
+    const bomb = spec.radius !== undefined;
+    const prevY = p.y;
+    p.vy += spec.gravity;
+    p.x += p.vx;
+    p.y += p.vy;
+    p.age++;
+    p.life--;
+    let done = false;
+
+    // The island stops arrows; bombs bounce off it and off the ledges.
+    for (let i = 0; i < PLATFORMS.length && !done; i++) {
+      const pl = PLATFORMS[i];
+      const inside = p.x >= pl.left * SUB && p.x <= pl.right * SUB;
+      if (!inside) continue;
+      const top = pl.top * SUB;
+      if (prevY <= top && p.y >= top && p.vy > 0) {
+        if (bomb) {
+          p.y = top;
+          p.vy = -Math.trunc((p.vy * 55) / 100);
+          p.vx = Math.trunc((p.vx * 80) / 100);
+        } else if (!pl.soft) done = true;
+      } else if (!pl.soft && p.y > top && p.y < pl.bottom * SUB) {
+        if (bomb) {
+          p.vx = -p.vx;
+          p.x += p.vx;
+        } else done = true;
+      }
+    }
+
+    if (!done) {
+      m.fighters.forEach((f, t) => {
+        if (done || t === p.owner || !inPlay(f) || f.invulnerable > 0 || p.hits & (1 << t)) return;
+        const box = { left: p.x - 6 * SUB, right: p.x + 6 * SUB, top: p.y - 6 * SUB, bottom: p.y + 6 * SUB };
+        if (!overlaps(box, f)) return;
+        if (bomb) {
+          // A bomb thrown a moment ago doesn't go off in the thrower's own face.
+          if (p.age > 6) {
+            explode(m, p, hits);
+            done = true;
+          }
+          return;
+        }
+        p.hits |= 1 << t;
+        const side = p.vx > 0 ? 1 : p.vx < 0 ? -1 : f.facing;
+        const angle: Angle = Math.abs(p.vx) * 2 < Math.abs(p.vy) ? (p.vy < 0 ? 'up' : 'spike') : 'rising';
+        hits.push({ by: p.owner, target: t, damage: spec.damage, base: spec.base, growth: spec.growth, angle, side });
+        if (!spec.pierce) done = true;
+      });
+    }
+
+    if (!done && p.life <= 0) {
+      if (bomb) explode(m, p, hits);
+      done = true;
+    }
+    const x = p.x / SUB;
+    const y = p.y / SUB;
+    if (x < BLAST.left || x > BLAST.right || y < BLAST.top || y > BLAST.bottom) done = true;
+    if (!done) kept.push(p);
+  }
+  m.projectiles = kept;
+}
+
+/** Weapons drop onto the island now and then, from the match's seed: the same on every phone. */
+function dropWeapons(m: Match) {
+  m.items = m.items.map((it) => ({ ...it, age: it.age + 1 })).filter((it) => it.age < ITEM_LIFE);
+  if (m.frame < m.nextItem) return;
+  const roll = stream(`${m.seed}:item:${m.dropped}`);
+  m.dropped++;
+  m.nextItem = m.frame + ITEM_GAP + roll(ITEM_GAP_SPREAD);
+  if (m.items.length >= MAX_ITEMS) return;
+  const weapon = PICKUPS[roll(PICKUPS.length)];
+  // The island twice as often as each ledge: it's where the fighting is.
+  const spots = [0, 0, 1, 2, 3];
+  const p = PLATFORMS[spots[roll(spots.length)]];
+  const width = p.right - p.left - 40;
+  m.items.push({ weapon, x: (p.left + 20 + roll(width + 1)) * SUB, y: p.top * SUB, age: 0 });
+}
+
+function pickUp(m: Match) {
+  m.fighters.forEach((f) => {
+    if (!inPlay(f) || f.weapon !== 'fists' || f.skill) return;
+    const i = m.items.findIndex((it) => Math.abs(it.x - f.x) <= PICK_RANGE * SUB && it.y <= f.y + 10 * SUB && it.y >= f.y - BODY_H * SUB);
+    if (i < 0) return;
+    f.weapon = m.items[i].weapon;
+    f.weaponLeft = WEAPON_FRAMES;
+    m.items.splice(i, 1);
+  });
 }
 
 function knockOut(m: Match, f: FighterState) {
@@ -407,10 +631,11 @@ function knockOut(m: Match, f: FighterState) {
   f.vy = 0;
   f.platform = -1;
   f.damage = 0;
-  f.move = null;
+  f.weapon = 'fists';
+  f.weaponLeft = 0;
+  f.skill = 0;
   f.hitstun = 0;
   f.lag = 0;
-  f.dodge = 0;
   f.freeze = 0;
   f.buffer = 0;
   f.bufferAge = 0;
@@ -422,13 +647,19 @@ function comeBack(f: FighterState) {
   f.invulnerable = RESPAWN_INVULNERABLE;
   f.airJumps = 1;
   f.recoveryUsed = false;
-  f.dodgeCooldown = 0;
 }
 
 /** One frame of the fight, from every seat's input. Returns a new match; the old one is untouched. */
 export function step(match: Match, inputs: readonly Input[]): Match {
   if (match.winner !== null) return match;
-  const m: Match = { ...match, frame: match.frame + 1, fighters: match.fighters.map((f) => ({ ...f })) };
+  const m: Match = {
+    ...match,
+    frame: match.frame + 1,
+    fighters: match.fighters.map((f) => ({ ...f })),
+    items: match.items,
+    projectiles: match.projectiles.map((p) => ({ ...p })),
+    blasts: match.blasts.map((b) => ({ ...b, age: b.age + 1 })).filter((b) => b.age < BLAST_FRAMES),
+  };
 
   m.fighters.forEach((f, i) => {
     if (f.stocks <= 0) return;
@@ -437,23 +668,33 @@ export function step(match: Match, inputs: readonly Input[]): Match {
       if (--f.respawn === 0) comeBack(f);
       return;
     }
-    updateFighter(f, m.seats[i], inputs[i] ?? 0);
+    updateFighter(m, i, inputs[i] ?? 0);
   });
 
+  dropWeapons(m);
+  pickUp(m);
+
   // Every hit is found before any lands, so two swings that meet both connect.
-  const hits: { a: number; t: number; move: Move }[] = [];
+  const hits: Hit[] = [];
   m.fighters.forEach((attacker, a) => {
     if (!inPlay(attacker) || attacker.freeze > 0) return;
-    const move = moveOf(m, a);
-    if (!move || !isActive(attacker, move)) return;
-    const box = hitbox(attacker, move);
+    const skill = skillOf(attacker);
+    if (!isActive(attacker, skill)) return;
+    const box = hitbox(attacker, skill);
+    const aim = aimClass(attacker);
+    const reachesBack = skill.boxes[aim].x < 0;
     m.fighters.forEach((target, t) => {
-      if (t === a || !inPlay(target) || target.invulnerable > 0 || target.dodge > 0) return;
-      if (attacker.moveHits & (1 << t)) return;
-      if (overlaps(box, target)) hits.push({ a, t, move });
+      if (t === a || !inPlay(target) || target.invulnerable > 0) return;
+      if (attacker.skillHits & (1 << t)) return;
+      if (!overlaps(box, target)) return;
+      attacker.skillHits |= 1 << t;
+      // Swings reaching behind the body send a fighter the way they were from you.
+      const side = !reachesBack || target.x === attacker.x ? attacker.facing : target.x > attacker.x ? 1 : -1;
+      hits.push({ by: a, target: t, damage: skill.damage, base: skill.base, growth: skill.growth, angle: skill.angles[aim], side });
     });
   });
-  for (const { a, t, move } of hits) hit(m.fighters[a], a, m.fighters[t], t, move, FIGHTERS[m.seats[t].fighter].weight);
+  moveProjectiles(m, hits);
+  for (const h of hits) applyHit(m, h);
 
   let lastOut = -1;
   m.fighters.forEach((f, i) => {

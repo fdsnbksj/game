@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link } from 'react-router';
-import { charge, drag, GESTURE, held, idle, press, release, tick, type Gesture } from '../../games/brawl/gestures';
+import { charge, chargeAim, drag, GESTURE, held, idle, press, release, tick, type Gesture } from '../../games/brawl/gestures';
 import type { Input } from '../../games/brawl/input';
 import { BLAST, SUB } from '../../games/brawl/stage';
 import type { Match } from '../../games/brawl/state';
 import { draw, follow, readPalette, type Burst, type Camera } from './draw';
+import { WeaponGlyph } from './Weapons';
 
 export const STEP_MS = 1000 / 60;
 
@@ -25,7 +26,10 @@ function Hud({ match, labels, local }: { match: Match; labels: string[]; local: 
     <div className="brawl-hud" style={{ gridTemplateColumns: `repeat(${n}, 1fr)` }}>
       {match.fighters.map((f, seat) => (
         <div key={seat} className={`brawl-chip p${((seat - local + n) % n) + 1}${f.stocks === 0 ? ' out' : ''}`}>
-          <span className="brawl-chip-name">{labels[seat]}</span>
+          <span className="brawl-chip-name">
+            {f.weapon !== 'fists' && <WeaponGlyph weapon={f.weapon} size={11} />}
+            {labels[seat]}
+          </span>
           <strong className={f.damage >= 100 ? 'hot' : f.damage >= 50 ? 'warm' : undefined}>{f.stocks === 0 ? '—' : `${f.damage}%`}</strong>
           <span className="brawl-stocks" aria-label={`${f.stocks} lives`}>
             {Array.from({ length: 3 }, (_, i) => (
@@ -39,7 +43,7 @@ function Hud({ match, labels, local }: { match: Match; labels: string[]; local: 
 }
 
 /** A short line for the HUD's re-render check: only what it shows. */
-const hudKey = (m: Match) => m.fighters.map((f) => `${f.damage}:${f.stocks}`).join('|');
+const hudKey = (m: Match) => m.fighters.map((f) => `${f.damage}:${f.stocks}:${f.weapon}`).join('|');
 
 /**
  * The fight on screen: the arena on top, the thumb's space below. Draws whatever the
@@ -66,6 +70,7 @@ export function Arena({
   const stick = useRef<HTMLDivElement>(null);
   const knob = useRef<HTMLDivElement>(null);
   const ring = useRef<HTMLDivElement>(null);
+  const arrow = useRef<HTMLDivElement>(null);
   const gesture = useRef<Gesture>(idle());
   const presses = useRef<number[]>([]);
   const [hud, setHud] = useState(initial);
@@ -136,6 +141,12 @@ export function Arena({
           knob.current.style.transform = `translate(${dx * k}px, ${dy * k}px)`;
           ring.current.style.setProperty('--charge', String(charge(gesture.current, now)));
           ring.current.classList.toggle('ready', touch.charging);
+          // While charging, an arrow shows where the strong skill will go; none means "at the nearest".
+          const aim = chargeAim(gesture.current);
+          if (arrow.current) {
+            arrow.current.hidden = !aim;
+            if (aim) arrow.current.style.transform = `rotate(${Math.atan2(aim[1], aim[0])}rad)`;
+          }
         }
       }
     };
@@ -208,12 +219,13 @@ export function Arena({
         }}
       >
         <p className="brawl-thumb-hint" aria-hidden="true">
-          Drag to move · up to jump
+          Drag to move · tap to jump
           <br />
-          Tap to strike · hold for a heavy · tap twice to dodge
+          Double-tap or hold for skills · swipe to aim
         </p>
         <div ref={stick} className="brawl-stick" hidden>
           <div ref={ring} className="brawl-ring" />
+          <div ref={arrow} className="brawl-aim" hidden />
           <div ref={knob} className="brawl-knob" />
         </div>
       </div>

@@ -623,7 +623,7 @@ service cloud.firestore {
 
     // ---------- Sky Brawl online ----------
     // Two phones fight each other directly over WebRTC. Firestore holds only the room
-    // (who's in, their fighters, the seed) and one handshake each way: the host's offer
+    // (who's in, the seed) and one handshake each way: the host's offer
     // and the guest's answer, one document each per attempt (offer, offer-1, ...). The
     // fight itself never touches Firestore, so there's nothing in it for the rules to check.
 
@@ -631,24 +631,18 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/brawls/$(code)).data;
     }
 
-    function isFighter(f) {
-      return f in ['knight', 'smith', 'lancer'];
-    }
-
     match /brawls/{code} {
       allow read: if request.auth != null;
       allow create: if request.auth != null
         && code.matches('[A-Z]{4}')
-        && hasExactly(request.resource.data, ['host', 'playerIds', 'names', 'fighters', 'status', 'createdAt'])
+        && hasExactly(request.resource.data, ['host', 'playerIds', 'names', 'status', 'createdAt'])
         && request.resource.data.host == request.auth.uid
         && request.resource.data.playerIds == [request.auth.uid]
         && request.resource.data.names.keys().hasOnly([request.auth.uid])
         && isValidName(request.resource.data.names[request.auth.uid])
-        && request.resource.data.fighters.keys().hasOnly([request.auth.uid])
-        && isFighter(request.resource.data.fighters[request.auth.uid])
         && request.resource.data.status == 'lobby'
         && request.resource.data.createdAt == request.time;
-      allow update: if request.auth != null && (isBrawlJoin() || isBrawlPick() || isBrawlStart() || isBrawlFinish());
+      allow update: if request.auth != null && (isBrawlJoin() || isBrawlStart() || isBrawlFinish());
 
       match /signals/{id} {
         allow read: if request.auth != null && request.auth.uid in brawl(code).playerIds;
@@ -681,22 +675,10 @@ service cloud.firestore {
       return before.status == 'lobby'
         && before.playerIds.size() == 1
         && !(request.auth.uid in before.playerIds)
-        && after.diff(before).affectedKeys().hasOnly(['playerIds', 'names', 'fighters'])
+        && after.diff(before).affectedKeys().hasOnly(['playerIds', 'names'])
         && after.playerIds == before.playerIds.concat([request.auth.uid])
         && after.names.diff(before.names).affectedKeys().hasOnly([request.auth.uid])
-        && isValidName(after.names[request.auth.uid])
-        && after.fighters.diff(before.fighters).affectedKeys().hasOnly([request.auth.uid])
-        && isFighter(after.fighters[request.auth.uid]);
-    }
-
-    function isBrawlPick() {
-      let before = resource.data;
-      let after = request.resource.data;
-      return before.status == 'lobby'
-        && request.auth.uid in before.playerIds
-        && after.diff(before).affectedKeys().hasOnly(['fighters'])
-        && after.fighters.diff(before.fighters).affectedKeys().hasOnly([request.auth.uid])
-        && isFighter(after.fighters[request.auth.uid]);
+        && isValidName(after.names[request.auth.uid]);
     }
 
     function isBrawlStart() {

@@ -1,20 +1,27 @@
 import { stream } from '../../nonogram/rng';
-import { FIGHTERS } from './fighters';
-import { DODGE, DOWN, HEAVY, JUMP, LEFT, LIGHT, RIGHT, UP, type Input } from './input';
-import { BODY_W, PLATFORMS, SUB } from './stage';
-import { inPlay, isActive, moveOf, type Match } from './state';
+import { DOWN, JUMP, LEFT, RIGHT, SKILL1, SKILL2, UP, type Input } from './input';
+import { PLATFORMS, SUB } from './stage';
+import { inPlay, nearest, skillOf, type Match } from './state';
+import { WEAPONS } from './weapons';
 
 /**
  * A bot's input for this frame, worked out from the match alone, so a bot plays the same
  * on every phone. It thinks every few frames (slower when easier), and between thoughts it
- * only keeps moving. It walks toward the nearest fighter, swings when in reach, dodges
- * what it sees coming, and fights its way back to the island when knocked off.
+ * only keeps moving. Bare-handed it runs for the nearest weapon; armed, it closes in with a
+ * blade or keeps its distance with a bow or bombs; knocked off, it fights its way back.
  */
 const THINK = [0, 14, 7, 3];
 const AGGRESSION = [0, 0.35, 0.6, 0.85];
-const DODGING = [0, 0, 0.2, 0.4];
 
 const EDGE = PLATFORMS[0].right;
+
+/** Direction bits pointing from one spot to another, one of eight ways. */
+function aimBits(dx: number, dy: number): Input {
+  let bits = 0;
+  if (Math.abs(dx) * 2 > Math.abs(dy)) bits |= dx > 0 ? RIGHT : LEFT;
+  if (Math.abs(dy) * 2 > Math.abs(dx)) bits |= dy > 0 ? DOWN : UP;
+  return bits;
+}
 
 export function botInput(m: Match, seat: number): Input {
   const me = m.fighters[seat];
@@ -25,7 +32,7 @@ export function botInput(m: Match, seat: number): Input {
   const thinking = (m.frame + seat * 5) % THINK[level] === 0;
   const roll = stream(`${m.seed}:bot:${seat}:${m.frame}`);
   const chance = () => roll(1000) / 1000;
-  const busy = me.move !== null || me.hitstun > 0 || me.lag > 0 || me.dodge > 0;
+  const busy = me.skill !== 0 || me.hitstun > 0 || me.lag > 0;
 
   // Off the island: get back above it, then over it.
   if (me.platform < 0 && (x < -EDGE || x > EDGE || y > 0)) {
@@ -35,59 +42,65 @@ export function botInput(m: Match, seat: number): Input {
     else if (!below || Math.abs(x) > EDGE + 120) input |= x < 0 ? RIGHT : LEFT;
     if (!busy && (me.vy > 0 || y > -40) && thinking) {
       if (me.airJumps > 0 && !(me.prevInput & JUMP)) input |= JUMP;
-      else if (!me.recoveryUsed && me.vy > 0) input |= HEAVY | UP;
+      else if (!me.recoveryUsed && me.vy > 0) return SKILL2 | UP;
     }
     return input;
   }
 
-  let target = -1;
-  let best = Infinity;
-  m.fighters.forEach((f, i) => {
-    if (i === seat || !inPlay(f)) return;
-    const d = Math.abs(f.x - me.x) + Math.abs(f.y - me.y);
-    if (d < best) {
-      best = d;
-      target = i;
+  // Bare hands: a weapon nearby is worth more than a punch.
+  if (me.weapon === 'fists' && m.items.length > 0) {
+    let best = m.items[0];
+    for (const it of m.items) if (Math.abs(it.x - me.x) + Math.abs(it.y - me.y) < Math.abs(best.x - me.x) + Math.abs(best.y - me.y)) best = it;
+    const ix = (best.x - me.x) / SUB;
+    const iy = (best.y - me.y) / SUB;
+    const near = nearest(m, seat);
+    const threat = near >= 0 && Math.abs(m.fighters[near].x - me.x) / SUB < 60 && Math.abs(m.fighters[near].y - me.y) / SUB < 60;
+    if (!threat || level === 1) {
+      let input = Math.abs(ix) > 12 ? (ix > 0 ? RIGHT : LEFT) : 0;
+      if (thinking && !busy && iy < -60 && Math.abs(ix) < 180 && !(me.prevInput & JUMP)) input |= JUMP;
+      if (me.platform > 0 && iy > 40 && Math.abs(ix) < 160) input |= DOWN;
+      return input;
     }
-  });
-  if (target < 0) return 0;
+  }
 
+  const target = nearest(m, seat);
+  if (target < 0) return 0;
   const them = m.fighters[target];
   const dx = (them.x - me.x) / SUB;
   const dy = (them.y - me.y) / SUB;
-  const reach = BODY_W / 2 + (m.seats[seat].fighter === 'lancer' ? 70 : 50);
+  const ranged = me.weapon === 'bow' || me.weapon === 'bombs';
+  const reach = me.weapon === 'spear' ? 100 : me.weapon === 'hammer' || me.weapon === 'sword' ? 70 : 45;
   const toward = dx > 0 ? RIGHT : LEFT;
   const theyAreOff = Math.abs(them.x / SUB) > EDGE || them.y / SUB > 0;
   let input = 0;
 
-  // Close in, but don't walk off the edge after someone who's already off it.
+  // Close in (or, with a bow or bombs, hold a middle distance), but not off the edge.
   const nearEdge = me.platform === 0 && Math.abs(x) > EDGE - 30 && Math.sign(dx) === Math.sign(x);
-  if (Math.abs(dx) > reach * 0.8 && !(nearEdge && theyAreOff)) input |= toward;
-  // Below on a soft ledge: drop down to them.
+  const want = ranged ? 180 : reach * 0.8;
+  if (Math.abs(dx) > want && !(nearEdge && theyAreOff)) input |= toward;
+  else if (ranged && Math.abs(dx) < 90 && !nearEdge) input |= dx > 0 ? LEFT : RIGHT;
   if (me.platform > 0 && dy > 60 && Math.abs(dx) < 140) input |= DOWN;
 
-  if (!thinking || busy) return input;
+  if (!thinking || busy || skillOf(me)) return input;
   const r = chance();
-
-  const theirMove = moveOf(m, target);
-  const incoming = theirMove !== null && !isActive(them, theirMove) && them.moveFrame <= theirMove.startup;
-  if (incoming && Math.abs(dx) < reach + 40 && Math.abs(dy) < 90 && me.dodgeCooldown === 0 && r < DODGING[level]) {
-    return DODGE | (dx > 0 ? LEFT : RIGHT);
-  }
 
   if (dy < -90 && Math.abs(dx) < 160 && (me.platform >= 0 || me.airJumps > 0) && !(me.prevInput & JUMP)) return input | JUMP;
 
+  if (ranged) {
+    if (r < AGGRESSION[level] * 0.6 && Math.abs(dx) < 420) {
+      // A bomb lobs on its own; an arrow wants a straight line.
+      const aim = me.weapon === 'bombs' ? aimBits(dx, 0) : aimBits(dx, dy);
+      return (chance() < 0.3 ? SKILL2 : SKILL1) | aim;
+    }
+    return input;
+  }
+
   if (Math.abs(dx) <= reach && Math.abs(dy) < 70 && r < AGGRESSION[level]) {
     const finish = them.damage >= 90 - level * 10 && chance() < 0.3 + level * 0.15;
-    if (finish) return HEAVY | toward;
-    if (me.platform < 0 && dy > 30) return LIGHT | DOWN;
-    return LIGHT | (chance() < 0.6 ? toward : 0);
+    const strong = WEAPONS[me.weapon].skills[1];
+    if (finish && strong.kind === 'melee') return SKILL2 | toward;
+    return SKILL1 | (chance() < 0.5 ? toward : 0);
   }
-  if (dy < -40 && Math.abs(dx) < 60 && r < AGGRESSION[level]) return LIGHT | UP;
-
-  // Wary of a strong opponent, the hard bot sometimes uses a heavy that reaches further.
-  if (level === 3 && Math.abs(dx) < reach + 30 && Math.abs(dy) < 50 && r > 0.9 && FIGHTERS[m.seats[seat].fighter].weapon !== 'hammer') {
-    return HEAVY | toward;
-  }
+  if (dy < -40 && Math.abs(dx) < 60 && r < AGGRESSION[level]) return SKILL1 | UP;
   return input;
 }

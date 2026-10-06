@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { Page } from '../../components/Page';
 import { Lobby as LobbyFrame } from '../../components/RoomSetup';
-import { FIGHTER_IDS, FIGHTERS, type FighterId } from '../../games/brawl/fighters';
 import { decode, encode, type Message } from '../../games/brawl/net';
 import { Session } from '../../games/brawl/rollback';
 import { newMatch, type Match } from '../../games/brawl/state';
@@ -14,7 +13,6 @@ import {
   MAX_ATTEMPTS,
   newRematchSeed,
   nextAttempt,
-  pickFighter,
   startBrawl,
   watchAttempts,
   watchBrawl,
@@ -24,7 +22,6 @@ import {
 } from '../../services/brawl';
 import { useGameStore } from '../../store';
 import { Arena, STEP_MS, type Driver } from './Arena';
-import { WeaponGlyph } from './Weapons';
 
 /** Quiet this long and the other phone is shown as waited for; this long and it's gone. */
 const QUIET_MS = 1000;
@@ -92,8 +89,6 @@ function NotIn({ room }: { room: Brawl }) {
 function Lobby({ room, uid }: { room: Brawl; uid: string }) {
   const [error, setError] = useState<string | null>(null);
   const ready = room.playerIds.length === 2;
-  const mine = room.fighters[uid] ?? 'knight';
-  const pick = (fighter: FighterId) => void pickFighter(room.code, fighter).catch((e) => setError(String(e)));
   return (
     <LobbyFrame
       code={room.code}
@@ -103,7 +98,7 @@ function Lobby({ room, uid }: { room: Brawl; uid: string }) {
             {room.playerIds.map((p) => (
               <li key={p} className="row">
                 <span>{p === uid ? 'You' : room.names[p]}</span>
-                <span className="row-detail">{FIGHTERS[room.fighters[p] ?? 'knight'].name}</span>
+                {p === room.host && <span className="row-detail">Host</span>}
               </li>
             ))}
             {!ready && (
@@ -112,17 +107,6 @@ function Lobby({ room, uid }: { room: Brawl; uid: string }) {
               </li>
             )}
           </ol>
-          <div className="brawl-fighters" role="radiogroup" aria-label="Your fighter">
-            {FIGHTER_IDS.map((id) => (
-              <button key={id} className="brawl-fighter" role="radio" aria-checked={mine === id} onClick={() => pick(id)}>
-                <span className="game-glyph brawl">
-                  <WeaponGlyph fighter={id} />
-                </span>
-                <strong>{FIGHTERS[id].name}</strong>
-                <small>{FIGHTERS[id].blurb}</small>
-              </button>
-            ))}
-          </div>
           <p className="note center-note">Best on the same Wi-Fi. Some mobile networks can't connect two phones directly.</p>
         </>
       }
@@ -159,8 +143,8 @@ function OnlineFight({ room, uid }: { room: Brawl; uid: string }) {
   const other = room.playerIds[1 - local];
   const otherName = room.names[other] ?? 'Your rival';
   const seats = useMemo(
-    () => room.playerIds.map((p) => ({ fighter: (room.fighters[p] ?? 'knight') as FighterId, bot: 0 as const })),
-    [room.playerIds, room.fighters],
+    () => room.playerIds.map(() => ({ bot: 0 as const })),
+    [room.playerIds],
   );
 
   const [phase, setPhase] = useState<Phase>('connecting');

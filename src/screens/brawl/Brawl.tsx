@@ -1,14 +1,12 @@
 import { useState } from 'react';
 import { Link } from 'react-router';
 import { useBrawlStore } from '../../brawlStore';
-import { FIGHTER_IDS, FIGHTERS } from '../../games/brawl/fighters';
 import type { Match } from '../../games/brawl/state';
 import { Page } from '../../components/Page';
 import { Sheet } from '../../components/Sheet';
 import { SummaryRow } from '../../components/SummaryRow';
-import { BrawlMatch } from './BrawlMatch';
+import { BOT_NAMES, BrawlMatch } from './BrawlMatch';
 import { HowToBrawl } from './HowTo';
-import { WeaponGlyph } from './Weapons';
 
 const LEVELS = ['', 'Easy', 'Normal', 'Hard'];
 
@@ -54,7 +52,7 @@ const newSeed = () => `${Date.now().toString(36)}${Math.random().toString(36).sl
 function Result({ match, onAgain, onDone }: { match: Match; onAgain: () => void; onDone: () => void }) {
   const won = match.winner === 0;
   const you = match.fighters[0];
-  const winner = match.winner !== null ? FIGHTERS[match.seats[match.winner].fighter].name : '';
+  const winner = match.winner !== null ? BOT_NAMES[match.winner] : '';
   return (
     <div className="overlay">
       <div className="panel" role="dialog" aria-label="Fight over">
@@ -75,7 +73,6 @@ function Result({ match, onAgain, onDone }: { match: Match; onAgain: () => void;
 }
 
 function FrontDoor() {
-  const fighter = useBrawlStore((s) => s.fighter);
   const bots = useBrawlStore((s) => s.bots);
   const level = useBrawlStore((s) => s.level);
   const wins = useBrawlStore((s) => s.wins);
@@ -86,19 +83,7 @@ function FrontDoor() {
 
   return (
     <Page title="Sky Brawl">
-      <p className="lead-note">Knock the bots off a floating island. Three lives each, one thumb.</p>
-
-      <div className="brawl-fighters" role="radiogroup" aria-label="Your fighter">
-        {FIGHTER_IDS.map((id) => (
-          <button key={id} className="brawl-fighter" role="radio" aria-checked={fighter === id} onClick={() => choose({ fighter: id })}>
-            <span className="game-glyph brawl">
-              <WeaponGlyph fighter={id} />
-            </span>
-            <strong>{FIGHTERS[id].name}</strong>
-            <small>{FIGHTERS[id].blurb}</small>
-          </button>
-        ))}
-      </div>
+      <p className="lead-note">Knock the others off a floating island. Grab the weapons that drop in; each lasts ten seconds.</p>
 
       <SummaryRow label="Opponents" figures={`${bots} ${bots === 1 ? 'bot' : 'bots'} · ${LEVELS[level]}`}>
         <p className="group-title">Bots</p>

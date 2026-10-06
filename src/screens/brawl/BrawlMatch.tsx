@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { botInput } from '../../games/brawl/bot';
-import { FIGHTERS } from '../../games/brawl/fighters';
 import { step, type Match } from '../../games/brawl/state';
 import { Arena, STEP_MS, type Driver } from './Arena';
 import { HowToBrawl } from './HowTo';
+
+/** Bots go by their colour: you're gold, then blue, red and green. */
+export const BOT_NAMES = ['You', 'Blue', 'Red', 'Green'];
 
 /** Save the fight about once a second, besides whenever the screen is left. */
 const SAVE_EVERY = 60;
@@ -72,7 +74,7 @@ export function BrawlMatch({
     };
   }, []);
 
-  const labels = initial.seats.map((seat, i) => (i === 0 ? 'You' : FIGHTERS[seat.fighter].name));
+  const labels = initial.seats.map((_, i) => BOT_NAMES[i]);
 
   return (
     <Arena

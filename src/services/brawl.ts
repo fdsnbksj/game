@@ -1,12 +1,11 @@
 import { FirebaseError } from 'firebase/app';
 import { collection, doc, getDoc, getDocs, onSnapshot, serverTimestamp, setDoc, updateDoc, type Unsubscribe } from 'firebase/firestore';
 import { db } from '../firebase';
-import type { FighterId } from '../games/brawl/fighters';
 import { useGameStore } from '../store';
 import { newCode } from './roomCode';
 
 // Sky Brawl online: two phones fight each other directly over WebRTC. Firestore holds only
-// the room (brawls/{code}: who's in, their fighters, the seed) and one handshake each way
+// the room (brawls/{code}: who's in, the seed) and one handshake each way
 // (brawls/{code}/signals/offer and /answer, the whole connection offer in one write). The
 // fight itself never touches Firestore. firestore.rules checks each write;
 // tests/rules/brawl.test.ts mirrors them.
@@ -16,7 +15,6 @@ export interface Brawl {
   host: string;
   playerIds: string[];
   names: Record<string, string>;
-  fighters: Record<string, FighterId>;
   status: 'lobby' | 'playing' | 'done';
   seed: string | null;
 }
@@ -35,7 +33,7 @@ export async function createBrawl(): Promise<string> {
   for (let tries = 0; tries < 5; tries++) {
     const code = newCode();
     try {
-      await setDoc(brawlRef(code), { host: uid, playerIds: [uid], names: { [uid]: name }, fighters: { [uid]: 'knight' }, status: 'lobby', createdAt: serverTimestamp() });
+      await setDoc(brawlRef(code), { host: uid, playerIds: [uid], names: { [uid]: name }, status: 'lobby', createdAt: serverTimestamp() });
       return code;
     } catch (error) {
       if (!(error instanceof FirebaseError && error.code === 'permission-denied')) throw error;
@@ -55,14 +53,8 @@ export async function joinBrawl(code: string): Promise<string | null> {
   await updateDoc(brawlRef(code), {
     playerIds: [...room.playerIds, uid],
     names: { ...room.names, [uid]: name },
-    fighters: { ...room.fighters, [uid]: 'knight' },
   });
   return null;
-}
-
-export async function pickFighter(code: string, fighter: FighterId) {
-  const { uid } = me();
-  await updateDoc(brawlRef(code), { [`fighters.${uid}`]: fighter });
 }
 
 export async function startBrawl(code: string) {
@@ -88,7 +80,7 @@ export function watchBrawl(code: string, onChange: (data: BrawlData) => void): U
       if (!snap.exists()) return onChange({ room: null, missing: true });
       const d = snap.data();
       onChange({
-        room: { code, host: d.host, playerIds: d.playerIds, names: d.names, fighters: d.fighters ?? {}, status: d.status, seed: d.seed ?? null },
+        room: { code, host: d.host, playerIds: d.playerIds, names: d.names, status: d.status, seed: d.seed ?? null },
         missing: false,
       });
     },
