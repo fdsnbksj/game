@@ -2996,29 +2996,16 @@ button.seat:disabled {
   color: var(--on-accent);
 }
 
-/* Upright on a phone: ask for it sideways. */
-.brawl-rotate {
-  position: absolute;
-  inset: 0;
-  z-index: 40;
-  display: none;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  background: var(--bg);
-  color: var(--label-2);
-  text-align: center;
-}
-
-.brawl-rotate p {
-  margin: 0;
-}
-
-@media (orientation: portrait) and (pointer: coarse) {
-  .brawl-rotate {
-    display: flex;
-  }
+/* Upright (a phone locked to portrait): the whole stage turned a quarter, to be held sideways.
+   Fixed children (the panels) turn with it, since a transformed parent holds them. */
+.brawl-stage.turned {
+  inset: auto;
+  top: 0;
+  left: 100vw;
+  width: 100dvh;
+  height: 100vw;
+  transform: rotate(90deg);
+  transform-origin: 0 0;
 }
 
 /* Panels over the fight: short screens sideways, so they scroll if they must. */

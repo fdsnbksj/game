@@ -52,10 +52,15 @@ const BUTTONS: { id: Button; label: string }[] = [
   { id: 'jump', label: 'Jump' },
 ];
 
+/** Upright: the fight is drawn turned a quarter, so it plays sideways even with the rotation locked. */
+const portrait = () => window.matchMedia('(orientation: portrait)').matches;
+
 /**
  * The fight on screen, sideways: the arena fills it, the joystick sits under the left
- * thumb and four buttons under the right. Draws whatever the driver hands it each screen
- * refresh; the driver decides how many frames that is.
+ * thumb and four buttons under the right. On an upright screen (a phone with its rotation
+ * locked) the whole stage is turned a quarter, so the phone is simply held sideways.
+ * Draws whatever the driver hands it each screen refresh; the driver decides how many
+ * frames that is.
  */
 export function Arena({
   driver,
@@ -75,6 +80,8 @@ export function Arena({
   children?: ReactNode;
 }) {
   const canvas = useRef<HTMLCanvasElement>(null);
+  const stage = useRef<HTMLElement>(null);
+  const [turned, setTurned] = useState(portrait);
   const base = useRef<HTMLDivElement>(null);
   const knob = useRef<HTMLDivElement>(null);
   /** The left thumb on the stick: where it landed and where it is. */
@@ -148,16 +155,50 @@ export function Arena({
       }
     };
     raf = requestAnimationFrame(frame);
+
+    // Turn the stage with the screen.
+    const query = window.matchMedia('(orientation: portrait)');
+    const turn = () => setTurned(query.matches);
+    query.addEventListener('change', turn);
+
+    // Two thumbs moving apart look like a pinch to the browser, and quick taps like a
+    // double tap: stop both zooming the page. (iOS ignores touch-action: none.)
+    const root = stage.current!;
+    const still = (event: TouchEvent) => event.preventDefault();
+    const pinch = (event: TouchEvent) => {
+      if (event.touches.length > 1) event.preventDefault();
+    };
+    let lastEnd = 0;
+    const doubleTap = (event: TouchEvent) => {
+      if (event.timeStamp - lastEnd < 350) event.preventDefault();
+      lastEnd = event.timeStamp;
+    };
+    const gesture = (event: Event) => event.preventDefault();
+    root.addEventListener('touchmove', still, { passive: false });
+    root.addEventListener('touchstart', pinch, { passive: false });
+    root.addEventListener('touchend', doubleTap, { passive: false });
+    document.addEventListener('gesturestart', gesture);
+    document.addEventListener('gesturechange', gesture);
     return () => {
       cancelAnimationFrame(raf);
       observer.disconnect();
+      query.removeEventListener('change', turn);
+      root.removeEventListener('touchmove', still);
+      root.removeEventListener('touchstart', pinch);
+      root.removeEventListener('touchend', doubleTap);
+      document.removeEventListener('gesturestart', gesture);
+      document.removeEventListener('gesturechange', gesture);
     };
     // The loop reads the driver through a ref; it starts once per fight.
   }, []);
 
+  /** A touch in the zone's own (sideways) coordinates, whichever way the stage is turned. */
   const point = (event: React.PointerEvent<HTMLElement>) => {
-    const box = event.currentTarget.getBoundingClientRect();
-    return [event.clientX - box.left, event.clientY - box.top] as const;
+    const zone = event.currentTarget;
+    // Turned a quarter clockwise about the screen's top right: x runs down the screen, y runs right to left.
+    const x = turned ? event.clientY : event.clientX;
+    const y = turned ? window.innerWidth - event.clientX : event.clientY;
+    return [x - zone.offsetLeft, y - zone.offsetTop] as const;
   };
   const capture = (event: React.PointerEvent<HTMLElement>) => {
     try {
@@ -171,7 +212,7 @@ export function Arena({
   };
 
   return (
-    <main className="brawl-stage">
+    <main ref={stage} className={turned ? 'brawl-stage turned' : 'brawl-stage'}>
       <canvas ref={canvas} className="brawl-canvas" />
 
       <header className="brawl-top">
@@ -231,13 +272,6 @@ export function Arena({
         ))}
       </div>
 
-      <div className="brawl-rotate" aria-live="polite">
-        <svg viewBox="0 0 24 24" width="40" height="40" aria-hidden="true">
-          <rect x="7" y="3" width="10" height="18" rx="2" fill="none" stroke="currentColor" strokeWidth="1.6" />
-          <path d="M3 14a9 9 0 0 0 7 7M21 10a9 9 0 0 0-7-7" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-        </svg>
-        <p>Turn your phone sideways to fight.</p>
-      </div>
       {children}
     </main>
   );
