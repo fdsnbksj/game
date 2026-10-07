@@ -2,7 +2,7 @@ import { stream } from '../../nonogram/rng';
 import { DODGE, DOWN, JUMP, LEFT, RIGHT, SKILL1, SKILL2, UP, type Input } from './input';
 import { PLATFORMS, SUB } from './stage';
 import { ICE_BASE, inPlay, isActive, nearest, skillOf, type Match } from './state';
-import { WEAPONS } from './weapons';
+import { RANGED, WEAPONS } from './weapons';
 
 /**
  * A bot's input for this frame, worked out from the match alone, so a bot plays the same
@@ -78,8 +78,8 @@ export function botInput(m: Match, seat: number): Input {
   const them = m.fighters[target];
   const dx = (them.x - me.x) / SUB;
   const dy = (them.y - me.y) / SUB;
-  const ranged = me.weapon === 'bow' || me.weapon === 'bombs';
-  const reach = me.weapon === 'spear' ? 100 : me.weapon === 'hammer' || me.weapon === 'sword' ? 70 : 45;
+  const ranged = RANGED.includes(me.weapon);
+  const reach = me.weapon === 'spear' || me.weapon === 'scythe' ? 100 : me.weapon === 'hammer' || me.weapon === 'sword' || me.weapon === 'axe' ? 70 : 45;
   const toward = dx > 0 ? RIGHT : LEFT;
   const theyAreOff = Math.abs(them.x / SUB) > EDGE || them.y / SUB > 0;
   let input = 0;

@@ -4,7 +4,7 @@ import { BUTTON_BITS, knob, STICK, stickBits } from '../../src/games/brawl/contr
 import { DODGE, DOWN, JUMP, LEFT, RIGHT, SKILL1, SKILL2, UP, type Input } from '../../src/games/brawl/input';
 import { BLAST, PLATFORMS, SUB } from '../../src/games/brawl/stage';
 import { hashState, ICE_BASE, ICE_LIFE, ITEM_LIFE, knockback, newMatch, STOCKS, step, type BotLevel, type FighterState, type Match } from '../../src/games/brawl/state';
-import { WEAPON_FRAMES, WEAPONS } from '../../src/games/brawl/weapons';
+import { PICKUPS, WEAPON_FRAMES, WEAPONS } from '../../src/games/brawl/weapons';
 
 const duel = (seed = 'test') => newMatch(seed, [{ bot: 0 }, { bot: 2 }]);
 
@@ -32,7 +32,7 @@ describe('Sky Brawl engine', () => {
     const b = run(duel(), 1200, script);
     expect(hashState(a)).toBe(hashState(b));
     // Changes only when the engine does: then bump BRAWL_VERSION and update this.
-    expect(hashState(a)).toBe('d1e08522');
+    expect(hashState(a)).toBe('132aa08b');
   });
 
   it('keeps every number whole', () => {
@@ -142,6 +142,61 @@ describe('Sky Brawl engine', () => {
     const after = run(near, 2);
     expect(after.fighters[1].damage).toBeGreaterThan(0);
     expect(after.fighters[1].vx).toBeGreaterThan(0);
+  });
+
+  it('hooks a fighter back toward you with the scythe', () => {
+    let m = placed([{ x: 0, weapon: 'scythe', weaponLeft: WEAPON_FRAMES }, { x: 90 * SUB, facing: -1, damage: 40 }]);
+    m = step(m, [SKILL2 | RIGHT, 0]);
+    m = run(m, 16);
+    expect(m.fighters[1].damage).toBeGreaterThan(40);
+    expect(m.fighters[1].vx).toBeLessThan(0);
+  });
+
+  it('throws a fan of three knives with the heavy', () => {
+    let m = placed([{ x: -200 * SUB, weapon: 'knives', weaponLeft: WEAPON_FRAMES }, { x: 200 * SUB }]);
+    m = step(m, [SKILL2 | RIGHT, 0]);
+    m = run(m, 10);
+    expect(m.projectiles.filter((p) => p.kind === 'knife')).toHaveLength(3);
+    expect(new Set(m.projectiles.map((p) => Math.sign(p.vy))).size).toBeGreaterThan(1);
+  });
+
+  it('throws a boomerang that comes back to the thrower', () => {
+    let m = placed([{ x: -100 * SUB, weapon: 'boomerang', weaponLeft: WEAPON_FRAMES }, { x: 250 * SUB, y: -150 * SUB, platform: 2 }]);
+    m = step(m, [SKILL1 | RIGHT, 0]);
+    m = run(m, 20);
+    expect(m.projectiles[0].vx).toBeGreaterThan(0);
+    let back = false;
+    for (let i = 0; i < 140 && m.projectiles.length; i++) {
+      m = step(m, [0, 0]);
+      if (m.projectiles[0] && m.projectiles[0].vx < 0) back = true;
+    }
+    expect(back).toBe(true);
+    expect(m.projectiles).toHaveLength(0);
+  });
+
+  it('freezes with frost: a small push, but helpless for longer', () => {
+    const shoot = (weapon: 'frost' | 'bow') => {
+      let m = placed([{ x: -150 * SUB, weapon, weaponLeft: WEAPON_FRAMES }, { x: 50 * SUB, facing: -1 }]);
+      m = step(m, [SKILL1 | RIGHT, 0]);
+      for (let i = 0; i < 60 && m.fighters[1].damage === 0; i++) m = step(m, [0, 0]);
+      return m.fighters[1];
+    };
+    const frozen = shoot('frost');
+    const arrowed = shoot('bow');
+    expect(frozen.hitstun).toBeGreaterThan(arrowed.hitstun);
+    expect(Math.abs(frozen.vx)).toBeLessThan(Math.abs(arrowed.vx));
+  });
+
+  it('drops every kind of weapon, given time', () => {
+    const seen = new Set<string>();
+    for (let s = 0; s < 30 && seen.size < PICKUPS.length; s++) {
+      let m = newMatch(`drops:${s}`, [{ bot: 0 }, { bot: 0 }]);
+      for (let f = 0; f < 3000; f++) {
+        m = step(m, [0, 0]);
+        for (const it of m.items) seen.add(it.weapon);
+      }
+    }
+    expect([...seen].sort()).toEqual([...PICKUPS].sort());
   });
 
   it('leaps up with the strong skill aimed up, once per trip into the air', () => {

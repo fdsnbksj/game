@@ -21,6 +21,7 @@ export interface Palette {
   itemGlow: string;
   ice: string;
   iceEdge: string;
+  frost: string;
 }
 
 export function readPalette(): Palette {
@@ -44,6 +45,7 @@ export function readPalette(): Palette {
     itemGlow: v('--brawl-item-glow'),
     ice: v('--brawl-ice'),
     iceEdge: v('--brawl-ice-edge'),
+    frost: v('--brawl-frost'),
   };
 }
 
@@ -120,15 +122,68 @@ function drawWeapon(ctx: CanvasRenderingContext2D, kind: WeaponId, hx: number, h
   const len = Math.hypot(dx, dy) || 1;
   const ux = dx / len;
   const uy = dy / len;
-  const length = kind === 'spear' ? 54 : kind === 'hammer' ? 34 : kind === 'sword' ? 40 : 14;
+  const length = kind === 'spear' || kind === 'scythe' ? 54 : kind === 'frost' ? 46 : kind === 'hammer' || kind === 'axe' ? 34 : kind === 'sword' ? 40 : 14;
   const tx = hx + ux * length;
   const ty = hy + uy * length;
   ctx.lineCap = 'round';
-  if (kind === 'fists') {
-    ctx.fillStyle = colour;
+  if (kind === 'fists' || kind === 'gauntlets') {
+    ctx.fillStyle = kind === 'gauntlets' ? p.steel : colour;
+    ctx.beginPath();
+    ctx.arc(tx, ty, kind === 'gauntlets' ? 8 : 6, 0, Math.PI * 2);
+    ctx.fill();
+  } else if (kind === 'axe') {
+    ctx.strokeStyle = p.wood;
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(hx, hy);
+    ctx.lineTo(tx, ty);
+    ctx.stroke();
+    // A wedge of blade off one side of the head.
+    ctx.fillStyle = p.steel;
+    ctx.beginPath();
+    ctx.moveTo(tx - ux * 2, ty - uy * 2);
+    ctx.lineTo(tx - uy * 14 - ux * 8, ty + ux * 14 - uy * 8);
+    ctx.lineTo(tx - uy * 14 + ux * 8, ty + ux * 14 + uy * 8);
+    ctx.closePath();
+    ctx.fill();
+  } else if (kind === 'scythe') {
+    ctx.strokeStyle = p.wood;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(hx - ux * 10, hy - uy * 10);
+    ctx.lineTo(tx, ty);
+    ctx.stroke();
+    // The curved blade, hooking back.
+    const a = Math.atan2(uy, ux);
+    ctx.strokeStyle = p.steel;
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.arc(tx - ux * 14, ty - uy * 14, 16, a - Math.PI / 2, a + 0.3);
+    ctx.stroke();
+  } else if (kind === 'knives') {
+    ctx.strokeStyle = p.steel;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(hx, hy);
+    ctx.lineTo(hx + ux * 14, hy + uy * 14);
+    ctx.stroke();
+  } else if (kind === 'boomerang') {
+    drawBoomerang(ctx, hx + ux * 12, hy + uy * 12, Math.atan2(uy, ux), 1, p);
+  } else if (kind === 'frost') {
+    ctx.strokeStyle = p.wood;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(hx - ux * 10, hy - uy * 10);
+    ctx.lineTo(tx, ty);
+    ctx.stroke();
+    ctx.save();
+    ctx.shadowColor = p.frost;
+    ctx.shadowBlur = 10;
+    ctx.fillStyle = p.frost;
     ctx.beginPath();
     ctx.arc(tx, ty, 6, 0, Math.PI * 2);
     ctx.fill();
+    ctx.restore();
   } else if (kind === 'spear') {
     ctx.strokeStyle = p.wood;
     ctx.lineWidth = 3;
@@ -193,6 +248,23 @@ function drawWeapon(ctx: CanvasRenderingContext2D, kind: WeaponId, hx: number, h
     ctx.arc(hx + ux * 10 + 4, hy + uy * 10 - 7, 2, 0, Math.PI * 2);
     ctx.fill();
   }
+}
+
+/** A boomerang: a bent bar, turned to an angle. */
+function drawBoomerang(ctx: CanvasRenderingContext2D, x: number, y: number, angle: number, scale: number, p: Palette) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(angle);
+  ctx.scale(scale, scale);
+  ctx.strokeStyle = p.wood;
+  ctx.lineWidth = 4;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(-9, -9);
+  ctx.lineTo(0, 0);
+  ctx.lineTo(-9, 9);
+  ctx.stroke();
+  ctx.restore();
 }
 
 /** Where the weapon points: resting, winding up, or out along the aim. */
@@ -289,6 +361,35 @@ function drawItem(ctx: CanvasRenderingContext2D, it: Item, p: Palette) {
 function drawProjectile(ctx: CanvasRenderingContext2D, pr: Projectile, p: Palette) {
   const x = pr.x / SUB;
   const y = pr.y / SUB;
+  if (pr.kind === 'boomerang' || pr.kind === 'bigBoomerang') {
+    // Spinning as it flies.
+    drawBoomerang(ctx, x, y, pr.age * 0.6, pr.kind === 'bigBoomerang' ? 1.6 : 1.1, p);
+    return;
+  }
+  if (pr.kind === 'frost' || pr.kind === 'frostWave') {
+    const r = pr.kind === 'frostWave' ? 20 : 8;
+    ctx.save();
+    ctx.shadowColor = p.frost;
+    ctx.shadowBlur = 14;
+    ctx.fillStyle = p.frost;
+    ctx.globalAlpha = pr.kind === 'frostWave' ? 0.6 : 0.9;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+    return;
+  }
+  if (pr.kind === 'knife') {
+    const len = Math.hypot(pr.vx, pr.vy) || 1;
+    ctx.strokeStyle = p.steel;
+    ctx.lineWidth = 2.5;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(x - (pr.vx / len) * 12, y - (pr.vy / len) * 12);
+    ctx.lineTo(x, y);
+    ctx.stroke();
+    return;
+  }
   if (pr.kind === 'arrow' || pr.kind === 'pierce') {
     const len = Math.hypot(pr.vx, pr.vy) || 1;
     const ux = pr.vx / len;

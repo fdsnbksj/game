@@ -9,6 +9,7 @@ import {
   PICKUPS,
   PROJECTILES,
   skillFrames,
+  turnAim,
   WEAPON_FRAMES,
   WEAPONS,
   type Aim,
@@ -32,7 +33,7 @@ import {
  */
 
 /** Bump when a change would make old saved matches play differently. */
-export const BRAWL_VERSION = 3;
+export const BRAWL_VERSION = 4;
 
 export const STOCKS = 3;
 
@@ -448,7 +449,13 @@ function updateFighter(m: Match, seat: number, input: Input) {
         f.vx = Math.trunc((ux * skill.lunge) / 1000);
         if (uy < 0 && f.platform < 0) f.vy = Math.min(f.vy, Math.trunc((uy * skill.lunge) / 1000));
       }
-      if (skill.kind === 'shot') launch(m, f.x + f.facing * 20 * SUB, f.y - 40 * SUB, skill.projectile, seat, f.aimX, f.aimY);
+      if (skill.kind === 'shot') {
+        // A fan throws three: the aim, and one step either side of it.
+        for (const turn of skill.spread ? [-1, 0, 1] : [0]) {
+          const [ax, ay] = turn ? turnAim(f.aimX, f.aimY, turn) : [f.aimX, f.aimY];
+          launch(m, f.x + f.facing * 20 * SUB, f.y - 40 * SUB, skill.projectile, seat, ax, ay);
+        }
+      }
     }
     f.skillFrame++;
     if (f.skillFrame >= skillFrames(skill)) f.skill = 0;
@@ -554,6 +561,8 @@ interface Hit {
   angle: Angle;
   /** Which way along x the launch goes. */
   side: number;
+  /** Extra frames helpless (frozen, or hooked). */
+  stun?: number;
 }
 
 function applyHit(m: Match, h: Hit) {
@@ -570,7 +579,7 @@ function applyHit(m: Match, h: Hit) {
     if (target.vy > 0) target.vy = -Math.trunc(target.vy / 2);
     if (target.vy < 0) target.platform = -1;
   }
-  target.hitstun = 8 + Math.trunc(speed / 60);
+  target.hitstun = 8 + Math.trunc(speed / 60) + (h.stun ?? 0);
   target.skill = 0;
   target.dodge = 0;
   target.iceUsed = false;
@@ -614,15 +623,31 @@ function moveProjectiles(m: Match, hits: Hit[]) {
     const spec = PROJECTILES[p.kind];
     const bomb = spec.radius !== undefined;
     const prevY = p.y;
+    let done = false;
+    if (spec.returns !== undefined && p.age === spec.returns) p.hits = 0; // On the way back it can hit again.
+    if (spec.returns !== undefined && p.age >= spec.returns) {
+      // Back to the thrower, curving round to meet them; caught when it gets there.
+      const owner = m.fighters[p.owner];
+      if (inPlay(owner)) {
+        const dx = owner.x - p.x;
+        const dy = owner.y - (BODY_H * SUB) / 2 - p.y;
+        // A square root is exact to the last bit in every engine, so this stays the same on every phone.
+        const dist = Math.trunc(Math.sqrt(dx * dx + dy * dy));
+        if (dist < 30 * SUB) done = true;
+        else {
+          p.vx = approach(p.vx, Math.trunc((dx * spec.speed) / dist), 160);
+          p.vy = approach(p.vy, Math.trunc((dy * spec.speed) / dist), 160);
+        }
+      }
+    }
     p.vy += spec.gravity;
     p.x += p.vx;
     p.y += p.vy;
     p.age++;
     p.life--;
-    let done = false;
 
-    // The island stops arrows; bombs bounce off it and off the ledges.
-    for (let i = 0; i < PLATFORMS.length && !done; i++) {
+    // The island stops arrows and bolts; bombs bounce off it and off the ledges; a boomerang flies over it all.
+    for (let i = 0; i < PLATFORMS.length && !done && spec.returns === undefined; i++) {
       const pl = PLATFORMS[i];
       const inside = p.x >= pl.left * SUB && p.x <= pl.right * SUB;
       if (!inside) continue;
@@ -644,7 +669,8 @@ function moveProjectiles(m: Match, hits: Hit[]) {
     if (!done) {
       m.fighters.forEach((f, t) => {
         if (done || t === p.owner || !inPlay(f) || f.invulnerable > 0 || p.hits & (1 << t)) return;
-        const box = { left: p.x - 6 * SUB, right: p.x + 6 * SUB, top: p.y - 6 * SUB, bottom: p.y + 6 * SUB };
+        const size = (spec.size ?? 6) * SUB;
+        const box = { left: p.x - size, right: p.x + size, top: p.y - size, bottom: p.y + size };
         if (!overlaps(box, f)) return;
         if (bomb) {
           // A bomb thrown a moment ago doesn't go off in the thrower's own face.
@@ -657,7 +683,7 @@ function moveProjectiles(m: Match, hits: Hit[]) {
         p.hits |= 1 << t;
         const side = p.vx > 0 ? 1 : p.vx < 0 ? -1 : f.facing;
         const angle: Angle = Math.abs(p.vx) * 2 < Math.abs(p.vy) ? (p.vy < 0 ? 'up' : 'spike') : 'rising';
-        hits.push({ by: p.owner, target: t, damage: spec.damage, base: spec.base, growth: spec.growth, angle, side });
+        hits.push({ by: p.owner, target: t, damage: spec.damage, base: spec.base, growth: spec.growth, angle, side, stun: spec.stun });
         if (!spec.pierce) done = true;
       });
     }
@@ -775,8 +801,10 @@ export function step(match: Match, inputs: readonly Input[]): Match {
       if (!overlaps(box, target)) return;
       attacker.skillHits |= 1 << t;
       // Swings reaching behind the body send a fighter the way they were from you.
-      const side = !reachesBack || target.x === attacker.x ? attacker.facing : target.x > attacker.x ? 1 : -1;
-      hits.push({ by: a, target: t, damage: skill.damage, base: skill.base, growth: skill.growth, angle: skill.angles[aim], side });
+      const away = !reachesBack || target.x === attacker.x ? attacker.facing : target.x > attacker.x ? 1 : -1;
+      // A hook drags them back in, toward you.
+      const side = skill.pull ? -away : away;
+      hits.push({ by: a, target: t, damage: skill.damage, base: skill.base, growth: skill.growth, angle: skill.angles[aim], side, stun: skill.stun });
     });
   });
   moveProjectiles(m, hits);

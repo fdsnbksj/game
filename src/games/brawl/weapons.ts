@@ -1,14 +1,16 @@
 /**
  * Everyone fights with the same body; what changes is the weapon in hand. Weapons appear
  * on the island, last 10 seconds once picked up, and each has two skills: a quick one
- * (double tap) and a strong one (hold). Our own plain weapons, from no published game.
+ * (Attack) and a strong one (Heavy). Our own plain weapons, from no published game.
  * Numbers are frames (60 a second), world pixels, and sub-units a frame for speeds.
  */
 import { BODY_H } from './stage';
 
-export type WeaponId = 'fists' | 'sword' | 'hammer' | 'spear' | 'bow' | 'bombs';
+export type WeaponId = 'fists' | 'sword' | 'hammer' | 'spear' | 'axe' | 'gauntlets' | 'scythe' | 'bow' | 'bombs' | 'knives' | 'boomerang' | 'frost';
 /** What can lie on the island to be picked up. */
-export const PICKUPS: readonly WeaponId[] = ['sword', 'hammer', 'spear', 'bow', 'bombs'];
+export const PICKUPS: readonly WeaponId[] = ['sword', 'hammer', 'spear', 'axe', 'gauntlets', 'scythe', 'bow', 'bombs', 'knives', 'boomerang', 'frost'];
+/** The ones that fight from a distance, for the bots. */
+export const RANGED: readonly WeaponId[] = ['bow', 'bombs', 'knives', 'boomerang', 'frost'];
 
 /** How long a picked-up weapon lasts. */
 export const WEAPON_FRAMES = 600;
@@ -29,6 +31,24 @@ export const ANGLES = {
   spike: [707, 707],
 } as const;
 export type Angle = keyof typeof ANGLES;
+
+/** The eight aims in order around the circle, for fanning a throw out to either side. */
+const AROUND: readonly [number, number][] = [
+  [1, 0],
+  [1, 1],
+  [0, 1],
+  [-1, 1],
+  [-1, 0],
+  [-1, -1],
+  [0, -1],
+  [1, -1],
+];
+
+/** The aim next to this one, one step round either way (-1 or 1). */
+export function turnAim(ax: number, ay: number, steps: number): [number, number] {
+  const i = AROUND.findIndex(([x, y]) => x === ax && y === ay);
+  return AROUND[(i + steps + 8) % 8];
+}
 
 /** Unit vector ×1000 for an aim of (-1|0|1, -1|0|1). */
 export function aimVector(ax: number, ay: number): [number, number] {
@@ -59,15 +79,21 @@ export interface Melee {
   angles: Record<Aim, Angle>;
   /** A push along the aim when the skill comes out. */
   lunge?: number;
+  /** Hooks: sends a fighter toward you instead of away. */
+  pull?: boolean;
+  /** Extra frames a hit leaves its target helpless. */
+  stun?: number;
 }
 
-export type ProjectileKind = 'arrow' | 'pierce' | 'bomb' | 'bigBomb';
+export type ProjectileKind = 'arrow' | 'pierce' | 'bomb' | 'bigBomb' | 'knife' | 'boomerang' | 'bigBoomerang' | 'frost' | 'frostWave';
 
 export interface Shot {
   kind: 'shot';
   startup: number;
   recovery: number;
   projectile: ProjectileKind;
+  /** Three at once: the aim and the one either side of it. */
+  spread?: boolean;
 }
 
 export type Skill = Melee | Shot;
@@ -88,9 +114,14 @@ function aimed(side: Box, both = false): Record<Aim, Box> {
   };
 }
 
-function melee(m: Omit<Melee, 'kind' | 'boxes' | 'angles'> & { box: Box; angle: Angle; both?: boolean }): Melee {
-  const { box, angle, both, ...rest } = m;
-  return { kind: 'melee', ...rest, boxes: aimed(box, both), angles: both ? { side: angle, up: angle, down: angle } : { side: angle, up: 'up', down: 'spike' } };
+function melee(m: Omit<Melee, 'kind' | 'boxes' | 'angles'> & { box: Box; angle: Angle; both?: boolean; upAngle?: Angle }): Melee {
+  const { box, angle, both, upAngle, ...rest } = m;
+  return {
+    kind: 'melee',
+    ...rest,
+    boxes: aimed(box, both),
+    angles: both ? { side: angle, up: angle, down: angle } : { side: angle, up: upAngle ?? 'up', down: 'spike' },
+  };
 }
 
 export const WEAPONS: Record<WeaponId, Weapon> = {
@@ -126,6 +157,33 @@ export const WEAPONS: Record<WeaponId, Weapon> = {
       melee({ startup: 10, active: 10, recovery: 18, damage: 12, base: 600, growth: 13, box: { x: 10, y: -54, w: 92, h: 26 }, angle: 'rising', lunge: 1300 }),
     ],
   },
+  axe: {
+    id: 'axe',
+    name: 'Axe',
+    skills: [
+      melee({ startup: 7, active: 4, recovery: 14, damage: 10, base: 470, growth: 10, box: { x: 4, y: -66, w: 58, h: 48 }, angle: 'diagonal' }),
+      // A full spin: hits both sides at once.
+      melee({ startup: 14, active: 8, recovery: 22, damage: 15, base: 680, growth: 15, box: { x: -70, y: -64, w: 140, h: 56 }, angle: 'rising', both: true }),
+    ],
+  },
+  gauntlets: {
+    id: 'gauntlets',
+    name: 'Gauntlets',
+    skills: [
+      melee({ startup: 3, active: 3, recovery: 7, damage: 5, base: 300, growth: 5, box: { x: 6, y: -54, w: 38, h: 26 }, angle: 'low' }),
+      // An uppercut: straight up, whichever way it's thrown.
+      melee({ startup: 8, active: 6, recovery: 18, damage: 12, base: 620, growth: 13, box: { x: 4, y: -78, w: 44, h: 56 }, angle: 'up', lunge: 600 }),
+    ],
+  },
+  scythe: {
+    id: 'scythe',
+    name: 'Scythe',
+    skills: [
+      melee({ startup: 7, active: 4, recovery: 14, damage: 8, base: 420, growth: 8, box: { x: 12, y: -62, w: 90, h: 36 }, angle: 'rising' }),
+      // A long hook that drags a fighter back in toward you.
+      melee({ startup: 13, active: 6, recovery: 20, damage: 11, base: 520, growth: 8, box: { x: 20, y: -60, w: 110, h: 40 }, angle: 'low', pull: true, stun: 12 }),
+    ],
+  },
   bow: {
     id: 'bow',
     name: 'Bow',
@@ -142,17 +200,62 @@ export const WEAPONS: Record<WeaponId, Weapon> = {
       { kind: 'shot', startup: 12, recovery: 22, projectile: 'bigBomb' },
     ],
   },
+  knives: {
+    id: 'knives',
+    name: 'Knives',
+    skills: [
+      { kind: 'shot', startup: 3, recovery: 9, projectile: 'knife' },
+      { kind: 'shot', startup: 9, recovery: 18, projectile: 'knife', spread: true },
+    ],
+  },
+  boomerang: {
+    id: 'boomerang',
+    name: 'Boomerang',
+    skills: [
+      { kind: 'shot', startup: 6, recovery: 14, projectile: 'boomerang' },
+      { kind: 'shot', startup: 12, recovery: 20, projectile: 'bigBoomerang' },
+    ],
+  },
+  frost: {
+    id: 'frost',
+    name: 'Frost staff',
+    skills: [
+      { kind: 'shot', startup: 7, recovery: 14, projectile: 'frost' },
+      { kind: 'shot', startup: 14, recovery: 22, projectile: 'frostWave' },
+    ],
+  },
 };
 
 /** What each kind of projectile does. Arrows fly; bombs arc, bounce and blow up. */
 export const PROJECTILES: Record<
   ProjectileKind,
-  { speed: number; lob: number; gravity: number; life: number; damage: number; base: number; growth: number; pierce?: boolean; radius?: number }
+  {
+    speed: number;
+    lob: number;
+    gravity: number;
+    life: number;
+    damage: number;
+    base: number;
+    growth: number;
+    pierce?: boolean;
+    radius?: number;
+    /** Turns round after this many frames and flies back to the thrower. */
+    returns?: number;
+    /** Extra frames a hit leaves its target helpless: frozen. */
+    stun?: number;
+    /** Half its size, for hitting: bigger shots are easier to land. */
+    size?: number;
+  }
 > = {
   arrow: { speed: 1600, lob: 0, gravity: 8, life: 70, damage: 6, base: 340, growth: 6 },
   pierce: { speed: 2200, lob: 0, gravity: 4, life: 60, damage: 11, base: 560, growth: 12, pierce: true },
   bomb: { speed: 1100, lob: -500, gravity: 50, life: 70, damage: 12, base: 600, growth: 12, radius: 90 },
   bigBomb: { speed: 950, lob: -600, gravity: 50, life: 110, damage: 17, base: 780, growth: 16, radius: 140 },
+  knife: { speed: 1900, lob: 0, gravity: 12, life: 45, damage: 4, base: 260, growth: 5 },
+  boomerang: { speed: 1500, lob: 0, gravity: 0, life: 150, damage: 6, base: 340, growth: 6, pierce: true, returns: 24, size: 10 },
+  bigBoomerang: { speed: 1800, lob: 0, gravity: 0, life: 170, damage: 10, base: 480, growth: 10, pierce: true, returns: 32, size: 16 },
+  frost: { speed: 1300, lob: 0, gravity: 0, life: 70, damage: 5, base: 160, growth: 2, stun: 40, size: 9 },
+  frostWave: { speed: 900, lob: 0, gravity: 0, life: 90, damage: 8, base: 240, growth: 3, pierce: true, stun: 60, size: 22 },
 };
 
 export const skillFrames = (s: Skill) => (s.kind === 'melee' ? s.startup + s.active + s.recovery : s.startup + s.recovery);
