@@ -1,17 +1,19 @@
 import { stream } from '../../nonogram/rng';
-import { DOWN, JUMP, LEFT, RIGHT, SKILL1, SKILL2, UP, type Input } from './input';
+import { DODGE, DOWN, JUMP, LEFT, RIGHT, SKILL1, SKILL2, UP, type Input } from './input';
 import { PLATFORMS, SUB } from './stage';
-import { inPlay, nearest, skillOf, type Match } from './state';
+import { ICE_BASE, inPlay, isActive, nearest, skillOf, type Match } from './state';
 import { WEAPONS } from './weapons';
 
 /**
  * A bot's input for this frame, worked out from the match alone, so a bot plays the same
  * on every phone. It thinks every few frames (slower when easier), and between thoughts it
  * only keeps moving. Bare-handed it runs for the nearest weapon; armed, it closes in with a
- * blade or keeps its distance with a bow or bombs; knocked off, it fights its way back.
+ * blade or keeps its distance with a bow or bombs; it rolls away from swings it sees coming;
+ * knocked off, it fights its way back, laying ice to stand on when it's out of jumps.
  */
 const THINK = [0, 14, 7, 3];
 const AGGRESSION = [0, 0.35, 0.6, 0.85];
+const DODGING = [0, 0, 0.2, 0.4];
 
 const EDGE = PLATFORMS[0].right;
 
@@ -34,8 +36,15 @@ export function botInput(m: Match, seat: number): Input {
   const chance = () => roll(1000) / 1000;
   const busy = me.skill !== 0 || me.hitstun > 0 || me.lag > 0;
 
+  const offstage = x < -EDGE || x > EDGE || y > 0;
+  // Standing on ice out over the drop: jump back toward the island.
+  if (me.platform >= ICE_BASE && offstage) {
+    const home = x < 0 ? RIGHT : LEFT;
+    return thinking && !busy && !(me.prevInput & JUMP) ? home | JUMP : home;
+  }
+
   // Off the island: get back above it, then over it.
-  if (me.platform < 0 && (x < -EDGE || x > EDGE || y > 0)) {
+  if (me.platform < 0 && offstage) {
     let input = 0;
     const below = y > -10;
     if (below && Math.abs(x) < EDGE + 40) input |= x < 0 ? LEFT : RIGHT;
@@ -43,6 +52,7 @@ export function botInput(m: Match, seat: number): Input {
     if (!busy && (me.vy > 0 || y > -40) && thinking) {
       if (me.airJumps > 0 && !(me.prevInput & JUMP)) input |= JUMP;
       else if (!me.recoveryUsed && me.vy > 0) return SKILL2 | UP;
+      else if (!me.iceUsed && me.vy > 0) return DODGE;
     }
     return input;
   }
@@ -83,6 +93,13 @@ export function botInput(m: Match, seat: number): Input {
 
   if (!thinking || busy || skillOf(me)) return input;
   const r = chance();
+
+  // A swing winding up close by: roll away from it.
+  const theirs = skillOf(them);
+  const coming = theirs !== null && !isActive(them, theirs) && them.skillFrame <= theirs.startup;
+  if (coming && me.platform >= 0 && Math.abs(dx) < reach + 50 && Math.abs(dy) < 90 && me.dodgeCooldown === 0 && r < DODGING[level]) {
+    return DODGE | (dx > 0 ? LEFT : RIGHT);
+  }
 
   if (dy < -90 && Math.abs(dx) < 160 && (me.platform >= 0 || me.airJumps > 0) && !(me.prevInput & JUMP)) return input | JUMP;
 

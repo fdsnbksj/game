@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link } from 'react-router';
-import { charge, chargeAim, drag, GESTURE, held, idle, press, release, tick, type Gesture } from '../../games/brawl/gestures';
+import { BUTTON_BITS, knob as knobAt, stickBits, type Button } from '../../games/brawl/controls';
 import type { Input } from '../../games/brawl/input';
 import { BLAST, SUB } from '../../games/brawl/stage';
 import type { Match } from '../../games/brawl/state';
@@ -12,18 +12,18 @@ export const STEP_MS = 1000 / 60;
 /**
  * Where a fight's frames come from: bots on this phone, or a session with another phone.
  * `run` moves the fight on by the time that has passed and returns the match to draw;
- * `thumb()` gives this frame's input, and is called once for each frame actually played.
+ * `thumbs()` gives this frame's input, and is called once for each frame actually played.
  */
 export interface Driver {
   local: number;
-  run(elapsed: number, thumb: () => Input): Match;
+  run(elapsed: number, thumbs: () => Input): Match;
 }
 
-/** One line per fighter: their damage and the lives they have left. Your own is first-coloured. */
+/** One chip per fighter: their weapon, damage and lives. Your own is gold. */
 function Hud({ match, labels, local }: { match: Match; labels: string[]; local: number }) {
   const n = match.fighters.length;
   return (
-    <div className="brawl-hud" style={{ gridTemplateColumns: `repeat(${n}, 1fr)` }}>
+    <div className="brawl-hud" style={{ gridTemplateColumns: `repeat(${n}, minmax(0, 92px))` }}>
       {match.fighters.map((f, seat) => (
         <div key={seat} className={`brawl-chip p${((seat - local + n) % n) + 1}${f.stocks === 0 ? ' out' : ''}`}>
           <span className="brawl-chip-name">
@@ -45,9 +45,17 @@ function Hud({ match, labels, local }: { match: Match; labels: string[]; local: 
 /** A short line for the HUD's re-render check: only what it shows. */
 const hudKey = (m: Match) => m.fighters.map((f) => `${f.damage}:${f.stocks}:${f.weapon}`).join('|');
 
+const BUTTONS: { id: Button; label: string }[] = [
+  { id: 'heavy', label: 'Heavy' },
+  { id: 'normal', label: 'Attack' },
+  { id: 'dodge', label: 'Dodge' },
+  { id: 'jump', label: 'Jump' },
+];
+
 /**
- * The fight on screen: the arena on top, the thumb's space below. Draws whatever the
- * driver hands it each screen refresh; the driver decides how many frames that is.
+ * The fight on screen, sideways: the arena fills it, the joystick sits under the left
+ * thumb and four buttons under the right. Draws whatever the driver hands it each screen
+ * refresh; the driver decides how many frames that is.
  */
 export function Arena({
   driver,
@@ -62,20 +70,24 @@ export function Arena({
   labels: string[];
   /** The button at the top right: pause, or leave. */
   action: ReactNode;
-  /** Ignore the thumb (while paused). */
+  /** Ignore the controls (while paused). */
   blocked?: boolean;
   children?: ReactNode;
 }) {
   const canvas = useRef<HTMLCanvasElement>(null);
-  const stick = useRef<HTMLDivElement>(null);
+  const base = useRef<HTMLDivElement>(null);
   const knob = useRef<HTMLDivElement>(null);
-  const ring = useRef<HTMLDivElement>(null);
-  const arrow = useRef<HTMLDivElement>(null);
-  const gesture = useRef<Gesture>(idle());
-  const presses = useRef<number[]>([]);
+  /** The left thumb on the stick: where it landed and where it is. */
+  const stick = useRef<{ id: number; ox: number; oy: number; x: number; y: number } | null>(null);
+  const presses = useRef<Input[]>([]);
   const [hud, setHud] = useState(initial);
   const driverRef = useRef(driver);
   driverRef.current = driver;
+
+  const stickInput = () => {
+    const s = stick.current;
+    return s ? stickBits(s.x - s.ox, s.y - s.oy) : 0;
+  };
 
   useEffect(() => {
     const el = canvas.current!;
@@ -101,13 +113,9 @@ export function Arena({
       raf = requestAnimationFrame(frame);
       const elapsed = Math.min(now - last, 250);
       last = now;
-      const thumb = () => {
-        const ticked = tick(gesture.current, now);
-        gesture.current = ticked.g;
-        if (ticked.out) presses.current.push(ticked.out);
-        return held(gesture.current) | (presses.current.shift() ?? 0);
-      };
-      const m = driverRef.current.run(elapsed, thumb);
+      // One button press a frame, aimed by the stick as it is now.
+      const thumbs = () => stickInput() | (presses.current.shift() ?? 0);
+      const m = driverRef.current.run(elapsed, thumbs);
 
       // A burst where someone left the arena.
       if (m !== shown) {
@@ -128,25 +136,14 @@ export function Arena({
       cam = follow(m, cam, el.width / Math.max(1, el.height));
       draw(ctx, el.width, el.height, m, cam, palette, bursts, driverRef.current.local);
 
-      // The stick under the thumb, and the ring that fills while a heavy charges.
-      const touch = gesture.current.touch;
-      if (stick.current && knob.current && ring.current) {
-        stick.current.hidden = !touch;
-        if (touch) {
-          stick.current.style.transform = `translate(${touch.ox}px, ${touch.oy}px)`;
-          const dx = touch.x - touch.ox;
-          const dy = touch.y - touch.oy;
-          const far = Math.hypot(dx, dy);
-          const k = far > GESTURE.leash ? GESTURE.leash / far : 1;
-          knob.current.style.transform = `translate(${dx * k}px, ${dy * k}px)`;
-          ring.current.style.setProperty('--charge', String(charge(gesture.current, now)));
-          ring.current.classList.toggle('ready', touch.charging);
-          // While charging, an arrow shows where the strong skill will go; none means "at the nearest".
-          const aim = chargeAim(gesture.current);
-          if (arrow.current) {
-            arrow.current.hidden = !aim;
-            if (aim) arrow.current.style.transform = `rotate(${Math.atan2(aim[1], aim[0])}rad)`;
-          }
+      // The stick under the left thumb.
+      const s = stick.current;
+      if (base.current && knob.current) {
+        base.current.hidden = !s;
+        if (s) {
+          base.current.style.transform = `translate(${s.ox}px, ${s.oy}px)`;
+          const [kx, ky] = knobAt(s.x - s.ox, s.y - s.oy);
+          knob.current.style.transform = `translate(${kx}px, ${ky}px)`;
         }
       }
     };
@@ -158,17 +155,26 @@ export function Arena({
     // The loop reads the driver through a ref; it starts once per fight.
   }, []);
 
-  const point = (event: React.PointerEvent<HTMLDivElement>) => {
+  const point = (event: React.PointerEvent<HTMLElement>) => {
     const box = event.currentTarget.getBoundingClientRect();
     return [event.clientX - box.left, event.clientY - box.top] as const;
   };
-  const send = (out: number) => {
-    if (out) presses.current.push(out);
+  const capture = (event: React.PointerEvent<HTMLElement>) => {
+    try {
+      event.currentTarget.setPointerCapture(event.pointerId);
+    } catch {
+      // Not a live pointer (a synthetic event): the lift still arrives here.
+    }
+  };
+  const letGo = (id: number) => {
+    if (stick.current?.id === id) stick.current = null;
   };
 
   return (
-    <main className="screen brawl">
-      <header className="bar">
+    <main className="brawl-stage">
+      <canvas ref={canvas} className="brawl-canvas" />
+
+      <header className="brawl-top">
         <Link className="icon-button" to="/" aria-label="All games">
           <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
             <path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -178,56 +184,59 @@ export function Arena({
         {action}
       </header>
 
-      <div className="brawl-arena">
-        <canvas ref={canvas} />
-      </div>
-
       <div
-        className="brawl-thumb"
+        className="brawl-stick-zone"
         onPointerDown={(event) => {
-          if (blocked) return;
-          try {
-            event.currentTarget.setPointerCapture(event.pointerId);
-          } catch {
-            // Not a live pointer (a synthetic event): the lift still arrives here.
-          }
+          if (blocked || stick.current) return;
+          capture(event);
           const [x, y] = point(event);
-          const r = press(gesture.current, event.pointerId, x, y, event.timeStamp);
-          gesture.current = r.g;
-          send(r.out);
+          stick.current = { id: event.pointerId, ox: x, oy: y, x, y };
         }}
         onPointerMove={(event) => {
+          const s = stick.current;
+          if (s?.id !== event.pointerId) return;
           const [x, y] = point(event);
-          const r = drag(gesture.current, event.pointerId, x, y);
-          gesture.current = r.g;
-          send(r.out);
+          stick.current = { ...s, x, y };
         }}
-        onPointerUp={(event) => {
-          const [x, y] = point(event);
-          const r = release(gesture.current, event.pointerId, x, y, event.timeStamp);
-          gesture.current = r.g;
-          send(r.out);
-        }}
-        onPointerCancel={(event) => {
-          gesture.current = { ...gesture.current, touch: gesture.current.touch?.id === event.pointerId ? null : gesture.current.touch };
-        }}
-        onLostPointerCapture={(event) => {
-          // The lift went missing (the system took the touch): let go where the thumb was, so the stick never sticks.
-          const touch = gesture.current.touch;
-          if (touch?.id !== event.pointerId) return;
-          gesture.current = release(gesture.current, touch.id, touch.x, touch.y, event.timeStamp).g;
-        }}
+        onPointerUp={(event) => letGo(event.pointerId)}
+        onPointerCancel={(event) => letGo(event.pointerId)}
+        onLostPointerCapture={(event) => letGo(event.pointerId)}
       >
-        <p className="brawl-thumb-hint" aria-hidden="true">
-          Drag to move · tap to jump
-          <br />
-          Double-tap or hold for skills · swipe to aim
+        <p className="brawl-stick-hint" aria-hidden="true">
+          Move
         </p>
-        <div ref={stick} className="brawl-stick" hidden>
-          <div ref={ring} className="brawl-ring" />
-          <div ref={arrow} className="brawl-aim" hidden />
+        <div ref={base} className="brawl-stick" hidden>
           <div ref={knob} className="brawl-knob" />
         </div>
+      </div>
+
+      <div className="brawl-buttons">
+        {BUTTONS.map((b) => (
+          <button
+            key={b.id}
+            className={`brawl-button ${b.id}`}
+            aria-label={b.label}
+            onPointerDown={(event) => {
+              if (blocked) return;
+              capture(event);
+              event.currentTarget.dataset.down = 'true';
+              presses.current.push(BUTTON_BITS[b.id] | stickInput());
+            }}
+            onPointerUp={(event) => delete event.currentTarget.dataset.down}
+            onPointerCancel={(event) => delete event.currentTarget.dataset.down}
+            onContextMenu={(event) => event.preventDefault()}
+          >
+            {b.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="brawl-rotate" aria-live="polite">
+        <svg viewBox="0 0 24 24" width="40" height="40" aria-hidden="true">
+          <rect x="7" y="3" width="10" height="18" rx="2" fill="none" stroke="currentColor" strokeWidth="1.6" />
+          <path d="M3 14a9 9 0 0 0 7 7M21 10a9 9 0 0 0-7-7" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+        </svg>
+        <p>Turn your phone sideways to fight.</p>
       </div>
       {children}
     </main>

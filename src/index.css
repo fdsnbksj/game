@@ -141,6 +141,11 @@
   --brawl-bomb: #23262e;
   --brawl-spark: #ffb347;
   --brawl-item-glow: rgb(238 187 69 / 0.45);
+  --brawl-ice: rgb(160 220 255 / 0.55);
+  --brawl-ice-edge: #c9ecff;
+  --brawl-control: rgb(255 255 255 / 0.08);
+  --brawl-control-edge: rgb(255 255 255 / 0.16);
+  --brawl-control-down: rgb(255 255 255 / 0.22);
   /* Avalon's table: a dark felt. */
   --felt: radial-gradient(ellipse at 50% 35%, #1f2a26, #141a18 70%);
   --felt-edge: #2b3a34;
@@ -2736,19 +2741,6 @@ button.seat:disabled {
   line-height: 1.35;
 }
 
-/* The fight never scrolls: the arena on top, the thumb's space below. */
-.screen.brawl {
-  height: 100dvh;
-  min-height: 0;
-  overflow: hidden;
-  gap: 8px;
-}
-
-.screen.brawl .bar {
-  grid-template-columns: 44px 1fr 44px;
-  gap: 6px;
-}
-
 .brawl-hud {
   display: grid;
   gap: 4px;
@@ -2812,91 +2804,6 @@ button.seat:disabled {
 .brawl-chip.p3 .brawl-stocks i.on { background: var(--brawl-p3); }
 .brawl-chip.p4 .brawl-stocks i.on { background: var(--brawl-p4); }
 
-.brawl-arena {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow: hidden;
-  border: 1px solid var(--separator);
-  border-radius: var(--r-lg);
-  background: var(--brawl-sky-bottom);
-}
-
-.brawl-arena canvas {
-  display: block;
-  width: 100%;
-  height: 100%;
-}
-
-.brawl-thumb {
-  position: relative;
-  flex: 0 0 38dvh;
-  overflow: hidden;
-  border: 1px solid var(--separator);
-  border-radius: var(--r-lg);
-  background: var(--fill-1);
-  touch-action: none;
-  user-select: none;
-  -webkit-user-select: none;
-  -webkit-touch-callout: none;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.brawl-thumb-hint {
-  position: absolute;
-  inset: auto 0 14px;
-  margin: 0;
-  color: var(--label-3);
-  font-size: var(--fs-cap);
-  line-height: 1.6;
-  text-align: center;
-  pointer-events: none;
-}
-
-.brawl-stick {
-  position: absolute;
-  top: 0;
-  left: 0;
-  pointer-events: none;
-}
-
-.brawl-stick[hidden] {
-  display: none;
-}
-
-.brawl-ring,
-.brawl-knob {
-  position: absolute;
-  border-radius: 50%;
-}
-
-/* The stick's base: fills gold as a heavy charges. */
-.brawl-ring {
-  --charge: 0;
-  top: -44px;
-  left: -44px;
-  width: 88px;
-  height: 88px;
-  background:
-    radial-gradient(closest-side, var(--bg) 86%, transparent 88%),
-    conic-gradient(var(--accent-line) calc(var(--charge) * 360deg), var(--fill-2) 0);
-  opacity: 0.9;
-}
-
-.brawl-ring.ready {
-  background:
-    radial-gradient(closest-side, var(--bg) 86%, transparent 88%),
-    conic-gradient(var(--accent) 360deg, var(--accent) 0);
-}
-
-.brawl-knob {
-  top: -22px;
-  left: -22px;
-  width: 44px;
-  height: 44px;
-  background: var(--fill-3);
-  box-shadow: var(--highlight);
-}
-
 .brawl-result {
   margin: 0;
   font-size: var(--fs-lg);
@@ -2919,22 +2826,6 @@ button.seat:disabled {
   pointer-events: none;
 }
 
-/* The strong skill's aim while it charges: an arrow out of the ring. */
-.brawl-aim {
-  position: absolute;
-  top: -2px;
-  left: 0;
-  width: 64px;
-  height: 4px;
-  border-radius: 2px;
-  background: var(--accent);
-  transform-origin: 0 50%;
-}
-
-.brawl-aim[hidden] {
-  display: none;
-}
-
 .brawl-chip-name svg {
   margin-right: 3px;
   vertical-align: -1px;
@@ -2955,4 +2846,190 @@ button.seat:disabled {
   display: inline-flex;
   align-items: center;
   gap: 5px;
+}
+
+/* ---------- Sky Brawl: the fight, sideways ---------- */
+
+/* The arena fills the screen; the controls float over its lower corners. */
+.brawl-stage {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  background: var(--brawl-sky-bottom);
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.brawl-canvas {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.brawl-top {
+  position: absolute;
+  top: max(8px, env(safe-area-inset-top));
+  right: max(12px, env(safe-area-inset-right));
+  left: max(12px, env(safe-area-inset-left));
+  display: grid;
+  grid-template-columns: 44px 1fr 44px;
+  align-items: start;
+  gap: 8px;
+}
+
+.brawl-top .brawl-hud {
+  justify-content: center;
+}
+
+.brawl-top .brawl-chip {
+  background: var(--bar-bg);
+}
+
+/* Anywhere in the lower left: the left thumb's stick appears where it lands. */
+.brawl-stick-zone {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 45%;
+  height: 62%;
+}
+
+.brawl-stick-hint {
+  position: absolute;
+  bottom: max(18px, env(safe-area-inset-bottom));
+  left: max(24px, env(safe-area-inset-left));
+  margin: 0;
+  color: var(--label-3);
+  font-size: var(--fs-label);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  pointer-events: none;
+}
+
+.brawl-stick {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+}
+
+.brawl-stick[hidden] {
+  display: none;
+}
+
+.brawl-stick::before {
+  content: '';
+  position: absolute;
+  top: -56px;
+  left: -56px;
+  width: 112px;
+  height: 112px;
+  border: 1px solid var(--brawl-control-edge);
+  border-radius: 50%;
+  background: var(--brawl-control);
+}
+
+.brawl-knob {
+  position: absolute;
+  top: -24px;
+  left: -24px;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--fill-3);
+  box-shadow: var(--highlight), var(--shadow-1);
+}
+
+/* The right thumb's four buttons in a diamond: Heavy on top, Attack left, Dodge right, Jump below. */
+.brawl-buttons {
+  position: absolute;
+  right: max(20px, env(safe-area-inset-right));
+  bottom: max(16px, env(safe-area-inset-bottom));
+  display: grid;
+  grid-template-areas:
+    '. heavy .'
+    'normal . dodge'
+    '. jump .';
+  grid-template-columns: repeat(3, 64px);
+  grid-template-rows: repeat(3, 56px);
+}
+
+.brawl-button {
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  margin: -4px 0;
+  padding: 0;
+  border: 1px solid var(--brawl-control-edge);
+  border-radius: 50%;
+  background: var(--brawl-control);
+  color: var(--label);
+  font: inherit;
+  font-size: var(--fs-label);
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  touch-action: none;
+  transition: transform var(--dur-fast) var(--ease), background-color var(--dur-fast) var(--ease);
+}
+
+.brawl-button[data-down] {
+  background: var(--brawl-control-down);
+  transform: scale(0.94);
+}
+
+.brawl-button.heavy { grid-area: heavy; }
+.brawl-button.normal { grid-area: normal; }
+.brawl-button.dodge { grid-area: dodge; }
+
+/* Jump is the one pressed most: the gold one. */
+.brawl-button.jump {
+  grid-area: jump;
+  border-color: transparent;
+  background: var(--accent-grad);
+  color: var(--on-accent);
+}
+
+/* Upright on a phone: ask for it sideways. */
+.brawl-rotate {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: var(--bg);
+  color: var(--label-2);
+  text-align: center;
+}
+
+.brawl-rotate p {
+  margin: 0;
+}
+
+@media (orientation: portrait) and (pointer: coarse) {
+  .brawl-rotate {
+    display: flex;
+  }
+}
+
+/* Panels over the fight: short screens sideways, so they scroll if they must. */
+.brawl-stage .overlay {
+  place-items: center;
+}
+
+.brawl-stage .panel {
+  max-height: calc(100dvh - 24px);
+}
+
+.brawl-stage .brawl-waiting {
+  top: 22%;
 }

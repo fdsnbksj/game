@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { botInput } from '../../src/games/brawl/bot';
-import { charge, chargeAim, drag, GESTURE, held, idle, press, release, tick, type Gesture } from '../../src/games/brawl/gestures';
-import { DOWN, JUMP, LEFT, RIGHT, SKILL1, SKILL2, UP, type Input } from '../../src/games/brawl/input';
+import { BUTTON_BITS, knob, STICK, stickBits } from '../../src/games/brawl/controls';
+import { DODGE, DOWN, JUMP, LEFT, RIGHT, SKILL1, SKILL2, UP, type Input } from '../../src/games/brawl/input';
 import { BLAST, PLATFORMS, SUB } from '../../src/games/brawl/stage';
-import { hashState, ITEM_LIFE, knockback, newMatch, STOCKS, step, type BotLevel, type FighterState, type Match } from '../../src/games/brawl/state';
+import { hashState, ICE_BASE, ICE_LIFE, ITEM_LIFE, knockback, newMatch, STOCKS, step, type BotLevel, type FighterState, type Match } from '../../src/games/brawl/state';
 import { WEAPON_FRAMES, WEAPONS } from '../../src/games/brawl/weapons';
 
 const duel = (seed = 'test') => newMatch(seed, [{ bot: 0 }, { bot: 2 }]);
@@ -32,7 +32,7 @@ describe('Sky Brawl engine', () => {
     const b = run(duel(), 1200, script);
     expect(hashState(a)).toBe(hashState(b));
     // Changes only when the engine does: then bump BRAWL_VERSION and update this.
-    expect(hashState(a)).toBe('e04ff3b3');
+    expect(hashState(a)).toBe('d1e08522');
   });
 
   it('keeps every number whole', () => {
@@ -189,6 +189,39 @@ describe('Sky Brawl engine', () => {
     expect(m.fighters[1].invulnerable).toBeGreaterThan(0);
   });
 
+  it('rolls on the ground, safe from hits for a moment, then waits before rolling again', () => {
+    let m = placed([{ x: 0 }, { x: 200 * SUB }]);
+    m = step(m, [DODGE | RIGHT, 0]);
+    expect(m.fighters[0].dodge).toBeGreaterThan(0);
+    expect(m.fighters[0].invulnerable).toBeGreaterThan(0);
+    m = run(m, 20);
+    expect(m.fighters[0].x).toBeGreaterThan(40 * SUB);
+    const again = step(m, [DODGE, 0]);
+    expect(again.fighters[0].dodge).toBe(0);
+  });
+
+  it('lays ice to stand on when dodging in the air, once per trip, and it melts', () => {
+    let m = placed([{ x: 400 * SUB, y: 40 * SUB, platform: -1, vy: 600 }, { x: -200 * SUB }]);
+    m = step(m, [DODGE, 0]);
+    expect(m.ice).toHaveLength(1);
+    expect(m.fighters[0].platform).toBeGreaterThanOrEqual(ICE_BASE);
+    // Standing on it: no falling, and attacks work as on the ground.
+    const y = m.fighters[0].y;
+    m = run(m, 30, (f) => [f === 5 ? SKILL1 | RIGHT : 0, 0]);
+    expect(m.fighters[0].y).toBe(y);
+    expect(m.fighters[0].skillAir).toBe(false);
+    // Jump off, dodge again: no second floor until real ground.
+    m = run(m, 10, (f) => [f === 0 ? JUMP : 0, 0]);
+    m = step(m, [DODGE, 0]);
+    expect(m.ice).toHaveLength(1);
+    // It melts, and anyone on it falls.
+    let onIce = placed([{ x: 400 * SUB, y: 40 * SUB, platform: -1 }, { x: -200 * SUB }]);
+    onIce = step(onIce, [DODGE, 0]);
+    onIce = run(onIce, ICE_LIFE + 2);
+    expect(onIce.ice).toHaveLength(0);
+    expect(onIce.fighters[0].platform).toBe(-1);
+  });
+
   it('ends when one fighter is left standing', () => {
     let m = placed([{}, { stocks: 1, x: BLAST.left * SUB - SUB, platform: -1 }]);
     m = step(m, [0, 0]);
@@ -209,59 +242,24 @@ describe('Sky Brawl engine', () => {
   });
 });
 
-describe('Sky Brawl gestures', () => {
-  const at = (g: Gesture, t: number) => tick(g, t).g;
-  const tap = (g: Gesture, t: number, x = 100, y = 500) => release(press(g, 1, x, y, t).g, 1, x, y, t + 80);
-
-  it('taps to jump', () => {
-    const r = tap(idle(), 0);
-    expect(r.out).toBe(JUMP);
-    expect(r.g.touch).toBeNull();
+describe('Sky Brawl controls', () => {
+  it('reads the stick in eight ways, centred inside the dead zone', () => {
+    expect(stickBits(5, -5)).toBe(0);
+    expect(stickBits(50, 0)).toBe(RIGHT);
+    expect(stickBits(-50, 4)).toBe(LEFT);
+    expect(stickBits(0, -50)).toBe(UP);
+    expect(stickBits(3, 50)).toBe(DOWN);
+    expect(stickBits(40, -40)).toBe(RIGHT | UP);
+    expect(stickBits(-40, 35)).toBe(LEFT | DOWN);
   });
 
-  it('drags to run and to fall fast, never to jump', () => {
-    let g = press(idle(), 1, 100, 500, 0).g;
-    g = drag(g, 1, 150, 500).g;
-    expect(held(g)).toBe(RIGHT);
-    g = drag(g, 1, 150, 560).g;
-    expect(held(g) & DOWN).toBeTruthy();
-    g = drag(g, 1, 150, 420).g;
-    expect(held(g) & UP).toBe(0);
-    expect(release(g, 1, 150, 420, 600).out).toBe(0);
+  it('keeps the knob inside its ring', () => {
+    expect(knob(10, 0)).toEqual([10, 0]);
+    const [x, y] = knob(300, 400);
+    expect(Math.round(Math.hypot(x, y))).toBe(STICK.radius);
   });
 
-  it('double taps for the quick skill, aimed by a swipe on the second tap', () => {
-    const first = tap(idle(), 0);
-    let g = press(first.g, 2, 104, 498, 150).g;
-    const swiped = drag(g, 2, 104, 460);
-    expect(swiped.out).toBe(SKILL1 | UP);
-    expect(release(swiped.g, 2, 104, 460, 260).out).toBe(0);
-    // No swipe: it fires on its own a moment later, for the engine to aim.
-    g = press(first.g, 2, 100, 500, 150).g;
-    expect(tick(g, 150 + GESTURE.aimMs).out).toBe(SKILL1);
-    // Too slow a second tap is just another jump.
-    const slow = tap(first.g, 80 + GESTURE.doubleMs + 50);
-    expect(slow.out).toBe(JUMP);
-  });
-
-  it('holds still to charge the strong skill, aimed by a drag, fired on release', () => {
-    let g = press(idle(), 1, 100, 500, 0).g;
-    expect(charge(g, GESTURE.holdMs / 2)).toBeCloseTo(0.5);
-    g = at(g, GESTURE.holdMs + 10);
-    expect(g.touch?.charging).toBe(true);
-    expect(chargeAim(g)).toBeNull();
-    g = drag(g, 1, 150, 450).g;
-    expect(held(g)).toBe(0);
-    expect(chargeAim(g)).toEqual([1, -1]);
-    expect(release(g, 1, 150, 450, 700).out).toBe(SKILL2 | RIGHT | UP);
-    const neutral = at(press(idle(), 1, 100, 500, 0).g, GESTURE.holdMs);
-    expect(release(neutral, 1, 101, 500, 500).out).toBe(SKILL2);
-  });
-
-  it('ignores a second finger, but a missed lift never leaves the stick held', () => {
-    let g = drag(press(idle(), 1, 100, 500, 0).g, 1, 160, 500).g;
-    expect(press(g, 2, 300, 500, 50).g).toBe(g);
-    g = press(g, 1, 100, 500, 900).g;
-    expect(held(g)).toBe(0);
+  it('maps the four buttons', () => {
+    expect(BUTTON_BITS).toEqual({ jump: JUMP, dodge: DODGE, normal: SKILL1, heavy: SKILL2 });
   });
 });

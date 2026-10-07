@@ -83,7 +83,7 @@ function FrontDoor() {
 
   return (
     <Page title="Sky Brawl">
-      <p className="lead-note">Knock the others off a floating island. Grab the weapons that drop in; each lasts ten seconds.</p>
+      <p className="lead-note">Knock the others off a floating island. Grab the weapons that drop in; each lasts ten seconds. Played sideways, with both thumbs.</p>
 
       <SummaryRow label="Opponents" figures={`${bots} ${bots === 1 ? 'bot' : 'bots'} · ${LEVELS[level]}`}>
         <p className="group-title">Bots</p>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DOWN, JUMP, LEFT, RIGHT, SKILL1, SKILL2, type Input } from '../../src/games/brawl/input';
+import { DODGE, DOWN, JUMP, LEFT, RIGHT, SKILL1, SKILL2, type Input } from '../../src/games/brawl/input';
 import { decode, encode, type Message } from '../../src/games/brawl/net';
 import { INPUT_DELAY, MAX_ROLLBACK, Session } from '../../src/games/brawl/rollback';
 import { SUB } from '../../src/games/brawl/stage';
@@ -15,7 +15,7 @@ function start(): Match {
 /** What each seat's thumb does at the moment frame `f` is played locally: different on each side. */
 const thumb = (seat: number, f: number): Input => {
   const a = [SKILL1 | RIGHT, 0, SKILL1, RIGHT, SKILL2 | RIGHT, LEFT, SKILL1 | LEFT, JUMP, SKILL1 | DOWN, RIGHT][Math.floor(f / 6) % 10];
-  const b = [SKILL1 | LEFT, LEFT, SKILL1, SKILL2 | LEFT, 0, SKILL1 | RIGHT, JUMP, SKILL1, RIGHT][Math.floor(f / 5) % 9];
+  const b = [SKILL1 | LEFT, LEFT, SKILL1, SKILL2 | LEFT, DODGE | LEFT, SKILL1 | RIGHT, JUMP, DODGE, SKILL1, RIGHT][Math.floor(f / 5) % 10];
   // Actions only on the first frame of each stretch, like a tap.
   const raw = seat === 0 ? a : b;
   const first = seat === 0 ? f % 6 === 0 : f % 5 === 0;

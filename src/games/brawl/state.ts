@@ -1,6 +1,6 @@
 import { stream } from '../../nonogram/rng';
 import { hashSeed } from '../../shared/random';
-import { ACTIONS, DIRS, DOWN, JUMP, SKILL1, SKILL2, dirX, dirY, type Input } from './input';
+import { ACTIONS, DIRS, DODGE, DOWN, JUMP, SKILL1, SKILL2, dirX, dirY, type Input } from './input';
 import { BLAST, BODY_H, BODY_W, PLATFORMS, RESPAWN, SPAWNS, SUB } from './stage';
 import {
   ANGLES,
@@ -27,11 +27,12 @@ import {
  *
  * Everyone starts with bare hands. Weapons drop onto the island now and then (where and
  * which come from the seed); an unarmed fighter who touches one picks it up, and it lasts
- * 10 seconds.
+ * 10 seconds. Dodging rolls on the ground; in the air it lays a short-lived floor of ice
+ * under your feet (once per trip into the air) to stand, fight and jump from.
  */
 
 /** Bump when a change would make old saved matches play differently. */
-export const BRAWL_VERSION = 2;
+export const BRAWL_VERSION = 3;
 
 export const STOCKS = 3;
 
@@ -51,11 +52,16 @@ export interface FighterState {
   facing: 1 | -1;
   damage: number;
   stocks: number;
-  /** The platform stood on, or -1 in the air. */
+  /** What's stood on: a platform's index, ICE_BASE + an ice floor's id, or -1 in the air. */
   platform: number;
   airJumps: number;
   /** The upward strong skill's leap, once per trip into the air. */
   recoveryUsed: boolean;
+  /** The air dodge's ice floor, once per trip into the air. */
+  iceUsed: boolean;
+  /** Frames left of a roll, and before the next one. */
+  dodge: number;
+  dodgeCooldown: number;
   weapon: WeaponId;
   /** Frames left with the weapon in hand. */
   weaponLeft: number;
@@ -112,6 +118,16 @@ export interface Projectile {
   hits: number;
 }
 
+/** A floor of ice laid by an air dodge: anyone can stand on it until it melts. */
+export interface Ice {
+  id: number;
+  owner: number;
+  /** Centre of its top, in sub-units. */
+  x: number;
+  y: number;
+  life: number;
+}
+
 /** A bomb going off, kept a few frames to be drawn. */
 export interface Blast {
   x: number;
@@ -129,6 +145,9 @@ export interface Match {
   items: Item[];
   projectiles: Projectile[];
   blasts: Blast[];
+  ice: Ice[];
+  /** Ice floors laid so far, for their ids. */
+  iced: number;
   /** The frame the next weapon drops, and how many have dropped. */
   nextItem: number;
   dropped: number;
@@ -161,6 +180,13 @@ export const ITEM_LIFE = 720;
 const PICK_RANGE = 32;
 const BLAST_FRAMES = 18;
 
+const ROLL_FRAMES = 18;
+const ROLL_SPEED = 900;
+const ROLL_COOLDOWN = 40;
+export const ICE_BASE = 1000;
+export const ICE_HALF = 50;
+export const ICE_LIFE = 120;
+
 export function newMatch(seed: string, seats: Seat[]): Match {
   return {
     v: BRAWL_VERSION,
@@ -180,6 +206,9 @@ export function newMatch(seed: string, seats: Seat[]): Match {
         platform: 0,
         airJumps: 1,
         recoveryUsed: false,
+        iceUsed: false,
+        dodge: 0,
+        dodgeCooldown: 0,
         weapon: 'fists',
         weaponLeft: 0,
         skill: 0,
@@ -207,6 +236,8 @@ export function newMatch(seed: string, seats: Seat[]): Match {
     items: [],
     projectiles: [],
     blasts: [],
+    ice: [],
+    iced: 0,
     nextItem: FIRST_ITEM,
     dropped: 0,
     winner: null,
@@ -214,6 +245,17 @@ export function newMatch(seed: string, seats: Seat[]): Match {
 }
 
 export const inPlay = (f: FighterState) => f.stocks > 0 && f.respawn === 0;
+
+/** What a fighter can stand on, by its `platform` value: the stage's, or an ice floor. Null once melted. */
+export function surface(m: Match, index: number): { left: number; right: number; top: number; soft: boolean; ice: boolean } | null {
+  if (index < 0) return null;
+  if (index < ICE_BASE) {
+    const p = PLATFORMS[index];
+    return { left: p.left * SUB, right: p.right * SUB, top: p.top * SUB, soft: p.soft, ice: false };
+  }
+  const ice = m.ice.find((i) => i.id === index - ICE_BASE);
+  return ice ? { left: ice.x - ICE_HALF * SUB, right: ice.x + ICE_HALF * SUB, top: ice.y, soft: true, ice: true } : null;
+}
 
 /** Moves a value toward a target by at most `by`. */
 const approach = (value: number, target: number, by: number) => (value < target ? Math.min(target, value + by) : Math.max(target, value - by));
@@ -296,12 +338,16 @@ function jump(f: FighterState) {
   }
 }
 
-function land(f: FighterState, index: number) {
+function land(f: FighterState, index: number, top: number) {
   f.platform = index;
-  f.y = PLATFORMS[index].top * SUB;
+  f.y = top;
   f.vy = 0;
   f.airJumps = 1;
-  f.recoveryUsed = false;
+  // Only real ground gives back the leap and the ice: standing on ice doesn't make more.
+  if (index < ICE_BASE) {
+    f.recoveryUsed = false;
+    f.iceUsed = false;
+  }
   if (f.skill && f.skillAir) {
     f.skill = 0;
     f.lag = LAND_LAG;
@@ -325,6 +371,27 @@ function launch(m: Match, x: number, y: number, kind: ProjectileKind, owner: num
   });
 }
 
+/** Dodge: a roll on the ground, or in the air a floor of ice to stand on. */
+function dodge(m: Match, seat: number, action: Input) {
+  const f = m.fighters[seat];
+  if (f.platform >= 0) {
+    if (f.dodgeCooldown > 0) return;
+    const dx = dirX(action);
+    f.dodge = ROLL_FRAMES;
+    f.invulnerable = Math.max(f.invulnerable, ROLL_FRAMES);
+    f.vx = dx * ROLL_SPEED;
+    if (dx !== 0) f.facing = dx as 1 | -1;
+    f.dodgeCooldown = ROLL_COOLDOWN;
+    return;
+  }
+  if (f.iceUsed) return;
+  const id = m.iced++;
+  m.ice.push({ id, owner: seat, x: f.x, y: f.y, life: ICE_LIFE });
+  f.iceUsed = true;
+  land(f, ICE_BASE + id, f.y);
+  f.vx = Math.trunc(f.vx / 2);
+}
+
 /** One fighter's frame: its input, its movement, and the stage. */
 function updateFighter(m: Match, seat: number, input: Input) {
   const f = m.fighters[seat];
@@ -344,12 +411,13 @@ function updateFighter(m: Match, seat: number, input: Input) {
   }
   if (f.invulnerable > 0) f.invulnerable--;
   if (f.dropThrough > 0) f.dropThrough--;
+  if (f.dodgeCooldown > 0 && f.dodge === 0) f.dodgeCooldown--;
 
   // A weapon runs out; a swing already under way finishes first.
   if (f.weapon !== 'fists' && f.skill === 0 && f.weaponLeft <= 0) f.weapon = 'fists';
   if (f.weaponLeft > 0) f.weaponLeft--;
 
-  const busy = f.hitstun > 0 || f.skill !== 0 || f.lag > 0;
+  const busy = f.hitstun > 0 || f.skill !== 0 || f.lag > 0 || f.dodge > 0;
   if (f.hitstun > 0) f.hitstun--;
   else if (f.lag > 0) f.lag--;
 
@@ -357,7 +425,8 @@ function updateFighter(m: Match, seat: number, input: Input) {
     const action = f.buffer;
     f.buffer = 0;
     f.bufferAge = 0;
-    if (action & SKILL2) startSkill(m, seat, m.fighters, 2, action);
+    if (action & DODGE) dodge(m, seat, action);
+    else if (action & SKILL2) startSkill(m, seat, m.fighters, 2, action);
     else if (action & SKILL1) startSkill(m, seat, m.fighters, 1, action);
     else if (action & JUMP) jump(f);
   }
@@ -366,7 +435,7 @@ function updateFighter(m: Match, seat: number, input: Input) {
 
   // Dropping through a soft ledge takes a moment of holding down.
   f.downHeld = input & DOWN ? f.downHeld + 1 : 0;
-  if (f.platform >= 0 && PLATFORMS[f.platform].soft && f.downHeld >= DROP_HOLD && !f.skill && f.hitstun === 0) {
+  if (f.platform >= 0 && surface(m, f.platform)?.soft && f.downHeld >= DROP_HOLD && !f.skill && f.hitstun === 0 && f.dodge === 0) {
     f.platform = -1;
     f.dropThrough = 14;
   }
@@ -385,13 +454,19 @@ function updateFighter(m: Match, seat: number, input: Input) {
     if (f.skillFrame >= skillFrames(skill)) f.skill = 0;
   }
 
-  // Run on the ground, drift in the air; a swing on the ground plants the feet.
-  const control = f.hitstun === 0 && f.lag === 0 && (!f.skill || f.platform < 0);
+  // Run on the ground, drift in the air; a swing on the ground plants the feet; a roll carries on.
+  if (f.dodge > 0) {
+    f.dodge--;
+    f.vx = approach(f.vx, 0, 40);
+  }
+  const control = f.hitstun === 0 && f.lag === 0 && f.dodge === 0 && (!f.skill || f.platform < 0);
   if (control) {
     const ground = f.platform >= 0;
     const target = dx * (ground ? BODY.run : BODY.air);
     f.vx = approach(f.vx, target, ground ? GROUND_ACCEL : dx === 0 ? 20 : AIR_ACCEL);
     if (ground && dx !== 0 && !f.skill) f.facing = dx as 1 | -1;
+  } else if (f.dodge > 0) {
+    // The roll keeps its own pace.
   } else if (f.platform >= 0) {
     f.vx = approach(f.vx, 0, f.hitstun > 0 ? 50 : FRICTION / 2);
   } else {
@@ -410,10 +485,10 @@ function updateFighter(m: Match, seat: number, input: Input) {
   f.y += f.vy;
 
   if (f.platform >= 0) {
-    const p = PLATFORMS[f.platform];
-    if (f.x < p.left * SUB || f.x > p.right * SUB) f.platform = -1;
+    const p = surface(m, f.platform);
+    if (!p || f.x < p.left || f.x > p.right) f.platform = -1;
     else {
-      f.y = p.top * SUB;
+      f.y = p.top;
       f.vy = 0;
     }
   }
@@ -425,9 +500,13 @@ function updateFighter(m: Match, seat: number, input: Input) {
         if (p.soft && f.dropThrough > 0) continue;
         const top = p.top * SUB;
         if (prevY <= top && f.y >= top && f.x >= p.left * SUB && f.x <= p.right * SUB) {
-          land(f, i);
+          land(f, i, top);
           break;
         }
+      }
+      for (const ice of m.ice) {
+        if (f.platform >= 0 || f.dropThrough > 0) break;
+        if (prevY <= ice.y && f.y >= ice.y && Math.abs(f.x - ice.x) <= ICE_HALF * SUB) land(f, ICE_BASE + ice.id, ice.y);
       }
     }
     // The island itself is solid: no passing through its sides or underside.
@@ -493,6 +572,8 @@ function applyHit(m: Match, h: Hit) {
   }
   target.hitstun = 8 + Math.trunc(speed / 60);
   target.skill = 0;
+  target.dodge = 0;
+  target.iceUsed = false;
   target.lag = 0;
   target.buffer = 0;
   target.bufferAge = 0;
@@ -634,6 +715,7 @@ function knockOut(m: Match, f: FighterState) {
   f.weapon = 'fists';
   f.weaponLeft = 0;
   f.skill = 0;
+  f.dodge = 0;
   f.hitstun = 0;
   f.lag = 0;
   f.freeze = 0;
@@ -647,6 +729,8 @@ function comeBack(f: FighterState) {
   f.invulnerable = RESPAWN_INVULNERABLE;
   f.airJumps = 1;
   f.recoveryUsed = false;
+  f.iceUsed = false;
+  f.dodgeCooldown = 0;
 }
 
 /** One frame of the fight, from every seat's input. Returns a new match; the old one is untouched. */
@@ -659,6 +743,8 @@ export function step(match: Match, inputs: readonly Input[]): Match {
     items: match.items,
     projectiles: match.projectiles.map((p) => ({ ...p })),
     blasts: match.blasts.map((b) => ({ ...b, age: b.age + 1 })).filter((b) => b.age < BLAST_FRAMES),
+    // Ice melts; anyone on a floor that's gone simply falls.
+    ice: match.ice.map((i) => ({ ...i, life: i.life - 1 })).filter((i) => i.life > 0),
   };
 
   m.fighters.forEach((f, i) => {

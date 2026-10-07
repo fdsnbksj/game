@@ -1,5 +1,5 @@
 import { BLAST, BODY_H, BODY_W, PLATFORMS, SUB } from '../../games/brawl/stage';
-import { hitbox, inPlay, isActive, ITEM_LIFE, skillOf, type Blast, type FighterState, type Item, type Match, type Projectile } from '../../games/brawl/state';
+import { hitbox, ICE_HALF, inPlay, isActive, ITEM_LIFE, skillOf, type Blast, type FighterState, type Ice, type Item, type Match, type Projectile } from '../../games/brawl/state';
 import { aimVector, skillFrames, WEAPON_FRAMES, type WeaponId } from '../../games/brawl/weapons';
 
 /** The colours, read once from the tokens in index.css. */
@@ -19,6 +19,8 @@ export interface Palette {
   bomb: string;
   spark: string;
   itemGlow: string;
+  ice: string;
+  iceEdge: string;
 }
 
 export function readPalette(): Palette {
@@ -40,6 +42,8 @@ export function readPalette(): Palette {
     bomb: v('--brawl-bomb'),
     spark: v('--brawl-spark'),
     itemGlow: v('--brawl-item-glow'),
+    ice: v('--brawl-ice'),
+    iceEdge: v('--brawl-ice-edge'),
   };
 }
 
@@ -68,6 +72,8 @@ export function follow(m: Match, cam: Camera | null, aspect: number): Camera {
     top = Math.min(top, y - BODY_H - 60);
     bottom = Math.max(bottom, y + 40);
   }
+  // Room over everyone for the score chips, which sit on top of the arena.
+  top -= 90;
   left = Math.max(left, BLAST.left);
   right = Math.min(right, BLAST.right);
   top = Math.max(top, BLAST.top);
@@ -317,6 +323,30 @@ function drawProjectile(ctx: CanvasRenderingContext2D, pr: Projectile, p: Palett
   }
 }
 
+/** An ice floor: clear blue, cracking and fading as it melts. */
+function drawIce(ctx: CanvasRenderingContext2D, ice: Ice, p: Palette) {
+  const x = ice.x / SUB;
+  const y = ice.y / SUB;
+  ctx.save();
+  ctx.globalAlpha = Math.min(1, ice.life / 30);
+  roundRect(ctx, x - ICE_HALF, y, ICE_HALF * 2, 9, 4);
+  ctx.fillStyle = p.ice;
+  ctx.fill();
+  ctx.fillStyle = p.iceEdge;
+  ctx.fillRect(x - ICE_HALF + 4, y, ICE_HALF * 2 - 8, 2);
+  if (ice.life < 45) {
+    ctx.strokeStyle = p.iceEdge;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(x - 18, y + 1);
+    ctx.lineTo(x - 8, y + 8);
+    ctx.moveTo(x + 6, y + 1);
+    ctx.lineTo(x + 16, y + 8);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
 function drawBlast(ctx: CanvasRenderingContext2D, b: Blast, p: Palette) {
   const t = b.age / 18;
   ctx.save();
@@ -359,6 +389,7 @@ export function draw(ctx: CanvasRenderingContext2D, width: number, height: numbe
   ctx.fillRect(-720, -700, 1440, 1000);
 
   drawStage(ctx, p);
+  for (const ice of m.ice) drawIce(ctx, ice, p);
   for (const it of m.items) drawItem(ctx, it, p);
   // You on top, so your own fighter is never lost in a crowd.
   const n = m.fighters.length;

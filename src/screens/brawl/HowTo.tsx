@@ -7,12 +7,17 @@ export function HowToBrawl() {
     <>
       <p>Knock the others off the island. Every hit adds damage, and the more damage someone has, the further they fly. Three lives each; the last one standing wins.</p>
       <p>
-        Put your thumb anywhere below the arena. <strong>Drag</strong> to run, or down to fall fast and drop through a ledge. <strong>Tap</strong> to jump, and tap
-        again in the air to jump once more.
+        Turn your phone sideways. Your <strong>left thumb</strong> is the joystick: put it down anywhere on the left to run, hold down to fall fast or drop through a
+        ledge.
       </p>
       <p>
-        <strong>Double tap</strong> for a quick skill, <strong>hold</strong> until the ring fills and let go for a strong one. Swipe as you do it to aim; don't, and it
-        aims at the nearest fighter. A strong skill aimed straight up leaps you back to safety.
+        Your <strong>right thumb</strong> has four buttons: <strong>Jump</strong> (again in the air for a second jump), <strong>Attack</strong>,{' '}
+        <strong>Heavy</strong> and <strong>Dodge</strong>. Point the stick as you attack to aim; leave it centred and you aim at the nearest fighter. A heavy aimed
+        straight up leaps you back to safety.
+      </p>
+      <p>
+        Dodge on the ground to roll out of a hit. Dodge in the air to freeze a floor of ice under your feet: stand on it, fight from it, jump off it. One per jump, and
+        it melts in two seconds.
       </p>
       <p>You start with bare hands. Weapons drop onto the island now and then: walk over one to pick it up. It lasts ten seconds.</p>
       <ul className="brawl-weapons">
