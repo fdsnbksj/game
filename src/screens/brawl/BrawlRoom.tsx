@@ -53,7 +53,7 @@ export function BrawlRoom() {
   else body = <Lobby room={room} uid={uid} />;
 
   return (
-    <Page title={`Sky Brawl · ${code}`} back="/brawl/online">
+    <Page title={`Stick Brawl · ${code}`} back="/brawl/online">
       {body}
     </Page>
   );
@@ -325,7 +325,7 @@ function OnlineFight({ room, uid }: { room: Brawl; uid: string }) {
 
   if (phase === 'connecting' || phase === 'failed') {
     return (
-      <Page title={`Sky Brawl · ${room.code}`} back="/brawl/online">
+      <Page title={`Stick Brawl · ${room.code}`} back="/brawl/online">
         <div className="empty-state">
           {phase === 'connecting' ? (
             <>
@@ -401,7 +401,9 @@ function OnlineFight({ room, uid }: { room: Brawl; uid: string }) {
         <div className="overlay">
           <div className="panel" role="dialog" aria-label="Fight over">
             <p className="solved-title">Fight over</p>
-            <p className="brawl-result">{won ? 'You win' : `${otherName} wins`}</p>
+            <p className="brawl-result">
+              {won ? 'You win' : `${otherName} wins`} {ended.wins[ended.winner ?? 0]}–{ended.wins[1 - (ended.winner ?? 0)]}
+            </p>
             <p className="note">
               {ended.fighters[local].kos} {ended.fighters[local].kos === 1 ? 'knockout' : 'knockouts'} · {ended.fighters[local].dealt}% damage dealt
             </p>

@@ -11,7 +11,7 @@ import { HowToBrawl } from './HowTo';
 const LEVELS = ['', 'Easy', 'Normal', 'Hard'];
 
 /**
- * Sky Brawl: the front door (pick a fighter, then Fight), or the fight itself while one is
+ * Stick Brawl: the front door (pick a fighter, then Fight), or the fight itself while one is
  * on. A fight in progress is saved, so leaving and coming back carries straight on.
  */
 export function Brawl() {
@@ -57,7 +57,9 @@ function Result({ match, onAgain, onDone }: { match: Match; onAgain: () => void;
     <div className="overlay">
       <div className="panel" role="dialog" aria-label="Fight over">
         <p className="solved-title">Fight over</p>
-        <p className="brawl-result">{won ? 'You win' : `${winner} wins`}</p>
+        <p className="brawl-result">
+          {won ? 'You win' : `${winner} wins`} {match.wins[match.winner ?? 0]}–{Math.max(...match.wins.filter((_, i) => i !== match.winner))}
+        </p>
         <p className="note">
           {you.kos} {you.kos === 1 ? 'knockout' : 'knockouts'} · {you.dealt}% damage dealt
         </p>
@@ -82,8 +84,8 @@ function FrontDoor() {
   const [rules, setRules] = useState(false);
 
   return (
-    <Page title="Sky Brawl">
-      <p className="lead-note">Knock the others off a floating island. Grab the weapons that drop in; each lasts ten seconds. Played sideways, with both thumbs.</p>
+    <Page title="Stick Brawl">
+      <p className="lead-note">Stick fighters, guns and blades, six stages. Last one standing takes the round; first to three wins. Played sideways, with both thumbs.</p>
 
       <SummaryRow label="Opponents" figures={`${bots} ${bots === 1 ? 'bot' : 'bots'} · ${LEVELS[level]}`}>
         <p className="group-title">Bots</p>
@@ -122,7 +124,7 @@ function FrontDoor() {
         </button>
       </div>
       {rules && (
-        <Sheet title="How to play Sky Brawl" onClose={() => setRules(false)}>
+        <Sheet title="How to play Stick Brawl" onClose={() => setRules(false)}>
           <div className="how-to">
             <HowToBrawl />
           </div>

@@ -144,6 +144,16 @@
   --brawl-ice: rgb(160 220 255 / 0.55);
   --brawl-ice-edge: #c9ecff;
   --brawl-frost: #8fdcff;
+  --brawl-gun: #2b2f38;
+  --brawl-lava: #e2582a;
+  --brawl-lava-glow: rgb(226 88 42 / 0.35);
+  --brawl-spike: #b8bfcc;
+  --brawl-pad: #44c58c;
+  --brawl-wind: rgb(200 220 255 / 0.55);
+  --brawl-hp-good: #44c58c;
+  --brawl-hp-mid: #eebb45;
+  --brawl-hp-low: #ef5a63;
+  --brawl-hp-back: rgb(255 255 255 / 0.15);
   --brawl-control: rgb(255 255 255 / 0.08);
   --brawl-control-edge: rgb(255 255 255 / 0.16);
   --brawl-control-down: rgb(255 255 255 / 0.22);
@@ -3020,4 +3030,58 @@ button.seat:disabled {
 
 .brawl-stage .brawl-waiting {
   top: 22%;
+}
+
+.brawl-hp {
+  display: block;
+  width: 100%;
+  height: 5px;
+  margin: 2px 0 1px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: var(--brawl-hp-back);
+}
+
+.brawl-hp i {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  transition: width var(--dur) var(--ease);
+}
+
+.brawl-hp i.good { background: var(--brawl-hp-good); }
+.brawl-hp i.mid { background: var(--brawl-hp-mid); }
+.brawl-hp i.low { background: var(--brawl-hp-low); }
+
+.brawl-ammo {
+  margin-left: 4px;
+  color: var(--label);
+  font-style: normal;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Between rounds: who took it, and what's next. */
+.brawl-banner {
+  position: absolute;
+  top: 34%;
+  left: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 12px 22px;
+  border-radius: var(--r-lg);
+  background: var(--bar-bg);
+  transform: translateX(-50%);
+  pointer-events: none;
+  animation: rise var(--dur) var(--ease) both;
+}
+
+.brawl-banner strong {
+  font-size: var(--fs-lg);
+}
+
+.brawl-banner span {
+  color: var(--label-2);
+  font-size: var(--fs-sm);
 }

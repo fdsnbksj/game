@@ -2,8 +2,9 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link } from 'react-router';
 import { BUTTON_BITS, knob as knobAt, stickBits, type Button } from '../../games/brawl/controls';
 import { SKILL2, type Input } from '../../games/brawl/input';
-import { BLAST, SUB } from '../../games/brawl/stage';
-import type { Match } from '../../games/brawl/state';
+import { SUB } from '../../games/brawl/stages';
+import { ROUNDS_TO_WIN, stageOf, type Match } from '../../games/brawl/state';
+import { MAX_HP } from '../../games/brawl/weapons';
 import { draw, follow, readPalette, type Burst, type Camera } from './draw';
 import { WeaponGlyph } from './Weapons';
 
@@ -19,21 +20,24 @@ export interface Driver {
   run(elapsed: number, thumbs: () => Input): Match;
 }
 
-/** One chip per fighter: their weapon, damage and lives. Your own is gold. */
+/** One chip per fighter: weapon and ammo, HP, and rounds won. Your own is gold. */
 function Hud({ match, labels, local }: { match: Match; labels: string[]; local: number }) {
   const n = match.fighters.length;
   return (
-    <div className="brawl-hud" style={{ gridTemplateColumns: `repeat(${n}, minmax(0, 92px))` }}>
+    <div className="brawl-hud" style={{ gridTemplateColumns: `repeat(${n}, minmax(0, 104px))` }}>
       {match.fighters.map((f, seat) => (
-        <div key={seat} className={`brawl-chip p${((seat - local + n) % n) + 1}${f.stocks === 0 ? ' out' : ''}`}>
+        <div key={seat} className={`brawl-chip p${((seat - local + n) % n) + 1}${f.alive ? '' : ' out'}`}>
           <span className="brawl-chip-name">
             {f.weapon !== 'fists' && <WeaponGlyph weapon={f.weapon} size={11} />}
             {labels[seat]}
+            {f.weapon !== 'fists' && <em className="brawl-ammo">{f.ammo}</em>}
           </span>
-          <strong className={f.damage >= 100 ? 'hot' : f.damage >= 50 ? 'warm' : undefined}>{f.stocks === 0 ? '—' : `${f.damage}%`}</strong>
-          <span className="brawl-stocks" aria-label={`${f.stocks} lives`}>
-            {Array.from({ length: 3 }, (_, i) => (
-              <i key={i} className={i < f.stocks ? 'on' : undefined} />
+          <span className="brawl-hp" aria-label={`${f.hp} HP`}>
+            <i className={f.hp > MAX_HP / 2 ? 'good' : f.hp > MAX_HP / 4 ? 'mid' : 'low'} style={{ width: `${(f.hp / MAX_HP) * 100}%` }} />
+          </span>
+          <span className="brawl-stocks" aria-label={`${match.wins[seat]} rounds won`}>
+            {Array.from({ length: ROUNDS_TO_WIN }, (_, i) => (
+              <i key={i} className={i < match.wins[seat] ? 'on' : undefined} />
             ))}
           </span>
         </div>
@@ -43,7 +47,7 @@ function Hud({ match, labels, local }: { match: Match; labels: string[]; local: 
 }
 
 /** A short line for the HUD's re-render check: only what it shows. */
-const hudKey = (m: Match) => m.fighters.map((f) => `${f.damage}:${f.stocks}:${f.weapon}`).join('|');
+const hudKey = (m: Match) => `${m.between > 0 ? m.roundWinner : 'on'}:${m.round}|` + m.fighters.map((f, i) => `${f.hp}:${f.alive}:${f.weapon}:${f.ammo}:${m.wins[i]}`).join('|');
 
 const BUTTONS: { id: Button; label: string }[] = [
   { id: 'heavy', label: 'Heavy' },
@@ -131,7 +135,8 @@ export function Arena({
         m.fighters.forEach((f, i) => {
           const before = shown.fighters[i];
           if (f.falls > before.falls) {
-            bursts.push({ x: Math.max(BLAST.left, Math.min(BLAST.right, before.x / SUB)), y: Math.max(BLAST.top, Math.min(BLAST.bottom, before.y / SUB)), seat: i, age: 0 });
+            const blast = stageOf(m).blast;
+            bursts.push({ x: Math.max(blast.left, Math.min(blast.right, f.x / SUB)), y: Math.max(blast.top, Math.min(blast.bottom, f.y / SUB)), seat: i, age: 0 });
           }
         });
         shown = m;
@@ -226,6 +231,15 @@ export function Arena({
         <Hud match={hud} labels={labels} local={driver.local} />
         {action}
       </header>
+
+      {hud.between > 0 && hud.winner === null && (
+        <div className="brawl-banner" aria-live="polite">
+          <strong>{hud.roundWinner !== null && hud.roundWinner >= 0 ? `${labels[hud.roundWinner] === 'You' ? 'You take' : `${labels[hud.roundWinner]} takes`} the round` : 'Nobody left standing'}</strong>
+          <span>
+            Round {hud.round + 1} · {stageOf(hud).name}
+          </span>
+        </div>
+      )}
 
       <div
         className="brawl-stick-zone"

@@ -3,7 +3,7 @@ import { lastRoom } from '../lastPage';
 import { useNonogramStore } from '../nonogramStore';
 import { useGameStore } from '../store';
 
-const GAME_NAMES: Record<string, string> = { avalon: 'Avalon', duel: 'Rival Wonders', wonders: 'Ancient Wonders', isle: 'Island Settlers', brawl: 'Sky Brawl' };
+const GAME_NAMES: Record<string, string> = { avalon: 'Avalon', duel: 'Rival Wonders', wonders: 'Ancient Wonders', isle: 'Island Settlers', brawl: 'Stick Brawl' };
 
 /** A few squares filled in, like a puzzle half done. */
 const NonogramGlyph = () => (
@@ -170,10 +170,10 @@ export function Home() {
             <BrawlGlyph />
           </span>
           <div>
-            <strong>Sky Brawl</strong>
-            <small>Fight bots, one thumb</small>
+            <strong>Stick Brawl</strong>
+            <small>Guns, blades, six stages</small>
           </div>
-          <span className="tile-chip">1–3 bots</span>
+          <span className="tile-chip">1–4</span>
         </Link>
       </nav>
 

@@ -2,14 +2,18 @@ import { describe, expect, it } from 'vitest';
 import { DODGE, DOWN, JUMP, LEFT, RIGHT, SKILL1, SKILL2, type Input } from '../../src/games/brawl/input';
 import { decode, encode, type Message } from '../../src/games/brawl/net';
 import { INPUT_DELAY, MAX_ROLLBACK, Session } from '../../src/games/brawl/rollback';
-import { SUB } from '../../src/games/brawl/stage';
+import { STAGES, SUB } from '../../src/games/brawl/stages';
 import { hashState, newMatch, step, type Match } from '../../src/games/brawl/state';
 import { stream } from '../../src/nonogram/rng';
 
-/** Two fighters close together, so the scripted thumbs trade blows. */
+/** Two fighters close together on solid ground, so the scripted thumbs trade blows. */
 function start(): Match {
   const m = newMatch('online', [{ bot: 0 }, { bot: 0 }]);
-  return { ...m, fighters: m.fighters.map((f, i) => ({ ...f, x: (i === 0 ? -30 : 30) * SUB })) };
+  const stage = STAGES[m.stage];
+  const ground = stage.platforms.findIndex((p) => !p.soft);
+  const mid = (stage.platforms[ground].left + stage.platforms[ground].right) / 2;
+  const y = stage.platforms[ground].top * SUB;
+  return { ...m, fighters: m.fighters.map((f, i) => ({ ...f, x: (mid + (i === 0 ? -30 : 30)) * SUB, y, platform: ground })) };
 }
 
 /** What each seat's thumb does at the moment frame `f` is played locally: different on each side. */
@@ -109,6 +113,18 @@ describe('Sky Brawl rollback', () => {
       }
     });
   }
+
+  it('agrees across rounds and stage changes over a long, lossy fight', () => {
+    const long = 2400;
+    const truth = lockstep(long);
+    // The scripted fight really does move on to later rounds.
+    expect(truth.round + (truth.winner !== null ? 1 : 0)).toBeGreaterThan(0);
+    const { sessions } = run({ latency: 3, jitter: 2, loss: 0.1 }, long);
+    for (const s of sessions) {
+      expect(s.desync).toBe(false);
+      expect(hashState(s.match)).toBe(hashState(truth));
+    }
+  });
 
   it('waits rather than run more than a few frames ahead of the other phone', () => {
     const lonely = new Session(start(), 0);

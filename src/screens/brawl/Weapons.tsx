@@ -39,11 +39,37 @@ export function WeaponGlyph({ weapon, size = 26 }: { weapon: WeaponId; size?: nu
           <path d="M13 4.5c3.5-1.5 7 .5 7.5 4.5L15.5 9 13 6.5z" fill="currentColor" />
         </>
       )}
-      {weapon === 'gauntlets' && (
+      {weapon === 'pistol' && (
         <>
-          <rect x="5" y="9" width="14" height="10" rx="3.5" fill="currentColor" />
-          <rect x="5" y="5" width="14" height="5" rx="2" fill="currentColor" opacity="0.75" />
-          <rect x="7" y="19" width="10" height="2.5" rx="1" fill="currentColor" opacity="0.55" />
+          <rect x="4" y="8" width="14" height="5" rx="1.5" fill="currentColor" />
+          <rect x="5" y="12" width="5" height="8" rx="1.5" fill="currentColor" opacity="0.75" />
+        </>
+      )}
+      {weapon === 'rifle' && (
+        <>
+          <rect x="2" y="9" width="20" height="4.5" rx="1.5" fill="currentColor" />
+          <rect x="8" y="13" width="3.5" height="6" rx="1" fill="currentColor" opacity="0.75" />
+          <rect x="2" y="10" width="5" height="7" rx="1.5" fill="currentColor" opacity="0.6" />
+        </>
+      )}
+      {weapon === 'shotgun' && (
+        <>
+          <rect x="7" y="8.5" width="15" height="5.5" rx="2" fill="currentColor" />
+          <rect x="2" y="10" width="6" height="6.5" rx="2" fill="currentColor" opacity="0.6" />
+        </>
+      )}
+      {weapon === 'sniper' && (
+        <>
+          <rect x="1.5" y="11" width="21" height="3" rx="1" fill="currentColor" />
+          <rect x="8" y="7" width="7" height="3" rx="1" fill="currentColor" opacity="0.8" />
+          <rect x="1.5" y="12" width="4" height="6" rx="1.5" fill="currentColor" opacity="0.6" />
+        </>
+      )}
+      {weapon === 'rocket' && (
+        <>
+          <rect x="2" y="8" width="18" height="7" rx="3" fill="currentColor" />
+          <path d="M20 9.5l3 2-3 2z" fill="currentColor" opacity="0.7" />
+          <rect x="8" y="15" width="3" height="5" rx="1" fill="currentColor" opacity="0.7" />
         </>
       )}
       {weapon === 'scythe' && (
@@ -74,7 +100,7 @@ export function WeaponGlyph({ weapon, size = 26 }: { weapon: WeaponId; size?: nu
           <path d="M21 12l-3.5-2.2v4.4z" fill="currentColor" />
         </>
       )}
-      {weapon === 'bombs' && (
+      {weapon === 'grenades' && (
         <>
           <circle cx="10.5" cy="14" r="6.5" fill="currentColor" />
           <path d="M14.5 9l2.5-2.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />

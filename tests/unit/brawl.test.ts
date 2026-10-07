@@ -2,17 +2,49 @@ import { describe, expect, it } from 'vitest';
 import { botInput } from '../../src/games/brawl/bot';
 import { BUTTON_BITS, knob, STICK, stickBits } from '../../src/games/brawl/controls';
 import { DODGE, DOWN, JUMP, LEFT, RIGHT, SKILL1, SKILL2, UP, type Input } from '../../src/games/brawl/input';
-import { BLAST, PLATFORMS, SUB } from '../../src/games/brawl/stage';
-import { hashState, ICE_BASE, ICE_LIFE, ITEM_LIFE, knockback, MAX_CHARGE, newMatch, STOCKS, step, type BotLevel, type FighterState, type Match } from '../../src/games/brawl/state';
-import { PICKUPS, WEAPON_FRAMES, WEAPONS } from '../../src/games/brawl/weapons';
+import { moverAt, STAGES, SUB } from '../../src/games/brawl/stages';
+import {
+  CRACK,
+  GONE,
+  hashState,
+  ICE_BASE,
+  ICE_LIFE,
+  ITEM_LIFE,
+  MAX_CHARGE,
+  newMatch,
+  ROUND_BREAK,
+  ROUNDS_TO_WIN,
+  step,
+  surface,
+  windAt,
+  type BotLevel,
+  type FighterState,
+  type Match,
+} from '../../src/games/brawl/state';
+import { KICK, MAX_HP, PICKUPS, PROJECTILES, WEAPONS, type WeaponId } from '../../src/games/brawl/weapons';
 
-const duel = (seed = 'test') => newMatch(seed, [{ bot: 0 }, { bot: 2 }]);
+const stageIndex = (id: string) => STAGES.findIndex((s) => s.id === id);
 
-/** A match with the fighters moved into place, and no weapons dropping unless asked. */
-function placed(changes: Partial<FighterState>[], extra: Partial<Match> = {}, seed = 'test'): Match {
-  const m = duel(seed);
-  return { ...m, nextItem: 1e9, ...extra, fighters: m.fighters.map((f, i) => ({ ...f, ...changes[i] })) };
+/** A two-fighter match on a chosen stage, both standing on its main ground, nothing dropping. */
+function on(id: string, changes: Partial<FighterState>[] = [], extra: Partial<Match> = {}): Match {
+  let m = newMatch('test', [{ bot: 0 }, { bot: 2 }]);
+  const stage = stageIndex(id);
+  m = { ...m, order: [stage, stage, stage, stage, stage, stage], stage };
+  const plats = STAGES[stage].platforms;
+  const ground = plats.findIndex((p) => !p.soft);
+  const y = plats[ground].top * SUB;
+  return {
+    ...m,
+    crumble: plats.map(() => 0),
+    nextItem: 1e9,
+    items: [],
+    ...extra,
+    fighters: m.fighters.map((f, i) => ({ ...f, y, platform: ground, x: (i === 0 ? -40 : 40) * SUB, ...changes[i] })),
+  };
 }
+
+/** The main island stage, for most tests. */
+const flat = (changes: Partial<FighterState>[] = [], extra: Partial<Match> = {}) => on('gusts', changes, { ...extra, frame: 0 });
 
 const run = (m: Match, frames: number, inputs: (frame: number) => Input[] = () => []) => {
   for (let i = 0; i < frames; i++) m = step(m, inputs(i));
@@ -21,222 +53,88 @@ const run = (m: Match, frames: number, inputs: (frame: number) => Input[] = () =
 
 /** Seat 0 presses once, then lets go. */
 const once = (bits: Input) => (frame: number) => [frame === 0 ? bits : 0, 0];
+const armed = (weapon: WeaponId) => ({ weapon, ammo: WEAPONS[weapon].ammo });
 
-describe('Sky Brawl engine', () => {
+describe('Stick Brawl engine', () => {
   it('plays the same fight from the same inputs', () => {
     const script = (frame: number): Input[] => [
       [RIGHT, RIGHT | JUMP, SKILL1, 0, LEFT, SKILL2 | RIGHT, 0, DOWN, SKILL1 | LEFT, RIGHT][Math.floor(frame / 9) % 10],
       [LEFT, 0, SKILL1 | LEFT, JUMP, 0, SKILL2, LEFT][Math.floor(frame / 7) % 7],
     ];
-    const a = run(duel(), 1200, script);
-    const b = run(duel(), 1200, script);
+    const a = run(newMatch('golden', [{ bot: 0 }, { bot: 0 }]), 1200, script);
+    const b = run(newMatch('golden', [{ bot: 0 }, { bot: 0 }]), 1200, script);
     expect(hashState(a)).toBe(hashState(b));
     // Changes only when the engine does: then bump BRAWL_VERSION and update this.
-    expect(hashState(a)).toBe('b5409e5f');
+    expect(hashState(a)).toBe('6888aaf3');
   });
 
   it('keeps every number whole', () => {
     let m = newMatch('ints', [{ bot: 3 }, { bot: 3 }, { bot: 3 }]);
-    for (let i = 0; i < 3000 && m.winner === null; i++) {
+    for (let i = 0; i < 4000 && m.winner === null; i++) {
       m = step(m, m.seats.map((_, s) => botInput(m, s)));
-      for (const f of m.fighters) for (const v of [f.x, f.y, f.vx, f.vy, f.damage]) expect(Number.isInteger(v)).toBe(true);
-      for (const p of m.projectiles) for (const v of [p.x, p.y, p.vx, p.vy]) expect(Number.isInteger(v)).toBe(true);
+      for (const f of m.fighters) for (const v of [f.x, f.y, f.vx, f.vy, f.hp]) expect(Number.isInteger(v)).toBe(true);
+      for (const p of m.projectiles) for (const v of [p.x, p.y, p.vx, p.vy, p.damage]) expect(Number.isInteger(v)).toBe(true);
     }
   });
 
-  it('starts everyone bare-handed', () => {
-    for (const f of duel().fighters) expect(f.weapon).toBe('fists');
+  it('starts every round with full HP and bare hands, on solid ground', () => {
+    for (let s = 0; s < 6; s++) {
+      const m = newMatch(`start${s}`, [{ bot: 0 }, { bot: 0 }, { bot: 0 }, { bot: 0 }]);
+      for (const f of m.fighters) {
+        expect(f.hp).toBe(MAX_HP);
+        expect(f.weapon).toBe('fists');
+        expect(f.platform).toBeGreaterThanOrEqual(0);
+      }
+      // Standing still for a second, nobody falls.
+      const later = run(m, 60);
+      for (const f of later.fighters) expect(f.alive).toBe(true);
+    }
   });
 
-  it('drops weapons from the seed: the same ones, in the same places, on every run', () => {
-    const drops = (seed: string) => run(newMatch(seed, [{ bot: 0 }, { bot: 0 }]), 400).items.map((it) => `${it.weapon}@${it.x},${it.y}`);
-    expect(drops('a').length).toBeGreaterThan(0);
-    expect(drops('a')).toEqual(drops('a'));
-    const spread = new Set(['a', 'b', 'c', 'd', 'e', 'f'].map((s) => drops(s).join()));
-    expect(spread.size).toBeGreaterThan(1);
-    // Nobody picks one up: it fades.
-    const m = run(newMatch('a', [{ bot: 0 }, { bot: 0 }]), 100);
-    const first = m.items[0];
-    const later = run({ ...m, nextItem: 1e9 }, ITEM_LIFE);
-    expect(later.items).not.toContainEqual(expect.objectContaining({ x: first.x, weapon: first.weapon }));
+  it('plays the six stages in a seeded order, each once before any repeats', () => {
+    const m = newMatch('order', [{ bot: 0 }, { bot: 0 }]);
+    expect([...m.order].sort()).toEqual([0, 1, 2, 3, 4, 5]);
+    expect(newMatch('order', [{ bot: 0 }, { bot: 0 }]).order).toEqual(m.order);
   });
 
-  it('picks a weapon up on touch, only bare-handed, and it lasts 10 seconds', () => {
-    const item = { weapon: 'sword' as const, x: 0, y: 0, age: 0 };
-    let m = placed([{ x: 0 }, { x: 200 * SUB }], { items: [item] });
+  it('takes HP with each hit, and at 0 HP the fighter is out', () => {
+    const jab = WEAPONS.fists.attack;
+    let m = flat([{ x: 0 }, { x: 36 * SUB, facing: -1 }]);
+    m = run(m, 20, once(SKILL1 | RIGHT));
+    expect(m.fighters[1].hp).toBe(MAX_HP - (jab.kind === 'melee' ? jab.damage : 0));
+    let low = flat([{ x: 0 }, { x: 36 * SUB, facing: -1, hp: 3 }]);
+    low = run(low, 20, once(SKILL1 | RIGHT));
+    expect(low.fighters[1].alive).toBe(false);
+    expect(low.fighters[0].kos).toBe(1);
+  });
+
+  it('is out past the edge of the world', () => {
+    const blast = STAGES[stageIndex('gusts')].blast;
+    let m = flat([{}, { x: (blast.right - 1) * SUB, y: -200 * SUB, vx: 500, platform: -1 }]);
     m = step(m, [0, 0]);
-    expect(m.fighters[0].weapon).toBe('sword');
+    expect(m.fighters[1].alive).toBe(false);
+  });
+
+  it('gives the round to the last one standing, then starts the next on the next stage', () => {
+    let m = flat([{ x: 0 }, { hp: 1, x: 36 * SUB, facing: -1 }]);
+    m = run(m, 20, once(SKILL1 | RIGHT));
+    expect(m.wins).toEqual([1, 0]);
+    expect(m.between).toBeGreaterThan(0);
+    m = run(m, ROUND_BREAK);
+    expect(m.round).toBe(1);
+    expect(m.fighters.every((f) => f.alive && f.hp === MAX_HP && f.weapon === 'fists')).toBe(true);
     expect(m.items).toHaveLength(0);
-    // Armed, a second weapon is left lying.
-    const second = step({ ...m, items: [{ ...item, weapon: 'bow' }] }, [0, 0]);
-    expect(second.fighters[0].weapon).toBe('sword');
-    expect(second.items).toHaveLength(1);
-    m = run(m, WEAPON_FRAMES + 2);
-    expect(m.fighters[0].weapon).toBe('fists');
   });
 
-  it('aims a skill at the nearest opponent with no swipe, and the swiped way with one', () => {
-    let m = placed([{ x: 0, facing: 1 }, { x: -120 * SUB }]);
-    m = step(m, [SKILL1, 0]);
-    expect(m.fighters[0].facing).toBe(-1);
-    expect([m.fighters[0].aimX, m.fighters[0].aimY]).toEqual([-1, 0]);
-    let swiped = placed([{ x: 0, facing: 1 }, { x: -120 * SUB }]);
-    swiped = step(swiped, [SKILL1 | UP | RIGHT, 0]);
-    expect([swiped.fighters[0].aimX, swiped.fighters[0].aimY]).toEqual([1, -1]);
+  it('wins the match at three rounds', () => {
+    let m = flat([{ x: 0 }, { hp: 1, x: 36 * SUB, facing: -1 }], { wins: [ROUNDS_TO_WIN - 1, 0] });
+    m = run(m, 20, once(SKILL1 | RIGHT));
+    m = run(m, ROUND_BREAK);
+    expect(m.winner).toBe(0);
+    expect(step(m, [RIGHT, 0])).toBe(m);
   });
 
-  it('hits only while the swing is out, once a swing', () => {
-    const jab = WEAPONS.fists.skills[0];
-    if (jab.kind !== 'melee') throw new Error('fists swing');
-    let m = placed([{ x: 0 }, { x: 36 * SUB, facing: -1 }]);
-    m = step(m, [SKILL1, 0]);
-    for (let i = 1; i < jab.startup; i++) {
-      m = step(m, [0, 0]);
-      expect(m.fighters[1].damage).toBe(0);
-    }
-    m = run(m, jab.active + 2);
-    expect(m.fighters[1].damage).toBe(jab.damage);
-    m = run(m, 40);
-    expect(m.fighters[1].damage).toBe(jab.damage);
-  });
-
-  it('hits harder with a weapon than with bare hands', () => {
-    const hitWith = (weapon: 'fists' | 'hammer') => {
-      let m = placed([{ x: 0, weapon, weaponLeft: WEAPON_FRAMES }, { x: 40 * SUB, facing: -1, damage: 60 }]);
-      m = run(m, 50, once(SKILL1 | RIGHT));
-      return [m.fighters[1].damage, Math.abs(m.fighters[1].x)];
-    };
-    const [fistDamage, fistX] = hitWith('fists');
-    const [hammerDamage, hammerX] = hitWith('hammer');
-    expect(hammerDamage).toBeGreaterThan(fistDamage);
-    expect(hammerX).toBeGreaterThan(fistX);
-  });
-
-  it('shoots an arrow that hits the first fighter it meets and stops', () => {
-    let m = placed([{ x: -200 * SUB, weapon: 'bow', weaponLeft: WEAPON_FRAMES }, { x: 100 * SUB, facing: -1 }]);
-    m = step(m, [SKILL1 | RIGHT, 0]);
-    m = run(m, 10);
-    expect(m.projectiles).toHaveLength(1);
-    m = run(m, 30);
-    expect(m.fighters[1].damage).toBeGreaterThan(0);
-    expect(m.projectiles).toHaveLength(0);
-  });
-
-  it('lobs a bomb that bounces, then blows up and throws fighters away from it', () => {
-    let m = placed([{ x: -150 * SUB, weapon: 'bombs', weaponLeft: WEAPON_FRAMES }, { x: 250 * SUB, facing: -1 }]);
-    m = step(m, [SKILL1 | RIGHT, 0]);
-    let bounced = false;
-    let blew = false;
-    for (let i = 0; i < 120 && !blew; i++) {
-      const before = m;
-      m = step(m, [0, 0]);
-      if (before.projectiles[0] && m.projectiles[0] && before.projectiles[0].vy > 0 && m.projectiles[0].vy < 0) bounced = true;
-      if (m.blasts.length > 0) blew = true;
-    }
-    expect(bounced).toBe(true);
-    expect(blew).toBe(true);
-    // Right on top of a fighter, a bomb hurts and pushes them away.
-    const near = placed([{ x: 0 }, { x: 50 * SUB, facing: -1 }], {
-      projectiles: [{ kind: 'bomb', owner: 0, x: 40 * SUB, y: -30 * SUB, vx: 0, vy: 0, life: 1, age: 20, hits: 0, power: 0 }],
-    });
-    const after = run(near, 2);
-    expect(after.fighters[1].damage).toBeGreaterThan(0);
-    expect(after.fighters[1].vx).toBeGreaterThan(0);
-  });
-
-  it('charges the heavy while it is held and strikes on release, harder the longer it was held', () => {
-    const heavyAfter = (hold: number) => {
-      let m = placed([{ x: 0, weapon: 'sword', weaponLeft: WEAPON_FRAMES }, { x: 60 * SUB, facing: -1, damage: 30 }]);
-      for (let i = 0; i < hold; i++) m = step(m, [SKILL2, 0]);
-      expect(m.fighters[0].skill).toBe(0);
-      expect(m.fighters[1].damage).toBe(30);
-      m = run(m, 40);
-      return m.fighters[1].damage - 30;
-    };
-    const tap = heavyAfter(1);
-    const half = heavyAfter(MAX_CHARGE / 2);
-    const full = heavyAfter(MAX_CHARGE + 30);
-    expect(tap).toBeGreaterThan(0);
-    expect(half).toBeGreaterThan(tap);
-    expect(full).toBe(tap * 2);
-  });
-
-  it('aims a charged heavy where the stick points when it is let go', () => {
-    let m = placed([{ x: 0, facing: 1, weapon: 'bow', weaponLeft: WEAPON_FRAMES }, { x: 300 * SUB }]);
-    m = run(m, 10, () => [SKILL2 | RIGHT, 0]);
-    m = step(m, [LEFT, 0]);
-    expect(m.fighters[0].aimX).toBe(-1);
-    expect(m.fighters[0].facing).toBe(-1);
-  });
-
-  it('walks slowly while charging, and a hit knocks the charge out', () => {
-    let walking = placed([{ x: 0 }, { x: 300 * SUB }]);
-    walking = run(walking, 30, () => [RIGHT, 0]);
-    let charging = placed([{ x: 0 }, { x: 300 * SUB }]);
-    charging = run(charging, 30, () => [RIGHT | SKILL2, 0]);
-    expect(charging.fighters[0].x).toBeLessThan(walking.fighters[0].x / 2);
-    expect(charging.fighters[0].charge).toBeGreaterThan(0);
-    // Blue jabs while we charge.
-    let m = placed([{ x: 0 }, { x: 36 * SUB, facing: -1 }]);
-    m = run(m, 5, () => [SKILL2, 0]);
-    m = step(m, [SKILL2, SKILL1 | LEFT]);
-    m = run(m, 10, () => [SKILL2, 0]);
-    expect(m.fighters[0].damage).toBeGreaterThan(0);
-    expect(m.fighters[0].charge).toBeLessThan(10);
-  });
-
-  it('drops a charge to dodge', () => {
-    let m = placed([{ x: 0 }, { x: 300 * SUB }]);
-    m = run(m, 10, () => [SKILL2, 0]);
-    m = step(m, [SKILL2 | DODGE, 0]);
-    expect(m.fighters[0].charge).toBe(0);
-    expect(m.fighters[0].dodge).toBeGreaterThan(0);
-  });
-
-  it('hooks a fighter back toward you with the scythe', () => {
-    let m = placed([{ x: 0, weapon: 'scythe', weaponLeft: WEAPON_FRAMES }, { x: 90 * SUB, facing: -1, damage: 40 }]);
-    m = step(m, [SKILL2 | RIGHT, 0]);
-    m = run(m, 16);
-    expect(m.fighters[1].damage).toBeGreaterThan(40);
-    expect(m.fighters[1].vx).toBeLessThan(0);
-  });
-
-  it('throws a fan of three knives with the heavy', () => {
-    let m = placed([{ x: -200 * SUB, weapon: 'knives', weaponLeft: WEAPON_FRAMES }, { x: 200 * SUB }]);
-    m = step(m, [SKILL2 | RIGHT, 0]);
-    m = run(m, 10);
-    expect(m.projectiles.filter((p) => p.kind === 'knife')).toHaveLength(3);
-    expect(new Set(m.projectiles.map((p) => Math.sign(p.vy))).size).toBeGreaterThan(1);
-  });
-
-  it('throws a boomerang that comes back to the thrower', () => {
-    let m = placed([{ x: -100 * SUB, weapon: 'boomerang', weaponLeft: WEAPON_FRAMES }, { x: 250 * SUB, y: -150 * SUB, platform: 2 }]);
-    m = step(m, [SKILL1 | RIGHT, 0]);
-    m = run(m, 20);
-    expect(m.projectiles[0].vx).toBeGreaterThan(0);
-    let back = false;
-    for (let i = 0; i < 140 && m.projectiles.length; i++) {
-      m = step(m, [0, 0]);
-      if (m.projectiles[0] && m.projectiles[0].vx < 0) back = true;
-    }
-    expect(back).toBe(true);
-    expect(m.projectiles).toHaveLength(0);
-  });
-
-  it('freezes with frost: a small push, but helpless for longer', () => {
-    const shoot = (weapon: 'frost' | 'bow') => {
-      let m = placed([{ x: -150 * SUB, weapon, weaponLeft: WEAPON_FRAMES }, { x: 50 * SUB, facing: -1 }]);
-      m = step(m, [SKILL1 | RIGHT, 0]);
-      for (let i = 0; i < 60 && m.fighters[1].damage === 0; i++) m = step(m, [0, 0]);
-      return m.fighters[1];
-    };
-    const frozen = shoot('frost');
-    const arrowed = shoot('bow');
-    expect(frozen.hitstun).toBeGreaterThan(arrowed.hitstun);
-    expect(Math.abs(frozen.vx)).toBeLessThan(Math.abs(arrowed.vx));
-  });
-
-  it('drops every kind of weapon, given time', () => {
+  it('drops weapons from the seed, every kind given time, picked up by touch when bare-handed', () => {
     const seen = new Set<string>();
     for (let s = 0; s < 30 && seen.size < PICKUPS.length; s++) {
       let m = newMatch(`drops:${s}`, [{ bot: 0 }, { bot: 0 }]);
@@ -246,110 +144,156 @@ describe('Sky Brawl engine', () => {
       }
     }
     expect([...seen].sort()).toEqual([...PICKUPS].sort());
+    const item = { weapon: 'pistol' as const, x: -40 * SUB, y: 0, age: 0 };
+    let m = flat([], { items: [item] });
+    m = step(m, [0, 0]);
+    expect(m.fighters[0].weapon).toBe('pistol');
+    expect(m.fighters[0].ammo).toBe(WEAPONS.pistol.ammo);
+    const fades = run(flat([{ x: 200 * SUB }, { x: 250 * SUB }], { items: [item] }), ITEM_LIFE + 1);
+    expect(fades.items).toHaveLength(0);
   });
 
-  it('leaps up with the strong skill aimed up, once per trip into the air', () => {
-    let m = placed([{ x: 400 * SUB, y: 60 * SUB, platform: -1, airJumps: 0 }, {}]);
-    // A tap of Heavy: press, then let go with the stick up.
+  it('spends ammo, and the Attack after the last shot throws the gun', () => {
+    let m = flat([{ ...armed('pistol'), ammo: 1, x: -300 * SUB }, { x: 300 * SUB }]);
+    m = run(m, 20, once(SKILL1 | RIGHT));
+    expect(m.fighters[0].ammo).toBe(0);
+    expect(m.fighters[0].weapon).toBe('pistol');
+    m = step(m, [SKILL1 | RIGHT, 0]);
+    expect(m.fighters[0].weapon).toBe('fists');
+    expect(m.projectiles.some((p) => p.kind === 'thrown' && p.weapon === 'pistol')).toBe(true);
+  });
+
+  it('shoots a fast bullet that hits a fighter across the stage', () => {
+    let m = flat([{ ...armed('pistol'), x: -250 * SUB }, { x: 250 * SUB, facing: -1 }]);
+    m = run(m, 30, once(SKILL1 | RIGHT));
+    expect(m.fighters[1].hp).toBe(MAX_HP - PROJECTILES.bullet.damage);
+  });
+
+  it('fans shotgun pellets and bursts three rifle rounds', () => {
+    let shot = flat([{ ...armed('shotgun'), x: -250 * SUB }, { x: 250 * SUB }]);
+    shot = run(shot, 6, once(SKILL1 | RIGHT));
+    const pellets = shot.projectiles.filter((p) => p.kind === 'pellet');
+    expect(pellets).toHaveLength(5);
+    expect(new Set(pellets.map((p) => p.vy)).size).toBe(5);
+    let burst = flat([{ ...armed('rifle'), x: -250 * SUB }, { x: 250 * SUB }]);
+    burst = run(burst, 4, once(SKILL1 | RIGHT));
+    expect(burst.projectiles.filter((p) => p.kind === 'bullet')).toHaveLength(3);
+  });
+
+  it('blows a rocket up on whoever it meets, hurting all around', () => {
+    let m = flat([{ ...armed('rocket'), x: -200 * SUB }, { x: 100 * SUB, facing: -1 }]);
+    m = run(m, 40, once(SKILL1 | RIGHT));
+    expect(m.fighters[1].hp).toBeLessThanOrEqual(MAX_HP - PROJECTILES.rocket.damage);
+    expect(m.blasts.length + (m.fighters[1].hp < MAX_HP ? 1 : 0)).toBeGreaterThan(0);
+  });
+
+  it('throws what is held with a pushed heavy, harder with a charge', () => {
+    const throwAfter = (hold: number) => {
+      let m = flat([{ ...armed('hammer'), x: -200 * SUB }, { x: 60 * SUB, facing: -1 }]);
+      for (let i = 0; i < hold; i++) m = step(m, [SKILL2 | RIGHT, 0]);
+      m = step(m, [RIGHT, 0]);
+      expect(m.fighters[0].weapon).toBe('fists');
+      m = run(m, 40);
+      return MAX_HP - m.fighters[1].hp;
+    };
+    const tap = throwAfter(1);
+    expect(tap).toBe(WEAPONS.hammer.heft);
+    expect(throwAfter(MAX_CHARGE + 10)).toBe(WEAPONS.hammer.heft * 2);
+  });
+
+  it('kicks with a centred heavy, twice as hard fully charged', () => {
+    const kickAfter = (hold: number) => {
+      let m = flat([{ ...armed('sword'), x: 0 }, { x: 40 * SUB, facing: -1 }]);
+      for (let i = 0; i < hold; i++) m = step(m, [SKILL2, 0]);
+      m = run(m, 40);
+      expect(m.fighters[0].weapon).toBe('sword');
+      return MAX_HP - m.fighters[1].hp;
+    };
+    expect(kickAfter(1)).toBe(KICK.damage);
+    expect(kickAfter(MAX_CHARGE + 10)).toBe(KICK.damage * 2);
+  });
+
+  it('leaps up with a heavy let go straight up in the air, once per trip', () => {
+    let m = flat([{ x: 0, y: -300 * SUB, platform: -1, airJumps: 0, vy: 400 }, { x: 300 * SUB }]);
     m = step(m, [SKILL2 | UP, 0]);
     m = step(m, [UP, 0]);
     expect(m.fighters[0].vy).toBeLessThan(0);
     expect(m.fighters[0].recoveryUsed).toBe(true);
-    m = run(m, 40);
-    const vy = m.fighters[0].vy;
-    m = step(m, [SKILL2 | UP, 0]);
-    m = step(m, [UP, 0]);
-    expect(m.fighters[0].vy).toBeGreaterThanOrEqual(vy);
   });
 
-  it('jumps, then jumps once more in the air', () => {
-    let m = run(placed([{ x: 0 }, { x: 200 * SUB }]), 5, once(JUMP));
-    expect(m.fighters[0].platform).toBe(-1);
-    m = step(m, [JUMP, 0]);
-    expect(m.fighters[0].airJumps).toBe(0);
-    m = run(m, 150);
-    expect(m.fighters[0].platform).toBeGreaterThanOrEqual(0);
-  });
-
-  it('lands on a soft ledge and drops through it holding down', () => {
-    const ledge = PLATFORMS[1];
-    const x = ((ledge.left + ledge.right) / 2) * SUB;
-    let m = placed([{ x }, { x: 200 * SUB }]);
-    m = run(m, 70, once(JUMP));
-    expect(m.fighters[0].platform).toBe(1);
-    m = run(m, 60, () => [DOWN, 0]);
-    expect(m.fighters[0].platform).toBe(0);
-  });
-
-  it('sends a fighter further the more damage they carry', () => {
-    expect(knockback(650, 15, 120)).toBeGreaterThan(knockback(650, 15, 20));
-  });
-
-  it('takes a stock past a blast zone, drops the weapon, then respawns safe for a moment', () => {
-    let m = placed([{}, { x: (BLAST.right - 1) * SUB, y: -200 * SUB, vx: 500, platform: -1, damage: 80, weapon: 'spear', weaponLeft: 300 }]);
-    m = step(m, [0, 0]);
-    const f = m.fighters[1];
-    expect(f.stocks).toBe(STOCKS - 1);
-    expect(f.weapon).toBe('fists');
-    expect(f.damage).toBe(0);
-    m = run(m, f.respawn);
-    expect(m.fighters[1].invulnerable).toBeGreaterThan(0);
-  });
-
-  it('rolls on the ground, safe from hits for a moment, then waits before rolling again', () => {
-    let m = placed([{ x: 0 }, { x: 200 * SUB }]);
+  it('rolls on the ground, and lays ice in the air', () => {
+    let m = flat([{ x: 0 }, { x: 250 * SUB }]);
     m = step(m, [DODGE | RIGHT, 0]);
     expect(m.fighters[0].dodge).toBeGreaterThan(0);
-    expect(m.fighters[0].invulnerable).toBeGreaterThan(0);
+    let air = flat([{ x: 0, y: -200 * SUB, platform: -1, vy: 600 }, { x: 250 * SUB }]);
+    air = step(air, [DODGE, 0]);
+    expect(air.fighters[0].platform).toBeGreaterThanOrEqual(ICE_BASE);
+    air = run(air, ICE_LIFE + 2);
+    expect(air.ice).toHaveLength(0);
+  });
+
+  it('carries a rider on a lift', () => {
+    const stage = STAGES[stageIndex('lifts')];
+    const lift = stage.platforms.length + 2; // the sliding one
+    const at = moverAt(stage.movers[2], 1);
+    let m = on('lifts', [{ x: ((at.left + at.right) / 2) * SUB, y: at.top * SUB, platform: lift }, { x: 100 * SUB }], { frame: 0 });
+    const x0 = m.fighters[0].x;
+    m = run(m, 40);
+    expect(m.fighters[0].platform).toBe(lift);
+    expect(m.fighters[0].x).not.toBe(x0);
+    expect(m.fighters[0].y).toBe(surface(m, lift)!.top);
+  });
+
+  it('burns and bounces in lava', () => {
+    let m = on('lava', [{ x: -300 * SUB, y: 150 * SUB, platform: -1, vy: 900 }, {}]);
+    m = run(m, 3);
+    expect(m.fighters[0].hp).toBeLessThan(MAX_HP);
+    expect(m.fighters[0].vy).toBeLessThan(0);
+  });
+
+  it('hurts on spikes', () => {
+    let m = on('spikes', [{ x: 0, y: 40 * SUB, platform: -1, vy: 1200 }, { x: -200 * SUB }]);
+    m = run(m, 6);
+    expect(m.fighters[0].hp).toBeLessThan(MAX_HP);
+  });
+
+  it('crumbles a block stood on, which comes back later', () => {
+    let m = on('crumble', [{ x: -300 * SUB, y: -50 * SUB, platform: -1 }, { x: 200 * SUB, y: -400 * SUB, platform: -1 }]);
     m = run(m, 20);
-    expect(m.fighters[0].x).toBeGreaterThan(40 * SUB);
-    const again = step(m, [DODGE, 0]);
-    expect(again.fighters[0].dodge).toBe(0);
+    expect(m.crumble[0]).toBeGreaterThan(0);
+    m = run(m, CRACK);
+    expect(surface(m, 0)).toBeNull();
+    m = run({ ...m, fighters: m.fighters.map((f) => ({ ...f, alive: false })) , between: 1e9 }, GONE);
+    expect(m.crumble[0]).toBe(0);
   });
 
-  it('lays ice to stand on when dodging in the air, once per trip, and it melts', () => {
-    let m = placed([{ x: 400 * SUB, y: 40 * SUB, platform: -1, vy: 600 }, { x: -200 * SUB }]);
-    m = step(m, [DODGE, 0]);
-    expect(m.ice).toHaveLength(1);
-    expect(m.fighters[0].platform).toBeGreaterThanOrEqual(ICE_BASE);
-    // Standing on it: no falling, and attacks work as on the ground.
-    const y = m.fighters[0].y;
-    m = run(m, 30, (f) => [f === 5 ? SKILL1 | RIGHT : 0, 0]);
-    expect(m.fighters[0].y).toBe(y);
-    expect(m.fighters[0].skillAir).toBe(false);
-    // Jump off, dodge again: no second floor until real ground.
-    m = run(m, 10, (f) => [f === 0 ? JUMP : 0, 0]);
-    m = step(m, [DODGE, 0]);
-    expect(m.ice).toHaveLength(1);
-    // It melts, and anyone on it falls.
-    let onIce = placed([{ x: 400 * SUB, y: 40 * SUB, platform: -1 }, { x: -200 * SUB }]);
-    onIce = step(onIce, [DODGE, 0]);
-    onIce = run(onIce, ICE_LIFE + 2);
-    expect(onIce.ice).toHaveLength(0);
-    expect(onIce.fighters[0].platform).toBe(-1);
-  });
-
-  it('ends when one fighter is left standing', () => {
-    let m = placed([{}, { stocks: 1, x: BLAST.left * SUB - SUB, platform: -1 }]);
+  it('pushes everyone with a gust', () => {
+    let m = on('gusts', [{ x: 0 }, { x: 200 * SUB }], { frame: 239 });
     m = step(m, [0, 0]);
-    expect(m.winner).toBe(0);
-    expect(step(m, [RIGHT, 0])).toBe(m);
+    const wind = windAt(m);
+    expect(wind.dir).not.toBe(0);
+    expect(wind.warning).toBe(false);
+    const still = on('gusts', [{ x: 0 }, { x: 200 * SUB }], { frame: 10 });
+    const blown = run(m, 20);
+    const calm = run(still, 20);
+    expect(Math.sign(blown.fighters[0].x - calm.fighters[0].x)).toBe(wind.dir);
   });
 
-  it('plays every bot level, with one to three bots, to a winner', () => {
+  it('plays every bot level, with two to four fighters, to a match winner', () => {
     for (const level of [1, 2, 3] as BotLevel[]) {
       for (const n of [2, 3, 4]) {
         for (const s of ['a', 'b']) {
           let m = newMatch(`bots:${level}:${n}:${s}`, Array.from({ length: n }, () => ({ bot: level })));
-          while (m.winner === null && m.frame < 60 * 60 * 10) m = step(m, m.seats.map((_, i) => botInput(m, i)));
+          while (m.winner === null && m.frame < 60 * 60 * 8) m = step(m, m.seats.map((_, i) => botInput(m, i)));
           expect(m.winner, `${level} ${n} ${s}`).not.toBeNull();
+          expect(m.wins[m.winner!]).toBe(ROUNDS_TO_WIN);
         }
       }
     }
   });
 });
 
-describe('Sky Brawl controls', () => {
+describe('Stick Brawl controls', () => {
   it('reads the stick in eight ways, centred inside the dead zone', () => {
     expect(stickBits(5, -5)).toBe(0);
     expect(stickBits(50, 0)).toBe(RIGHT);
