@@ -1,4 +1,4 @@
-import { DIRS, type Input } from './input';
+import { HELD, type Input } from './input';
 import type { Message } from './net';
 import { hashState, step, type Match } from './state';
 
@@ -88,8 +88,8 @@ export class Session {
   private remoteInput(frame: number): Input {
     const known = this.inputs[this.remote].get(frame);
     if (known !== undefined) return known;
-    // Still holding what they held last; a press is a moment, so it isn't repeated.
-    return (this.inputs[this.remote].get(this.heard - 1) ?? 0) & DIRS;
+    // Still holding what they held last (the stick, a charging heavy); a press is a moment, so it isn't repeated.
+    return (this.inputs[this.remote].get(this.heard - 1) ?? 0) & HELD;
   }
 
   private play(m: Match): Match {

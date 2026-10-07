@@ -33,7 +33,7 @@ import {
  */
 
 /** Bump when a change would make old saved matches play differently. */
-export const BRAWL_VERSION = 4;
+export const BRAWL_VERSION = 5;
 
 export const STOCKS = 3;
 
@@ -66,6 +66,10 @@ export interface FighterState {
   weapon: WeaponId;
   /** Frames left with the weapon in hand. */
   weaponLeft: number;
+  /** Frames the heavy has been held down for, while charging; 0 when not. */
+  charge: number;
+  /** How charged the heavy in progress was when let go, 0 to MAX_CHARGE. */
+  power: number;
   /** The skill in progress (1 or 2), or 0. */
   skill: 0 | 1 | 2;
   skillFrame: number;
@@ -117,6 +121,8 @@ export interface Projectile {
   age: number;
   /** Seats already hit, as bits (a piercing arrow hits each once). */
   hits: number;
+  /** The charge of the heavy that threw it, 0 to MAX_CHARGE. */
+  power: number;
 }
 
 /** A floor of ice laid by an air dodge: anyone can stand on it until it melts. */
@@ -181,6 +187,14 @@ export const ITEM_LIFE = 720;
 const PICK_RANGE = 32;
 const BLAST_FRAMES = 18;
 
+/** A heavy held this long is fully charged: twice the damage, half as hard again. */
+export const MAX_CHARGE = 60;
+/** How fast you can walk while charging, as a share of a run. */
+const CHARGE_WALK = 3;
+
+/** Damage and knockback scaled by a heavy's charge. */
+export const charged = (value: number, power: number, share: number) => Math.trunc((value * (MAX_CHARGE + Math.trunc((power * share) / 100))) / MAX_CHARGE);
+
 const ROLL_FRAMES = 18;
 const ROLL_SPEED = 900;
 const ROLL_COOLDOWN = 40;
@@ -212,6 +226,8 @@ export function newMatch(seed: string, seats: Seat[]): Match {
         dodgeCooldown: 0,
         weapon: 'fists',
         weaponLeft: 0,
+        charge: 0,
+        power: 0,
         skill: 0,
         skillFrame: 0,
         aimX: 0,
@@ -310,8 +326,9 @@ function aimAt(m: Match, seat: number, fighters: FighterState[], action: Input):
   return [sx, sy];
 }
 
-function startSkill(m: Match, seat: number, fighters: FighterState[], slot: 1 | 2, action: Input) {
+function startSkill(m: Match, seat: number, fighters: FighterState[], slot: 1 | 2, action: Input, power = 0) {
   const f = fighters[seat];
+  f.power = slot === 2 ? power : 0;
   const [ax, ay] = aimAt(m, seat, fighters, action);
   f.aimX = ax;
   f.aimY = ay;
@@ -356,7 +373,7 @@ function land(f: FighterState, index: number, top: number) {
   if (f.hitstun > 0) f.hitstun = Math.trunc(f.hitstun / 2);
 }
 
-function launch(m: Match, x: number, y: number, kind: ProjectileKind, owner: number, ax: number, ay: number) {
+function launch(m: Match, x: number, y: number, kind: ProjectileKind, owner: number, ax: number, ay: number, power: number) {
   const spec = PROJECTILES[kind];
   const [ux, uy] = aimVector(ax, ay);
   m.projectiles.push({
@@ -369,6 +386,7 @@ function launch(m: Match, x: number, y: number, kind: ProjectileKind, owner: num
     life: spec.life,
     age: 0,
     hits: 0,
+    power,
   });
 }
 
@@ -397,6 +415,7 @@ function dodge(m: Match, seat: number, action: Input) {
 function updateFighter(m: Match, seat: number, input: Input) {
   const f = m.fighters[seat];
   const pressed = input & ~f.prevInput & ACTIONS;
+  const holding = (input & SKILL2) !== 0;
   f.prevInput = input;
 
   if (pressed) {
@@ -422,14 +441,30 @@ function updateFighter(m: Match, seat: number, input: Input) {
   if (f.hitstun > 0) f.hitstun--;
   else if (f.lag > 0) f.lag--;
 
-  if (!busy && f.buffer) {
+  // The heavy: held, it charges; let go, it strikes, aimed where the stick points then.
+  if (!busy) {
+    if (holding) f.charge = Math.min(f.charge + 1, MAX_CHARGE + 1);
+    else if (f.charge > 0) {
+      const power = Math.min(f.charge - 1, MAX_CHARGE);
+      f.charge = 0;
+      startSkill(m, seat, m.fighters, 2, input, power);
+    }
+  }
+
+  if (!busy && f.skill === 0 && f.buffer) {
     const action = f.buffer;
-    f.buffer = 0;
-    f.bufferAge = 0;
-    if (action & DODGE) dodge(m, seat, action);
-    else if (action & SKILL2) startSkill(m, seat, m.fighters, 2, action);
-    else if (action & SKILL1) startSkill(m, seat, m.fighters, 1, action);
+    if (action & DODGE) {
+      // A dodge drops a charge.
+      f.charge = 0;
+      dodge(m, seat, action);
+    } else if (f.charge > 0) {
+      // While charging, other buttons wait (until they go stale).
+    } else if (action & SKILL1) startSkill(m, seat, m.fighters, 1, action);
     else if (action & JUMP) jump(f);
+    if (f.charge === 0 || action & DODGE) {
+      f.buffer = 0;
+      f.bufferAge = 0;
+    }
   }
 
   const dx = dirX(input);
@@ -453,7 +488,7 @@ function updateFighter(m: Match, seat: number, input: Input) {
         // A fan throws three: the aim, and one step either side of it.
         for (const turn of skill.spread ? [-1, 0, 1] : [0]) {
           const [ax, ay] = turn ? turnAim(f.aimX, f.aimY, turn) : [f.aimX, f.aimY];
-          launch(m, f.x + f.facing * 20 * SUB, f.y - 40 * SUB, skill.projectile, seat, ax, ay);
+          launch(m, f.x + f.facing * 20 * SUB, f.y - 40 * SUB, skill.projectile, seat, ax, ay, f.power);
         }
       }
     }
@@ -469,7 +504,8 @@ function updateFighter(m: Match, seat: number, input: Input) {
   const control = f.hitstun === 0 && f.lag === 0 && f.dodge === 0 && (!f.skill || f.platform < 0);
   if (control) {
     const ground = f.platform >= 0;
-    const target = dx * (ground ? BODY.run : BODY.air);
+    // Charging, you can only shuffle along on the ground.
+    const target = dx * (ground ? (f.charge > 0 ? Math.trunc(BODY.run / CHARGE_WALK) : BODY.run) : BODY.air);
     f.vx = approach(f.vx, target, ground ? GROUND_ACCEL : dx === 0 ? 20 : AIR_ACCEL);
     if (ground && dx !== 0 && !f.skill) f.facing = dx as 1 | -1;
   } else if (f.dodge > 0) {
@@ -581,6 +617,8 @@ function applyHit(m: Match, h: Hit) {
   }
   target.hitstun = 8 + Math.trunc(speed / 60) + (h.stun ?? 0);
   target.skill = 0;
+  // A hit knocks the charge out of a held heavy.
+  target.charge = 0;
   target.dodge = 0;
   target.iceUsed = false;
   target.lag = 0;
@@ -595,12 +633,12 @@ function applyHit(m: Match, h: Hit) {
 }
 
 /** A blast's push: away from its centre, one of a few written-out angles. */
-function blastHit(by: number, target: number, f: FighterState, bx: number, by2: number, spec: { damage: number; base: number; growth: number }): Hit {
+function blastHit(by: number, target: number, f: FighterState, bx: number, by2: number, spec: { damage: number; base: number; growth: number }, power: number): Hit {
   const dx = f.x - bx;
   const dy = f.y - (BODY_H * SUB) / 2 - by2;
   const side = dx > 0 ? 1 : dx < 0 ? -1 : f.facing;
   const angle: Angle = dy > Math.abs(dx) ? 'spike' : Math.abs(dx) * 2 < Math.abs(dy) ? 'up' : 'diagonal';
-  return { by, target, damage: spec.damage, base: spec.base, growth: spec.growth, angle, side };
+  return { by, target, damage: charged(spec.damage, power, 100), base: charged(spec.base, power, 50), growth: charged(spec.growth, power, 50), angle, side };
 }
 
 function explode(m: Match, p: Projectile, hits: Hit[]) {
@@ -612,7 +650,7 @@ function explode(m: Match, p: Projectile, hits: Hit[]) {
     const cx = f.x;
     const cy = f.y - (BODY_H * SUB) / 2;
     // A box test against the blast's reach: close enough, and simple.
-    if (Math.abs(cx - p.x) <= r + HALF_W && Math.abs(cy - p.y) <= r + (BODY_H * SUB) / 2) hits.push(blastHit(p.owner, t, f, p.x, p.y, spec));
+    if (Math.abs(cx - p.x) <= r + HALF_W && Math.abs(cy - p.y) <= r + (BODY_H * SUB) / 2) hits.push(blastHit(p.owner, t, f, p.x, p.y, spec, p.power));
   });
 }
 
@@ -683,7 +721,16 @@ function moveProjectiles(m: Match, hits: Hit[]) {
         p.hits |= 1 << t;
         const side = p.vx > 0 ? 1 : p.vx < 0 ? -1 : f.facing;
         const angle: Angle = Math.abs(p.vx) * 2 < Math.abs(p.vy) ? (p.vy < 0 ? 'up' : 'spike') : 'rising';
-        hits.push({ by: p.owner, target: t, damage: spec.damage, base: spec.base, growth: spec.growth, angle, side, stun: spec.stun });
+        hits.push({
+          by: p.owner,
+          target: t,
+          damage: charged(spec.damage, p.power, 100),
+          base: charged(spec.base, p.power, 50),
+          growth: charged(spec.growth, p.power, 50),
+          angle,
+          side,
+          stun: spec.stun,
+        });
         if (!spec.pierce) done = true;
       });
     }
@@ -741,6 +788,7 @@ function knockOut(m: Match, f: FighterState) {
   f.weapon = 'fists';
   f.weaponLeft = 0;
   f.skill = 0;
+  f.charge = 0;
   f.dodge = 0;
   f.hitstun = 0;
   f.lag = 0;
@@ -804,7 +852,17 @@ export function step(match: Match, inputs: readonly Input[]): Match {
       const away = !reachesBack || target.x === attacker.x ? attacker.facing : target.x > attacker.x ? 1 : -1;
       // A hook drags them back in, toward you.
       const side = skill.pull ? -away : away;
-      hits.push({ by: a, target: t, damage: skill.damage, base: skill.base, growth: skill.growth, angle: skill.angles[aim], side, stun: skill.stun });
+      const power = attacker.skill === 2 ? attacker.power : 0;
+      hits.push({
+        by: a,
+        target: t,
+        damage: charged(skill.damage, power, 100),
+        base: charged(skill.base, power, 50),
+        growth: charged(skill.growth, power, 50),
+        angle: skill.angles[aim],
+        side,
+        stun: skill.stun,
+      });
     });
   });
   moveProjectiles(m, hits);

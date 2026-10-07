@@ -1,5 +1,5 @@
 import { BLAST, BODY_H, BODY_W, PLATFORMS, SUB } from '../../games/brawl/stage';
-import { hitbox, ICE_HALF, inPlay, isActive, ITEM_LIFE, skillOf, type Blast, type FighterState, type Ice, type Item, type Match, type Projectile } from '../../games/brawl/state';
+import { hitbox, ICE_HALF, inPlay, isActive, ITEM_LIFE, MAX_CHARGE, skillOf, type Blast, type FighterState, type Ice, type Item, type Match, type Projectile } from '../../games/brawl/state';
 import { aimVector, skillFrames, WEAPON_FRAMES, type WeaponId } from '../../games/brawl/weapons';
 
 /** The colours, read once from the tokens in index.css. */
@@ -301,10 +301,25 @@ function drawFighter(ctx: CanvasRenderingContext2D, m: Match, seat: number, p: P
     ctx.fill();
     ctx.globalAlpha = blinking ? 0.55 : 1;
   }
-  // A strong skill winding up glows.
+  // A heavy being charged: a ring that closes as it builds, and a glow that grows, pulsing when full.
+  if (f.charge > 0) {
+    const t = Math.min(1, (f.charge - 1) / MAX_CHARGE);
+    const full = t >= 1;
+    ctx.save();
+    ctx.strokeStyle = colour;
+    ctx.lineWidth = full ? 4 : 3;
+    ctx.globalAlpha = full ? 0.6 + 0.4 * Math.sin(m.frame / 3) : 0.85;
+    ctx.beginPath();
+    ctx.arc(x, y - BODY_H / 2, 34, -Math.PI / 2, -Math.PI / 2 + t * Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+    ctx.shadowColor = colour;
+    ctx.shadowBlur = 6 + t * 26;
+  }
+  // A strong skill winding up glows, brighter the more it was charged.
   if (skill && f.skill === 2 && f.skillFrame <= skill.startup) {
     ctx.shadowColor = colour;
-    ctx.shadowBlur = 18;
+    ctx.shadowBlur = 18 + (f.power / MAX_CHARGE) * 20;
   }
 
   const hurt = f.hitstun > 0 && f.freeze > 0;

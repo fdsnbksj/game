@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link } from 'react-router';
 import { BUTTON_BITS, knob as knobAt, stickBits, type Button } from '../../games/brawl/controls';
-import type { Input } from '../../games/brawl/input';
+import { SKILL2, type Input } from '../../games/brawl/input';
 import { BLAST, SUB } from '../../games/brawl/stage';
 import type { Match } from '../../games/brawl/state';
 import { draw, follow, readPalette, type Burst, type Camera } from './draw';
@@ -87,6 +87,8 @@ export function Arena({
   /** The left thumb on the stick: where it landed and where it is. */
   const stick = useRef<{ id: number; ox: number; oy: number; x: number; y: number } | null>(null);
   const presses = useRef<Input[]>([]);
+  /** The heavy is held, not pressed: it charges while the button is down. */
+  const heavy = useRef(false);
   const [hud, setHud] = useState(initial);
   const driverRef = useRef(driver);
   driverRef.current = driver;
@@ -121,7 +123,7 @@ export function Arena({
       const elapsed = Math.min(now - last, 250);
       last = now;
       // One button press a frame, aimed by the stick as it is now.
-      const thumbs = () => stickInput() | (presses.current.shift() ?? 0);
+      const thumbs = () => stickInput() | (heavy.current ? SKILL2 : 0) | (presses.current.shift() ?? 0);
       const m = driverRef.current.run(elapsed, thumbs);
 
       // A burst where someone left the arena.
@@ -261,10 +263,21 @@ export function Arena({
               if (blocked) return;
               capture(event);
               event.currentTarget.dataset.down = 'true';
-              presses.current.push(BUTTON_BITS[b.id] | stickInput());
+              if (b.id === 'heavy') heavy.current = true;
+              else presses.current.push(BUTTON_BITS[b.id] | stickInput());
             }}
-            onPointerUp={(event) => delete event.currentTarget.dataset.down}
-            onPointerCancel={(event) => delete event.currentTarget.dataset.down}
+            onPointerUp={(event) => {
+              delete event.currentTarget.dataset.down;
+              if (b.id === 'heavy') heavy.current = false;
+            }}
+            onPointerCancel={(event) => {
+              delete event.currentTarget.dataset.down;
+              if (b.id === 'heavy') heavy.current = false;
+            }}
+            onLostPointerCapture={(event) => {
+              delete event.currentTarget.dataset.down;
+              if (b.id === 'heavy') heavy.current = false;
+            }}
             onContextMenu={(event) => event.preventDefault()}
           >
             {b.label}

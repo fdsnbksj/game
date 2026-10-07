@@ -3,7 +3,7 @@ import { botInput } from '../../src/games/brawl/bot';
 import { BUTTON_BITS, knob, STICK, stickBits } from '../../src/games/brawl/controls';
 import { DODGE, DOWN, JUMP, LEFT, RIGHT, SKILL1, SKILL2, UP, type Input } from '../../src/games/brawl/input';
 import { BLAST, PLATFORMS, SUB } from '../../src/games/brawl/stage';
-import { hashState, ICE_BASE, ICE_LIFE, ITEM_LIFE, knockback, newMatch, STOCKS, step, type BotLevel, type FighterState, type Match } from '../../src/games/brawl/state';
+import { hashState, ICE_BASE, ICE_LIFE, ITEM_LIFE, knockback, MAX_CHARGE, newMatch, STOCKS, step, type BotLevel, type FighterState, type Match } from '../../src/games/brawl/state';
 import { PICKUPS, WEAPON_FRAMES, WEAPONS } from '../../src/games/brawl/weapons';
 
 const duel = (seed = 'test') => newMatch(seed, [{ bot: 0 }, { bot: 2 }]);
@@ -32,7 +32,7 @@ describe('Sky Brawl engine', () => {
     const b = run(duel(), 1200, script);
     expect(hashState(a)).toBe(hashState(b));
     // Changes only when the engine does: then bump BRAWL_VERSION and update this.
-    expect(hashState(a)).toBe('132aa08b');
+    expect(hashState(a)).toBe('b5409e5f');
   });
 
   it('keeps every number whole', () => {
@@ -137,11 +137,60 @@ describe('Sky Brawl engine', () => {
     expect(blew).toBe(true);
     // Right on top of a fighter, a bomb hurts and pushes them away.
     const near = placed([{ x: 0 }, { x: 50 * SUB, facing: -1 }], {
-      projectiles: [{ kind: 'bomb', owner: 0, x: 40 * SUB, y: -30 * SUB, vx: 0, vy: 0, life: 1, age: 20, hits: 0 }],
+      projectiles: [{ kind: 'bomb', owner: 0, x: 40 * SUB, y: -30 * SUB, vx: 0, vy: 0, life: 1, age: 20, hits: 0, power: 0 }],
     });
     const after = run(near, 2);
     expect(after.fighters[1].damage).toBeGreaterThan(0);
     expect(after.fighters[1].vx).toBeGreaterThan(0);
+  });
+
+  it('charges the heavy while it is held and strikes on release, harder the longer it was held', () => {
+    const heavyAfter = (hold: number) => {
+      let m = placed([{ x: 0, weapon: 'sword', weaponLeft: WEAPON_FRAMES }, { x: 60 * SUB, facing: -1, damage: 30 }]);
+      for (let i = 0; i < hold; i++) m = step(m, [SKILL2, 0]);
+      expect(m.fighters[0].skill).toBe(0);
+      expect(m.fighters[1].damage).toBe(30);
+      m = run(m, 40);
+      return m.fighters[1].damage - 30;
+    };
+    const tap = heavyAfter(1);
+    const half = heavyAfter(MAX_CHARGE / 2);
+    const full = heavyAfter(MAX_CHARGE + 30);
+    expect(tap).toBeGreaterThan(0);
+    expect(half).toBeGreaterThan(tap);
+    expect(full).toBe(tap * 2);
+  });
+
+  it('aims a charged heavy where the stick points when it is let go', () => {
+    let m = placed([{ x: 0, facing: 1, weapon: 'bow', weaponLeft: WEAPON_FRAMES }, { x: 300 * SUB }]);
+    m = run(m, 10, () => [SKILL2 | RIGHT, 0]);
+    m = step(m, [LEFT, 0]);
+    expect(m.fighters[0].aimX).toBe(-1);
+    expect(m.fighters[0].facing).toBe(-1);
+  });
+
+  it('walks slowly while charging, and a hit knocks the charge out', () => {
+    let walking = placed([{ x: 0 }, { x: 300 * SUB }]);
+    walking = run(walking, 30, () => [RIGHT, 0]);
+    let charging = placed([{ x: 0 }, { x: 300 * SUB }]);
+    charging = run(charging, 30, () => [RIGHT | SKILL2, 0]);
+    expect(charging.fighters[0].x).toBeLessThan(walking.fighters[0].x / 2);
+    expect(charging.fighters[0].charge).toBeGreaterThan(0);
+    // Blue jabs while we charge.
+    let m = placed([{ x: 0 }, { x: 36 * SUB, facing: -1 }]);
+    m = run(m, 5, () => [SKILL2, 0]);
+    m = step(m, [SKILL2, SKILL1 | LEFT]);
+    m = run(m, 10, () => [SKILL2, 0]);
+    expect(m.fighters[0].damage).toBeGreaterThan(0);
+    expect(m.fighters[0].charge).toBeLessThan(10);
+  });
+
+  it('drops a charge to dodge', () => {
+    let m = placed([{ x: 0 }, { x: 300 * SUB }]);
+    m = run(m, 10, () => [SKILL2, 0]);
+    m = step(m, [SKILL2 | DODGE, 0]);
+    expect(m.fighters[0].charge).toBe(0);
+    expect(m.fighters[0].dodge).toBeGreaterThan(0);
   });
 
   it('hooks a fighter back toward you with the scythe', () => {
@@ -201,12 +250,15 @@ describe('Sky Brawl engine', () => {
 
   it('leaps up with the strong skill aimed up, once per trip into the air', () => {
     let m = placed([{ x: 400 * SUB, y: 60 * SUB, platform: -1, airJumps: 0 }, {}]);
+    // A tap of Heavy: press, then let go with the stick up.
     m = step(m, [SKILL2 | UP, 0]);
+    m = step(m, [UP, 0]);
     expect(m.fighters[0].vy).toBeLessThan(0);
     expect(m.fighters[0].recoveryUsed).toBe(true);
     m = run(m, 40);
     const vy = m.fighters[0].vy;
     m = step(m, [SKILL2 | UP, 0]);
+    m = step(m, [UP, 0]);
     expect(m.fighters[0].vy).toBeGreaterThanOrEqual(vy);
   });
 

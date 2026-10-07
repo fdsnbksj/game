@@ -14,6 +14,8 @@ import { RANGED, WEAPONS } from './weapons';
 const THINK = [0, 14, 7, 3];
 const AGGRESSION = [0, 0.35, 0.6, 0.85];
 const DODGING = [0, 0, 0.2, 0.4];
+/** How long a bot holds its heavy before letting go: harder bots charge it more. */
+const CHARGE_WANT = [0, 6, 18, 34];
 
 const EDGE = PLATFORMS[0].right;
 
@@ -37,6 +39,15 @@ export function botInput(m: Match, seat: number): Input {
   const busy = me.skill !== 0 || me.hitstun > 0 || me.lag > 0;
 
   const offstage = x < -EDGE || x > EDGE || y > 0;
+
+  // Charging a heavy: hold it a while, then let go aimed at the nearest fighter, or straight up to get home.
+  if (me.charge > 0) {
+    if (offstage) return UP;
+    const t = nearest(m, seat);
+    const aim = t >= 0 ? aimBits((m.fighters[t].x - me.x) / SUB, (m.fighters[t].y - me.y) / SUB) : 0;
+    if (me.charge >= CHARGE_WANT[level]) return aim;
+    return SKILL2 | (aim & (LEFT | RIGHT));
+  }
   // Standing on ice out over the drop: jump back toward the island.
   if (me.platform >= ICE_BASE && offstage) {
     const home = x < 0 ? RIGHT : LEFT;

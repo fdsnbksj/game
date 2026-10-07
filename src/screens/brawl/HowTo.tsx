@@ -12,8 +12,11 @@ export function HowToBrawl() {
       </p>
       <p>
         Your <strong>right thumb</strong> has four buttons: <strong>Jump</strong> (again in the air for a second jump), <strong>Attack</strong>,{' '}
-        <strong>Heavy</strong> and <strong>Dodge</strong>. Point the stick as you attack to aim; leave it centred and you aim at the nearest fighter. A heavy aimed
-        straight up leaps you back to safety.
+        <strong>Heavy</strong> and <strong>Dodge</strong>. Point the stick as you attack to aim; leave it centred and you aim at the nearest fighter.
+      </p>
+      <p>
+        <strong>Hold Heavy</strong> to charge it and let go to strike: the longer you hold (up to a second), the harder it hits, up to twice the damage. You
+        shuffle slowly while charging, and a hit knocks the charge out. A heavy let go with the stick straight up leaps you back to safety.
       </p>
       <p>
         Dodge on the ground to roll out of a hit. Dodge in the air to freeze a floor of ice under your feet: stand on it, fight from it, jump off it. One per jump, and
