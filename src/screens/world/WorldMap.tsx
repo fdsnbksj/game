@@ -1,4 +1,8 @@
 import { useNavigate, Link } from 'react-router';
+import { HeroGlyph } from '../../components/GameGlyphs';
+import { BOT_LEVELS } from '../../games/hero/bots';
+import { BOT_COUNT, heroLevel } from '../../games/hero/stats';
+import { useHeroStore } from '../../heroStore';
 import { lastRoom } from '../../lastPage';
 import { useNonogramStore } from '../../nonogramStore';
 import { ZONES, zoneOf, type ZoneId } from './zones';
@@ -81,6 +85,12 @@ const PLACES: Record<ZoneId, { x: number; y: number; size: number }> = {
 export function WorldMap() {
   const navigate = useNavigate();
   const level = useNonogramStore((s) => s.level);
+  const hero = {
+    level: useHeroStore((s) => heroLevel(s.tree)),
+    next: useHeroStore((s) => Math.min(BOT_COUNT, s.cleared + 1)),
+    fighting: useHeroStore((s) => !!s.fight),
+    points: useHeroStore((s) => s.unspent()),
+  };
   const room = lastRoom();
   const roomGame = room ? zoneOf(room.split('/')[1])?.games.find((g) => g.id === room.split('/')[1]) : undefined;
   const badges: Record<ZoneId, string> = {
@@ -105,6 +115,22 @@ export function WorldMap() {
           </svg>
         </Link>
       )}
+      {/* The main game, one tap from opening the app, under the thumb. */}
+      <Link className="hero-banner" to="/hero">
+        <span className="game-glyph hero">
+          <HeroGlyph />
+        </span>
+        <span>
+          <span className="micro">
+            Your hero · Lv {hero.level}
+            {hero.points > 0 && ` · ${hero.points} ${hero.points === 1 ? 'point' : 'points'} to spend`}
+          </span>
+          <strong>{hero.fighting ? 'Continue your fight' : `Next: ${BOT_LEVELS[hero.next - 1].name}`}</strong>
+        </span>
+        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+          <path d="M8 5.5v13l10.5-6.5L8 5.5z" fill="currentColor" />
+        </svg>
+      </Link>
       <svg className="map-svg" viewBox="0 0 360 560" preserveAspectRatio="xMidYMid slice" role="img" aria-label="The world map">
         <defs>
           <radialGradient id="map-glow" cx="50%" cy="20%" r="70%">

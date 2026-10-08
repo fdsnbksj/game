@@ -1,12 +1,15 @@
 import { Link } from 'react-router';
+import { heroLevel } from '../../games/hero/stats';
+import { useHeroStore } from '../../heroStore';
 import { useKnowledgeStore } from '../../knowledgeStore';
 import { useNonogramStore } from '../../nonogramStore';
 import { useGameStore } from '../../store';
 
-/** Who you are, along the top: your avatar and name, your tower floor, cards kept, and settings. */
+/** Who you are, along the top: your avatar and name, your hero's level, your tower floor, cards kept, and settings. */
 export function PlayerBar() {
   const name = useGameStore((s) => s.player?.displayName);
   const level = useNonogramStore((s) => s.level);
+  const hero = useHeroStore((s) => heroLevel(s.tree));
   const cards = useKnowledgeStore((s) => s.saved.length);
   return (
     <header className="player-bar">
@@ -16,6 +19,9 @@ export function PlayerBar() {
       <div className="player-who">
         <strong>{name ?? 'Traveller'}</strong>
         <span className="player-chips">
+          <span className="player-chip hero" title="Hero level">
+            Hero {hero}
+          </span>
           <span className="player-chip tower" title="Puzzle Tower floor">
             Lv {level}
           </span>

@@ -3,7 +3,7 @@
  * pages and the tests read: add a game here and it appears in its zone.
  */
 export type ZoneId = 'keep' | 'tower' | 'arena';
-export type GameId = 'avalon' | 'duel' | 'wonders' | 'isle' | 'nonograms' | 'brawl';
+export type GameId = 'avalon' | 'duel' | 'wonders' | 'isle' | 'nonograms' | 'brawl' | 'hero';
 
 export interface ZoneGame {
   id: GameId;
@@ -44,8 +44,11 @@ export const ZONES: readonly Zone[] = [
   {
     id: 'arena',
     name: 'Battle Arena',
-    lore: 'Stick fighters, silly weapons, sixteen stages. Last one standing.',
-    games: [{ id: 'brawl', name: 'Stick Brawl', tagline: 'Guns, chickens, sixteen stages', players: '1–4', path: '/brawl' }],
+    lore: 'Your hero, a ladder of bots, and stick fighters. Last one standing.',
+    games: [
+      { id: 'hero', name: 'Hero Gambit', tagline: 'Timing, roulette and cards. Grow your hero', players: '1–2', path: '/hero' },
+      { id: 'brawl', name: 'Stick Brawl', tagline: 'Guns, chickens, sixteen stages', players: '1–4', path: '/brawl' },
+    ],
   },
 ];
 

@@ -1,6 +1,8 @@
 import { Link, Navigate, useParams } from 'react-router';
 import { GAME_GLYPHS } from '../../components/GameGlyphs';
 import { lastRoom } from '../../lastPage';
+import { heroLevel } from '../../games/hero/stats';
+import { useHeroStore } from '../../heroStore';
 import { useNonogramStore } from '../../nonogramStore';
 import { Landmark } from './WorldMap';
 import { ZONES } from './zones';
@@ -13,6 +15,7 @@ export function Zone() {
   const { id } = useParams();
   const zone = ZONES.find((z) => z.id === id);
   const level = useNonogramStore((s) => s.level);
+  const hero = useHeroStore((s) => heroLevel(s.tree));
   if (!zone) return <Navigate to="/" replace />;
   const room = lastRoom();
 
@@ -55,7 +58,7 @@ export function Zone() {
                   <strong>{game.name}</strong>
                   <small>{game.tagline}</small>
                 </span>
-                <span className="tile-chip">{game.id === 'nonograms' ? `Lv ${level}` : game.players}</span>
+                <span className="tile-chip">{game.id === 'nonograms' ? `Lv ${level}` : game.id === 'hero' ? `Hero Lv ${hero}` : game.players}</span>
               </Link>
               {game.id === 'nonograms' && (
                 <div className="stage-extra">
@@ -64,6 +67,16 @@ export function Zone() {
                   </Link>
                   <Link className="button ghost" to="/saved">
                     Saved cards
+                  </Link>
+                </div>
+              )}
+              {game.id === 'hero' && (
+                <div className="stage-extra">
+                  <Link className="button ghost" to="/hero/tree">
+                    Skill tree
+                  </Link>
+                  <Link className="button ghost" to="/hero/online">
+                    Play a friend
                   </Link>
                 </div>
               )}

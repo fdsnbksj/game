@@ -8,7 +8,7 @@ describe('the world map', () => {
   it('puts every game in exactly one zone', () => {
     const ids = ZONES.flatMap((z) => z.games.map((g) => g.id));
     expect(new Set(ids).size).toBe(ids.length);
-    expect([...ids].sort()).toEqual(['avalon', 'brawl', 'duel', 'isle', 'nonograms', 'wonders']);
+    expect([...ids].sort()).toEqual(['avalon', 'brawl', 'duel', 'hero', 'isle', 'nonograms', 'wonders']);
   });
 
   it('sends every game to a route that exists, and has a route for the zones', () => {

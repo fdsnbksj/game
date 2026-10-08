@@ -1,6 +1,6 @@
 # a game
 
-A small collection of games: nonograms for between chapters, Avalon for a table of friends, Rival Wonders, a two-player duel of ancient wonders, Ancient Wonders for 3 to 7 players, Island Settlers, a hex-island trading game for 3 or 4 (both with bots for empty seats), and Stick Brawl, a sideways stickman shooter-brawler against bots or a friend.
+A small collection of games: Hero Gambit, the main one, where your hero grows by beating a ladder of bots with three skills (a stopwatch, a roulette wheel and a poker card), then takes on friends; nonograms for between chapters, Avalon for a table of friends, Rival Wonders, a two-player duel of ancient wonders, Ancient Wonders for 3 to 7 players, Island Settlers, a hex-island trading game for 3 or 4 (both with bots for empty seats), and Stick Brawl, a sideways stickman shooter-brawler against bots or a friend.
 
 Nonograms are small logic puzzles for between chapters. Each one is a nonogram: fill in squares so that every row and column matches the numbers beside it, and a picture appears. It's built for a train ride with a book. Everything works with one thumb, nothing needs sound, there's no clock and no way to lose, and every tap is saved, so you can close it at your stop, even without a signal. Levels go on forever, grow from 5×5 to 10×10 and are ranked.
 
@@ -42,6 +42,7 @@ npm run build       # type-check + production build
 | `src/components/Board.tsx` | The grid: tap and drag to mark squares |
 | `src/learn/`, `src/knowledgeStore.ts` | Knowledge cards, and the topics and saved cards, kept on the device |
 | `src/screens/` | Home and Account; the puzzle (`Play`) and its menu's pages; `avalon/` for Avalon's rooms |
+| `src/games/hero/`, `src/heroStore.ts`, `src/services/hero.ts`, `src/screens/hero/` | Hero Gambit: the skill tree, the three skills, turns and the 20 bot levels as pure code; the hero saved to localStorage and `heroes/{uid}`; friend fights as rooms and moves in Firestore |
 | `src/games/avalon/`, `src/services/avalon.ts` | Avalon: rules, dealing and state as pure code; rooms in Firestore |
 | `src/games/duel/`, `src/services/duel.ts`, `src/screens/duel/` | Rival Wonders: cards, layouts, payment and the rules as pure code; rooms and moves in Firestore |
 | `src/games/wonders/`, `src/services/wonders.ts`, `src/screens/wonders/` | Ancient Wonders: cards, boards, neighbour trade, simultaneous turns, scoring and bots as pure code; rooms and moves in Firestore |

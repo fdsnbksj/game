@@ -419,6 +419,122 @@ service cloud.firestore {
         && after.endedAt == request.time;
     }
 
+    // ---------- Hero Gambit ----------
+    // heroes/{uid} is a player's hero: bot levels cleared and the skill tree. The tree can't
+    // hold more points than those levels give (a copy of pointsFor in src/games/hero/stats.ts;
+    // tests/unit/rulesSync.test.ts compares them), and `cleared` rises by at most one a write.
+    // The rules can't watch a fight, so a tampered phone could still claim a win.
+
+    function heroPoints(cleared) {
+      return cleared + 2 * math.floor(cleared / 5);
+    }
+    function heroBotCount() { return 20; }
+
+    function isHeroNode(v) {
+      return v is int && v >= 0 && v <= 10;
+    }
+
+    function isHeroTree(t, cleared) {
+      return t is map
+        && hasExactly(t, ['stopwatch', 'roulette', 'poker', 'hp', 'def', 'crit', 'critDmg'])
+        && isHeroNode(t.stopwatch) && t.stopwatch >= 1
+        && isHeroNode(t.roulette) && isHeroNode(t.poker)
+        && isHeroNode(t.hp) && isHeroNode(t.def) && isHeroNode(t.crit) && isHeroNode(t.critDmg)
+        && t.stopwatch + t.roulette + t.poker + t.hp + t.def + t.crit + t.critDmg - 1 <= heroPoints(cleared);
+    }
+
+    function isHeroDoc(data) {
+      return hasExactly(data, ['cleared', 'tree', 'updatedAt'])
+        && data.cleared is int && data.cleared >= 0 && data.cleared <= heroBotCount()
+        && isHeroTree(data.tree, data.cleared)
+        && data.updatedAt == request.time;
+    }
+
+    match /heroes/{uid} {
+      allow read: if isOwner(uid);
+      allow create: if isOwner(uid) && isHeroDoc(request.resource.data) && request.resource.data.cleared <= 1;
+      allow update: if isOwner(uid) && isHeroDoc(request.resource.data)
+        && request.resource.data.cleared >= resource.data.cleared
+        && request.resource.data.cleared <= resource.data.cleared + 1;
+    }
+
+    // A fight between two phones, built like Rival Wonders' rooms. Each player brings the
+    // tree on their own hero doc, nothing else.
+    function heroTree(uid) {
+      return get(/databases/$(database)/documents/heroes/$(uid)).data.tree;
+    }
+
+    function heroRoom(code) {
+      return get(/databases/$(database)/documents/heroDuels/$(code)).data;
+    }
+
+    function isHeroRoomPlayer(code) {
+      return request.auth != null && request.auth.uid in heroRoom(code).playerIds;
+    }
+
+    match /heroDuels/{code} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+        && code.matches('[A-Z]{4}')
+        && hasExactly(request.resource.data, ['host', 'playerIds', 'names', 'fighters', 'status', 'createdAt'])
+        && request.resource.data.host == request.auth.uid
+        && request.resource.data.playerIds == [request.auth.uid]
+        && request.resource.data.names.keys().hasOnly([request.auth.uid])
+        && isValidName(request.resource.data.names[request.auth.uid])
+        && request.resource.data.fighters.keys().hasOnly([request.auth.uid])
+        && request.resource.data.fighters[request.auth.uid] == heroTree(request.auth.uid)
+        && request.resource.data.status == 'lobby'
+        && request.resource.data.createdAt == request.time;
+      allow update: if request.auth != null && (isHeroJoin() || isHeroStart() || isHeroFinish());
+
+      match /moves/{n} {
+        allow read: if isHeroRoomPlayer(code);
+        allow create: if isHeroRoomPlayer(code)
+          && heroRoom(code).status == 'playing'
+          && hasExactly(request.resource.data, ['n', 'by', 'move'])
+          && request.resource.data.by == request.auth.uid
+          && request.resource.data.n is int && request.resource.data.n >= 0
+          && string(request.resource.data.n) == n
+          && (request.resource.data.n == 0
+            || exists(/databases/$(database)/documents/heroDuels/$(code)/moves/$(string(request.resource.data.n - 1))))
+          && request.resource.data.move is map;
+      }
+    }
+
+    function isHeroJoin() {
+      let before = resource.data;
+      let after = request.resource.data;
+      return before.status == 'lobby'
+        && before.playerIds.size() == 1
+        && !(request.auth.uid in before.playerIds)
+        && after.diff(before).affectedKeys().hasOnly(['playerIds', 'names', 'fighters'])
+        && after.playerIds == before.playerIds.concat([request.auth.uid])
+        && after.names.diff(before.names).affectedKeys().hasOnly([request.auth.uid])
+        && isValidName(after.names[request.auth.uid])
+        && after.fighters.diff(before.fighters).affectedKeys().hasOnly([request.auth.uid])
+        && after.fighters[request.auth.uid] == heroTree(request.auth.uid);
+    }
+
+    function isHeroStart() {
+      let before = resource.data;
+      let after = request.resource.data;
+      return before.status == 'lobby' && request.auth.uid == before.host
+        && before.playerIds.size() == 2
+        && after.diff(before).affectedKeys().hasOnly(['status', 'seed', 'startedAt'])
+        && after.status == 'playing'
+        && after.seed is string && after.seed.size() >= 6 && after.seed.size() <= 40
+        && after.startedAt == request.time;
+    }
+
+    function isHeroFinish() {
+      let before = resource.data;
+      let after = request.resource.data;
+      return before.status == 'playing' && request.auth.uid in before.playerIds
+        && after.diff(before).affectedKeys().hasOnly(['status', 'endedAt'])
+        && after.status == 'done'
+        && after.endedAt == request.time;
+    }
+
     // ---------- Ancient Wonders ----------
     // 3–7 seats, some of them bots (`bot:1`…`bot:6`) that the host's phone plays. The seed
     // decides the boards and the hands; each pick is a move appended in order. The rules

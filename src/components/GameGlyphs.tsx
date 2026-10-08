@@ -64,6 +64,15 @@ export const BrawlGlyph = () => (
   </svg>
 );
 
+/** A shield with a stopwatch's face: your hero. */
+export const HeroGlyph = () => (
+  <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true">
+    <path d="M12 2.5 20 5.5v6c0 5-3.4 8.6-8 10-4.6-1.4-8-5-8-10v-6z" fill="currentColor" opacity="0.35" />
+    <circle cx="12" cy="12.5" r="4.6" fill="none" stroke="currentColor" strokeWidth="1.8" />
+    <path d="M12 12.5V9.8M10.6 5.8h2.8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+  </svg>
+);
+
 /** Each game's emblem by its id, for lists built from data. */
 export const GAME_GLYPHS = {
   avalon: AvalonGlyph,
@@ -72,4 +81,5 @@ export const GAME_GLYPHS = {
   isle: IsleGlyph,
   nonograms: NonogramGlyph,
   brawl: BrawlGlyph,
+  hero: HeroGlyph,
 } as const;

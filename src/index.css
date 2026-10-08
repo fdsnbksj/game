@@ -144,6 +144,17 @@
   --map-door: #0a0b0d;
   --plate: rgb(10 11 13 / 0.78);
   --game-brawl-soft: rgb(240 138 93 / 0.14);
+  /* Hero Gambit: its emblem, HP bars, the roulette wheel's three colours, playing cards. */
+  --game-hero: #ff7a9c;
+  --game-hero-soft: rgb(255 122 156 / 0.14);
+  --hero-hp: linear-gradient(90deg, #3fbf88, #7ad9a8);
+  --hero-hp-foe: linear-gradient(90deg, #f0616d, #ff8f86);
+  --hero-wheel-red: #c8414e;
+  --hero-wheel-black: #22252d;
+  --hero-wheel-green: #2f9d6c;
+  --hero-card-face: #f4efe3;
+  --hero-card-ink: #1a1406;
+  --hero-card-back: linear-gradient(135deg, #3a2a63, #22183d);
   /* Sky Brawl: a night sky, a stone island, and a colour per fighter (gold is you). */
   --brawl-sky-top: #141a2a;
   --brawl-sky-bottom: #0a0b0d;
@@ -3412,3 +3423,613 @@ button.seat:disabled {
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
+
+/* ---------- Hero Gambit ---------- */
+
+.game-glyph.hero {
+  background: var(--game-hero-soft);
+  color: var(--game-hero);
+}
+
+.player-chip.hero {
+  background: var(--game-hero-soft);
+  color: var(--game-hero);
+}
+
+/* The main game's way in, across the open sky at the top of the map (a room in progress
+   sits just under it). */
+.hero-banner {
+  position: absolute;
+  top: 8px;
+  right: 14px;
+  left: 14px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 14px 6px 8px;
+  border: 1px solid var(--accent-line);
+  border-radius: var(--r-lg);
+  background: var(--glow), var(--surface-grad);
+  box-shadow: var(--highlight), var(--shadow-2);
+  color: var(--label);
+  text-decoration: none;
+  animation: rise var(--dur) var(--ease) both;
+  transition: transform var(--dur-fast) var(--ease);
+}
+
+.hero-banner + .battle-banner,
+.battle-banner + .hero-banner {
+  top: 76px;
+}
+
+.hero-banner:active {
+  transform: scale(0.98);
+}
+
+.hero-banner > span:nth-child(2) {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.hero-banner strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hero-banner .game-glyph {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+}
+
+.hero-banner > svg {
+  color: var(--accent);
+}
+
+.hero-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px;
+}
+
+.hero-who {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.hero-who > span:last-child {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.hero-who strong {
+  font-size: var(--fs-lg);
+}
+
+.hero-avatar {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: var(--accent-grad);
+  box-shadow: var(--accent-glow);
+  color: var(--on-accent);
+  font-size: var(--fs-lg);
+  font-weight: 700;
+}
+
+.hero-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+
+.hero-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 4px;
+  border-radius: var(--r-md);
+  background: var(--fill-1);
+}
+
+.hero-stat strong {
+  font-size: var(--fs-md);
+  font-variant-numeric: tabular-nums;
+}
+
+.hero-skill-row {
+  display: flex;
+  gap: 6px;
+}
+
+.hero-skill-chip {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px;
+  border-radius: var(--r-md);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: var(--fs-cap);
+  font-weight: 650;
+}
+
+.hero-skill-chip svg {
+  width: 18px;
+  height: 18px;
+}
+
+.hero-skill-chip.locked {
+  background: var(--fill-1);
+  color: var(--label-3);
+}
+
+.hero-badge {
+  display: inline-grid;
+  place-items: center;
+  min-width: 20px;
+  height: 20px;
+  margin-left: 8px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--accent-grad);
+  color: var(--on-accent);
+  font-size: var(--fs-cap);
+  font-weight: 700;
+}
+
+.hero-ladder {
+  padding: 0;
+  list-style: none;
+}
+
+.hero-ladder .row {
+  width: 100%;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.hero-ladder .row.done .row-detail {
+  color: var(--success);
+}
+
+.hero-boss {
+  margin-left: 8px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--danger-soft);
+  color: var(--danger);
+  font-size: var(--fs-label);
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* The fight: both HP bars on top, what happened in the middle, your skills under the thumb. */
+.hero-fight {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.hero-hp {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1px solid var(--separator);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  transition: border-color var(--dur) var(--ease);
+}
+
+.hero-hp.active {
+  border-color: var(--accent-line);
+}
+
+.hero-hp-top {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--fs-sm);
+}
+
+.hero-hp-top span {
+  color: var(--label-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.hero-hp-track {
+  height: 10px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--fill-2);
+}
+
+.hero-hp-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--hero-hp);
+  transition: width 600ms var(--ease);
+}
+
+.hero-hp.foe .hero-hp-fill {
+  background: var(--hero-hp-foe);
+}
+
+.hero-stage {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 260px;
+}
+
+.hero-play {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  animation: pop-in var(--dur) var(--ease) both;
+}
+
+.hero-play .micro {
+  text-align: center;
+}
+
+.hero-target {
+  margin: 0;
+  font-size: 3rem;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+.hero-clock {
+  margin: 0;
+  color: var(--label-2);
+  font-size: var(--fs-xl);
+  font-variant-numeric: tabular-nums;
+}
+
+.hero-clock.hidden {
+  color: var(--label-3);
+}
+
+.hero-go {
+  width: 100%;
+  margin-top: auto;
+}
+
+.hero-go.stop {
+  min-height: 72px;
+  font-size: var(--fs-lg);
+}
+
+.hero-wheel {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 4px;
+  width: 100%;
+}
+
+.hero-slot {
+  aspect-ratio: 1;
+  min-height: 34px;
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 8px;
+  color: var(--label);
+  font: inherit;
+  font-size: var(--fs-sm);
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+
+.hero-slot:first-child {
+  grid-column: span 2;
+  aspect-ratio: auto;
+}
+
+.hero-slot.red {
+  background: var(--hero-wheel-red);
+}
+
+.hero-slot.black {
+  background: var(--hero-wheel-black);
+}
+
+.hero-slot.green {
+  background: var(--hero-wheel-green);
+}
+
+.hero-slot:disabled {
+  cursor: default;
+}
+
+.hero-slot.picked {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+
+/* A ball: a white dot that drops in, one after another. */
+.hero-slot.ball {
+  position: relative;
+}
+
+.hero-slot.ball::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--label);
+  box-shadow: 0 0 6px var(--label);
+  animation: pop-in 260ms var(--ease) both;
+  animation-delay: inherit;
+}
+
+.hero-cards {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+}
+
+.hero-pcard {
+  display: grid;
+  place-items: center;
+  width: 84px;
+  height: 118px;
+  border-radius: 10px;
+  font-size: 2.4rem;
+  font-weight: 750;
+  box-shadow: var(--shadow-1);
+}
+
+.hero-pcard.back {
+  border: 3px solid var(--hero-card-face);
+  background: var(--hero-card-back);
+}
+
+.hero-pcard.face {
+  background: var(--hero-card-face);
+  color: var(--hero-card-ink);
+  animation: hero-flip 420ms var(--ease) both;
+}
+
+.hero-pcard.won {
+  box-shadow: 0 0 0 3px var(--accent), var(--accent-glow);
+}
+
+@keyframes hero-flip {
+  from {
+    opacity: 0;
+    transform: rotateY(90deg);
+  }
+}
+
+.hero-hit-wrap {
+  animation: pop-in 300ms var(--ease) both;
+}
+
+.hero-hit {
+  margin: 0;
+  color: var(--danger);
+  font-size: var(--fs-xl);
+  font-weight: 750;
+}
+
+.hero-hit.crit {
+  color: var(--accent);
+}
+
+.hero-hit.kill {
+  color: var(--accent);
+  text-shadow: 0 0 18px var(--accent-line);
+}
+
+.hero-hit.miss {
+  color: var(--label-3);
+  font-size: var(--fs-md);
+}
+
+.hero-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.hero-skills {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.hero-skill {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-height: 92px;
+  padding: 12px 6px;
+  border: 1px solid var(--accent-line);
+  border-radius: var(--r-lg);
+  background: var(--surface-grad);
+  box-shadow: var(--highlight), var(--shadow-1);
+  color: var(--accent);
+  font: inherit;
+  cursor: pointer;
+  transition: transform var(--dur-fast) var(--ease);
+}
+
+.hero-skill:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+.hero-skill strong {
+  color: var(--label);
+  font-size: var(--fs-sm);
+}
+
+.hero-skill small {
+  color: var(--label-2);
+  font-size: var(--fs-label);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.hero-skill:disabled {
+  border-color: var(--separator);
+  color: var(--label-3);
+  opacity: 0.55;
+  cursor: default;
+}
+
+.hero-log {
+  max-height: 50dvh;
+  overflow-y: auto;
+  padding: 0;
+  list-style: none;
+}
+
+.hero-result {
+  margin: 0;
+  font-size: var(--fs-lg);
+  font-weight: 700;
+}
+
+.hero-reward {
+  margin: 0;
+  color: var(--accent);
+  font-size: var(--fs-md);
+  font-weight: 650;
+}
+
+.hero-quit {
+  align-self: center;
+}
+
+/* The skill tree. */
+.tree-points {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 14px;
+}
+
+.tree-points strong {
+  color: var(--accent);
+  font-size: var(--fs-xl);
+}
+
+.tree-branch {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.tree-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.tree-line {
+  width: 3px;
+  height: 18px;
+  border-radius: 2px;
+  background: var(--separator);
+}
+
+.tree-line.on {
+  background: var(--accent);
+}
+
+.tree-stats {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
+.tree-node {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 12px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-lg);
+  background: var(--surface-grad);
+  box-shadow: var(--highlight), var(--shadow-1);
+  color: var(--label);
+  font: inherit;
+  cursor: pointer;
+  transition: transform var(--dur-fast) var(--ease);
+}
+
+.tree-node:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.tree-node:disabled {
+  cursor: default;
+}
+
+.tree-node.owned {
+  border-color: var(--accent-line);
+}
+
+.tree-node.owned > svg {
+  color: var(--accent);
+}
+
+.tree-node.locked {
+  opacity: 0.5;
+}
+
+.tree-node small {
+  color: var(--label-2);
+  font-size: var(--fs-cap);
+}
+
+.tree-pips {
+  display: flex;
+  gap: 3px;
+}
+
+.tree-pips i {
+  width: 10px;
+  height: 6px;
+  border-radius: 2px;
+  background: var(--fill-3);
+}
+
+.tree-pips i.on {
+  background: var(--accent);
+}
+
