@@ -1,7 +1,7 @@
 import { stream } from '../../nonogram/rng';
 import { hashSeed } from '../../shared/random';
 import { ACTIONS, DIRS, DODGE, DOWN, JUMP, SKILL1, SKILL2, dirX, dirY, type Input } from './input';
-import { BODY_H, BODY_W, moverAt, STAGES, SUB, WIND, type Platform, type Stage } from './stages';
+import { BODY_H, BODY_W, moverAt, sawAt, STAGES, SUB, WIND, type Platform, type Stage } from './stages';
 import {
   ANGLES,
   aimVector,
@@ -36,7 +36,7 @@ import {
  */
 
 /** Bump when a change would make old saved matches play differently. */
-export const BRAWL_VERSION = 6;
+export const BRAWL_VERSION = 7;
 
 export const ROUNDS_TO_WIN = 3;
 /** The pause between rounds, with the round's winner shown. */
@@ -229,6 +229,12 @@ export const GONE = 300;
 const LAVA_DAMAGE = 15;
 const LAVA_BOUNCE = -2200;
 const SPIKE_DAMAGE = 20;
+const SAW_DAMAGE = 25;
+/** On ice: slow to get going, slow to stop. */
+const ICE_ACCEL = 45;
+const ICE_FRICTION = 8;
+/** A banana peel the thrower can slip on too, once it's had a moment to land. */
+const TRAP_SETTLE = 40;
 const HAZARD_COOLDOWN = 30;
 
 export const stageOf = (m: Match): Stage => STAGES[m.stage];
@@ -353,6 +359,8 @@ export interface Surface {
   soft: boolean;
   bounce: boolean;
   crumbles: boolean;
+  slippery: boolean;
+  belt: number;
 }
 
 const toSurface = (p: Platform): Surface => ({
@@ -363,6 +371,8 @@ const toSurface = (p: Platform): Surface => ({
   soft: p.soft,
   bounce: !!p.bounce,
   crumbles: !!p.crumbles,
+  slippery: !!p.slippery,
+  belt: p.belt ?? 0,
 });
 
 /** Whether a crumbling block is down (fallen, not yet back). */
@@ -378,7 +388,7 @@ export function surface(m: Match, index: number): Surface | null {
     return mover ? toSurface(moverAt(mover, m.frame)) : null;
   }
   const ice = m.ice.find((i) => i.id === index - ICE_BASE);
-  return ice ? { left: ice.x - ICE_HALF * SUB, right: ice.x + ICE_HALF * SUB, top: ice.y, bottom: ice.y, soft: true, bounce: false, crumbles: false } : null;
+  return ice ? { left: ice.x - ICE_HALF * SUB, right: ice.x + ICE_HALF * SUB, top: ice.y, bottom: ice.y, soft: true, bounce: false, crumbles: false, slippery: false, belt: 0 } : null;
 }
 
 /** Every surface there is this frame, with its index. */
@@ -608,10 +618,11 @@ function fire(m: Match, seat: number, shot: Extract<Attack, { kind: 'shot' }>) {
 /** One fighter's frame: its input, its movement, and the stage. */
 function updateFighter(m: Match, seat: number, input: Input) {
   const f = m.fighters[seat];
+  const gravity = stageOf(m).gravity ?? GRAVITY;
   if (!f.alive) {
     // Down: limp, falling, gone from the fight.
     f.deadFor++;
-    f.vy = Math.min(f.vy + GRAVITY, MAX_LAUNCH_FALL);
+    f.vy = Math.min(f.vy + gravity, MAX_LAUNCH_FALL);
     f.vx = approach(f.vx, 0, 10);
     f.x += f.vx;
     f.y += f.vy;
@@ -706,16 +717,18 @@ function updateFighter(m: Match, seat: number, input: Input) {
     f.vx = approach(f.vx, 0, 40);
   }
   const control = f.hitstun === 0 && f.lag === 0 && f.dodge === 0 && (!f.move || f.platform < 0);
+  const underfoot = f.platform >= 0 ? surface(m, f.platform) : null;
+  const icy = underfoot?.slippery ?? false;
   if (control) {
     const ground = f.platform >= 0;
     // Charging, you can only shuffle along on the ground.
     const target = dx * (ground ? (f.charge > 0 ? Math.trunc(BODY.run / CHARGE_WALK) : BODY.run) : BODY.air);
-    f.vx = approach(f.vx, target, ground ? GROUND_ACCEL : dx === 0 ? 20 : AIR_ACCEL);
+    f.vx = approach(f.vx, target, ground ? (icy ? ICE_ACCEL : GROUND_ACCEL) : dx === 0 ? 20 : AIR_ACCEL);
     if (ground && dx !== 0 && !f.move) f.facing = dx as 1 | -1;
   } else if (f.dodge > 0) {
     // The roll keeps its own pace.
   } else if (f.platform >= 0) {
-    f.vx = approach(f.vx, 0, f.hitstun > 0 ? 50 : FRICTION / 2);
+    f.vx = approach(f.vx, 0, icy ? ICE_FRICTION : f.hitstun > 0 ? 50 : FRICTION / 2);
   } else {
     f.vx = approach(f.vx, 0, f.hitstun > 0 ? LAUNCH_DRAG : 20);
   }
@@ -726,8 +739,11 @@ function updateFighter(m: Match, seat: number, input: Input) {
 
   if (f.platform < 0) {
     const cap = f.hitstun > 0 ? MAX_LAUNCH_FALL : input & DOWN && f.vy > 0 ? FAST_FALL : MAX_FALL;
-    f.vy = Math.min(f.vy + GRAVITY, Math.max(cap, f.vy));
+    f.vy = Math.min(f.vy + gravity, Math.max(cap, f.vy));
   }
+
+  // A conveyor carries whoever's on it.
+  if (underfoot?.belt) f.x += underfoot.belt;
 
   // Move, then meet the stage.
   const prevY = f.y;
@@ -910,6 +926,12 @@ function moveProjectiles(m: Match, hits: Hit[]) {
             if (p.x < g.left || p.x > g.right) continue;
             if (prevY <= g.top && p.y >= g.top && p.vy > 0) {
               p.y = g.top;
+              if (spec.trap) {
+                // A peel lands flat and stays put.
+                p.vx = 0;
+                p.vy = 0;
+                continue;
+              }
               p.vy = -Math.trunc((p.vy * 55) / 100);
               p.vx = Math.trunc((p.vx * 80) / 100);
             } else if (!g.soft && p.y > g.top && p.y < g.bottom) {
@@ -925,7 +947,9 @@ function moveProjectiles(m: Match, hits: Hit[]) {
       }
 
       m.fighters.forEach((f, t) => {
-        if (done || t === p.owner || !inPlay(f) || f.invulnerable > 0 || p.hits & (1 << t)) return;
+        // A settled peel trips its own thrower as readily as anyone.
+        const ownSafe = t === p.owner && !(spec.trap && p.age > TRAP_SETTLE);
+        if (done || ownSafe || !inPlay(f) || f.invulnerable > 0 || p.hits & (1 << t)) return;
         const size = (spec.size ?? 6) * SUB;
         if (!overlaps({ left: p.x - size, right: p.x + size, top: p.y - size, bottom: p.y + size }, f)) return;
         if (spec.radius !== undefined) {
@@ -938,7 +962,7 @@ function moveProjectiles(m: Match, hits: Hit[]) {
         }
         p.hits |= 1 << t;
         const side = p.vx > 0 ? 1 : p.vx < 0 ? -1 : f.facing;
-        const angle: Angle = Math.abs(p.vx) * 2 < Math.abs(p.vy) ? (p.vy < 0 ? 'up' : 'spike') : 'low';
+        const angle: Angle = spec.angle ?? (Math.abs(p.vx) * 2 < Math.abs(p.vy) ? (p.vy < 0 ? 'up' : 'spike') : 'low');
         hits.push({ by: p.owner, target: t, damage: p.damage, push: spec.push, angle, side, stun: spec.stun });
         if (!spec.pierce) done = true;
       });
@@ -996,6 +1020,23 @@ function hazards(m: Match) {
       f.airJumps = 1;
       f.recoveryUsed = false;
       hurt(m, i, LAVA_DAMAGE, f.lastHitBy);
+    }
+    if (hazard.kind === 'saws') {
+      for (const saw of hazard.saws) {
+        const c = sawAt(saw, m.frame);
+        const r = saw.radius * SUB;
+        const box = { left: c.x * SUB - r, right: c.x * SUB + r, top: c.y * SUB - r, bottom: c.y * SUB + r };
+        if (!overlaps(box, f)) continue;
+        f.hazardCooldown = HAZARD_COOLDOWN;
+        f.vx = (f.x < c.x * SUB ? -1 : 1) * 900;
+        f.vy = -1300;
+        f.platform = -1;
+        f.hitstun = Math.max(f.hitstun, 16);
+        f.airJumps = 1;
+        f.recoveryUsed = false;
+        hurt(m, i, SAW_DAMAGE, f.lastHitBy);
+        break;
+      }
     }
     if (hazard.kind === 'spikes') {
       for (const s of hazard.strips) {

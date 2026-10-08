@@ -85,7 +85,7 @@ function FrontDoor() {
 
   return (
     <Page title="Stick Brawl">
-      <p className="lead-note">Stick fighters, guns and blades, six stages. Last one standing takes the round; first to three wins. Played sideways, with both thumbs.</p>
+      <p className="lead-note">Stick fighters, guns, blades and a rubber chicken, eleven stages. Last one standing takes the round; first to three wins. Played sideways, with both thumbs.</p>
 
       <SummaryRow label="Opponents" figures={`${bots} ${bots === 1 ? 'bot' : 'bots'} · ${LEVELS[level]}`}>
         <p className="group-title">Bots</p>

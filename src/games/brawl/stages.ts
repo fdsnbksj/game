@@ -1,5 +1,5 @@
 /**
- * The six stages. In world pixels, y growing downward. The state stores everything in
+ * The stages. In world pixels, y growing downward. The state stores everything in
  * sub-units (SUB per pixel) so all the maths stays in whole numbers. Moving platforms are
  * pure functions of the frame, so every phone sees them in the same place.
  */
@@ -20,6 +20,10 @@ export interface Platform {
   crumbles?: boolean;
   /** Throws anyone who lands on it high into the air. */
   bounce?: boolean;
+  /** Ice: hard to start running on, harder still to stop. */
+  slippery?: boolean;
+  /** A conveyor: carries anyone standing on it this many sub-units a frame (negative is left). */
+  belt?: number;
 }
 
 /** A platform riding back and forth: `dx`/`dy` either side of where it's drawn, once each `period`. */
@@ -39,7 +43,24 @@ export interface Box {
   bottom: number;
 }
 
-export type Hazard = { kind: 'none' } | { kind: 'lava'; top: number } | { kind: 'spikes'; strips: Box[] } | { kind: 'crumble' } | { kind: 'wind' };
+/** A spinning saw blade riding back and forth like a moving platform: `dx`/`dy` either side of (x, y). */
+export interface Saw {
+  x: number;
+  y: number;
+  radius: number;
+  dx: number;
+  dy: number;
+  period: number;
+  phase: number;
+}
+
+export type Hazard =
+  | { kind: 'none' }
+  | { kind: 'lava'; top: number }
+  | { kind: 'spikes'; strips: Box[] }
+  | { kind: 'crumble' }
+  | { kind: 'wind' }
+  | { kind: 'saws'; saws: Saw[] };
 
 export interface Stage {
   id: string;
@@ -52,6 +73,8 @@ export interface Stage {
   hazard: Hazard;
   /** Where bots head when they're falling: the tops of the main ground. */
   safe: { left: number; right: number; top: number }[];
+  /** Sub-units a frame², if not the usual 50: the Moon's is lower. */
+  gravity?: number;
 }
 
 const solid = (left: number, right: number, top: number, bottom: number, extra: Partial<Platform> = {}): Platform => ({ left, right, top, bottom, soft: false, ...extra });
@@ -171,10 +194,105 @@ export const STAGES: readonly Stage[] = [
     hazard: { kind: 'wind' },
     safe: [{ left: -300, right: 300, top: 0 }],
   },
+  {
+    id: 'conveyor',
+    name: 'Conveyor',
+    // Two belts, both carrying everyone toward the gap between them.
+    platforms: [solid(-400, -50, 0, 40, { belt: 160 }), solid(50, 400, 0, 40, { belt: -160 }), ledge(-70, 70, -150), ledge(-300, -170, -190), ledge(170, 300, -190)],
+    movers: [],
+    spawns: [
+      { x: -260, y: 0 },
+      { x: 260, y: 0 },
+      { x: -150, y: 0 },
+      { x: 150, y: 0 },
+    ],
+    blast: { left: -780, right: 780, top: -740, bottom: 440 },
+    hazard: { kind: 'none' },
+    safe: [
+      { left: -400, right: -50, top: 0 },
+      { left: 50, right: 400, top: 0 },
+    ],
+  },
+  {
+    id: 'rink',
+    name: 'Ice Rink',
+    platforms: [solid(-340, 340, 0, 40, { slippery: true }), ledge(-240, -110, -150, { slippery: true }), ledge(110, 240, -150, { slippery: true })],
+    movers: [],
+    spawns: [
+      { x: -200, y: 0 },
+      { x: 200, y: 0 },
+      { x: -70, y: 0 },
+      { x: 70, y: 0 },
+    ],
+    blast: { left: -760, right: 760, top: -760, bottom: 460 },
+    hazard: { kind: 'none' },
+    safe: [{ left: -340, right: 340, top: 0 }],
+  },
+  {
+    id: 'moon',
+    name: 'Moon',
+    gravity: 24,
+    platforms: [solid(-260, 260, 0, 40), ledge(-230, -90, -230), ledge(90, 230, -230), ledge(-70, 70, -420)],
+    movers: [],
+    spawns: [
+      { x: -170, y: 0 },
+      { x: 170, y: 0 },
+      { x: -60, y: 0 },
+      { x: 60, y: 0 },
+    ],
+    blast: { left: -760, right: 760, top: -1150, bottom: 480 },
+    hazard: { kind: 'none' },
+    safe: [{ left: -260, right: 260, top: 0 }],
+  },
+  {
+    id: 'sawmill',
+    name: 'Sawmill',
+    platforms: [solid(-300, 300, 0, 40), ledge(-250, -110, -170), ledge(110, 250, -170)],
+    movers: [],
+    spawns: [
+      { x: -200, y: 0 },
+      { x: 200, y: 0 },
+      { x: -80, y: 0 },
+      { x: 80, y: 0 },
+    ],
+    blast: { left: -760, right: 760, top: -760, bottom: 460 },
+    hazard: {
+      kind: 'saws',
+      saws: [
+        // One sweeping along just over the floor, two riding up and down beside the ledges.
+        { x: 0, y: -40, radius: 22, dx: 240, dy: 0, period: 300, phase: 0 },
+        { x: -300, y: -150, radius: 20, dx: 0, dy: 110, period: 200, phase: 0 },
+        { x: 300, y: -150, radius: 20, dx: 0, dy: 110, period: 200, phase: 100 },
+      ],
+    },
+    safe: [{ left: -300, right: 300, top: 0 }],
+  },
+  {
+    id: 'trampolines',
+    name: 'Trampolines',
+    platforms: [
+      solid(-120, 120, 0, 40),
+      solid(-400, -260, 90, 140, { bounce: true }),
+      solid(260, 400, 90, 140, { bounce: true }),
+      ledge(-320, -180, -260),
+      ledge(180, 320, -260),
+      ledge(-60, 60, -400),
+    ],
+    movers: [],
+    spawns: [
+      { x: -80, y: 0 },
+      { x: 80, y: 0 },
+      { x: -250, y: -260 },
+      { x: 250, y: -260 },
+    ],
+    blast: { left: -780, right: 780, top: -820, bottom: 440 },
+    hazard: { kind: 'none' },
+    safe: [{ left: -120, right: 120, top: 0 }],
+  },
 ];
 
-/** How far along its trip a mover is at a frame: -1000 to 1000, back and forth (a triangle wave). */
-export function swing(mover: Mover, frame: number): number {
+/** How far along its trip a mover (or saw) is at a frame: -1000 to 1000, back and forth (a triangle wave). */
+export function swing(mover: { period: number; phase: number }, frame: number): number {
   const half = mover.period / 2;
   const t = (frame + mover.phase) % mover.period;
   const along = t < half ? t : mover.period - t;
@@ -188,6 +306,12 @@ export function moverAt(mover: Mover, frame: number): Platform {
   const oy = Math.trunc((mover.dy * s) / 1000);
   const p = mover.platform;
   return { ...p, left: p.left + ox, right: p.right + ox, top: p.top + oy, bottom: p.bottom + oy };
+}
+
+/** A saw's centre at a frame, in world pixels. */
+export function sawAt(saw: Saw, frame: number): { x: number; y: number } {
+  const s = swing(saw, frame);
+  return { x: saw.x + Math.trunc((saw.dx * s) / 1000), y: saw.y + Math.trunc((saw.dy * s) / 1000) };
 }
 
 /** Gusts: calm, then a warning, then a blow one way or the other, round and round. */

@@ -105,7 +105,10 @@ export function botInput(m: Match, seat: number): Input {
   const lined = me.weapon === 'grenades' || Math.abs(dy) < 50 || Math.abs(dx) < 50 || Math.abs(Math.abs(dx) - Math.abs(dy)) < 60;
 
   // Close in (or, with a gun, hold a middle distance once lined up), but not off the edge.
-  const nearEdge = me.platform >= 0 && ((dx < 0 && x < home.left + 30) || (dx > 0 && x > home.right - 30));
+  // Only the main ground's edges matter: stepping off a ledge just lands you lower.
+  const under = me.platform >= 0 ? surface(m, me.platform) : null;
+  const onMain = !!under && safe.some((g) => under.top === g.top * SUB && under.left <= g.right * SUB && under.right >= g.left * SUB);
+  const nearEdge = onMain && !!under && ((dx < 0 && me.x < under.left + 30 * SUB) || (dx > 0 && me.x > under.right - 30 * SUB));
   const want = ranged && lined ? 200 : ranged ? 60 : reach * 0.8;
   if (Math.abs(dx) > want && !nearEdge) input |= toward;
   else if (ranged && Math.abs(dx) < 100 && !nearEdge) input |= dx > 0 ? LEFT : RIGHT;

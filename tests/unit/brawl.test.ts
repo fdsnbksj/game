@@ -65,7 +65,7 @@ describe('Stick Brawl engine', () => {
     const b = run(newMatch('golden', [{ bot: 0 }, { bot: 0 }]), 1200, script);
     expect(hashState(a)).toBe(hashState(b));
     // Changes only when the engine does: then bump BRAWL_VERSION and update this.
-    expect(hashState(a)).toBe('6888aaf3');
+    expect(hashState(a)).toBe('d901687d');
   });
 
   it('keeps every number whole', () => {
@@ -78,7 +78,7 @@ describe('Stick Brawl engine', () => {
   });
 
   it('starts every round with full HP and bare hands, on solid ground', () => {
-    for (let s = 0; s < 6; s++) {
+    for (let s = 0; s < 24; s++) {
       const m = newMatch(`start${s}`, [{ bot: 0 }, { bot: 0 }, { bot: 0 }, { bot: 0 }]);
       for (const f of m.fighters) {
         expect(f.hp).toBe(MAX_HP);
@@ -91,9 +91,9 @@ describe('Stick Brawl engine', () => {
     }
   });
 
-  it('plays the six stages in a seeded order, each once before any repeats', () => {
+  it('plays every stage in a seeded order, each once before any repeats', () => {
     const m = newMatch('order', [{ bot: 0 }, { bot: 0 }]);
-    expect([...m.order].sort()).toEqual([0, 1, 2, 3, 4, 5]);
+    expect([...m.order].sort((a, b) => a - b)).toEqual(STAGES.map((_, i) => i));
     expect(newMatch('order', [{ bot: 0 }, { bot: 0 }]).order).toEqual(m.order);
   });
 
@@ -277,6 +277,85 @@ describe('Stick Brawl engine', () => {
     const blown = run(m, 20);
     const calm = run(still, 20);
     expect(Math.sign(blown.fighters[0].x - calm.fighters[0].x)).toBe(wind.dir);
+  });
+
+  it('carries everyone along a conveyor', () => {
+    let m = on('conveyor', [{ x: -300 * SUB }, { x: 300 * SUB }]);
+    m = run(m, 30);
+    expect(m.fighters[0].x).toBeGreaterThan(-300 * SUB);
+    expect(m.fighters[1].x).toBeLessThan(300 * SUB);
+  });
+
+  it('slides further on ice', () => {
+    const slide = (id: string) => {
+      let m = on(id, [{ x: -100 * SUB }, { x: 280 * SUB }]);
+      m = run(m, 40, () => [RIGHT, 0]);
+      const x = m.fighters[0].x;
+      m = run(m, 30);
+      return m.fighters[0].x - x;
+    };
+    expect(slide('rink')).toBeGreaterThan(slide('gusts') * 3);
+  });
+
+  it('jumps higher on the Moon', () => {
+    const peak = (id: string) => {
+      let m = on(id, [{ x: 0 }, { x: 200 * SUB }]);
+      m = step(m, [JUMP, 0]);
+      let top = m.fighters[0].y;
+      for (let i = 0; i < 120; i++) {
+        m = step(m, [0, 0]);
+        top = Math.min(top, m.fighters[0].y);
+      }
+      return -top;
+    };
+    expect(peak('moon')).toBeGreaterThan(peak('gusts') * 1.6);
+  });
+
+  it('cuts with a saw blade', () => {
+    let m = on('sawmill', [{ x: 0, y: 0 }, { x: -250 * SUB }], { frame: 0 });
+    let hurt = false;
+    for (let i = 0; i < 300 && !hurt; i++) {
+      m = step(m, [0, 0]);
+      if (m.fighters[0].hp < MAX_HP) hurt = true;
+    }
+    expect(hurt).toBe(true);
+  });
+
+  it('flings with a rubber chicken but barely hurts', () => {
+    const swing = (weapon: WeaponId) => {
+      let m = flat([{ ...armed(weapon), x: 0 }, { x: 40 * SUB, facing: -1 }]);
+      m = run(m, 3, once(SKILL1 | RIGHT));
+      for (let i = 0; i < 30 && m.fighters[1].hp === MAX_HP; i++) m = step(m, [0, 0]);
+      return m.fighters[1];
+    };
+    const chicken = swing('chicken');
+    const sword = swing('sword');
+    expect(MAX_HP - chicken.hp).toBeLessThan(MAX_HP - sword.hp);
+    expect(Math.abs(chicken.vx) + Math.abs(chicken.vy)).toBeGreaterThan(Math.abs(sword.vx) + Math.abs(sword.vy));
+  });
+
+  it('leaves a banana peel that trips whoever steps on it, the thrower too', () => {
+    let m = flat([{ ...armed('banana'), x: -100 * SUB }, { x: -280 * SUB }]);
+    m = run(m, 80, once(SKILL1 | RIGHT));
+    const peel = m.projectiles.find((p) => p.kind === 'peel');
+    expect(peel).toBeDefined();
+    // Walk back over it.
+    let slipped = false;
+    for (let i = 0; i < 90 && !slipped; i++) {
+      m = step(m, [peel!.x < m.fighters[0].x ? LEFT : RIGHT, 0]);
+      if (m.fighters[0].hitstun > 30) slipped = true;
+    }
+    expect(slipped).toBe(true);
+  });
+
+  it('lifts with a bubble, and shoves without hurting with a leaf blower', () => {
+    let bubble = flat([{ ...armed('bubbles'), x: -60 * SUB }, { x: 20 * SUB, facing: -1 }]);
+    bubble = run(bubble, 40, once(SKILL1 | RIGHT));
+    expect(bubble.fighters[1].hp).toBeLessThan(MAX_HP);
+    let blown = flat([{ ...armed('blower'), x: -60 * SUB }, { x: 20 * SUB, facing: -1 }]);
+    blown = run(blown, 8, once(SKILL1 | RIGHT));
+    expect(blown.fighters[1].hp).toBe(MAX_HP);
+    expect(blown.fighters[1].x).toBeGreaterThan(20 * SUB);
   });
 
   it('plays every bot level, with two to four fighters, to a match winner', () => {

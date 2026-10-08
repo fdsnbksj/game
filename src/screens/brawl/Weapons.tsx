@@ -92,6 +92,33 @@ export function WeaponGlyph({ weapon, size = 26 }: { weapon: WeaponId; size?: nu
           <path d="M17.5 1.5v10M12.5 6.5h10" stroke="currentColor" strokeWidth="1" opacity="0.6" />
         </>
       )}
+      {weapon === 'chicken' && (
+        <>
+          <ellipse cx="14" cy="13" rx="7" ry="5" fill="currentColor" />
+          <path d="M3 9l7 3" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+          <path d="M20 11l3 1-3 1z" fill="currentColor" opacity="0.7" />
+        </>
+      )}
+      {weapon === 'baguette' && (
+        <>
+          <rect x="1.5" y="9.5" width="21" height="6" rx="3" fill="currentColor" transform="rotate(-25 12 12.5)" />
+        </>
+      )}
+      {weapon === 'banana' && <path d="M4 7c1 8 8 12 16 9-6-1-11-4-13-10z" fill="currentColor" />}
+      {weapon === 'bubbles' && (
+        <>
+          <rect x="2" y="12" width="10" height="5" rx="2" fill="currentColor" />
+          <circle cx="16" cy="9" r="3.5" fill="none" stroke="currentColor" strokeWidth="1.6" />
+          <circle cx="20.5" cy="4.5" r="2" fill="none" stroke="currentColor" strokeWidth="1.4" />
+        </>
+      )}
+      {weapon === 'blower' && (
+        <>
+          <rect x="2" y="9" width="9" height="8" rx="2.5" fill="currentColor" />
+          <rect x="10" y="11" width="10" height="3.5" rx="1.5" fill="currentColor" opacity="0.8" />
+          <path d="M21 8l2-1M21.5 12.5h2M21 17l2 1" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+        </>
+      )}
       {weapon === 'bow' && (
         <>
           <path d="M7 3c7 3 7 15 0 18" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />

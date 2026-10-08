@@ -154,6 +154,14 @@
   --brawl-hp-mid: #eebb45;
   --brawl-hp-low: #ef5a63;
   --brawl-hp-back: rgb(255 255 255 / 0.15);
+  --brawl-belt: rgb(255 255 255 / 0.28);
+  --brawl-rink: rgb(200 236 255 / 0.7);
+  --brawl-saw: #c9ced8;
+  --brawl-chicken: #f3d34a;
+  --brawl-bread: #d9a35b;
+  --brawl-banana: #f6dc4f;
+  --brawl-bubble: #b6e6ff;
+  --brawl-moon: rgb(230 232 240 / 0.12);
   --brawl-control: rgb(255 255 255 / 0.08);
   --brawl-control-edge: rgb(255 255 255 / 0.16);
   --brawl-control-down: rgb(255 255 255 / 0.22);

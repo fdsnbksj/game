@@ -1,4 +1,4 @@
-import { BODY_H, moverAt, SUB } from '../../games/brawl/stages';
+import { BODY_H, moverAt, sawAt, SUB } from '../../games/brawl/stages';
 import {
   attackOf,
   CRACK,
@@ -48,6 +48,14 @@ export interface Palette {
   hpMid: string;
   hpLow: string;
   hpBack: string;
+  belt: string;
+  rink: string;
+  saw: string;
+  chicken: string;
+  bread: string;
+  banana: string;
+  bubble: string;
+  moon: string;
 }
 
 export function readPalette(): Palette {
@@ -81,6 +89,14 @@ export function readPalette(): Palette {
     hpMid: v('--brawl-hp-mid'),
     hpLow: v('--brawl-hp-low'),
     hpBack: v('--brawl-hp-back'),
+    belt: v('--brawl-belt'),
+    rink: v('--brawl-rink'),
+    saw: v('--brawl-saw'),
+    chicken: v('--brawl-chicken'),
+    bread: v('--brawl-bread'),
+    banana: v('--brawl-banana'),
+    bubble: v('--brawl-bubble'),
+    moon: v('--brawl-moon'),
   };
 }
 
@@ -99,7 +115,7 @@ export function follow(m: Match, cam: Camera | null, aspect: number): Camera {
   let left = Math.min(...stage.platforms.map((p) => p.left)) - 40;
   let right = Math.max(...stage.platforms.map((p) => p.right)) + 40;
   let top = Math.min(...stage.platforms.map((p) => p.top)) - 140;
-  let bottom = Math.max(...stage.safe.map((s) => s.top)) + 120;
+  let bottom = Math.max(Math.max(...stage.safe.map((s) => s.top)) + 120, Math.max(...stage.platforms.map((p) => p.top)) + 80);
   // Show the danger below: the lava's surface, the spike bed.
   if (stage.hazard.kind === 'lava') bottom = Math.max(bottom, stage.hazard.top + 70);
   if (stage.hazard.kind === 'spikes') bottom = Math.max(bottom, ...stage.hazard.strips.map((s) => s.bottom + 50));
@@ -155,6 +171,14 @@ function drawStage(ctx: CanvasRenderingContext2D, m: Match, p: Palette) {
   const stage = stageOf(m);
   const hazard = stage.hazard;
 
+  // The Moon: a big pale disc low in the sky.
+  if (stage.id === 'moon') {
+    ctx.fillStyle = p.moon;
+    ctx.beginPath();
+    ctx.arc(-420, -520, 120, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
   // Lava glows beneath it all.
   if (hazard.kind === 'lava') {
     const top = hazard.top;
@@ -194,6 +218,31 @@ function drawStage(ctx: CanvasRenderingContext2D, m: Match, p: Palette) {
       ctx.lineTo(pl.right - 40, pl.bottom - 6);
       ctx.stroke();
     }
+    if (pl.belt) {
+      // Chevrons running the way the belt carries.
+      ctx.strokeStyle = p.belt;
+      ctx.lineWidth = 2;
+      const dir = Math.sign(pl.belt);
+      const offset = (((m.frame * Math.abs(pl.belt)) / 100) % 24) * dir;
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(pl.left, pl.top, pl.right - pl.left, 12);
+      ctx.clip();
+      ctx.beginPath();
+      for (let x = pl.left - 24; x < pl.right + 24; x += 24) {
+        const cx = x + offset;
+        ctx.moveTo(cx - dir * 4, pl.top + 3);
+        ctx.lineTo(cx + dir * 4, pl.top + 7);
+        ctx.lineTo(cx - dir * 4, pl.top + 11);
+      }
+      ctx.stroke();
+      ctx.restore();
+    }
+    if (pl.slippery) {
+      // A sheen of ice along the top.
+      ctx.fillStyle = p.rink;
+      ctx.fillRect(pl.left + 4, pl.top, pl.right - pl.left - 8, pl.soft ? 3 : 6);
+    }
     if (pl.bounce) {
       // A spring pad on top.
       ctx.fillStyle = p.pad;
@@ -209,6 +258,31 @@ function drawStage(ctx: CanvasRenderingContext2D, m: Match, p: Palette) {
     roundRect(ctx, pl.left, pl.top, pl.right - pl.left, 9, 4);
     ctx.fillStyle = p.stageTop;
     ctx.fill();
+  }
+
+  if (hazard.kind === 'saws') {
+    for (const saw of hazard.saws) {
+      const c = sawAt(saw, m.frame);
+      ctx.save();
+      ctx.translate(c.x, c.y);
+      ctx.rotate(m.frame * 0.4);
+      ctx.fillStyle = p.saw;
+      ctx.beginPath();
+      // Teeth round the rim.
+      for (let k = 0; k < 12; k++) {
+        const a = (k / 12) * Math.PI * 2;
+        const b = a + Math.PI / 12;
+        ctx.lineTo(Math.cos(a) * saw.radius, Math.sin(a) * saw.radius);
+        ctx.lineTo(Math.cos(b) * (saw.radius - 6), Math.sin(b) * (saw.radius - 6));
+      }
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = p.stageEdge;
+      ctx.beginPath();
+      ctx.arc(0, 0, 4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
   }
 
   if (hazard.kind === 'spikes') {
@@ -385,6 +459,49 @@ function drawWeapon(ctx: CanvasRenderingContext2D, kind: WeaponId, hx: number, h
       break;
     case 'boomerang':
       drawBoomerang(ctx, 12, 0, 0, 1, p);
+      break;
+    case 'chicken':
+      // A floppy yellow bird held by the neck.
+      ctx.fillStyle = p.chicken;
+      ctx.beginPath();
+      ctx.ellipse(28, 0, 14, 8, 0, 0, Math.PI * 2);
+      ctx.fill();
+      line(p.chicken, 4, 0, 16, 0, 2);
+      ctx.fillStyle = p.hpLow;
+      ctx.fillRect(40, -3, 5, 4);
+      break;
+    case 'baguette':
+      ctx.fillStyle = p.bread;
+      roundRect(ctx, 0, -5, 62, 10, 5);
+      ctx.fill();
+      line(p.wood, 1.5, 14, 20, -3, 3);
+      line(p.wood, 1.5, 30, 36, -3, 3);
+      line(p.wood, 1.5, 46, 52, -3, 3);
+      break;
+    case 'banana':
+      ctx.strokeStyle = p.banana;
+      ctx.lineWidth = 6;
+      ctx.beginPath();
+      ctx.arc(10, 10, 12, -Math.PI * 0.9, -Math.PI * 0.2);
+      ctx.stroke();
+      break;
+    case 'bubbles':
+      ctx.fillStyle = p.chicken;
+      roundRect(ctx, 0, -5, 20, 9, 4);
+      ctx.fill();
+      ctx.strokeStyle = p.bubble;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(26, -2, 5, 0, Math.PI * 2);
+      ctx.stroke();
+      break;
+    case 'blower':
+      ctx.fillStyle = p.hpGood;
+      roundRect(ctx, -8, -8, 22, 16, 5);
+      ctx.fill();
+      ctx.fillStyle = p.gun;
+      roundRect(ctx, 12, -3, 26, 6, 2);
+      ctx.fill();
       break;
     case 'frost':
       line(p.wood, 3, -10, 44);
@@ -640,6 +757,40 @@ function drawProjectile(ctx: CanvasRenderingContext2D, pr: Projectile, p: Palett
         ctx.arc(x + 4, y - 7, 2.5, 0, Math.PI * 2);
         ctx.fill();
       }
+      return;
+    case 'peel':
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.fillStyle = p.banana;
+      ctx.beginPath();
+      ctx.ellipse(0, -3, 10, 4, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillRect(-12, -3, 6, 3);
+      ctx.fillRect(6, -3, 6, 3);
+      ctx.restore();
+      return;
+    case 'bubble':
+      ctx.save();
+      ctx.strokeStyle = p.bubble;
+      ctx.lineWidth = 2;
+      ctx.globalAlpha = 0.85;
+      ctx.beginPath();
+      ctx.arc(x, y, 13 + Math.sin(pr.age / 5) * 1.5, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.fillStyle = p.bubble;
+      ctx.beginPath();
+      ctx.arc(x - 5, y - 5, 3, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+      return;
+    case 'puff':
+      ctx.save();
+      ctx.globalAlpha = 0.35 * (1 - pr.age / 10);
+      ctx.fillStyle = p.wind;
+      ctx.beginPath();
+      ctx.arc(x, y, 10 + pr.age * 2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
       return;
     case 'thrown':
       // A thrown weapon tumbles end over end.

@@ -24,12 +24,38 @@ export type WeaponId =
   | 'grenades'
   | 'knives'
   | 'boomerang'
-  | 'frost';
+  | 'frost'
+  | 'chicken'
+  | 'baguette'
+  | 'banana'
+  | 'bubbles'
+  | 'blower';
 
 /** What can drop onto the stage to be picked up. */
-export const PICKUPS: readonly WeaponId[] = ['sword', 'hammer', 'spear', 'axe', 'scythe', 'pistol', 'rifle', 'shotgun', 'sniper', 'rocket', 'bow', 'grenades', 'knives', 'boomerang', 'frost'];
+export const PICKUPS: readonly WeaponId[] = [
+  'sword',
+  'hammer',
+  'spear',
+  'axe',
+  'scythe',
+  'pistol',
+  'rifle',
+  'shotgun',
+  'sniper',
+  'rocket',
+  'bow',
+  'grenades',
+  'knives',
+  'boomerang',
+  'frost',
+  'chicken',
+  'baguette',
+  'banana',
+  'bubbles',
+  'blower',
+];
 /** The ones that fight from a distance, for the bots. */
-export const RANGED: readonly WeaponId[] = ['pistol', 'rifle', 'shotgun', 'sniper', 'rocket', 'bow', 'grenades', 'knives', 'boomerang', 'frost'];
+export const RANGED: readonly WeaponId[] = ['pistol', 'rifle', 'shotgun', 'sniper', 'rocket', 'bow', 'grenades', 'knives', 'boomerang', 'frost', 'banana', 'bubbles', 'blower'];
 
 export const MAX_HP = 100;
 
@@ -85,7 +111,7 @@ export interface Melee {
   stun?: number;
 }
 
-export type ProjectileKind = 'bullet' | 'slug' | 'pellet' | 'rocket' | 'arrow' | 'grenade' | 'knife' | 'boomerang' | 'frost' | 'thrown';
+export type ProjectileKind = 'bullet' | 'slug' | 'pellet' | 'rocket' | 'arrow' | 'grenade' | 'knife' | 'boomerang' | 'frost' | 'thrown' | 'peel' | 'bubble' | 'puff';
 
 export interface Shot {
   kind: 'shot';
@@ -145,6 +171,25 @@ export const WEAPONS: Record<WeaponId, Weapon> = {
   knives: { id: 'knives', name: 'Knives', ammo: 10, heft: 8, attack: { kind: 'shot', startup: 3, recovery: 9, projectile: 'knife' } },
   boomerang: { id: 'boomerang', name: 'Boomerang', ammo: 6, heft: 10, attack: { kind: 'shot', startup: 6, recovery: 14, projectile: 'boomerang' } },
   frost: { id: 'frost', name: 'Frost staff', ammo: 6, heft: 12, attack: { kind: 'shot', startup: 7, recovery: 14, projectile: 'frost' } },
+  // The silly ones.
+  chicken: {
+    id: 'chicken',
+    name: 'Rubber chicken',
+    ammo: 12,
+    heft: 4,
+    // Barely hurts; sends them flying anyway.
+    attack: melee({ startup: 6, active: 4, recovery: 14, damage: 4, push: 1500, box: { x: 4, y: -60, w: 52, h: 40 }, angle: 'rising' }),
+  },
+  baguette: {
+    id: 'baguette',
+    name: 'Baguette',
+    ammo: 20,
+    heft: 6,
+    attack: melee({ startup: 6, active: 4, recovery: 12, damage: 9, push: 420, box: { x: 8, y: -54, w: 104, h: 22 }, angle: 'low' }),
+  },
+  banana: { id: 'banana', name: 'Bananas', ammo: 5, heft: 4, attack: { kind: 'shot', startup: 5, recovery: 12, projectile: 'peel' } },
+  bubbles: { id: 'bubbles', name: 'Bubble gun', ammo: 10, heft: 6, attack: { kind: 'shot', startup: 4, recovery: 12, projectile: 'bubble' } },
+  blower: { id: 'blower', name: 'Leaf blower', ammo: 14, heft: 12, attack: { kind: 'shot', startup: 3, recovery: 10, projectile: 'puff', fan: [-180, 0, 180] } },
 };
 
 export interface ProjectileSpec {
@@ -168,6 +213,10 @@ export interface ProjectileSpec {
   stun?: number;
   /** Half its size, for hitting. */
   size?: number;
+  /** Always pushes this way, whichever way it was going (a bubble lifts, a peel trips). */
+  angle?: Angle;
+  /** Lies where it lands until someone steps on it, the thrower too once it's settled. */
+  trap?: boolean;
 }
 
 export const PROJECTILES: Record<ProjectileKind, ProjectileSpec> = {
@@ -181,6 +230,9 @@ export const PROJECTILES: Record<ProjectileKind, ProjectileSpec> = {
   boomerang: { speed: 1500, lob: 0, gravity: 0, life: 150, damage: 14, push: 380, pierce: true, returns: 24, size: 10 },
   frost: { speed: 1300, lob: 0, gravity: 0, life: 70, damage: 8, push: 140, stun: 45, size: 9 },
   thrown: { speed: 1900, lob: -200, gravity: 30, life: 80, damage: 0, push: 700, size: 10 },
+  peel: { speed: 900, lob: -400, gravity: 50, life: 900, damage: 3, push: 700, bounces: true, trap: true, stun: 50, angle: 'steep', size: 12 },
+  bubble: { speed: 650, lob: 0, gravity: -4, life: 150, damage: 3, push: 1400, stun: 20, angle: 'up', size: 14 },
+  puff: { speed: 2000, lob: 0, gravity: 0, life: 9, damage: 0, push: 1050, pierce: true, size: 18 },
 };
 
 export const attackFrames = (a: Attack) => (a.kind === 'melee' ? a.startup + a.active + a.recovery : a.startup + a.recovery);
