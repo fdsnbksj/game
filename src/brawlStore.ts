@@ -65,7 +65,9 @@ export const useBrawlStore = create<BrawlStore>()((set, get) => {
     },
     keep: (match) => {
       // A finished fight is counted by finish(); keeping it would reopen it with no way on.
-      if (match.winner === null && get().match !== null) update({ match });
+      // And a fight only ever saves over itself: when Restart has put a new one in, the old
+      // one closing must not save itself back (the two would swap forever, and the screen go blank).
+      if (match.winner === null && get().match?.seed === match.seed) update({ match });
     },
     finish: (won) => update({ match: null, fights: get().fights + 1, wins: get().wins + (won ? 1 : 0) }),
     quit: () => update({ match: null }),
