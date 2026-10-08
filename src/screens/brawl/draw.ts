@@ -1,4 +1,4 @@
-import { BODY_H, moverAt, sawAt, SUB } from '../../games/brawl/stages';
+import { beamAt, BODY_H, moverAt, sawAt, SUB } from '../../games/brawl/stages';
 import {
   attackOf,
   CRACK,
@@ -56,6 +56,10 @@ export interface Palette {
   banana: string;
   bubble: string;
   moon: string;
+  laser: string;
+  flame: string;
+  vortex: string;
+  mine: string;
 }
 
 export function readPalette(): Palette {
@@ -97,6 +101,10 @@ export function readPalette(): Palette {
     banana: v('--brawl-banana'),
     bubble: v('--brawl-bubble'),
     moon: v('--brawl-moon'),
+    laser: v('--brawl-laser'),
+    flame: v('--brawl-flame'),
+    vortex: v('--brawl-vortex'),
+    mine: v('--brawl-mine'),
   };
 }
 
@@ -258,6 +266,50 @@ function drawStage(ctx: CanvasRenderingContext2D, m: Match, p: Palette) {
     roundRect(ctx, pl.left, pl.top, pl.right - pl.left, 9, 4);
     ctx.fillStyle = p.stageTop;
     ctx.fill();
+  }
+
+  if (hazard.kind === 'mines') {
+    hazard.xs.forEach((mx, i) => {
+      const armed = (m.mines[i] ?? 0) === 0;
+      ctx.fillStyle = p.gun;
+      roundRect(ctx, mx - 12, hazard.y - 6, 24, 6, 3);
+      ctx.fill();
+      // A red light that blinks while it's armed.
+      ctx.fillStyle = armed && Math.floor(m.frame / 15) % 2 === 0 ? p.mine : p.stageEdge;
+      ctx.beginPath();
+      ctx.arc(mx, hazard.y - 7, 3, 0, Math.PI * 2);
+      ctx.fill();
+    });
+  }
+
+  if (hazard.kind === 'lasers') {
+    for (const beam of hazard.beams) {
+      const state = beamAt(beam, m.frame);
+      // Emitters at each end.
+      ctx.fillStyle = p.gun;
+      roundRect(ctx, beam.left - 10, beam.y - 8, 10, 16, 3);
+      ctx.fill();
+      roundRect(ctx, beam.right, beam.y - 8, 10, 16, 3);
+      ctx.fill();
+      if (state === 'off') continue;
+      ctx.save();
+      ctx.strokeStyle = p.laser;
+      if (state === 'warning') {
+        // A thin flicker: it's about to fire.
+        ctx.globalAlpha = Math.floor(m.frame / 4) % 2 === 0 ? 0.6 : 0.15;
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([8, 8]);
+      } else {
+        ctx.shadowColor = p.laser;
+        ctx.shadowBlur = 14;
+        ctx.lineWidth = 6;
+      }
+      ctx.beginPath();
+      ctx.moveTo(beam.left, beam.y);
+      ctx.lineTo(beam.right, beam.y);
+      ctx.stroke();
+      ctx.restore();
+    }
   }
 
   if (hazard.kind === 'saws') {
@@ -501,6 +553,74 @@ function drawWeapon(ctx: CanvasRenderingContext2D, kind: WeaponId, hx: number, h
       ctx.fill();
       ctx.fillStyle = p.gun;
       roundRect(ctx, 12, -3, 26, 6, 2);
+      ctx.fill();
+      break;
+    case 'flamer':
+      ctx.fillStyle = p.gun;
+      roundRect(ctx, -6, -6, 30, 10, 4);
+      ctx.fill();
+      ctx.fillStyle = p.flame;
+      ctx.beginPath();
+      ctx.arc(-8, 4, 6, 0, Math.PI * 2);
+      ctx.fill();
+      break;
+    case 'minigun':
+      ctx.fillStyle = p.gun;
+      roundRect(ctx, -8, -8, 18, 16, 4);
+      ctx.fill();
+      line(p.steel, 2, 8, 40, -4, -4);
+      line(p.steel, 2, 8, 40, 0, 0);
+      line(p.steel, 2, 8, 40, 4, 4);
+      break;
+    case 'harpoon':
+      ctx.fillStyle = p.gun;
+      roundRect(ctx, -4, -4, 30, 8, 3);
+      ctx.fill();
+      line(p.steel, 2, 26, 40);
+      ctx.fillStyle = p.steel;
+      ctx.beginPath();
+      ctx.moveTo(46, 0);
+      ctx.lineTo(38, -5);
+      ctx.lineTo(38, 5);
+      ctx.fill();
+      break;
+    case 'raygun':
+      ctx.fillStyle = p.hpGood;
+      roundRect(ctx, 0, -6, 20, 10, 5);
+      ctx.fill();
+      ctx.fillStyle = p.laser;
+      ctx.beginPath();
+      ctx.arc(24, -1, 4, 0, Math.PI * 2);
+      ctx.fill();
+      break;
+    case 'blackhole':
+      ctx.fillStyle = p.vortex;
+      ctx.beginPath();
+      ctx.arc(10, 0, 8, 0, Math.PI * 2);
+      ctx.fill();
+      break;
+    case 'fish':
+      ctx.fillStyle = p.bubble;
+      ctx.beginPath();
+      ctx.ellipse(30, 0, 22, 8, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(6, 0);
+      ctx.lineTo(-2, -8);
+      ctx.lineTo(-2, 8);
+      ctx.fill();
+      break;
+    case 'glove':
+      // A zig-zag spring and a red glove.
+      ctx.strokeStyle = p.steel;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      for (let k = 1; k <= 6; k++) ctx.lineTo(k * 6, k % 2 ? -5 : 5);
+      ctx.stroke();
+      ctx.fillStyle = p.hpLow;
+      ctx.beginPath();
+      ctx.arc(44, 0, 9, 0, Math.PI * 2);
       ctx.fill();
       break;
     case 'frost':
@@ -783,6 +903,80 @@ function drawProjectile(ctx: CanvasRenderingContext2D, pr: Projectile, p: Palett
       ctx.fill();
       ctx.restore();
       return;
+    case 'flame':
+      ctx.save();
+      ctx.globalAlpha = 0.8 * (1 - pr.age / 18);
+      ctx.fillStyle = p.flame;
+      ctx.beginPath();
+      ctx.arc(x, y, 6 + pr.age * 0.6, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+      return;
+    case 'harpoon':
+      ctx.save();
+      along(ctx, x, y, ux, uy);
+      ctx.strokeStyle = p.steel;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(-26, 0);
+      ctx.lineTo(0, 0);
+      ctx.stroke();
+      ctx.fillStyle = p.steel;
+      ctx.beginPath();
+      ctx.moveTo(8, 0);
+      ctx.lineTo(-2, -5);
+      ctx.lineTo(-2, 5);
+      ctx.fill();
+      ctx.restore();
+      return;
+    case 'ray':
+      ctx.save();
+      ctx.strokeStyle = p.laser;
+      ctx.shadowColor = p.laser;
+      ctx.shadowBlur = 10;
+      ctx.lineWidth = 3;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(x - ux * 30, y - uy * 30);
+      ctx.lineTo(x, y);
+      ctx.stroke();
+      ctx.restore();
+      return;
+    case 'vortex': {
+      // A dark swirl that grows once it's down.
+      const r = pr.age > 25 ? 14 + Math.sin(pr.age / 4) * 2 : 8;
+      ctx.save();
+      ctx.fillStyle = p.vortex;
+      ctx.beginPath();
+      ctx.arc(x, y - r, r, 0, Math.PI * 2);
+      ctx.fill();
+      if (pr.age > 25) {
+        ctx.strokeStyle = p.bubble;
+        ctx.globalAlpha = 0.5;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(x, y - r, r + 10 + ((pr.age * 3) % 40), 0, Math.PI * 1.4);
+        ctx.stroke();
+      }
+      ctx.restore();
+      return;
+    }
+    case 'anvil':
+      ctx.fillStyle = p.gun;
+      ctx.beginPath();
+      ctx.moveTo(x - 18, y - 14);
+      ctx.lineTo(x + 18, y - 14);
+      ctx.lineTo(x + 10, y - 4);
+      ctx.lineTo(x + 10, y + 8);
+      ctx.lineTo(x + 16, y + 14);
+      ctx.lineTo(x - 16, y + 14);
+      ctx.lineTo(x - 10, y + 8);
+      ctx.lineTo(x - 10, y - 4);
+      ctx.closePath();
+      ctx.fill();
+      return;
+    case 'mine':
+      return;
     case 'puff':
       ctx.save();
       ctx.globalAlpha = 0.35 * (1 - pr.age / 10);
@@ -859,6 +1053,19 @@ export function draw(ctx: CanvasRenderingContext2D, width: number, height: numbe
   ctx.fillRect(-760, -760, 1520, 1240);
 
   drawStage(ctx, m, p);
+  // Where an anvil will land: a shadow on the ground, darker as it nears.
+  for (const pr of m.projectiles) {
+    if (pr.kind !== 'anvil') continue;
+    const x = pr.x / SUB;
+    const near = Math.min(1, Math.max(0.15, 1 - (0 - pr.y / SUB) / 700));
+    ctx.save();
+    ctx.globalAlpha = 0.5 * near;
+    ctx.fillStyle = p.stageEdge;
+    ctx.beginPath();
+    ctx.ellipse(x, -2, 22 * near + 6, 5, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
   for (const ice of m.ice) drawIce(ctx, ice, p);
   for (const it of m.items) drawItem(ctx, it, p);
   // You on top, so your own fighter is never lost in a crowd.

@@ -119,6 +119,52 @@ export function WeaponGlyph({ weapon, size = 26 }: { weapon: WeaponId; size?: nu
           <path d="M21 8l2-1M21.5 12.5h2M21 17l2 1" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
         </>
       )}
+      {weapon === 'flamer' && (
+        <>
+          <rect x="3" y="10" width="13" height="5" rx="2" fill="currentColor" />
+          <path d="M17 12.5c3-3 5-1 5 1 0 2-2 3-3 2 1 0 1-2-2-3z" fill="currentColor" opacity="0.8" />
+          <circle cx="5" cy="17" r="2.5" fill="currentColor" opacity="0.7" />
+        </>
+      )}
+      {weapon === 'minigun' && (
+        <>
+          <rect x="2" y="8" width="7" height="9" rx="2" fill="currentColor" />
+          <path d="M9 9.5h13M9 12.5h13M9 15.5h13" stroke="currentColor" strokeWidth="1.6" />
+        </>
+      )}
+      {weapon === 'harpoon' && (
+        <>
+          <rect x="2" y="11" width="11" height="4" rx="1.5" fill="currentColor" />
+          <path d="M13 13h7" stroke="currentColor" strokeWidth="1.6" />
+          <path d="M23 13l-4-3v6z" fill="currentColor" />
+        </>
+      )}
+      {weapon === 'raygun' && (
+        <>
+          <rect x="3" y="9" width="12" height="6" rx="3" fill="currentColor" />
+          <rect x="5" y="14" width="3" height="5" rx="1" fill="currentColor" opacity="0.7" />
+          <circle cx="19" cy="12" r="2.5" fill="currentColor" opacity="0.8" />
+        </>
+      )}
+      {weapon === 'blackhole' && (
+        <>
+          <circle cx="12" cy="12" r="5" fill="currentColor" />
+          <path d="M12 3.5a8.5 8.5 0 0 1 8.5 8.5" fill="none" stroke="currentColor" strokeWidth="1.5" opacity="0.7" />
+          <path d="M12 20.5A8.5 8.5 0 0 1 3.5 12" fill="none" stroke="currentColor" strokeWidth="1.5" opacity="0.7" />
+        </>
+      )}
+      {weapon === 'fish' && (
+        <>
+          <ellipse cx="13" cy="12" rx="8" ry="4.5" fill="currentColor" />
+          <path d="M5 12 1.5 8.5v7z" fill="currentColor" />
+        </>
+      )}
+      {weapon === 'glove' && (
+        <>
+          <path d="M2 12l2.5-3 2.5 6 2.5-6 2.5 6 1-1.5" fill="none" stroke="currentColor" strokeWidth="1.5" />
+          <circle cx="18" cy="12" r="4.5" fill="currentColor" />
+        </>
+      )}
       {weapon === 'bow' && (
         <>
           <path d="M7 3c7 3 7 15 0 18" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />

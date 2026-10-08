@@ -102,7 +102,7 @@ export function botInput(m: Match, seat: number): Input {
   let input = 0;
 
   // A shot only flies eight ways: is the target on one of them (or close enough, for a lobbed grenade)?
-  const lined = me.weapon === 'grenades' || Math.abs(dy) < 50 || Math.abs(dx) < 50 || Math.abs(Math.abs(dx) - Math.abs(dy)) < 60;
+  const lined = me.weapon === 'grenades' || Math.abs(dy) <= 60 || Math.abs(dx) <= 50 || Math.abs(Math.abs(dx) - Math.abs(dy)) < 60;
 
   // Close in (or, with a gun, hold a middle distance once lined up), but not off the edge.
   // Only the main ground's edges matter: stepping off a ledge just lands you lower.
@@ -111,6 +111,8 @@ export function botInput(m: Match, seat: number): Input {
   const nearEdge = onMain && !!under && ((dx < 0 && me.x < under.left + 30 * SUB) || (dx > 0 && me.x > under.right - 30 * SUB));
   const want = ranged && lined ? 200 : ranged ? 60 : reach * 0.8;
   if (Math.abs(dx) > want && !nearEdge) input |= toward;
+  // At the edge with them standing on ground across the gap: jump over to them.
+  if (Math.abs(dx) > want && nearEdge && them.platform >= 0 && thinking && !busy && !(me.prevInput & JUMP)) return toward | JUMP;
   else if (ranged && Math.abs(dx) < 100 && !nearEdge) input |= dx > 0 ? LEFT : RIGHT;
   if (me.platform > 0 && dy > 60 && Math.abs(dx) < 140) input |= DOWN;
 

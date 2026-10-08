@@ -7,7 +7,7 @@ export function HowToBrawl() {
     <>
       <p>
         Everyone has <strong>100 HP</strong>. At 0, or off the edge of the stage, you're out. The last one standing takes the round, and the first to three rounds
-        wins. Every round is on a new stage, and each has its own twist: lifts, lava, spikes, crumbling blocks, wind, conveyors, ice, saw blades, trampolines, the Moon.
+        wins. Every round is on a new stage, and each has its own twist: lifts, lava, spikes, crumbling blocks, wind, conveyors, ice, saw blades, trampolines, the Moon, mines, lasers, falling anvils.
       </p>
       <p>
         Turn your phone sideways. Your <strong>left thumb</strong> is the joystick: put it down anywhere on the left to run, hold down to fall fast or drop through a

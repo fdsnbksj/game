@@ -171,7 +171,7 @@ export function Home() {
           </span>
           <div>
             <strong>Stick Brawl</strong>
-            <small>Guns, chickens, eleven stages</small>
+            <small>Guns, chickens, sixteen stages</small>
           </div>
           <span className="tile-chip">1–4</span>
         </Link>

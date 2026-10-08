@@ -1,7 +1,7 @@
 import { stream } from '../../nonogram/rng';
 import { hashSeed } from '../../shared/random';
 import { ACTIONS, DIRS, DODGE, DOWN, JUMP, SKILL1, SKILL2, dirX, dirY, type Input } from './input';
-import { BODY_H, BODY_W, moverAt, sawAt, STAGES, SUB, WIND, type Platform, type Stage } from './stages';
+import { beamAt, BODY_H, BODY_W, moverAt, sawAt, STAGES, SUB, WIND, type Platform, type Stage } from './stages';
 import {
   ANGLES,
   aimVector,
@@ -36,7 +36,7 @@ import {
  */
 
 /** Bump when a change would make old saved matches play differently. */
-export const BRAWL_VERSION = 7;
+export const BRAWL_VERSION = 8;
 
 export const ROUNDS_TO_WIN = 3;
 /** The pause between rounds, with the round's winner shown. */
@@ -131,6 +131,8 @@ export interface Projectile {
   /** A thrown weapon: which, and how much it hurts. */
   weapon: WeaponId | null;
   damage: number;
+  /** Times it has bounced off a wall (a ray gun's shot ricochets). */
+  bounced: number;
 }
 
 /** An explosion, kept a few frames to be drawn. */
@@ -170,6 +172,8 @@ export interface Match {
   roundWinner: number | null;
   /** Per stage platform: 0 whole, then frames since it began to crack. */
   crumble: number[];
+  /** Per mine: 0 armed, or frames until it re-arms. */
+  mines: number[];
   items: Item[];
   projectiles: Projectile[];
   blasts: Blast[];
@@ -230,6 +234,11 @@ const LAVA_DAMAGE = 15;
 const LAVA_BOUNCE = -2200;
 const SPIKE_DAMAGE = 20;
 const SAW_DAMAGE = 25;
+const LASER_DAMAGE = 30;
+/** A mine re-arms this long after it goes off. */
+export const MINE_REARM = 300;
+/** How fast a black hole drags fighters in: about half a run. */
+const VORTEX_PULL = 280;
 /** On ice: slow to get going, slow to stop. */
 const ICE_ACCEL = 45;
 const ICE_FRICTION = 8;
@@ -302,6 +311,7 @@ function startRound(m: Match, r: number) {
     return { ...fresh, kos: f.kos, falls: f.falls, dealt: f.dealt };
   });
   m.crumble = stage.platforms.map(() => 0);
+  m.mines = stage.hazard.kind === 'mines' ? stage.hazard.xs.map(() => 0) : [];
   m.items = [];
   m.projectiles = [];
   m.blasts = [];
@@ -333,6 +343,7 @@ export function newMatch(seed: string, seats: Seat[]): Match {
     between: 0,
     roundWinner: null,
     crumble: [],
+    mines: [],
     items: [],
     projectiles: [],
     blasts: [],
@@ -494,6 +505,7 @@ function throwWeapon(m: Match, seat: number, ax: number, ay: number, power: numb
     hits: 0,
     weapon,
     damage: charged(WEAPONS[weapon].heft, power, 100),
+    bounced: 0,
   });
   f.weapon = 'fists';
   f.ammo = 0;
@@ -604,6 +616,7 @@ function fire(m: Match, seat: number, shot: Extract<Attack, { kind: 'shot' }>) {
       hits: 0,
       weapon: null,
       damage: spec.damage,
+      bounced: 0,
     });
   const vx = Math.trunc((ux * spec.speed) / 1000);
   const vy = Math.trunc((uy * spec.speed) / 1000) + spec.lob;
@@ -853,7 +866,8 @@ function applyHit(m: Match, h: Hit) {
   target.airJumps = 1;
   target.recoveryUsed = false;
   const pause = 2 + Math.trunc(h.damage / 8);
-  attacker.freeze = Math.max(attacker.freeze, pause);
+  // The stage's own hazards (a mine, an anvil) have no one to freeze.
+  if (attacker) attacker.freeze = Math.max(attacker.freeze, pause);
   target.freeze = pause;
   hurt(m, h.target, h.damage, h.by);
 }
@@ -878,9 +892,9 @@ function explode(m: Match, p: Projectile, hits: Hit[]) {
 }
 
 /** Whether a point is inside solid ground. */
-function inSolid(all: [number, Surface][], x: number, y: number) {
-  for (const [, s] of all) if (!s.soft && x >= s.left && x <= s.right && y >= s.top && y <= s.bottom) return true;
-  return false;
+function inSolid(all: [number, Surface][], x: number, y: number): Surface | null {
+  for (const [, s] of all) if (!s.soft && x >= s.left && x <= s.right && y >= s.top && y <= s.bottom) return s;
+  return null;
 }
 
 /** Shots fly, grenades arc and bounce; each meets the ground, the fighters, or its end. */
@@ -913,6 +927,20 @@ function moveProjectiles(m: Match, hits: Hit[]) {
     p.age++;
     p.life--;
 
+    // A black hole, once it's down, drags everyone near it in, its thrower too.
+    if (spec.vortex !== undefined && p.age > 25) {
+      const reach = spec.vortex * SUB;
+      for (const f of m.fighters) {
+        if (!inPlay(f)) continue;
+        const dx = p.x - f.x;
+        const dy = p.y - (f.y - (BODY_H * SUB) / 2);
+        if (Math.abs(dx) + Math.abs(dy) > reach) continue;
+        // Slid toward it directly (friction would cancel a push), slower than a run, so you can still get away.
+        if (Math.abs(dx) > 4 * SUB) f.x += Math.sign(dx) * VORTEX_PULL;
+        if (f.platform < 0) f.vy += Math.sign(dy) * 30;
+      }
+    }
+
     // Fast shots move in short steps, so nothing they pass is missed.
     const steps = Math.max(1, Math.ceil(Math.max(Math.abs(p.vx), Math.abs(p.vy)) / 1600));
     for (let s = 0; s < steps && !done; s++) {
@@ -926,8 +954,8 @@ function moveProjectiles(m: Match, hits: Hit[]) {
             if (p.x < g.left || p.x > g.right) continue;
             if (prevY <= g.top && p.y >= g.top && p.vy > 0) {
               p.y = g.top;
-              if (spec.trap) {
-                // A peel lands flat and stays put.
+              if (spec.settles) {
+                // A peel (or a black hole) lands flat and stays put.
                 p.vx = 0;
                 p.vy = 0;
                 continue;
@@ -939,17 +967,30 @@ function moveProjectiles(m: Match, hits: Hit[]) {
               p.x += Math.trunc(p.vx / steps);
             }
           }
-        } else if (inSolid(all, p.x, p.y)) {
-          if (spec.radius !== undefined) explode(m, p, hits);
-          done = true;
-          break;
+        } else {
+          const wall = inSolid(all, p.x, p.y);
+          if (wall && spec.ricochet !== undefined && p.bounced < spec.ricochet) {
+            // Off the wall: back to where it was, turned round on the side it struck.
+            const fromX = p.x - Math.trunc(p.vx / steps);
+            const fromY = p.y - Math.trunc(p.vy / steps);
+            if (fromX >= wall.left && fromX <= wall.right) p.vy = -p.vy;
+            else p.vx = -p.vx;
+            p.x = fromX;
+            p.y = fromY;
+            p.bounced++;
+            p.hits = 0;
+          } else if (wall) {
+            if (spec.radius !== undefined) explode(m, p, hits);
+            done = true;
+            break;
+          }
         }
       }
 
       m.fighters.forEach((f, t) => {
         // A settled peel trips its own thrower as readily as anyone.
         const ownSafe = t === p.owner && !(spec.trap && p.age > TRAP_SETTLE);
-        if (done || ownSafe || !inPlay(f) || f.invulnerable > 0 || p.hits & (1 << t)) return;
+        if (done || ownSafe || spec.vortex !== undefined || !inPlay(f) || f.invulnerable > 0 || p.hits & (1 << t)) return;
         const size = (spec.size ?? 6) * SUB;
         if (!overlaps({ left: p.x - size, right: p.x + size, top: p.y - size, bottom: p.y + size }, f)) return;
         if (spec.radius !== undefined) {
@@ -961,7 +1002,9 @@ function moveProjectiles(m: Match, hits: Hit[]) {
           return;
         }
         p.hits |= 1 << t;
-        const side = p.vx > 0 ? 1 : p.vx < 0 ? -1 : f.facing;
+        const going = p.vx > 0 ? 1 : p.vx < 0 ? -1 : f.facing;
+        // A harpoon reels them in, back the way it came.
+        const side = spec.pull ? -going : going;
         const angle: Angle = spec.angle ?? (Math.abs(p.vx) * 2 < Math.abs(p.vy) ? (p.vy < 0 ? 'up' : 'spike') : 'low');
         hits.push({ by: p.owner, target: t, damage: p.damage, push: spec.push, angle, side, stun: spec.stun });
         if (!spec.pierce) done = true;
@@ -1011,6 +1054,19 @@ function pickUp(m: Match) {
 /** Lava burns and throws you up; spikes hurt and push you off. */
 function hazards(m: Match) {
   const hazard = stageOf(m).hazard;
+
+  // Mines: a fighter's feet on one sets it off; it re-arms after a while.
+  if (hazard.kind === 'mines') {
+    hazard.xs.forEach((mx, i) => {
+      if (m.mines[i] > 0) return;
+      const stepped = m.fighters.some((f) => inPlay(f) && Math.abs(f.x - mx * SUB) < 20 * SUB && Math.abs(f.y - hazard.y * SUB) < 12 * SUB);
+      if (!stepped) return;
+      m.mines[i] = MINE_REARM;
+      const blast: Hit[] = [];
+      explode(m, { kind: 'mine', owner: -1, x: mx * SUB, y: (hazard.y - 10) * SUB, vx: 0, vy: 0, life: 0, age: 0, hits: 0, weapon: null, damage: 0, bounced: 0 }, blast);
+      for (const h of blast) applyHit(m, h);
+    });
+  }
   m.fighters.forEach((f, i) => {
     if (!inPlay(f) || f.hazardCooldown > 0) return;
     if (hazard.kind === 'lava' && f.y > hazard.top * SUB) {
@@ -1020,6 +1076,21 @@ function hazards(m: Match) {
       f.airJumps = 1;
       f.recoveryUsed = false;
       hurt(m, i, LAVA_DAMAGE, f.lastHitBy);
+    }
+    if (hazard.kind === 'lasers') {
+      for (const beam of hazard.beams) {
+        if (beamAt(beam, m.frame) !== 'on') continue;
+        const box = { left: beam.left * SUB, right: beam.right * SUB, top: (beam.y - 4) * SUB, bottom: (beam.y + 4) * SUB };
+        if (!overlaps(box, f)) continue;
+        f.hazardCooldown = HAZARD_COOLDOWN;
+        f.vy = -1500;
+        f.platform = -1;
+        f.hitstun = Math.max(f.hitstun, 16);
+        f.airJumps = 1;
+        f.recoveryUsed = false;
+        hurt(m, i, LASER_DAMAGE, f.lastHitBy);
+        break;
+      }
     }
     if (hazard.kind === 'saws') {
       for (const saw of hazard.saws) {
@@ -1080,6 +1151,7 @@ export function step(match: Match, inputs: readonly Input[]): Match {
     fighters: match.fighters.map((f) => ({ ...f })),
     wins: [...match.wins],
     crumble: match.crumble.map((c) => (c === 0 ? 0 : c + 1 >= CRACK + GONE ? 0 : c + 1)),
+    mines: match.mines.map((t) => Math.max(0, t - 1)),
     items: match.items,
     projectiles: match.projectiles.map((p) => ({ ...p })),
     blasts: match.blasts.map((b) => ({ ...b, age: b.age + 1 })).filter((b) => b.age < BLAST_FRAMES),
@@ -1091,6 +1163,13 @@ export function step(match: Match, inputs: readonly Input[]): Match {
 
   dropWeapons(m);
   pickUp(m);
+
+  // Anvil Rain: one drops from the sky every so often, somewhere seeded.
+  const hz = stageOf(m).hazard;
+  if (hz.kind === 'anvils' && m.between === 0 && m.frame % hz.every === 0) {
+    const x = hz.left + stream(`${m.seed}:anvil:${m.frame}`)(hz.right - hz.left + 1);
+    m.projectiles.push({ kind: 'anvil', owner: -1, x: x * SUB, y: (stageOf(m).blast.top + 60) * SUB, vx: 0, vy: 0, life: PROJECTILES.anvil.life, age: 0, hits: 0, weapon: null, damage: PROJECTILES.anvil.damage, bounced: 0 });
+  }
 
   // Every hit is found before any lands, so two swings that meet both connect.
   const hits: Hit[] = [];

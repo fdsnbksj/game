@@ -29,7 +29,14 @@ export type WeaponId =
   | 'baguette'
   | 'banana'
   | 'bubbles'
-  | 'blower';
+  | 'blower'
+  | 'flamer'
+  | 'minigun'
+  | 'harpoon'
+  | 'raygun'
+  | 'blackhole'
+  | 'fish'
+  | 'glove';
 
 /** What can drop onto the stage to be picked up. */
 export const PICKUPS: readonly WeaponId[] = [
@@ -53,9 +60,16 @@ export const PICKUPS: readonly WeaponId[] = [
   'banana',
   'bubbles',
   'blower',
+  'flamer',
+  'minigun',
+  'harpoon',
+  'raygun',
+  'blackhole',
+  'fish',
+  'glove',
 ];
 /** The ones that fight from a distance, for the bots. */
-export const RANGED: readonly WeaponId[] = ['pistol', 'rifle', 'shotgun', 'sniper', 'rocket', 'bow', 'grenades', 'knives', 'boomerang', 'frost', 'banana', 'bubbles', 'blower'];
+export const RANGED: readonly WeaponId[] = ['pistol', 'rifle', 'shotgun', 'sniper', 'rocket', 'bow', 'grenades', 'knives', 'boomerang', 'frost', 'banana', 'bubbles', 'blower', 'flamer', 'minigun', 'harpoon', 'raygun', 'blackhole'];
 
 export const MAX_HP = 100;
 
@@ -111,7 +125,7 @@ export interface Melee {
   stun?: number;
 }
 
-export type ProjectileKind = 'bullet' | 'slug' | 'pellet' | 'rocket' | 'arrow' | 'grenade' | 'knife' | 'boomerang' | 'frost' | 'thrown' | 'peel' | 'bubble' | 'puff';
+export type ProjectileKind = 'bullet' | 'slug' | 'pellet' | 'rocket' | 'arrow' | 'grenade' | 'knife' | 'boomerang' | 'frost' | 'thrown' | 'peel' | 'bubble' | 'puff' | 'flame' | 'harpoon' | 'ray' | 'vortex' | 'mine' | 'anvil';
 
 export interface Shot {
   kind: 'shot';
@@ -190,6 +204,27 @@ export const WEAPONS: Record<WeaponId, Weapon> = {
   banana: { id: 'banana', name: 'Bananas', ammo: 5, heft: 4, attack: { kind: 'shot', startup: 5, recovery: 12, projectile: 'peel' } },
   bubbles: { id: 'bubbles', name: 'Bubble gun', ammo: 10, heft: 6, attack: { kind: 'shot', startup: 4, recovery: 12, projectile: 'bubble' } },
   blower: { id: 'blower', name: 'Leaf blower', ammo: 14, heft: 12, attack: { kind: 'shot', startup: 3, recovery: 10, projectile: 'puff', fan: [-180, 0, 180] } },
+  flamer: { id: 'flamer', name: 'Flamethrower', ammo: 20, heft: 14, attack: { kind: 'shot', startup: 2, recovery: 6, projectile: 'flame', fan: [-140, 0, 140] } },
+  minigun: { id: 'minigun', name: 'Minigun', ammo: 8, heft: 22, attack: { kind: 'shot', startup: 6, recovery: 18, projectile: 'bullet', burst: { count: 6, gap: 24 } } },
+  harpoon: { id: 'harpoon', name: 'Harpoon gun', ammo: 4, heft: 14, attack: { kind: 'shot', startup: 6, recovery: 20, projectile: 'harpoon' } },
+  raygun: { id: 'raygun', name: 'Ray gun', ammo: 6, heft: 10, attack: { kind: 'shot', startup: 5, recovery: 16, projectile: 'ray' } },
+  blackhole: { id: 'blackhole', name: 'Black hole', ammo: 2, heft: 8, attack: { kind: 'shot', startup: 6, recovery: 16, projectile: 'vortex' } },
+  fish: {
+    id: 'fish',
+    name: 'Wet fish',
+    ammo: 16,
+    heft: 6,
+    // A slap that leaves them dazed.
+    attack: melee({ startup: 5, active: 4, recovery: 12, damage: 7, push: 300, box: { x: 4, y: -58, w: 56, h: 34 }, angle: 'low', stun: 28 }),
+  },
+  glove: {
+    id: 'glove',
+    name: 'Spring glove',
+    ammo: 10,
+    heft: 10,
+    // A boxing glove on a spring: long reach, big punch.
+    attack: melee({ startup: 9, active: 4, recovery: 20, damage: 12, push: 1150, box: { x: 30, y: -58, w: 80, h: 30 }, angle: 'rising' }),
+  },
 };
 
 export interface ProjectileSpec {
@@ -217,6 +252,14 @@ export interface ProjectileSpec {
   angle?: Angle;
   /** Lies where it lands until someone steps on it, the thrower too once it's settled. */
   trap?: boolean;
+  /** Stops dead where it lands, instead of bouncing on. */
+  settles?: boolean;
+  /** Drags whoever hits it toward the shooter, instead of away. */
+  pull?: boolean;
+  /** Bounces off solid ground this many times before stopping. */
+  ricochet?: number;
+  /** Touches no one: once settled, it pulls everyone within this many pixels toward it. */
+  vortex?: number;
 }
 
 export const PROJECTILES: Record<ProjectileKind, ProjectileSpec> = {
@@ -230,9 +273,16 @@ export const PROJECTILES: Record<ProjectileKind, ProjectileSpec> = {
   boomerang: { speed: 1500, lob: 0, gravity: 0, life: 150, damage: 14, push: 380, pierce: true, returns: 24, size: 10 },
   frost: { speed: 1300, lob: 0, gravity: 0, life: 70, damage: 8, push: 140, stun: 45, size: 9 },
   thrown: { speed: 1900, lob: -200, gravity: 30, life: 80, damage: 0, push: 700, size: 10 },
-  peel: { speed: 900, lob: -400, gravity: 50, life: 900, damage: 3, push: 700, bounces: true, trap: true, stun: 50, angle: 'steep', size: 12 },
+  peel: { speed: 900, lob: -400, gravity: 50, life: 900, damage: 3, push: 700, bounces: true, settles: true, trap: true, stun: 50, angle: 'steep', size: 12 },
   bubble: { speed: 650, lob: 0, gravity: -4, life: 150, damage: 3, push: 1400, stun: 20, angle: 'up', size: 14 },
   puff: { speed: 2000, lob: 0, gravity: 0, life: 9, damage: 0, push: 1050, pierce: true, size: 18 },
+  flame: { speed: 1400, lob: 0, gravity: -6, life: 18, damage: 4, push: 160, pierce: true, size: 12 },
+  harpoon: { speed: 2600, lob: 0, gravity: 4, life: 40, damage: 10, push: 1500, pull: true, stun: 15, angle: 'low', size: 8 },
+  ray: { speed: 4600, lob: 0, gravity: 0, life: 45, damage: 20, push: 600, pierce: true, ricochet: 3 },
+  vortex: { speed: 1000, lob: -400, gravity: 50, life: 200, damage: 0, push: 0, bounces: true, settles: true, vortex: 260, size: 10 },
+  // Not fired by anyone: the stage's own.
+  mine: { speed: 0, lob: 0, gravity: 0, life: 1, damage: 30, push: 1100, radius: 80 },
+  anvil: { speed: 0, lob: 0, gravity: 60, life: 160, damage: 35, push: 900, angle: 'spike', size: 16 },
 };
 
 export const attackFrames = (a: Attack) => (a.kind === 'melee' ? a.startup + a.active + a.recovery : a.startup + a.recovery);

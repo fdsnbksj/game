@@ -60,7 +60,31 @@ export type Hazard =
   | { kind: 'spikes'; strips: Box[] }
   | { kind: 'crumble' }
   | { kind: 'wind' }
-  | { kind: 'saws'; saws: Saw[] };
+  | { kind: 'saws'; saws: Saw[] }
+  /** Mines in the ground at these x positions (on ground at `y`): stepped on, they blow, then re-arm. */
+  | { kind: 'mines'; xs: number[]; y: number }
+  /** Beams across the stage that warn, then fire, on a cycle. */
+  | { kind: 'lasers'; beams: Beam[] }
+  /** Anvils dropping from the sky every `every` frames, somewhere between `left` and `right`. */
+  | { kind: 'anvils'; every: number; left: number; right: number };
+
+/** A laser beam: a line at height `y` from `left` to `right`, firing for `on` frames of every `period`. */
+export interface Beam {
+  y: number;
+  left: number;
+  right: number;
+  period: number;
+  on: number;
+  phase: number;
+}
+
+/** A beam's state at a frame: off, warning (about to fire), or firing. */
+export function beamAt(beam: Beam, frame: number): 'off' | 'warning' | 'on' {
+  const t = (frame + beam.phase) % beam.period;
+  if (t >= beam.period - beam.on) return 'on';
+  if (t >= beam.period - beam.on - 40) return 'warning';
+  return 'off';
+}
 
 export interface Stage {
   id: string;
@@ -288,6 +312,95 @@ export const STAGES: readonly Stage[] = [
     blast: { left: -780, right: 780, top: -820, bottom: 440 },
     hazard: { kind: 'none' },
     safe: [{ left: -120, right: 120, top: 0 }],
+  },
+  {
+    id: 'columns',
+    name: 'Columns',
+    platforms: [solid(-400, -310, -60, 400), solid(-200, -110, 20, 400), solid(-45, 45, -110, 400), solid(110, 200, 20, 400), solid(310, 400, -60, 400)],
+    movers: [],
+    spawns: [
+      { x: -355, y: -60 },
+      { x: 355, y: -60 },
+      { x: -155, y: 20 },
+      { x: 155, y: 20 },
+    ],
+    blast: { left: -780, right: 780, top: -760, bottom: 420 },
+    hazard: { kind: 'none' },
+    safe: [
+      { left: -400, right: -310, top: -60 },
+      { left: -200, right: -110, top: 20 },
+      { left: -45, right: 45, top: -110 },
+      { left: 110, right: 200, top: 20 },
+      { left: 310, right: 400, top: -60 },
+    ],
+  },
+  {
+    id: 'cave',
+    name: 'Cave',
+    // A rock ceiling close overhead: no flying out the top here.
+    platforms: [solid(-360, 360, 0, 40), solid(-360, 360, -330, -290), ledge(-250, -120, -150), ledge(120, 250, -150)],
+    movers: [],
+    spawns: [
+      { x: -230, y: 0 },
+      { x: 230, y: 0 },
+      { x: -80, y: 0 },
+      { x: 80, y: 0 },
+    ],
+    blast: { left: -760, right: 760, top: -760, bottom: 460 },
+    hazard: { kind: 'none' },
+    safe: [{ left: -360, right: 360, top: 0 }],
+  },
+  {
+    id: 'minefield',
+    name: 'Minefield',
+    platforms: [solid(-330, 330, 0, 40), ledge(-240, -110, -160), ledge(110, 240, -160), ledge(-60, 60, -300)],
+    movers: [],
+    spawns: [
+      { x: -290, y: 0 },
+      { x: 290, y: 0 },
+      { x: -140, y: 0 },
+      { x: 140, y: 0 },
+    ],
+    blast: { left: -760, right: 760, top: -760, bottom: 460 },
+    hazard: { kind: 'mines', xs: [-220, -40, 60, 210], y: 0 },
+    safe: [{ left: -330, right: 330, top: 0 }],
+  },
+  {
+    id: 'lasers',
+    name: 'Laser Grid',
+    platforms: [solid(-320, 320, 0, 40), ledge(-260, -120, -170), ledge(120, 260, -170), ledge(-70, 70, -310)],
+    movers: [],
+    spawns: [
+      { x: -230, y: 0 },
+      { x: 230, y: 0 },
+      { x: -90, y: 0 },
+      { x: 90, y: 0 },
+    ],
+    blast: { left: -760, right: 760, top: -760, bottom: 460 },
+    hazard: {
+      kind: 'lasers',
+      beams: [
+        // One at head height over the floor, one over the ledges, taking turns.
+        { y: -40, left: -320, right: 320, period: 360, on: 60, phase: 0 },
+        { y: -200, left: -300, right: 300, period: 360, on: 60, phase: 180 },
+      ],
+    },
+    safe: [{ left: -320, right: 320, top: 0 }],
+  },
+  {
+    id: 'anvils',
+    name: 'Anvil Rain',
+    platforms: [solid(-300, 300, 0, 40), ledge(-240, -100, -160), ledge(100, 240, -160)],
+    movers: [],
+    spawns: [
+      { x: -200, y: 0 },
+      { x: 200, y: 0 },
+      { x: -70, y: 0 },
+      { x: 70, y: 0 },
+    ],
+    blast: { left: -760, right: 760, top: -760, bottom: 460 },
+    hazard: { kind: 'anvils', every: 100, left: -290, right: 290 },
+    safe: [{ left: -300, right: 300, top: 0 }],
   },
 ];
 

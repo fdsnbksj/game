@@ -65,7 +65,7 @@ describe('Stick Brawl engine', () => {
     const b = run(newMatch('golden', [{ bot: 0 }, { bot: 0 }]), 1200, script);
     expect(hashState(a)).toBe(hashState(b));
     // Changes only when the engine does: then bump BRAWL_VERSION and update this.
-    expect(hashState(a)).toBe('d901687d');
+    expect(hashState(a)).toBe('ee17c04e');
   });
 
   it('keeps every number whole', () => {
@@ -356,6 +356,98 @@ describe('Stick Brawl engine', () => {
     blown = run(blown, 8, once(SKILL1 | RIGHT));
     expect(blown.fighters[1].hp).toBe(MAX_HP);
     expect(blown.fighters[1].x).toBeGreaterThan(20 * SUB);
+  });
+
+  it('bumps heads on the Cave ceiling', () => {
+    let m = on('cave', [{ x: 0 }, { x: 250 * SUB }]);
+    m = step(m, [JUMP, 0]);
+    let top = m.fighters[0].y;
+    for (let i = 0; i < 60; i++) {
+      m = step(m, [i === 10 ? JUMP : 0, 0]);
+      top = Math.min(top, m.fighters[0].y);
+    }
+    // The head (64 px above the feet) never passes the ceiling's underside at -290.
+    expect(top - 64 * SUB).toBeGreaterThanOrEqual(-290 * SUB);
+  });
+
+  it('sets off a mine underfoot, which re-arms later', () => {
+    let m = on('minefield', [{ x: -280 * SUB }, { x: 250 * SUB }]);
+    m = run(m, 40, () => [RIGHT, 0]);
+    expect(m.mines[0]).toBeGreaterThan(0);
+    expect(m.fighters[0].hp).toBeLessThan(MAX_HP);
+    m = run({ ...m, fighters: m.fighters.map((f) => ({ ...f, x: 300 * SUB })) }, 310);
+    expect(m.mines[0]).toBe(0);
+  });
+
+  it('fires the lasers on their cycle', () => {
+    const stage = STAGES[stageIndex('lasers')];
+    const hz = stage.hazard;
+    if (hz.kind !== 'lasers') throw new Error('lasers');
+    const beam = hz.beams[0];
+    // Standing under the low beam when it fires.
+    let m = on('lasers', [{ x: 0 }, { x: 250 * SUB, y: -170 * SUB, platform: 2 }], { frame: beam.period - beam.on - beam.phase - 1 });
+    m = run(m, 3);
+    expect(m.fighters[0].hp).toBeLessThan(MAX_HP);
+  });
+
+  it('drops anvils from the sky that hurt where they land', () => {
+    let m = on('anvils', [{ x: 0 }, { x: 250 * SUB }], { frame: 0 });
+    let anvils = 0;
+    for (let i = 0; i < 400; i++) {
+      m = step(m, [0, 0]);
+      anvils = Math.max(anvils, m.projectiles.filter((p) => p.kind === 'anvil').length);
+    }
+    expect(anvils).toBeGreaterThan(0);
+    // One right overhead.
+    const overhead = on('anvils', [{ x: 0 }, { x: 250 * SUB }], {
+      frame: 1,
+      projectiles: [{ kind: 'anvil', owner: -1, x: 0, y: -300 * SUB, vx: 0, vy: 0, life: 160, age: 0, hits: 0, weapon: null, damage: PROJECTILES.anvil.damage, bounced: 0 }],
+    });
+    const after = run(overhead, 60);
+    expect(after.fighters[0].hp).toBe(MAX_HP - PROJECTILES.anvil.damage);
+  });
+
+  it('reels a fighter in with the harpoon', () => {
+    let m = flat([{ ...armed('harpoon'), x: -200 * SUB }, { x: 100 * SUB, facing: -1 }]);
+    m = run(m, 30, once(SKILL1 | RIGHT));
+    expect(m.fighters[1].hp).toBeLessThan(MAX_HP);
+    expect(m.fighters[1].x).toBeLessThan(100 * SUB);
+  });
+
+  it('bounces a ray gun shot off a wall', () => {
+    let m = on('columns', [{ ...armed('raygun'), x: -355 * SUB, y: -60 * SUB, platform: 0 }, { x: 155 * SUB, y: 20 * SUB, platform: 3 }]);
+    m = step(m, [SKILL1 | DOWN | RIGHT, 0]);
+    let bounced = false;
+    for (let i = 0; i < 40; i++) {
+      m = step(m, [0, 0]);
+      if (m.projectiles.some((p) => p.kind === 'ray' && p.bounced > 0)) bounced = true;
+    }
+    expect(bounced).toBe(true);
+  });
+
+  it('drags everyone toward a black hole', () => {
+    let m = flat([{ ...armed('blackhole'), x: -250 * SUB }, { x: 120 * SUB, facing: -1 }]);
+    m = run(m, 3, once(SKILL1 | RIGHT));
+    m = run(m, 40);
+    const hole = m.projectiles.find((p) => p.kind === 'vortex')!;
+    expect(hole).toBeDefined();
+    const before = Math.abs(m.fighters[1].x - hole.x);
+    m = run(m, 30);
+    expect(Math.abs(m.fighters[1].x - hole.x)).toBeLessThan(before);
+  });
+
+  it('dazes with a wet fish and launches with a spring glove', () => {
+    const swing = (weapon: WeaponId, gap: number) => {
+      let m = flat([{ ...armed(weapon), x: 0 }, { x: gap * SUB, facing: -1 }]);
+      m = run(m, 3, once(SKILL1 | RIGHT));
+      for (let i = 0; i < 30 && m.fighters[1].hp === MAX_HP; i++) m = step(m, [0, 0]);
+      return m.fighters[1];
+    };
+    expect(swing('fish', 40).hitstun).toBeGreaterThan(swing('sword', 40).hitstun);
+    // The glove reaches further than a sword, and hits harder.
+    const far = swing('glove', 100);
+    expect(far.hp).toBeLessThan(MAX_HP);
+    expect(swing('sword', 100).hp).toBe(MAX_HP);
   });
 
   it('plays every bot level, with two to four fighters, to a match winner', () => {
