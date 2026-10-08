@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { botInput } from '../../games/brawl/bot';
 import { step, type Match } from '../../games/brawl/state';
 import { Arena, STEP_MS, type Driver } from './Arena';
-import { HowToBrawl } from './HowTo';
 
 /** Bots go by their colour: you're gold, then blue, red and green. */
 export const BOT_NAMES = ['You', 'Blue', 'Red', 'Green'];
@@ -18,13 +17,14 @@ export function BrawlMatch({
   initial,
   onKeep,
   onEnd,
-  onQuit,
+  onRestart,
   children,
 }: {
   initial: Match;
   onKeep: (m: Match) => void;
   onEnd: (m: Match) => void;
-  onQuit: () => void;
+  /** A new fight with the same bots, from the start. */
+  onRestart: () => void;
   /** Shown over the arena once the fight is over. */
   children?: ReactNode;
 }) {
@@ -99,18 +99,18 @@ export function BrawlMatch({
       }
     >
       {paused && current.current.winner === null && (
+        // Two big buttons and nothing to scroll: it has to fit a sideways phone.
         <div className="overlay">
-          <div className="panel" role="dialog" aria-label="Paused">
+          <div className="panel pause-panel" role="dialog" aria-label="Paused">
             <p className="solved-title">Paused</p>
-            <div className="how-to">
-              <HowToBrawl />
+            <div className="pause-actions">
+              <button className="button primary" onClick={() => setPaused(false)}>
+                Resume
+              </button>
+              <button className="button" onClick={onRestart}>
+                Restart
+              </button>
             </div>
-            <button className="button primary" onClick={() => setPaused(false)}>
-              Carry on
-            </button>
-            <button className="button ghost" onClick={onQuit}>
-              Leave the fight
-            </button>
           </div>
         </div>
       )}

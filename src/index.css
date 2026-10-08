@@ -3368,3 +3368,20 @@ button.seat:disabled {
     animation: none;
   }
 }
+
+/* The fight's pause: a small panel of two buttons side by side. */
+.pause-panel {
+  width: min(100%, 360px);
+  gap: 12px;
+  padding: 18px;
+}
+
+.pause-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.pause-actions .button {
+  min-height: 56px;
+}

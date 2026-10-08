@@ -19,7 +19,6 @@ export function Brawl() {
   const keep = useBrawlStore((s) => s.keep);
   const finish = useBrawlStore((s) => s.finish);
   const start = useBrawlStore((s) => s.start);
-  const quit = useBrawlStore((s) => s.quit);
   // The fight just finished: kept here, not saved, so the result shows once.
   const [ended, setEnded] = useState<Match | null>(null);
   const shown = match ?? ended;
@@ -36,7 +35,7 @@ export function Brawl() {
       key={shown.seed}
       initial={shown}
       onKeep={keep}
-      onQuit={quit}
+      onRestart={again}
       onEnd={(m) => {
         setEnded(m);
         finish(m.winner === 0);

@@ -177,7 +177,9 @@ export function Arena({
     };
     let lastEnd = 0;
     const doubleTap = (event: TouchEvent) => {
-      if (event.timeStamp - lastEnd < 350) event.preventDefault();
+      // Never on a button or link: a quick second tap there (Pause, then Resume) must still click.
+      const onControl = event.target instanceof Element && event.target.closest('a, .overlay button, .icon-button');
+      if (!onControl && event.timeStamp - lastEnd < 350) event.preventDefault();
       lastEnd = event.timeStamp;
     };
     const gesture = (event: Event) => event.preventDefault();
