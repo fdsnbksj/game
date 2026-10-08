@@ -42,7 +42,7 @@ import {
  */
 
 /** Bump when a change would make old saved matches play differently. */
-export const BRAWL_VERSION = 8;
+export const BRAWL_VERSION = 9;
 
 /** How a match is won: rounds to a number of points, or the best score after some minutes. */
 export interface Rules {

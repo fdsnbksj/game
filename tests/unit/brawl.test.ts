@@ -68,7 +68,7 @@ describe('Stick Brawl engine', () => {
     const b = run(newMatch('golden', [{ bot: 0 }, { bot: 0 }]), 1200, script);
     expect(hashState(a)).toBe(hashState(b));
     // Changes only when the engine does: then bump BRAWL_VERSION and update this.
-    expect(hashState(a)).toBe('50028b8');
+    expect(hashState(a)).toBe('f573ee7d');
   });
 
   it('keeps every number whole', () => {

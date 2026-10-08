@@ -29,7 +29,8 @@ function load(): Saved {
     const saved: Saved = { bots, level, rules: validRules(rules), match, wins, fights };
     // A fight saved by an older engine would play differently now: let it go.
     // A finished fight is never worth reopening.
-    if (saved.match && (saved.match.v !== BRAWL_VERSION || saved.match.winner !== null)) saved.match = null;
+    // And one missing what this version needs (its rules) is from an older one, whatever its number says.
+    if (saved.match && (saved.match.v !== BRAWL_VERSION || saved.match.winner !== null || !saved.match.rules)) saved.match = null;
     return saved;
   } catch {
     return fresh();
