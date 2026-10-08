@@ -17,6 +17,7 @@ export function Fight({
   names,
   onMove,
   waiting,
+  locked = false,
   children,
 }: {
   state: HeroState;
@@ -27,11 +28,13 @@ export function Fight({
   onMove: (move: Move) => void;
   /** What the other side is doing while it's their turn. */
   waiting: string;
+  /** Your move is on its way: no other until it lands (shows `waiting`). */
+  locked?: boolean;
   /** Laid over the fight: its result. */
   children?: ReactNode;
 }) {
   const them: Side = me === 0 ? 1 : 0;
-  const mine = state.turn === me && state.winner === null;
+  const mine = state.turn === me && state.winner === null && !locked;
   const [skill, setSkill] = useState<SkillId | null>(null);
   // Once the stopwatch is running there's no going back for another try at the same target.
   const [committed, setCommitted] = useState(false);

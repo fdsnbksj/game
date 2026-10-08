@@ -115,6 +115,11 @@ function Game({ room, moves, uid }: { room: Room; moves: HeroRoomData['moves']; 
   const [a, b] = useMemo(() => [fighterOf(room, players[0]), fighterOf(room, players[1])], [room, players]);
   const state = useMemo(() => (a && b ? replay(room.seed!, [a, b], players, moves) : null), [room.seed, a, b, players, moves]);
   const [error, setError] = useState<string | null>(null);
+  // The move number being sent: the screen waits for the server to have it.
+  const [sending, setSending] = useState<number | null>(null);
+  useEffect(() => {
+    if (sending !== null && moves.length > sending) setSending(null);
+  }, [moves.length, sending]);
   // The result waits a moment, so the last hit shows first.
   const [over, setOver] = useState(false);
   useEffect(() => {
@@ -138,10 +143,16 @@ function Game({ room, moves, uid }: { room: Room; moves: HeroRoomData['moves']; 
         state={state}
         me={me}
         names={names}
-        waiting={`${names[them]} is choosing…`}
+        waiting={sending !== null ? 'Sending your move…' : `${names[them]} is choosing…`}
+        locked={sending !== null}
         onMove={(move) => {
+          const n = moves.length;
           setError(null);
-          void sendHeroMove(room.code, moves.length, move).catch(() => setError('That move didn’t go through. Try again.'));
+          setSending(n);
+          void sendHeroMove(room.code, n, move).catch(() => {
+            setSending(null);
+            setError('That move didn’t go through. Check the connection and play it again.');
+          });
         }}
       >
         {state.winner !== null && over && (

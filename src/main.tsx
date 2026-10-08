@@ -11,8 +11,8 @@ import './index.css';
 // (Nothing would be lost either way; every tap is already saved.)
 const updateSW = registerSW({
   onNeedRefresh() {
-    // On a game screen (the puzzle, a fight, or a party-game room), wait until the app is in the background.
-    const playing = () => location.pathname === '/nonograms' || location.pathname === '/brawl' || /^\/(avalon|duel|wonders|isle|brawl)\//.test(location.pathname);
+    // On a game screen (the puzzle, a fight, a hero page, or a party-game room), wait until the app is in the background.
+    const playing = () => location.pathname === '/nonograms' || location.pathname === '/brawl' || /^\/(avalon|duel|wonders|isle|brawl|hero)\//.test(location.pathname);
     const idle = () => !playing() || document.visibilityState === 'hidden';
     if (idle()) return void updateSW(true);
     const timer = setInterval(() => {
