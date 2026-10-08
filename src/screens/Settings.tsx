@@ -1,9 +1,11 @@
+import { useCameFrom } from '../components/cameFrom';
 import { Page, Toggle } from '../components/Page';
 import { useKnowledgeStore } from '../knowledgeStore';
 import { KNOWLEDGE, TOPICS } from '../learn/knowledge';
 import { useNonogramStore } from '../nonogramStore';
 
 export function Settings() {
+  const cameFrom = useCameFrom();
   const topics = useKnowledgeStore((s) => s.topics);
   const setTopic = useKnowledgeStore((s) => s.setTopic);
   const haptics = useNonogramStore((s) => s.haptics);
@@ -11,7 +13,7 @@ export function Settings() {
   const canVibrate = 'vibrate' in navigator;
 
   return (
-    <Page title="Settings" back="/nonograms">
+    <Page title="Settings" back={cameFrom() ?? '/'}>
       <p className="group-title">A card after each puzzle</p>
       <div className="group">
         {TOPICS.map((topic) => (

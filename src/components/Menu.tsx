@@ -16,16 +16,16 @@ export function Menu({ onClose, onClear, canClear }: { onClose: () => void; onCl
     <div className="sheet-backdrop" onClick={onClose}>
       <nav className="sheet" aria-label="Menu" onClick={(event) => event.stopPropagation()}>
         <div className="group">
-          <Link className="row" to="/saved">
+          <Link className="row" to="/saved" state={{ from: '/nonograms' }}>
             <span>Saved cards</span>
             <span className="row-detail">{saved}</span>
             <Chevron />
           </Link>
-          <Link className="row" to="/ranks">
+          <Link className="row" to="/ranks" state={{ from: '/nonograms' }}>
             <span>Rankings</span>
             <Chevron />
           </Link>
-          <Link className="row" to="/settings">
+          <Link className="row" to="/settings" state={{ from: '/nonograms' }}>
             <span>Settings</span>
             <Chevron />
           </Link>

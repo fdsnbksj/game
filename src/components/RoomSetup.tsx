@@ -1,5 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router';
+import { GAME_GLYPHS } from './GameGlyphs';
+import { zoneOf } from '../screens/world/zones';
 import { useGameStore } from '../store';
 import { Page } from './Page';
 import { Sheet } from './Sheet';
@@ -27,6 +29,9 @@ export function GameHome({
 }) {
   const navigate = useNavigate();
   const ready = useGameStore((s) => s.player !== null);
+  // The game this door belongs to, from its base path, for its emblem and the way back to its zone.
+  const gameId = base.slice(1) as keyof typeof GAME_GLYPHS;
+  const Glyph = GAME_GLYPHS[gameId];
   const [joining, setJoining] = useState(false);
   const [rules, setRules] = useState(false);
   const [code, setCode] = useState('');
@@ -47,8 +52,16 @@ export function GameHome({
   };
 
   return (
-    <Page title={title}>
-      <p className="lead-note">{tagline}</p>
+    <Page title={title} back={`/zone/${zoneOf(gameId)?.id ?? ''}`}>
+      <section className="door-hero frame">
+        {Glyph && (
+          <span className={`game-glyph ${gameId}`}>
+            <Glyph />
+          </span>
+        )}
+        <h2 className="ribbon">{title}</h2>
+        <p className="note">{tagline}</p>
+      </section>
       {!ready && <p className="note">Connecting…</p>}
       <div className="front-door">
         <button className="button primary" disabled={!ready || busy} onClick={() => void run(onHost)}>
@@ -114,7 +127,7 @@ export function Lobby({ code, players, options, action }: { code: string; player
   const [showOptions, setShowOptions] = useState(false);
   return (
     <>
-      <div className="room-code">
+      <div className="room-code frame">
         <span className="micro">Room code</span>
         <strong>{code}</strong>
         <span className="note">Friends tap “Join with a code” and type it in.</span>

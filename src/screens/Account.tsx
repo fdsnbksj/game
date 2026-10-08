@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react';
+import { Link } from 'react-router';
 import { Page } from '../components/Page';
 import { reloadFresh } from '../reload';
 import { accountError, createAccount, resetPassword, signIn, signOut } from '../services/account';
@@ -12,7 +13,7 @@ export function Account() {
   const [signingIn, setSigningIn] = useState(false);
 
   return (
-    <Page title="Account">
+    <Page title="Account" back={null}>
       {!uid || !player ? (
         <p className="note">Connecting… Accounts need a connection. The games don't.</p>
       ) : email ? (
@@ -48,6 +49,14 @@ export function Account() {
         </>
       )}
 
+      <div className="group">
+        <Link className="row" to="/settings">
+          <span>Settings</span>
+          <svg className="chevron" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+            <path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </Link>
+      </div>
       <button className="button ghost" onClick={() => void reloadFresh()}>
         Reload the latest version
       </button>

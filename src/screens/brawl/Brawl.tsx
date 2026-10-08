@@ -84,7 +84,7 @@ function FrontDoor() {
   const [rules, setRules] = useState(false);
 
   return (
-    <Page title="Stick Brawl">
+    <Page title="Stick Brawl" back="/zone/arena">
       <p className="lead-note">Stick fighters, guns, blades and a rubber chicken, sixteen stages. Last one standing takes the round; first to three wins. Played sideways, with both thumbs.</p>
 
       <SummaryRow label="Opponents" figures={`${bots} ${bots === 1 ? 'bot' : 'bots'} · ${LEVELS[level]}`}>

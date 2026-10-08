@@ -13,7 +13,9 @@ import { IsleRoom } from './screens/isle/IsleRoom';
 import { Brawl } from './screens/brawl/Brawl';
 import { BrawlOnline } from './screens/brawl/BrawlOnline';
 import { BrawlRoom } from './screens/brawl/BrawlRoom';
-import { Home } from './screens/Home';
+import { WorldMap } from './screens/world/WorldMap';
+import { WorldShell } from './screens/world/WorldShell';
+import { Zone } from './screens/world/Zone';
 import { Play } from './screens/Play';
 import { Rankings } from './screens/Rankings';
 import { Saved } from './screens/Saved';
@@ -28,8 +30,23 @@ export function App() {
     <BrowserRouter>
       <RememberPage />
       <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/account" element={<Account />} />
+        <Route
+          path="/"
+          element={
+            <WorldShell>
+              <WorldMap />
+            </WorldShell>
+          }
+        />
+        <Route path="/zone/:id" element={<Zone />} />
+        <Route
+          path="/account"
+          element={
+            <WorldShell>
+              <Account />
+            </WorldShell>
+          }
+        />
         <Route path="/nonograms" element={<Play />} />
         <Route path="/avalon" element={<AvalonHome />} />
         <Route path="/avalon/:code" element={<Room />} />
@@ -42,8 +59,22 @@ export function App() {
         <Route path="/brawl" element={<Brawl />} />
         <Route path="/brawl/online" element={<BrawlOnline />} />
         <Route path="/brawl/:code" element={<BrawlRoom />} />
-        <Route path="/saved" element={<Saved />} />
-        <Route path="/ranks" element={<Rankings />} />
+        <Route
+          path="/saved"
+          element={
+            <WorldShell>
+              <Saved />
+            </WorldShell>
+          }
+        />
+        <Route
+          path="/ranks"
+          element={
+            <WorldShell>
+              <Rankings />
+            </WorldShell>
+          }
+        />
         <Route path="/settings" element={<Settings />} />
         {/* Everything else, including old links and installed shortcuts, opens the home screen. */}
         <Route path="*" element={<Navigate to="/" replace />} />

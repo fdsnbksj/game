@@ -223,7 +223,7 @@ export function Arena({
       <canvas ref={canvas} className="brawl-canvas" />
 
       <header className="brawl-top">
-        <Link className="icon-button" to="/" aria-label="All games">
+        <Link className="icon-button" to="/zone/arena" aria-label="Back to the Battle Arena">
           <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
             <path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
           </svg>

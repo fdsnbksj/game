@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
 import { Page } from '../components/Page';
+import { useCameFrom } from '../components/cameFrom';
 import { fetchLadder, RANKINGS_SIZE, type Ranking } from '../services/solves';
 import { useGameStore } from '../store';
 
 /** The highest level each player has solved. */
 export function Rankings() {
   const uid = useGameStore((s) => s.uid);
+  const cameFrom = useCameFrom();
   const signedIn = useGameStore((s) => s.player !== null);
   const [ranking, setRanking] = useState<Ranking | null>(null);
   const [failed, setFailed] = useState(false);
@@ -25,7 +27,7 @@ export function Rankings() {
   const onBoard = ranking?.top.some((entry) => entry.uid === uid) ?? false;
 
   return (
-    <Page title="Rankings" back="/nonograms">
+    <Page title="Rankings" back={cameFrom()}>
       {!signedIn && <p className="note">Rankings need a connection. The puzzles don't.</p>}
       {signedIn && !ranking && !failed && <div className="spinner" aria-label="Loading" />}
       {failed && <p className="error">Couldn't load the rankings.</p>}
