@@ -123,11 +123,23 @@ function Game({ room, moves, uid }: { room: Duel; moves: DuelData['moves']; uid:
   // A new move came in: whatever card sheet was open is stale.
   useEffect(() => setViewing(null), [moves.length]);
 
+  // The move number on its way to the server: nothing more until it lands.
+  const [sending, setSending] = useState<number | null>(null);
+  useEffect(() => {
+    if (sending !== null && moves.length > sending) setSending(null);
+  }, [moves.length, sending]);
+
   const play = (move: Move) => {
+    if (sending !== null) return;
+    const n = moves.length;
     setError(null);
     setViewing(null);
+    setSending(n);
     // Refused if the other phone wrote this move number first; the watcher catches up.
-    void sendMove(room.code, moves.length, move).catch(() => setError('That move didn’t go through. Try again.'));
+    void sendMove(room.code, n, move).catch(() => {
+      setSending(null);
+      setError('That move didn’t go through. Check the connection and try again.');
+    });
   };
 
   const last = moves.at(-1);
@@ -146,7 +158,7 @@ function Game({ room, moves, uid }: { room: Duel; moves: DuelData['moves']; uid:
   return (
     <>
       <div className="duel-status">
-        <strong className={turn === me ? 'yours' : undefined}>{status}</strong>
+        <strong className={turn === me ? 'yours' : undefined}>{sending !== null ? 'Sending your move…' : status}</strong>
         {last && lastBy !== null && state.log && (
           <span className="note">
             {name(lastBy)} {state.log}.

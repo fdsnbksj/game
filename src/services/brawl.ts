@@ -1,15 +1,18 @@
 import { FirebaseError } from 'firebase/app';
-import { collection, doc, getDoc, getDocs, onSnapshot, serverTimestamp, setDoc, updateDoc, type Unsubscribe } from 'firebase/firestore';
-import { db } from '../firebase';
+import { collection, doc, onSnapshot, type Unsubscribe } from 'firebase/firestore';
+import { db, dbRest } from '../firebase';
 import { DEFAULT_RULES, type Rules } from '../games/brawl/state';
 import { useGameStore } from '../store';
+import { keepFresh, poke, rest, restDoc, type Snap } from './resilient';
 import { newCode } from './roomCode';
 
 // Sky Brawl online: two phones fight each other directly over WebRTC. Firestore holds only
 // the room (brawls/{code}: who's in, the seed) and one handshake each way
 // (brawls/{code}/signals/offer and /answer, the whole connection offer in one write). The
 // fight itself never touches Firestore. firestore.rules checks each write;
-// tests/rules/brawl.test.ts mirrors them.
+// tests/rules/brawl.test.ts mirrors them. Writes go over plain HTTPS, and the room and the
+// handshake are also read that way every few seconds, so a phone whose Firestore stream
+// has stalled still connects (src/services/resilient.ts says why).
 
 export interface Brawl {
   code: string;
@@ -22,8 +25,9 @@ export interface Brawl {
   rules: Rules;
 }
 
-const brawlRef = (code: string) => doc(db, 'brawls', code);
-const signalRef = (code: string, id: string) => doc(db, 'brawls', code, 'signals', id);
+const brawlRef = (code: string) => restDoc('brawls', code);
+const signalRef = (code: string, id: string) => restDoc('brawls', code, 'signals', id);
+const signals = (code: string) => rest.collection(dbRest, 'brawls', code, 'signals');
 
 function me() {
   const { uid, player } = useGameStore.getState();
@@ -36,7 +40,7 @@ export async function createBrawl(): Promise<string> {
   for (let tries = 0; tries < 5; tries++) {
     const code = newCode();
     try {
-      await setDoc(brawlRef(code), { host: uid, playerIds: [uid], names: { [uid]: name }, status: 'lobby', createdAt: serverTimestamp() });
+      await rest.setDoc(brawlRef(code), { host: uid, playerIds: [uid], names: { [uid]: name }, status: 'lobby', createdAt: rest.serverTimestamp() });
       return code;
     } catch (error) {
       if (!(error instanceof FirebaseError && error.code === 'permission-denied')) throw error;
@@ -48,26 +52,28 @@ export async function createBrawl(): Promise<string> {
 /** Joins as the second player. Returns why not, if you can't. */
 export async function joinBrawl(code: string): Promise<string | null> {
   const { uid, name } = me();
-  const snap = await getDoc(brawlRef(code));
+  const snap = await rest.getDoc(brawlRef(code));
   if (!snap.exists()) return 'No room with that code.';
   const room = snap.data();
   if ((room.playerIds as string[]).includes(uid)) return null;
   if (room.status !== 'lobby' || room.playerIds.length >= 2) return 'That fight is full.';
-  await updateDoc(brawlRef(code), {
+  await rest.updateDoc(brawlRef(code), {
     playerIds: [...room.playerIds, uid],
     names: { ...room.names, [uid]: name },
   });
+  poke(`brawls/${code}`);
   return null;
 }
 
 /** Starts the fight with a fresh seed and the host's rules; both phones build the match from these. */
 export async function startBrawl(code: string, rules: Rules) {
   const seed = Array.from(crypto.getRandomValues(new Uint32Array(3)), (n) => n.toString(36)).join('');
-  await updateDoc(brawlRef(code), { status: 'playing', seed, rules: { mode: rules.mode, value: rules.value }, startedAt: serverTimestamp() });
+  await rest.updateDoc(brawlRef(code), { status: 'playing', seed, rules: { mode: rules.mode, value: rules.value }, startedAt: rest.serverTimestamp() });
+  poke(`brawls/${code}`);
 }
 
 export async function finishBrawl(code: string) {
-  await updateDoc(brawlRef(code), { status: 'done', endedAt: serverTimestamp() });
+  await rest.updateDoc(brawlRef(code), { status: 'done', endedAt: rest.serverTimestamp() });
 }
 
 export const newRematchSeed = () => Array.from(crypto.getRandomValues(new Uint32Array(3)), (n) => n.toString(36)).join('');
@@ -78,17 +84,43 @@ export interface BrawlData {
 }
 
 export function watchBrawl(code: string, onChange: (data: BrawlData) => void): Unsubscribe {
-  return onSnapshot(
-    brawlRef(code),
-    (snap) => {
-      if (!snap.exists()) return onChange({ room: null, missing: true });
-      const d = snap.data();
-      onChange({
-        room: { code, host: d.host, playerIds: d.playerIds, names: d.names, status: d.status, seed: d.seed ?? null, rules: d.rules ?? DEFAULT_RULES },
-        missing: false,
-      });
+  let heard = 0;
+  const take = (snap: Snap) => {
+    if (!snap.exists()) return onChange({ room: null, missing: true });
+    const d = snap.data()!;
+    onChange({
+      room: {
+        code,
+        host: d.host as string,
+        playerIds: d.playerIds as string[],
+        names: d.names as Record<string, string>,
+        status: d.status as Brawl['status'],
+        seed: (d.seed as string | undefined) ?? null,
+        rules: (d.rules as Rules | undefined) ?? DEFAULT_RULES,
+      },
+      missing: false,
+    });
+  };
+  let status = 'lobby';
+  return keepFresh(
+    `brawls/${code}`,
+    (fail) =>
+      onSnapshot(
+        doc(db, 'brawls', code),
+        (snap) => {
+          heard++;
+          status = (snap.get('status') as string | undefined) ?? status;
+          take(snap);
+        },
+        fail,
+      ),
+    async () => {
+      const before = heard;
+      const snap = await rest.getDoc(brawlRef(code));
+      if (heard === before) take(snap);
     },
-    () => onChange({ room: null, missing: true }),
+    // Once the fight is on, the phones talk directly; the room only matters again after.
+    { active: () => status === 'lobby' },
   );
 }
 
@@ -125,24 +157,35 @@ function opened(channel: RTCDataChannel) {
   });
 }
 
-/** Resolves with the first snapshot of a document that exists. */
+/** Resolves with a handshake document once it exists: heard live, or read over HTTPS every 2 s. */
 function whenWritten(code: string, id: string, signal: AbortSignal) {
   return new Promise<string>((resolve, reject) => {
     if (signal.aborted) return reject(new Error('aborted'));
-    const stop = onSnapshot(
-      signalRef(code, id),
-      (snap) => {
-        if (!snap.exists()) return;
-        stop();
-        resolve(snap.data().sdp as string);
-      },
-      (error) => {
-        stop();
-        reject(error);
-      },
-    );
-    signal.addEventListener('abort', () => {
+    let done = false;
+    const finish = (sdp: string) => {
+      if (done) return;
+      done = true;
       stop();
+      clearInterval(timer);
+      resolve(sdp);
+    };
+    const stop = onSnapshot(
+      doc(db, 'brawls', code, 'signals', id),
+      (snap) => snap.exists() && finish(snap.data().sdp as string),
+      // The reads below carry on without the listener.
+      () => {},
+    );
+    const timer = setInterval(() => {
+      void rest.getDoc(signalRef(code, id)).then(
+        (snap) => snap.exists() && finish(snap.get('sdp') as string),
+        () => {},
+      );
+    }, 2000);
+    signal.addEventListener('abort', () => {
+      if (done) return;
+      done = true;
+      stop();
+      clearInterval(timer);
       reject(new Error('aborted'));
     });
   });
@@ -175,7 +218,7 @@ export async function connect(code: string, host: boolean, attempt: number, sign
       await pc.setLocalDescription(await pc.createOffer());
       await gathered(pc);
       check();
-      await setDoc(signalRef(code, signalId('offer', attempt)), { sdp: pc.localDescription!.sdp, at: serverTimestamp() });
+      await rest.setDoc(signalRef(code, signalId('offer', attempt)), { sdp: pc.localDescription!.sdp, at: rest.serverTimestamp() });
       const answer = await whenWritten(code, signalId('answer', attempt), signal);
       check();
       await pc.setRemoteDescription({ type: 'answer', sdp: answer });
@@ -186,7 +229,7 @@ export async function connect(code: string, host: boolean, attempt: number, sign
       await pc.setLocalDescription(await pc.createAnswer());
       await gathered(pc);
       check();
-      await setDoc(signalRef(code, signalId('answer', attempt)), { sdp: pc.localDescription!.sdp, at: serverTimestamp() });
+      await rest.setDoc(signalRef(code, signalId('answer', attempt)), { sdp: pc.localDescription!.sdp, at: rest.serverTimestamp() });
       channel = await Promise.race([
         arrived,
         new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), CONNECT_MS)),
@@ -202,17 +245,34 @@ export async function connect(code: string, host: boolean, attempt: number, sign
 
 /** The newest handshake attempt the host has started: the guest answers that one. */
 export function watchAttempts(code: string, onAttempt: (attempt: number) => void): Unsubscribe {
-  return onSnapshot(
-    collection(db, 'brawls', code, 'signals'),
-    (snap) => {
-      let newest = -1;
-      for (const d of snap.docs) {
-        const m = /^offer(?:-(\d))?$/.exec(d.id);
-        if (m) newest = Math.max(newest, m[1] ? Number(m[1]) : 0);
-      }
-      if (newest >= 0) onAttempt(newest);
+  const take = (ids: string[]) => {
+    let newest = -1;
+    for (const id of ids) {
+      const m = /^offer(?:-(\d))?$/.exec(id);
+      if (m) newest = Math.max(newest, m[1] ? Number(m[1]) : 0);
+    }
+    if (newest >= 0) onAttempt(newest);
+  };
+  let known = 0;
+  return keepFresh(
+    `brawls/${code}/signals`,
+    (fail) =>
+      onSnapshot(
+        collection(db, 'brawls', code, 'signals'),
+        (snap) => {
+          known = snap.size;
+          take(snap.docs.map((d) => d.id));
+        },
+        fail,
+      ),
+    async (relisten) => {
+      // One read to count them; the documents only when there are new ones.
+      if ((await rest.getCount(signals(code))).data().count === known) return;
+      const snap = await rest.getDocs(signals(code));
+      known = snap.size;
+      take(snap.docs.map((d) => d.id));
+      relisten();
     },
-    () => {},
   );
 }
 
@@ -220,7 +280,7 @@ export const MAX_ATTEMPTS = 10;
 
 /** The host's next handshake attempt: one past the newest offer already written. */
 export async function nextAttempt(code: string): Promise<number> {
-  const snap = await getDocs(collection(db, 'brawls', code, 'signals'));
+  const snap = await rest.getDocs(signals(code));
   let next = 0;
   for (const d of snap.docs) {
     const m = /^offer(?:-(\d))?$/.exec(d.id);

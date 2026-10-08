@@ -1,8 +1,8 @@
 import { FirebaseError } from 'firebase/app';
-import { collection, doc, getDoc, onSnapshot, serverTimestamp, setDoc, updateDoc, type Unsubscribe } from 'firebase/firestore';
-import { db } from '../firebase';
+import type { Unsubscribe } from 'firebase/firestore';
 import type { Move, Recorded } from '../games/duel/state';
 import { useGameStore } from '../store';
+import { followRoom, poke, rest, restDoc } from './resilient';
 import { newCode } from './roomCode';
 
 // Rival Wonders rooms in Firestore: duels/{code}, and its moves, one document each, in
@@ -19,7 +19,7 @@ export interface Duel {
   seed: string | null;
 }
 
-const duelRef = (code: string) => doc(db, 'duels', code);
+const duelRef = (code: string) => restDoc('duels', code);
 
 function me() {
   const { uid, player } = useGameStore.getState();
@@ -32,7 +32,7 @@ export async function createDuel(): Promise<string> {
   for (let tries = 0; tries < 5; tries++) {
     const code = newCode();
     try {
-      await setDoc(duelRef(code), { host: uid, playerIds: [uid], names: { [uid]: name }, status: 'lobby', createdAt: serverTimestamp() });
+      await rest.setDoc(duelRef(code), { host: uid, playerIds: [uid], names: { [uid]: name }, status: 'lobby', createdAt: rest.serverTimestamp() });
       return code;
     } catch (error) {
       if (!(error instanceof FirebaseError && error.code === 'permission-denied')) throw error;
@@ -44,30 +44,34 @@ export async function createDuel(): Promise<string> {
 /** Joins as the second player. Returns why not, if you can't. */
 export async function joinDuel(code: string): Promise<string | null> {
   const { uid, name } = me();
-  const snap = await getDoc(duelRef(code));
+  const snap = await rest.getDoc(duelRef(code));
   if (!snap.exists()) return 'No room with that code.';
   const room = snap.data();
   if ((room.playerIds as string[]).includes(uid)) return null;
   if (room.status !== 'lobby' || room.playerIds.length >= 2) return 'That game is full.';
-  await updateDoc(duelRef(code), { playerIds: [...room.playerIds, uid], names: { ...room.names, [uid]: name } });
+  await rest.updateDoc(duelRef(code), { playerIds: [...room.playerIds, uid], names: { ...room.names, [uid]: name } });
+  poke(`duels/${code}`);
   return null;
 }
 
 /** Starts the game with a fresh seed: it decides the layouts, tokens and wonders. */
 export async function startDuel(code: string) {
   const seed = Array.from(crypto.getRandomValues(new Uint32Array(3)), (n) => n.toString(36)).join('');
-  await updateDoc(duelRef(code), { status: 'playing', seed, startedAt: serverTimestamp() });
+  await rest.updateDoc(duelRef(code), { status: 'playing', seed, startedAt: rest.serverTimestamp() });
+  poke(`duels/${code}`);
 }
 
 /** Writes move number `n`. Refused if someone else already wrote it (the watcher catches up). */
 export async function sendMove(code: string, n: number, move: Move) {
   const { uid } = me();
-  await setDoc(doc(db, 'duels', code, 'moves', String(n)), { n, by: uid, move });
+  await rest.setDoc(restDoc('duels', code, 'moves', String(n)), { n, by: uid, move });
+  poke(`duels/${code}`);
 }
 
 /** The game is over: either phone may say so; replay() decides it the same on both. */
 export async function finishDuel(code: string) {
-  await updateDoc(duelRef(code), { status: 'done', endedAt: serverTimestamp() });
+  await rest.updateDoc(duelRef(code), { status: 'done', endedAt: rest.serverTimestamp() });
+  poke(`duels/${code}`);
 }
 
 export interface DuelData {
@@ -77,36 +81,21 @@ export interface DuelData {
   moves: Recorded[];
 }
 
-/** Follows a room and its moves live. */
+/** Follows a room and its moves, kept fresh even when the phone's stream stalls (src/services/resilient.ts). */
 export function watchDuel(code: string, uid: string, onChange: (data: DuelData) => void): Unsubscribe {
-  let data: DuelData = { room: null, missing: false, moves: [] };
-  const update = (patch: Partial<DuelData>) => {
-    data = { ...data, ...patch };
-    onChange(data);
-  };
-  let movesSub: Unsubscribe | null = null;
-  const roomSub = onSnapshot(duelRef(code), (snap) => {
-    if (!snap.exists()) return update({ missing: true, room: null });
-    const d = snap.data();
-    const room: Duel = { code, host: d.host, playerIds: d.playerIds, names: d.names, status: d.status, seed: d.seed ?? null };
-    update({ room, missing: false });
+  return followRoom<Duel, Move>(
+    'duels',
+    code,
+    (d) => ({
+      code,
+      host: d.host as string,
+      playerIds: d.playerIds as string[],
+      names: d.names as Record<string, string>,
+      status: d.status as Duel['status'],
+      seed: (d.seed as string | undefined) ?? null,
+    }),
     // Only the two players may read the moves.
-    if (!movesSub && room.playerIds.includes(uid) && room.status !== 'lobby') {
-      movesSub = onSnapshot(
-        collection(db, 'duels', code, 'moves'),
-        (s) =>
-          update({
-            moves: s.docs
-              .map((x) => x.data() as { n: number; by: string; move: Move })
-              .sort((a, b) => a.n - b.n)
-              .map(({ by, move }) => ({ by, move })),
-          }),
-        () => {},
-      );
-    }
-  });
-  return () => {
-    roomSub();
-    movesSub?.();
-  };
+    (room) => room.playerIds.includes(uid) && room.status !== 'lobby',
+    onChange,
+  );
 }

@@ -1,9 +1,9 @@
 import { FirebaseError } from 'firebase/app';
-import { collection, doc, getDoc, onSnapshot, serverTimestamp, setDoc, updateDoc, type Unsubscribe } from 'firebase/firestore';
-import { db } from '../firebase';
+import type { Unsubscribe } from 'firebase/firestore';
 import type { SideChoice } from '../games/wonders/setup';
 import type { Move, Recorded } from '../games/wonders/state';
 import { useGameStore } from '../store';
+import { followRoom, poke, rest, restDoc } from './resilient';
 import { newCode } from './roomCode';
 
 // Ancient Wonders rooms: wonders/{code}, and its moves, one document each, in order.
@@ -23,7 +23,7 @@ export interface WondersRoom {
 }
 
 export const isBot = (seat: string) => seat.startsWith('bot:');
-const roomRef = (code: string) => doc(db, 'wonders', code);
+const roomRef = (code: string) => restDoc('wonders', code);
 
 function me() {
   const { uid, player } = useGameStore.getState();
@@ -36,7 +36,7 @@ export async function createRoom(): Promise<string> {
   for (let tries = 0; tries < 5; tries++) {
     const code = newCode();
     try {
-      await setDoc(roomRef(code), { host: uid, seats: [uid], names: { [uid]: name }, status: 'lobby', sides: 'A', createdAt: serverTimestamp() });
+      await rest.setDoc(roomRef(code), { host: uid, seats: [uid], names: { [uid]: name }, status: 'lobby', sides: 'A', createdAt: rest.serverTimestamp() });
       return code;
     } catch (error) {
       if (!(error instanceof FirebaseError && error.code === 'permission-denied')) throw error;
@@ -47,19 +47,21 @@ export async function createRoom(): Promise<string> {
 
 export async function joinRoom(code: string): Promise<string | null> {
   const { uid, name } = me();
-  const snap = await getDoc(roomRef(code));
+  const snap = await rest.getDoc(roomRef(code));
   if (!snap.exists()) return 'No room with that code.';
   const room = snap.data();
   if ((room.seats as string[]).includes(uid)) return null;
   if (room.status !== 'lobby') return 'That game has already started.';
   if (room.seats.length >= 7) return 'That room is full.';
-  await updateDoc(roomRef(code), { seats: [...room.seats, uid], names: { ...room.names, [uid]: name } });
+  await rest.updateDoc(roomRef(code), { seats: [...room.seats, uid], names: { ...room.names, [uid]: name } });
+  poke(`wonders/${code}`);
   return null;
 }
 
 export async function leaveRoom(room: WondersRoom) {
   const { uid } = me();
-  await updateDoc(roomRef(room.code), { seats: room.seats.filter((s) => s !== uid) });
+  await rest.updateDoc(roomRef(room.code), { seats: room.seats.filter((s) => s !== uid) });
+  poke(`wonders/${room.code}`);
 }
 
 /** The host's lobby controls: seats (bots in or out, and the order) and the wonder sides. */
@@ -67,7 +69,8 @@ export async function setup(room: WondersRoom, patch: { seats?: string[]; sides?
   const seats = patch.seats ?? room.seats;
   const names = { ...room.names };
   for (const seat of seats) if (isBot(seat) && !names[seat]) names[seat] = `Bot ${seat.slice(4)}`;
-  await updateDoc(roomRef(room.code), { seats, names, sides: patch.sides ?? room.sides });
+  await rest.updateDoc(roomRef(room.code), { seats, names, sides: patch.sides ?? room.sides });
+  poke(`wonders/${room.code}`);
 }
 
 export async function addBot(room: WondersRoom) {
@@ -77,11 +80,13 @@ export async function addBot(room: WondersRoom) {
 
 export async function startGame(code: string) {
   const seed = Array.from(crypto.getRandomValues(new Uint32Array(3)), (n) => n.toString(36)).join('');
-  await updateDoc(roomRef(code), { status: 'playing', seed, startedAt: serverTimestamp() });
+  await rest.updateDoc(roomRef(code), { status: 'playing', seed, startedAt: rest.serverTimestamp() });
+  poke(`wonders/${code}`);
 }
 
 export async function finishGame(code: string) {
-  await updateDoc(roomRef(code), { status: 'done', endedAt: serverTimestamp() });
+  await rest.updateDoc(roomRef(code), { status: 'done', endedAt: rest.serverTimestamp() });
+  poke(`wonders/${code}`);
 }
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -96,10 +101,12 @@ export async function sendMove(code: string, next: () => number, move: Move, by?
   for (let tries = 0; tries < 12; tries++) {
     const n = next();
     try {
-      await setDoc(doc(db, 'wonders', code, 'moves', String(n)), { n, by: by ?? uid, move });
+      await rest.setDoc(restDoc('wonders', code, 'moves', String(n)), { n, by: by ?? uid, move });
+      poke(`wonders/${code}`);
       return;
     } catch (error) {
       if (!(error instanceof FirebaseError && error.code === 'permission-denied')) throw error;
+      poke(`wonders/${code}`);
       await sleep(200 + Math.random() * 400);
     }
   }
@@ -112,34 +119,13 @@ export interface WondersData {
   moves: Recorded[];
 }
 
+/** Follows a room and its moves, kept fresh even when the phone's stream stalls (src/services/resilient.ts). */
 export function watchRoom(code: string, uid: string, onChange: (data: WondersData) => void): Unsubscribe {
-  let data: WondersData = { room: null, missing: false, moves: [] };
-  const update = (patch: Partial<WondersData>) => {
-    data = { ...data, ...patch };
-    onChange(data);
-  };
-  let movesSub: Unsubscribe | null = null;
-  const roomSub = onSnapshot(roomRef(code), (snap) => {
-    if (!snap.exists()) return update({ missing: true, room: null });
-    const d = snap.data();
-    const room: WondersRoom = { code, host: d.host, seats: d.seats, names: d.names, status: d.status, sides: d.sides ?? 'A', seed: d.seed ?? null };
-    update({ room, missing: false });
-    if (!movesSub && room.seats.includes(uid) && room.status !== 'lobby') {
-      movesSub = onSnapshot(
-        collection(db, 'wonders', code, 'moves'),
-        (s) =>
-          update({
-            moves: s.docs
-              .map((x) => x.data() as { n: number; by: string; move: Move })
-              .sort((a, b) => a.n - b.n)
-              .map(({ by, move }) => ({ by, move })),
-          }),
-        () => {},
-      );
-    }
-  });
-  return () => {
-    roomSub();
-    movesSub?.();
-  };
+  return followRoom<WondersRoom, Move>(
+    'wonders',
+    code,
+    (d) => ({ code, host: d.host as string, seats: d.seats as string[], names: d.names as Record<string, string>, status: d.status as WondersRoom['status'], sides: (d.sides as WondersRoom['sides'] | undefined) ?? 'A', seed: (d.seed as string | undefined) ?? null }),
+    (room) => room.seats.includes(uid) && room.status !== 'lobby',
+    onChange,
+  );
 }

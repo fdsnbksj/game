@@ -1,11 +1,12 @@
-import { collection, doc, getDoc, getDocs, limit, orderBy, query, serverTimestamp, setDoc, updateDoc, where } from 'firebase/firestore';
-import { db } from '../firebase';
+import { collection, doc, getDoc, getDocs, limit, orderBy, query, serverTimestamp, setDoc, updateDoc, where } from 'firebase/firestore/lite';
+import { dbRest as db } from '../firebase';
 import type { ArenaHero } from '../games/hero/arena';
 import { validTree, type Tree } from '../games/hero/stats';
 
 // The Hero Gambit arena in Firestore: arena/{uid}, one per player who has beaten the first
 // boss. Anyone may read it (it's the hero others fight); only its owner writes it, and
-// firestore.rules caps each result. tests/rules/arena.test.ts mirrors these writes.
+// firestore.rules caps each result. tests/rules/arena.test.ts mirrors these writes. All of it
+// goes over plain HTTPS (Firestore Lite), so a stalled stream on a phone can't hold it up.
 
 export const ARENA_TOP = 50;
 
