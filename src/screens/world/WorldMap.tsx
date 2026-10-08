@@ -1,5 +1,6 @@
 import { useNavigate, Link } from 'react-router';
 import { HeroGlyph } from '../../components/GameGlyphs';
+import { tierOf } from '../../games/hero/arena';
 import { BOT_LEVELS } from '../../games/hero/bots';
 import { BOT_COUNT, heroLevel } from '../../games/hero/stats';
 import { useHeroStore } from '../../heroStore';
@@ -90,6 +91,7 @@ export function WorldMap() {
     next: useHeroStore((s) => Math.min(BOT_COUNT, s.cleared + 1)),
     fighting: useHeroStore((s) => !!s.fight),
     points: useHeroStore((s) => s.unspent()),
+    rating: useHeroStore((s) => s.arena?.rating ?? null),
   };
   const room = lastRoom();
   const roomGame = room ? zoneOf(room.split('/')[1])?.games.find((g) => g.id === room.split('/')[1]) : undefined;
@@ -123,6 +125,7 @@ export function WorldMap() {
         <span>
           <span className="micro">
             Your hero · Lv {hero.level}
+            {hero.rating !== null && ` · ${tierOf(hero.rating)}`}
             {hero.points > 0 && ` · ${hero.points} ${hero.points === 1 ? 'point' : 'points'} to spend`}
           </span>
           <strong>{hero.fighting ? 'Continue your fight' : `Next: ${BOT_LEVELS[hero.next - 1].name}`}</strong>

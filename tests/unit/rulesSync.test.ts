@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import { ARENA_UNLOCK, MAX_DELTA, MIN_GAIN } from '../../src/games/hero/arena';
 import { BOT_COUNT, pointsFor } from '../../src/games/hero/stats';
 import { NONOGRAM_VERSION, sizeFor } from '../../src/nonogram/generate';
 
@@ -35,5 +36,11 @@ describe('firestore.rules matches src/games/hero', () => {
 
   it('has the same number of bot levels', () => {
     expect(Number(body('heroBotCount'))).toBe(BOT_COUNT);
+  });
+
+  it('opens the arena and caps a result the same way', () => {
+    expect(Number(body('arenaUnlock'))).toBe(ARENA_UNLOCK);
+    expect(Number(body('arenaMaxDelta'))).toBe(MAX_DELTA);
+    expect(Number(body('arenaMinGain'))).toBe(MIN_GAIN);
   });
 });

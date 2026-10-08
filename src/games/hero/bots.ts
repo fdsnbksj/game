@@ -48,8 +48,8 @@ export const BOT_LEVELS: readonly BotLevel[] = Array.from({ length: BOT_COUNT },
   return { level, name: NAMES[i], boss, tree: botTree(level, points), spread: 2500 - Math.floor(((level - 1) * 2200) / (BOT_COUNT - 1)) - (boss ? 150 : 0) };
 });
 
-/** The bot's move on its turn: a skill weighted toward its strongest, and its stop or pick. */
-export function botMove(state: HeroState, side: Side, bot: BotLevel): Move {
+/** The bot's move on its turn: a skill weighted toward its strongest, and its stop or pick. Arena defenders use it too. */
+export function botMove(state: HeroState, side: Side, bot: Pick<BotLevel, 'spread'>): Move {
   const turn = state.log.length;
   const rng = stream(`${state.seed}:bot:${turn}`);
   const tree = state.fighters[side].tree;

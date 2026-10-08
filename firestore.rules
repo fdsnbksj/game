@@ -535,6 +535,63 @@ service cloud.firestore {
         && after.endedAt == request.time;
     }
 
+    // ---------- Hero Gambit arena ----------
+    // Async PvP: arena/{uid} is a hero others fight (played by the bot brain on the
+    // attacker's phone), so anyone signed in may read it. Only its owner writes it: to join
+    // once past the first boss, to keep its tree and name in step with their hero and
+    // player, or to record one result at a time. Copies of src/games/hero/arena.ts;
+    // tests/unit/rulesSync.test.ts compares them. A tampered phone could still claim a
+    // win it didn't earn, but only up to arenaMaxDelta() points, once every 10 s.
+
+    function arenaUnlock() { return 5; }
+    function arenaMaxDelta() { return 35; }
+    function arenaMinGain() { return 5; }
+
+    function isArenaJoin(uid) {
+      let a = request.resource.data;
+      return hasExactly(a, ['name', 'tree', 'rating', 'wins', 'losses', 'lastFightAt'])
+        && get(/databases/$(database)/documents/heroes/$(uid)).data.cleared >= arenaUnlock()
+        && a.tree == heroTree(uid)
+        && a.name == playerName(uid)
+        && a.rating == 1000 && a.wins == 0 && a.losses == 0
+        && a.lastFightAt == request.time;
+    }
+
+    function isArenaRefresh(uid) {
+      let after = request.resource.data;
+      return after.diff(resource.data).affectedKeys().hasOnly(['tree', 'name'])
+        && after.tree == heroTree(uid)
+        && after.name == playerName(uid);
+    }
+
+    function isArenaWin(before, after) {
+      return after.wins == before.wins + 1 && after.losses == before.losses
+        && after.rating - before.rating >= arenaMinGain()
+        && after.rating - before.rating <= arenaMaxDelta();
+    }
+
+    function isArenaLoss(before, after) {
+      return after.losses == before.losses + 1 && after.wins == before.wins
+        && before.rating - after.rating >= arenaMinGain()
+        && before.rating - after.rating <= arenaMaxDelta();
+    }
+
+    function isArenaResult() {
+      let before = resource.data;
+      let after = request.resource.data;
+      return after.diff(before).affectedKeys().hasOnly(['rating', 'wins', 'losses', 'lastFightAt'])
+        && after.rating is int
+        && after.lastFightAt == request.time
+        && request.time >= before.lastFightAt + duration.value(10, 's')
+        && (isArenaWin(before, after) || isArenaLoss(before, after));
+    }
+
+    match /arena/{uid} {
+      allow read: if request.auth != null;
+      allow create: if isOwner(uid) && isArenaJoin(uid);
+      allow update: if isOwner(uid) && (isArenaRefresh(uid) || isArenaResult());
+    }
+
     // ---------- Ancient Wonders ----------
     // 3–7 seats, some of them bots (`bot:1`…`bot:6`) that the host's phone plays. The seed
     // decides the boards and the hands; each pick is a move appended in order. The rules

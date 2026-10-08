@@ -1,6 +1,7 @@
 import { Link, useNavigate } from 'react-router';
 import { Page } from '../../components/Page';
 import { SummaryRow } from '../../components/SummaryRow';
+import { ARENA_UNLOCK, START_RATING, tierOf } from '../../games/hero/arena';
 import { BOT_LEVELS } from '../../games/hero/bots';
 import { BOT_COUNT, heroLevel, rewardFor, SKILLS, statsOf } from '../../games/hero/stats';
 import { useHeroStore } from '../../heroStore';
@@ -16,6 +17,8 @@ export function HeroHome() {
   const fight = useHeroStore((s) => s.fight);
   const unspent = useHeroStore((s) => s.unspent());
   const startFight = useHeroStore((s) => s.startFight);
+  const arenaOpen = useHeroStore((s) => s.arenaOpen());
+  const rating = useHeroStore((s) => s.arena?.rating ?? START_RATING);
   const stats = statsOf(tree);
   const next = Math.min(BOT_COUNT, cleared + 1);
   const nextBot = BOT_LEVELS[next - 1];
@@ -63,6 +66,9 @@ export function HeroHome() {
         )}
         <Link className="button" to="/hero/tree">
           Skill tree{unspent > 0 && <span className="hero-badge">{unspent}</span>}
+        </Link>
+        <Link className="button" to="/hero/arena">
+          {arenaOpen ? `Arena · ${tierOf(rating)} ${rating}` : `Arena · unlocks at level ${ARENA_UNLOCK}`}
         </Link>
         <Link className="button" to="/hero/online">
           Play a friend

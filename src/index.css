@@ -155,6 +155,12 @@
   --hero-card-face: #f4efe3;
   --hero-card-ink: #1a1406;
   --hero-card-back: linear-gradient(135deg, #3a2a63, #22183d);
+  /* The arena's tiers. */
+  --tier-bronze: #c98a5a;
+  --tier-silver: #b9c2cf;
+  --tier-gold: #eebb45;
+  --tier-platinum: #7fd6d0;
+  --tier-diamond: #8fb0ff;
   /* Sky Brawl: a night sky, a stone island, and a colour per fighter (gold is you). */
   --brawl-sky-top: #141a2a;
   --brawl-sky-bottom: #0a0b0d;
@@ -4031,5 +4037,52 @@ button.seat:disabled {
 
 .tree-pips i.on {
   background: var(--accent);
+}
+
+/* The arena. */
+.arena-card {
+  align-items: center;
+  text-align: center;
+}
+
+.arena-rating {
+  font-size: 2.6rem;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+.arena-tier {
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: var(--fill-2);
+  font-size: var(--fs-label);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.arena-tier.bronze { color: var(--tier-bronze); }
+.arena-tier.silver { color: var(--tier-silver); }
+.arena-tier.gold { color: var(--tier-gold); }
+.arena-tier.platinum { color: var(--tier-platinum); }
+.arena-tier.diamond { color: var(--tier-diamond); }
+
+.arena-opponent {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  animation: pop-in var(--dur) var(--ease) both;
+}
+
+.hero-avatar.foe {
+  background: var(--game-hero-soft);
+  box-shadow: none;
+  color: var(--game-hero);
+}
+
+.hero-reward.down {
+  color: var(--danger);
 }
 

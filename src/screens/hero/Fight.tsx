@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { botMove } from '../../games/hero/bots';
 import { SummaryRow } from '../../components/SummaryRow';
 import { rankName, stopwatchTarget, VISIBLE_MS, WHEEL, type Move } from '../../games/hero/skills';
 import { type HeroState, type Side, type Turn } from '../../games/hero/state';
@@ -124,6 +125,21 @@ function describe(t: Turn, who: string): string {
 }
 
 const secs = (ms: number) => `${(ms / 1000).toFixed(2)}s`;
+
+/** How long a turn's result stays up before the bot plays. */
+const BOT_DELAY_MS = 1600;
+
+/** Side 1 is played by the bot brain (a bot level, or another player's hero in the arena). */
+export function useBotTurn(state: HeroState, spread: number, play: (move: Move) => void) {
+  const latest = useRef(play);
+  latest.current = play;
+  useEffect(() => {
+    if (state.winner !== null || state.turn !== 1) return;
+    // Let the last result sink in, then play.
+    const timer = setTimeout(() => latest.current(botMove(state, 1, { spread })), state.log.length ? BOT_DELAY_MS : 700);
+    return () => clearTimeout(timer);
+  }, [state, spread]);
+}
 
 // ---------- Playing a skill ----------
 

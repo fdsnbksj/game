@@ -1,15 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router';
 import { Page } from '../../components/Page';
-import { botMove } from '../../games/hero/bots';
 import { replay, type HeroState } from '../../games/hero/state';
 import { BOT_COUNT } from '../../games/hero/stats';
 import { BOT_PLAYERS, botLevel, useHeroStore, type BotFight } from '../../heroStore';
 import { useGameStore } from '../../store';
-import { Fight } from './Fight';
-
-/** How long a turn's result stays up before the bot plays. */
-const BOT_DELAY_MS = 1600;
+import { Fight, useBotTurn } from './Fight';
 
 /** A fight against one bot level, saved move by move, so it reopens where it was left. */
 export function HeroFight() {
@@ -43,13 +39,7 @@ function BotFightView({
     [fight, bot, name],
   );
 
-  // The bot's turn: let the last result sink in, then play.
-  const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
-  useEffect(() => {
-    if (state.winner !== null || state.turn !== 1) return;
-    timer.current = setTimeout(() => play('bot', botMove(state, 1, bot)), state.log.length ? BOT_DELAY_MS : 700);
-    return () => clearTimeout(timer.current);
-  }, [state, bot, play]);
+  useBotTurn(state, bot.spread, (move) => play('bot', move));
 
   // Over: count it once, after the last hit has shown.
   useEffect(() => {
