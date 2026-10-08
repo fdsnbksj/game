@@ -61,6 +61,18 @@ describe('brawl rooms', () => {
     await assertFails(updateDoc(ref(dbFor('ann')), { status: 'playing', seed: 'abcdef', startedAt: serverTimestamp() }));
   });
 
+  it('start with the host\'s rules, and only sensible ones', async () => {
+    const start = (rules: unknown) => updateDoc(ref(dbFor('ann')), { status: 'playing', seed: 'abcdef', startedAt: serverTimestamp(), rules });
+    await seed({ status: 'lobby' });
+    await assertSucceeds(start({ mode: 'timed', value: 4 }));
+    for (const bad of [{ mode: 'timed', value: 9 }, { mode: 'score', value: 4 }, { mode: 'deathmatch', value: 3 }, { mode: 'score', value: 5, extra: 1 }, 'score']) {
+      await seed({ status: 'lobby' });
+      await assertFails(start(bad));
+    }
+    await seed({ status: 'lobby' });
+    await assertSucceeds(start({ mode: 'score', value: 7 }));
+  });
+
   it('finish by either player', async () => {
     await seed({ status: 'playing', seed: 'abcdef' });
     await assertFails(updateDoc(ref(dbFor('eve')), { status: 'done', endedAt: serverTimestamp() }));

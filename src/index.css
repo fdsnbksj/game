@@ -3385,3 +3385,30 @@ button.seat:disabled {
 .pause-actions .button {
   min-height: 56px;
 }
+
+/* Timed fights: the clock, top centre under the chips. */
+.brawl-clock {
+  position: absolute;
+  top: calc(max(8px, env(safe-area-inset-top)) + 64px);
+  left: 50%;
+  padding: 3px 12px;
+  border-radius: 999px;
+  background: var(--bar-bg);
+  color: var(--label);
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.brawl-clock.overtime {
+  color: var(--danger);
+}
+
+.brawl-wins {
+  color: var(--label);
+  font-size: var(--fs-cap);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}

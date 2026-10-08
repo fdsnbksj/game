@@ -7,13 +7,15 @@ import {
   CRACK,
   GONE,
   hashState,
-  ICE_BASE,
-  ICE_LIFE,
+  DEATH_POINTS,
+  FRAMES_PER_MINUTE,
+  KILL_POINTS,
   ITEM_LIFE,
   MAX_CHARGE,
   newMatch,
   ROUND_BREAK,
-  ROUNDS_TO_WIN,
+  RESPAWN_FRAMES,
+  type Rules,
   step,
   surface,
   windAt,
@@ -26,8 +28,8 @@ import { KICK, MAX_HP, PICKUPS, PROJECTILES, WEAPONS, type WeaponId } from '../.
 const stageIndex = (id: string) => STAGES.findIndex((s) => s.id === id);
 
 /** A two-fighter match on a chosen stage, both standing on its main ground, nothing dropping. */
-function on(id: string, changes: Partial<FighterState>[] = [], extra: Partial<Match> = {}): Match {
-  let m = newMatch('test', [{ bot: 0 }, { bot: 2 }]);
+function on(id: string, changes: Partial<FighterState>[] = [], extra: Partial<Match> = {}, rules?: Rules): Match {
+  let m = newMatch('test', [{ bot: 0 }, { bot: 2 }], rules);
   const stage = stageIndex(id);
   m = { ...m, order: [stage, stage, stage, stage, stage, stage], stage };
   const plats = STAGES[stage].platforms;
@@ -44,7 +46,8 @@ function on(id: string, changes: Partial<FighterState>[] = [], extra: Partial<Ma
 }
 
 /** The main island stage, for most tests. */
-const flat = (changes: Partial<FighterState>[] = [], extra: Partial<Match> = {}) => on('gusts', changes, { ...extra, frame: 0 });
+const flat = (changes: Partial<FighterState>[] = [], extra: Partial<Match> = {}, rules?: Rules) => on('gusts', changes, { frame: 0, ...extra }, rules);
+const TIMED: Rules = { mode: 'timed', value: 3 };
 
 const run = (m: Match, frames: number, inputs: (frame: number) => Input[] = () => []) => {
   for (let i = 0; i < frames; i++) m = step(m, inputs(i));
@@ -65,7 +68,7 @@ describe('Stick Brawl engine', () => {
     const b = run(newMatch('golden', [{ bot: 0 }, { bot: 0 }]), 1200, script);
     expect(hashState(a)).toBe(hashState(b));
     // Changes only when the engine does: then bump BRAWL_VERSION and update this.
-    expect(hashState(a)).toBe('ee17c04e');
+    expect(hashState(a)).toBe('50028b8');
   });
 
   it('keeps every number whole', () => {
@@ -126,12 +129,79 @@ describe('Stick Brawl engine', () => {
     expect(m.items).toHaveLength(0);
   });
 
-  it('wins the match at three rounds', () => {
-    let m = flat([{ x: 0 }, { hp: 1, x: 36 * SUB, facing: -1 }], { wins: [ROUNDS_TO_WIN - 1, 0] });
+  it('wins the match at the chosen number of points', () => {
+    for (const target of [3, 7]) {
+      let m = flat([{ x: 0 }, { hp: 1, x: 36 * SUB, facing: -1 }], { wins: [target - 2, 0] }, { mode: 'score', value: target });
+      m = run(m, 20, once(SKILL1 | RIGHT));
+      m = run(m, ROUND_BREAK);
+      expect(m.winner).toBeNull();
+      expect(m.wins[0]).toBe(target - 1);
+      m = run({ ...m, fighters: m.fighters.map((f, i) => (i === 1 ? { ...f, hp: 1, x: 36 * SUB, facing: -1 as const } : { ...f, x: 0 })) }, 20, once(SKILL1 | RIGHT));
+      m = run(m, ROUND_BREAK);
+      expect(m.winner).toBe(0);
+      expect(step(m, [RIGHT, 0])).toBe(m);
+    }
+  });
+
+  it('timed: a kill is +2 for the killer and −3 for the fallen, who comes back in 2 seconds, safe', () => {
+    let m = flat([{ x: 0 }, { hp: 1, x: 36 * SUB, facing: -1 }], {}, TIMED);
     m = run(m, 20, once(SKILL1 | RIGHT));
-    m = run(m, ROUND_BREAK);
+    expect(m.fighters[0].score).toBe(KILL_POINTS);
+    expect(m.fighters[1].score).toBe(-DEATH_POINTS);
+    expect(m.fighters[1].alive).toBe(false);
+    expect(m.winner).toBeNull();
+    m = run(m, RESPAWN_FRAMES);
+    expect(m.fighters[1].alive).toBe(true);
+    expect(m.fighters[1].hp).toBe(MAX_HP);
+    expect(m.fighters[1].invulnerable).toBeGreaterThan(0);
+    // A hazard's death costs 3, and gives no one anything.
+    let lava = on('lava', [{ x: -300 * SUB, y: 150 * SUB, platform: -1, vy: 900, hp: 5 }, {}], {}, TIMED);
+    lava = run(lava, 5);
+    expect(lava.fighters[0].score).toBe(-DEATH_POINTS);
+    expect(lava.fighters[1].score).toBe(0);
+  });
+
+  it('timed: the stage changes each minute, and the best score wins when time is up', () => {
+    let m = flat([{ x: 0 }, { x: 200 * SUB }], { frame: FRAMES_PER_MINUTE - 2, order: STAGES.map((_, i) => i) }, TIMED);
+    const first = m.stage;
+    m = run(m, 3);
+    expect(m.stage).not.toBe(first);
+    expect(m.items).toHaveLength(0);
+    let end = flat([{ x: 0, score: 4 }, { x: 200 * SUB, score: 2 }], { frame: 3 * FRAMES_PER_MINUTE - 1 }, TIMED);
+    end = step(end, [0, 0]);
+    expect(end.winner).toBe(0);
+  });
+
+  it('timed: a tie at the end goes to sudden death, won by the first to lead alone', () => {
+    let m = flat([{ x: 0, score: 2 }, { x: 36 * SUB, facing: -1, score: 2, hp: 1 }], { frame: 3 * FRAMES_PER_MINUTE - 1 }, TIMED);
+    m = step(m, [0, 0]);
+    expect(m.winner).toBeNull();
+    expect(m.overtime).toBe(true);
+    m = run(m, 20, once(SKILL1 | RIGHT));
     expect(m.winner).toBe(0);
-    expect(step(m, [RIGHT, 0])).toBe(m);
+  });
+
+  it('never knocks anyone out off the top: they fall back in', () => {
+    let m = flat([{ x: 0, y: -200 * SUB, vy: -6000, platform: -1 }, { x: 200 * SUB }]);
+    for (let i = 0; i < 900; i++) {
+      m = step(m, [0, 0]);
+      expect(m.fighters[0].alive).toBe(true);
+    }
+    expect(m.fighters[0].platform).toBeGreaterThanOrEqual(0);
+  });
+
+  it('closes every stage in: nobody dropped anywhere falls out', () => {
+    for (const stage of STAGES) {
+      const xs = [stage.walls.left + 20, stage.walls.right - 20, ...stage.pits.map((p) => (p.left + p.right) / 2), 0];
+      for (const x of xs) {
+        let m = on(stage.id, [{ x: x * SUB, y: -350 * SUB, platform: -1, vx: 0 }, { x: 0, y: -2000 * SUB, platform: -1 }]);
+        m = { ...m, fighters: m.fighters.map((f, i) => (i === 1 ? { ...f, invulnerable: 1e6 } : f)) };
+        for (let i = 0; i < 240; i++) m = step(m, [0, 0]);
+        expect(m.fighters[0].y / SUB, `${stage.id} at ${x}`).toBeLessThan(stage.floor + 1);
+        expect(m.fighters[0].x / SUB, `${stage.id} at ${x}`).toBeGreaterThanOrEqual(stage.walls.left);
+        expect(m.fighters[0].x / SUB, `${stage.id} at ${x}`).toBeLessThanOrEqual(stage.walls.right);
+      }
+    }
   });
 
   it('drops weapons from the seed, every kind given time, picked up by touch when bare-handed', () => {
@@ -221,15 +291,21 @@ describe('Stick Brawl engine', () => {
     expect(m.fighters[0].recoveryUsed).toBe(true);
   });
 
-  it('rolls on the ground, and lays ice in the air', () => {
+  it('rolls on the ground, and dashes in the air, once a jump, untouchable', () => {
     let m = flat([{ x: 0 }, { x: 250 * SUB }]);
     m = step(m, [DODGE | RIGHT, 0]);
     expect(m.fighters[0].dodge).toBeGreaterThan(0);
     let air = flat([{ x: 0, y: -200 * SUB, platform: -1, vy: 600 }, { x: 250 * SUB }]);
-    air = step(air, [DODGE, 0]);
-    expect(air.fighters[0].platform).toBeGreaterThanOrEqual(ICE_BASE);
-    air = run(air, ICE_LIFE + 2);
-    expect(air.ice).toHaveLength(0);
+    const x0 = air.fighters[0].x;
+    air = step(air, [DODGE | RIGHT, 0]);
+    expect(air.fighters[0].invulnerable).toBeGreaterThan(0);
+    expect(air.fighters[0].platform).toBe(-1);
+    air = run(air, 10);
+    expect(air.fighters[0].x - x0).toBeGreaterThan(80 * SUB);
+    // Not again until landing.
+    air = run(air, 10);
+    air = step(air, [DODGE | LEFT, 0]);
+    expect(air.fighters[0].dodge).toBe(0);
   });
 
   it('carries a rider on a lift', () => {
@@ -450,14 +526,14 @@ describe('Stick Brawl engine', () => {
     expect(swing('sword', 100).hp).toBe(MAX_HP);
   });
 
-  it('plays every bot level, with two to four fighters, to a match winner', () => {
-    for (const level of [1, 2, 3] as BotLevel[]) {
-      for (const n of [2, 3, 4]) {
-        for (const s of ['a', 'b']) {
-          let m = newMatch(`bots:${level}:${n}:${s}`, Array.from({ length: n }, () => ({ bot: level })));
-          while (m.winner === null && m.frame < 60 * 60 * 8) m = step(m, m.seats.map((_, i) => botInput(m, i)));
-          expect(m.winner, `${level} ${n} ${s}`).not.toBeNull();
-          expect(m.wins[m.winner!]).toBe(ROUNDS_TO_WIN);
+  it('plays every bot level, with two to four fighters, to a match winner, in both modes', () => {
+    for (const rules of [{ mode: 'score', value: 3 }, { mode: 'timed', value: 3 }] as Rules[]) {
+      for (const level of [1, 2, 3] as BotLevel[]) {
+        for (const n of [2, 3, 4]) {
+          let m = newMatch(`bots:${rules.mode}:${level}:${n}`, Array.from({ length: n }, () => ({ bot: level })), rules);
+          while (m.winner === null && m.frame < 60 * 60 * 10) m = step(m, m.seats.map((_, i) => botInput(m, i)));
+          expect(m.winner, `${rules.mode} ${level} ${n}`).not.toBeNull();
+          if (rules.mode === 'score') expect(m.wins[m.winner!]).toBe(rules.value);
         }
       }
     }

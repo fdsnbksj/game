@@ -1,9 +1,8 @@
-import { beamAt, BODY_H, moverAt, sawAt, SUB } from '../../games/brawl/stages';
+import { beamAt, BODY_H, layoutOf, moverAt, sawAt, SUB } from '../../games/brawl/stages';
 import {
   attackOf,
   CRACK,
   hitbox,
-  ICE_HALF,
   inPlay,
   isActive,
   ITEM_LIFE,
@@ -12,7 +11,6 @@ import {
   windAt,
   type Blast,
   type FighterState,
-  type Ice,
   type Item,
   type Match,
   type Projectile,
@@ -120,10 +118,12 @@ const MIN_W = 700;
 /** Frames the stage's ground and everyone still up, easing toward it so the view never jumps. */
 export function follow(m: Match, cam: Camera | null, aspect: number): Camera {
   const stage = stageOf(m);
-  let left = Math.min(...stage.platforms.map((p) => p.left)) - 40;
-  let right = Math.max(...stage.platforms.map((p) => p.right)) + 40;
-  let top = Math.min(...stage.platforms.map((p) => p.top)) - 140;
-  let bottom = Math.max(Math.max(...stage.safe.map((s) => s.top)) + 120, Math.max(...stage.platforms.map((p) => p.top)) + 80);
+  const layout = layoutOf(stage);
+  // The whole enclosure, wall to wall and down to the floor, and the stage's own heights.
+  let left = stage.walls.left - 20;
+  let right = stage.walls.right + 20;
+  let top = Math.min(...layout.map((p) => p.top)) - 140;
+  let bottom = stage.floor + 50;
   // Show the danger below: the lava's surface, the spike bed.
   if (stage.hazard.kind === 'lava') bottom = Math.max(bottom, stage.hazard.top + 70);
   if (stage.hazard.kind === 'spikes') bottom = Math.max(bottom, ...stage.hazard.strips.map((s) => s.bottom + 50));
@@ -141,7 +141,8 @@ export function follow(m: Match, cam: Camera | null, aspect: number): Camera {
   const b = stage.blast;
   left = Math.max(left, b.left);
   right = Math.min(right, b.right);
-  top = Math.max(top, b.top);
+  // The top is open: follow someone launched up there, within reason.
+  top = Math.max(top, -1600);
   bottom = Math.min(bottom, b.bottom);
   const w = Math.min(b.right - b.left, Math.max(MIN_W, right - left, (bottom - top) * aspect));
   const target = { x: (left + right) / 2, y: (top + bottom) / 2, w };
@@ -337,9 +338,10 @@ function drawStage(ctx: CanvasRenderingContext2D, m: Match, p: Palette) {
     }
   }
 
-  if (hazard.kind === 'spikes') {
+  const beds = [...stage.pits, ...(hazard.kind === 'spikes' ? hazard.strips : [])];
+  if (beds.length) {
     ctx.fillStyle = p.spike;
-    for (const s of hazard.strips) {
+    for (const s of beds) {
       // Pointing away from whatever they're fixed to: up from the bed, down from a block's underside.
       const up = s.top > 0;
       const base = up ? s.bottom : s.top;
@@ -771,6 +773,32 @@ function drawFighter(ctx: CanvasRenderingContext2D, m: Match, seat: number, p: P
   }
   ctx.restore();
 
+  // The air dash: a streak behind.
+  if (f.alive && f.dodge > 0 && f.platform < 0 && (f.vx !== 0 || f.vy !== 0)) {
+    const len = Math.hypot(f.vx, f.vy);
+    ctx.save();
+    ctx.strokeStyle = colour;
+    ctx.globalAlpha = 0.35;
+    ctx.lineWidth = 10;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(x, y - BODY_H / 2);
+    ctx.lineTo(x - (f.vx / len) * 50, y - BODY_H / 2 - (f.vy / len) * 50);
+    ctx.stroke();
+    ctx.restore();
+  }
+  // Just back in (timed mode): a ring that opens out.
+  if (f.alive && f.invulnerable > 60 && f.dodge === 0) {
+    ctx.save();
+    ctx.strokeStyle = colour;
+    ctx.globalAlpha = (f.invulnerable - 60) / 30;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(x, y - BODY_H / 2, 20 + (90 - f.invulnerable) * 2, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
+
   // HP over the head.
   if (f.alive) {
     const w = 34;
@@ -997,20 +1025,6 @@ function drawProjectile(ctx: CanvasRenderingContext2D, pr: Projectile, p: Palett
   }
 }
 
-/** An ice floor: clear blue, fading as it melts. */
-function drawIce(ctx: CanvasRenderingContext2D, ice: Ice, p: Palette) {
-  const x = ice.x / SUB;
-  const y = ice.y / SUB;
-  ctx.save();
-  ctx.globalAlpha = Math.min(1, ice.life / 30);
-  roundRect(ctx, x - ICE_HALF, y, ICE_HALF * 2, 9, 4);
-  ctx.fillStyle = p.ice;
-  ctx.fill();
-  ctx.fillStyle = p.iceEdge;
-  ctx.fillRect(x - ICE_HALF + 4, y, ICE_HALF * 2 - 8, 2);
-  ctx.restore();
-}
-
 function drawBlast(ctx: CanvasRenderingContext2D, b: Blast, p: Palette) {
   const t = b.age / 18;
   ctx.save();
@@ -1066,7 +1080,6 @@ export function draw(ctx: CanvasRenderingContext2D, width: number, height: numbe
     ctx.fill();
     ctx.restore();
   }
-  for (const ice of m.ice) drawIce(ctx, ice, p);
   for (const it of m.items) drawItem(ctx, it, p);
   // You on top, so your own fighter is never lost in a crowd.
   const n = m.fighters.length;

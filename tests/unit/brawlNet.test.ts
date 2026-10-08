@@ -3,12 +3,12 @@ import { DODGE, DOWN, JUMP, LEFT, RIGHT, SKILL1, SKILL2, type Input } from '../.
 import { decode, encode, type Message } from '../../src/games/brawl/net';
 import { INPUT_DELAY, MAX_ROLLBACK, Session } from '../../src/games/brawl/rollback';
 import { STAGES, SUB } from '../../src/games/brawl/stages';
-import { hashState, newMatch, step, type Match } from '../../src/games/brawl/state';
+import { hashState, newMatch, step, type Match, type Rules } from '../../src/games/brawl/state';
 import { stream } from '../../src/nonogram/rng';
 
 /** Two fighters close together on solid ground, so the scripted thumbs trade blows. */
-function start(): Match {
-  const m = newMatch('online', [{ bot: 0 }, { bot: 0 }]);
+function start(rules?: Rules): Match {
+  const m = newMatch('online', [{ bot: 0 }, { bot: 0 }], rules);
   const stage = STAGES[m.stage];
   const ground = stage.platforms.findIndex((p) => !p.soft);
   const mid = (stage.platforms[ground].left + stage.platforms[ground].right) / 2;
@@ -27,8 +27,8 @@ const thumb = (seat: number, f: number): Input => {
 };
 
 /** The fight with every input known in advance: what both phones must end up agreeing on. */
-function lockstep(frames: number): Match {
-  let m = start();
+function lockstep(frames: number, rules?: Rules): Match {
+  let m = start(rules);
   for (let f = 0; f < frames && m.winner === null; f++) {
     const at = (seat: number) => (f < INPUT_DELAY ? 0 : thumb(seat, f - INPUT_DELAY));
     m = step(m, [at(0), at(1)]);
@@ -43,9 +43,9 @@ interface Link {
 }
 
 /** Two sessions over a lossy, jittery link, ticked together; B may start late. */
-function run(link: Link, frames: number, opts: { lateStart?: number; seed?: string } = {}) {
+function run(link: Link, frames: number, opts: { lateStart?: number; seed?: string; rules?: Rules } = {}) {
   const roll = stream(opts.seed ?? 'link');
-  const sessions = [new Session(start(), 0), new Session(start(), 1)];
+  const sessions = [new Session(start(opts.rules), 0), new Session(start(opts.rules), 1)];
   const queue: { at: number; to: number; text: string }[] = [];
   let maxLead = 0;
   const send = (from: number, msg: Message, now: number, lossy: boolean) => {
@@ -115,11 +115,24 @@ describe('Sky Brawl rollback', () => {
   }
 
   it('agrees across rounds and stage changes over a long, lossy fight', () => {
-    const long = 2400;
+    // Long enough for the scripted thumbs to finish a round (nobody falls out any more).
+    const long = 7000;
     const truth = lockstep(long);
     // The scripted fight really does move on to later rounds.
     expect(truth.round + (truth.winner !== null ? 1 : 0)).toBeGreaterThan(0);
     const { sessions } = run({ latency: 3, jitter: 2, loss: 0.1 }, long);
+    for (const s of sessions) {
+      expect(s.desync).toBe(false);
+      expect(hashState(s.match)).toBe(hashState(truth));
+    }
+  });
+
+  it('agrees over a long, lossy timed fight, through respawns and a stage change', () => {
+    const rules: Rules = { mode: 'timed', value: 3 };
+    const long = 4000;
+    const truth = lockstep(long, rules);
+    expect(truth.round).toBeGreaterThan(0);
+    const { sessions } = run({ latency: 3, jitter: 2, loss: 0.1 }, long, { rules });
     for (const s of sessions) {
       expect(s.desync).toBe(false);
       expect(hashState(s.match)).toBe(hashState(truth));

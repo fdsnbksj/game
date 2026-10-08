@@ -3,7 +3,7 @@ import { Link } from 'react-router';
 import { BUTTON_BITS, knob as knobAt, stickBits, type Button } from '../../games/brawl/controls';
 import { SKILL2, type Input } from '../../games/brawl/input';
 import { SUB } from '../../games/brawl/stages';
-import { ROUNDS_TO_WIN, stageOf, type Match } from '../../games/brawl/state';
+import { FRAMES_PER_MINUTE, stageOf, timeLeft, type Match } from '../../games/brawl/state';
 import { MAX_HP } from '../../games/brawl/weapons';
 import { draw, follow, readPalette, type Burst, type Camera } from './draw';
 import { WeaponGlyph } from './Weapons';
@@ -20,7 +20,19 @@ export interface Driver {
   run(elapsed: number, thumbs: () => Input): Match;
 }
 
-/** One chip per fighter: weapon and ammo, HP, and rounds won. Your own is gold. */
+/** Rounds won as pips up to the target, or as "2/7" once the target is long. */
+function Wins({ won, target }: { won: number; target: number }) {
+  if (target > 5) return <span className="brawl-wins">{`${won}/${target}`}</span>;
+  return (
+    <span className="brawl-stocks" aria-label={`${won} of ${target} rounds won`}>
+      {Array.from({ length: target }, (_, i) => (
+        <i key={i} className={i < won ? 'on' : undefined} />
+      ))}
+    </span>
+  );
+}
+
+/** One chip per fighter: weapon and ammo, HP, and rounds won (or the score, timed). Your own is gold. */
 function Hud({ match, labels, local }: { match: Match; labels: string[]; local: number }) {
   const n = match.fighters.length;
   return (
@@ -35,11 +47,11 @@ function Hud({ match, labels, local }: { match: Match; labels: string[]; local: 
           <span className="brawl-hp" aria-label={`${f.hp} HP`}>
             <i className={f.hp > MAX_HP / 2 ? 'good' : f.hp > MAX_HP / 4 ? 'mid' : 'low'} style={{ width: `${(f.hp / MAX_HP) * 100}%` }} />
           </span>
-          <span className="brawl-stocks" aria-label={`${match.wins[seat]} rounds won`}>
-            {Array.from({ length: ROUNDS_TO_WIN }, (_, i) => (
-              <i key={i} className={i < match.wins[seat] ? 'on' : undefined} />
-            ))}
-          </span>
+          {match.rules.mode === 'timed' ? (
+            <span className="brawl-wins">{f.alive ? f.score : `${f.score} · back in ${Math.ceil(f.respawn / 60)}`}</span>
+          ) : (
+            <Wins won={match.wins[seat]} target={match.rules.value} />
+          )}
         </div>
       ))}
     </div>
@@ -47,7 +59,20 @@ function Hud({ match, labels, local }: { match: Match; labels: string[]; local: 
 }
 
 /** A short line for the HUD's re-render check: only what it shows. */
-const hudKey = (m: Match) => `${m.between > 0 ? m.roundWinner : 'on'}:${m.round}|` + m.fighters.map((f, i) => `${f.hp}:${f.alive}:${f.weapon}:${f.ammo}:${m.wins[i]}`).join('|');
+const hudKey = (m: Match) =>
+  `${m.between > 0 ? m.roundWinner : 'on'}:${m.round}:${clock(m)}:${stageNews(m)}|` +
+  m.fighters.map((f, i) => `${f.hp}:${f.alive}:${f.weapon}:${f.ammo}:${m.wins[i]}:${f.score}:${Math.ceil(f.respawn / 60)}`).join('|');
+
+/** Timed mode: the time left as m:ss, or sudden death once it's up with the lead tied. */
+function clock(m: Match): string {
+  if (m.rules.mode !== 'timed') return '';
+  if (m.overtime) return 'Sudden death';
+  const seconds = Math.ceil(timeLeft(m) / 60);
+  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
+}
+
+/** Timed mode: a new stage just came round (its name shows for a moment). */
+const stageNews = (m: Match) => m.rules.mode === 'timed' && m.round > 0 && m.frame % FRAMES_PER_MINUTE < 90;
 
 const BUTTONS: { id: Button; label: string }[] = [
   { id: 'heavy', label: 'Heavy' },
@@ -234,6 +259,13 @@ export function Arena({
         {action}
       </header>
 
+      {hud.rules.mode === 'timed' && <div className={hud.overtime ? 'brawl-clock overtime' : 'brawl-clock'}>{clock(hud)}</div>}
+      {stageNews(hud) && (
+        <div className="brawl-banner" aria-live="polite">
+          <strong>{stageOf(hud).name}</strong>
+          <span>Next stage</span>
+        </div>
+      )}
       {hud.between > 0 && hud.winner === null && (
         <div className="brawl-banner" aria-live="polite">
           <strong>{hud.roundWinner !== null && hud.roundWinner >= 0 ? `${labels[hud.roundWinner] === 'You' ? 'You take' : `${labels[hud.roundWinner]} takes`} the round` : 'Nobody left standing'}</strong>

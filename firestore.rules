@@ -686,10 +686,18 @@ service cloud.firestore {
       let after = request.resource.data;
       return before.status == 'lobby' && request.auth.uid == before.host
         && before.playerIds.size() == 2
-        && after.diff(before).affectedKeys().hasOnly(['status', 'seed', 'startedAt'])
+        && after.diff(before).affectedKeys().hasOnly(['status', 'seed', 'startedAt', 'rules'])
         && after.status == 'playing'
         && after.seed is string && after.seed.size() >= 6 && after.seed.size() <= 40
+        && (!('rules' in after) || isBrawlRules(after.rules))
         && after.startedAt == request.time;
+    }
+
+    // How the fight is won: rounds to 3, 5, 7 or 10 points, or 3 to 5 minutes timed.
+    function isBrawlRules(rules) {
+      return rules is map && rules.keys().hasAll(['mode', 'value']) && rules.keys().hasOnly(['mode', 'value'])
+        && ((rules.mode == 'score' && rules.value in [3, 5, 7, 10])
+          || (rules.mode == 'timed' && rules.value in [3, 4, 5]));
     }
 
     function isBrawlFinish() {

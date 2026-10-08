@@ -31,14 +31,34 @@ import {
  * takes the round, and the first to three takes the match. Weapons drop in now and then
  * (which and where from the seed); touch one bare-handed to pick it up. It has so many
  * shots or swings; empty, the next Attack throws it. Heavy is held: a charged kick, or a
- * throw of what you hold if the stick is pushed. Dodge rolls on the ground and, in the air,
- * lays a short-lived floor of ice to stand on.
+ * throw of what you hold if the stick is pushed. Dodge rolls on the ground and dashes in the
+ * air. Every stage is walled in with a floor; the top is open, and anyone launched up there
+ * just falls back in.
+ *
+ * Two ways to play (the match's `rules`): **score**, rounds where the last one standing gets
+ * a point, first to the chosen number; or **timed**, three to five minutes where a kill is +2
+ * and a death −3, everyone respawns, the stage changes each minute, and a tie at the end
+ * goes to sudden death.
  */
 
 /** Bump when a change would make old saved matches play differently. */
 export const BRAWL_VERSION = 8;
 
-export const ROUNDS_TO_WIN = 3;
+/** How a match is won: rounds to a number of points, or the best score after some minutes. */
+export interface Rules {
+  mode: 'score' | 'timed';
+  /** Points to win (score), or minutes (timed). */
+  value: number;
+}
+export const DEFAULT_RULES: Rules = { mode: 'score', value: 3 };
+export const SCORE_TARGETS = [3, 5, 7, 10];
+export const TIMED_MINUTES = [3, 4, 5];
+export const FRAMES_PER_MINUTE = 3600;
+/** Timed mode: back in the fight this long after going down, and safe a moment after. */
+export const RESPAWN_FRAMES = 120;
+const RESPAWN_SAFE = 90;
+export const KILL_POINTS = 2;
+export const DEATH_POINTS = 3;
 /** The pause between rounds, with the round's winner shown. */
 export const ROUND_BREAK = 120;
 
@@ -60,13 +80,16 @@ export interface FighterState {
   alive: boolean;
   /** Frames since going down, for the fall and fade. */
   deadFor: number;
-  /** What's stood on: a stage platform's index, then the moving ones, ICE_BASE + an ice floor's id, or -1 in the air. */
+  /** What's stood on: a stage platform's index, then the moving ones, or -1 in the air. */
   platform: number;
   airJumps: number;
   /** The upward heavy's leap, once per trip into the air. */
   recoveryUsed: boolean;
-  /** The air dodge's ice floor, once per trip into the air. */
-  iceUsed: boolean;
+  /** The air dash, once per trip into the air. */
+  airDashUsed: boolean;
+  /** Timed mode: points so far, and frames until back in the fight after going down. */
+  score: number;
+  respawn: number;
   /** Frames left of a roll, and before the next one. */
   dodge: number;
   dodgeCooldown: number;
@@ -143,16 +166,6 @@ export interface Blast {
   age: number;
 }
 
-/** A floor of ice laid by an air dodge: anyone can stand on it until it melts. */
-export interface Ice {
-  id: number;
-  owner: number;
-  /** Centre of its top, in sub-units. */
-  x: number;
-  y: number;
-  life: number;
-}
-
 export interface Match {
   v: number;
   seed: string;
@@ -177,9 +190,9 @@ export interface Match {
   items: Item[];
   projectiles: Projectile[];
   blasts: Blast[];
-  ice: Ice[];
-  /** Ice floors laid so far, for their ids. */
-  iced: number;
+  rules: Rules;
+  /** Timed mode: time's up with the lead tied, so the first to lead alone wins. */
+  overtime: boolean;
   /** The frame the next weapon drops, and how many have dropped. */
   nextItem: number;
   dropped: number;
@@ -215,9 +228,9 @@ const BLAST_FRAMES = 18;
 const ROLL_FRAMES = 18;
 const ROLL_SPEED = 900;
 const ROLL_COOLDOWN = 40;
-export const ICE_BASE = 1000;
-export const ICE_HALF = 50;
-export const ICE_LIFE = 120;
+/** The air dash: this long, this fast, untouchable throughout. */
+const AIR_DASH_FRAMES = 14;
+const AIR_DASH_SPEED = 1100;
 
 /** A held heavy is fully charged after this long: twice the kick, twice the throw. */
 export const MAX_CHARGE = 60;
@@ -239,9 +252,9 @@ const LASER_DAMAGE = 30;
 export const MINE_REARM = 300;
 /** How fast a black hole drags fighters in: about half a run. */
 const VORTEX_PULL = 280;
-/** On ice: slow to get going, slow to stop. */
-const ICE_ACCEL = 45;
-const ICE_FRICTION = 8;
+/** On slippery ground: slow to get going, slow to stop. */
+const SLIP_ACCEL = 45;
+const SLIP_FRICTION = 8;
 /** A banana peel the thrower can slip on too, once it's had a moment to land. */
 const TRAP_SETTLE = 40;
 const HAZARD_COOLDOWN = 30;
@@ -261,7 +274,9 @@ function freshFighter(spawn: { x: number; y: number }): FighterState {
     platform: -1,
     airJumps: 1,
     recoveryUsed: false,
-    iceUsed: false,
+    airDashUsed: false,
+    score: 0,
+    respawn: 0,
     dodge: 0,
     dodgeCooldown: 0,
     weapon: 'fists',
@@ -308,21 +323,20 @@ function startRound(m: Match, r: number) {
   const stage = STAGES[m.stage];
   m.fighters = m.fighters.map((f, i) => {
     const fresh = freshFighter(stage.spawns[i % stage.spawns.length]);
-    return { ...fresh, kos: f.kos, falls: f.falls, dealt: f.dealt };
+    return { ...fresh, kos: f.kos, falls: f.falls, dealt: f.dealt, score: f.score };
   });
   m.crumble = stage.platforms.map(() => 0);
   m.mines = stage.hazard.kind === 'mines' ? stage.hazard.xs.map(() => 0) : [];
   m.items = [];
   m.projectiles = [];
   m.blasts = [];
-  m.ice = [];
   m.between = 0;
   m.roundWinner = null;
   m.nextItem = m.frame + FIRST_ITEM;
   settle(m);
 }
 
-export function newMatch(seed: string, seats: Seat[]): Match {
+export function newMatch(seed: string, seats: Seat[], rules: Rules = DEFAULT_RULES): Match {
   // The stage order: every stage once, shuffled by the seed, then round again.
   const roll = stream(`${seed}:stages`);
   const order = STAGES.map((_, i) => i);
@@ -347,8 +361,8 @@ export function newMatch(seed: string, seats: Seat[]): Match {
     items: [],
     projectiles: [],
     blasts: [],
-    ice: [],
-    iced: 0,
+    rules,
+    overtime: false,
     nextItem: FIRST_ITEM,
     dropped: 0,
     winner: null,
@@ -394,12 +408,8 @@ export function surface(m: Match, index: number): Surface | null {
   if (index < 0) return null;
   const stage = stageOf(m);
   if (index < stage.platforms.length) return isGone(m, index) ? null : toSurface(stage.platforms[index]);
-  if (index < ICE_BASE) {
-    const mover = stage.movers[index - stage.platforms.length];
-    return mover ? toSurface(moverAt(mover, m.frame)) : null;
-  }
-  const ice = m.ice.find((i) => i.id === index - ICE_BASE);
-  return ice ? { left: ice.x - ICE_HALF * SUB, right: ice.x + ICE_HALF * SUB, top: ice.y, bottom: ice.y, soft: true, bounce: false, crumbles: false, slippery: false, belt: 0 } : null;
+  const mover = stage.movers[index - stage.platforms.length];
+  return mover ? toSurface(moverAt(mover, m.frame)) : null;
 }
 
 /** Every surface there is this frame, with its index. */
@@ -411,7 +421,6 @@ function surfaces(m: Match): [number, Surface][] {
     const s = surface(m, i);
     if (s) out.push([i, s]);
   }
-  for (const ice of m.ice) out.push([ICE_BASE + ice.id, surface(m, ICE_BASE + ice.id)!]);
   return out;
 }
 
@@ -560,12 +569,9 @@ function land(m: Match, f: FighterState, index: number, s: Surface) {
   f.y = s.top;
   f.vy = 0;
   f.airJumps = 1;
-  // Only real ground gives back the leap and the ice: standing on ice doesn't make more.
-  if (index < ICE_BASE) {
-    f.recoveryUsed = false;
-    f.iceUsed = false;
-    if (s.crumbles && m.crumble[index] === 0) m.crumble[index] = 1;
-  }
+  f.recoveryUsed = false;
+  f.airDashUsed = false;
+  if (s.crumbles && m.crumble[index] === 0) m.crumble[index] = 1;
   if (f.move && f.moveAir) {
     f.move = 0;
     f.lag = LAND_LAG;
@@ -573,7 +579,7 @@ function land(m: Match, f: FighterState, index: number, s: Surface) {
   if (f.hitstun > 0) f.hitstun = Math.trunc(f.hitstun / 2);
 }
 
-/** Dodge: a roll on the ground, or in the air a floor of ice to stand on. */
+/** Dodge: a roll on the ground, or in the air a quick dash along the stick (a hover with it centred). */
 function dodge(m: Match, seat: number, action: Input) {
   const f = m.fighters[seat];
   if (f.platform >= 0) {
@@ -586,14 +592,14 @@ function dodge(m: Match, seat: number, action: Input) {
     f.dodgeCooldown = ROLL_COOLDOWN;
     return;
   }
-  if (f.iceUsed) return;
-  const id = m.iced++;
-  m.ice.push({ id, owner: seat, x: f.x, y: f.y, life: ICE_LIFE });
-  f.iceUsed = true;
-  f.platform = ICE_BASE + id;
-  f.vy = 0;
-  f.airJumps = 1;
-  f.vx = Math.trunc(f.vx / 2);
+  if (f.airDashUsed) return;
+  const [ux, uy] = aimVector(dirX(action), dirY(action));
+  f.airDashUsed = true;
+  f.dodge = AIR_DASH_FRAMES;
+  f.invulnerable = Math.max(f.invulnerable, AIR_DASH_FRAMES);
+  f.vx = Math.trunc((ux * AIR_DASH_SPEED) / 1000);
+  f.vy = Math.trunc((uy * AIR_DASH_SPEED) / 1000);
+  if (ux !== 0) f.facing = ux > 0 ? 1 : -1;
 }
 
 /** Fires a gun's shots: one, a fan, or a burst along the aim. */
@@ -633,6 +639,8 @@ function updateFighter(m: Match, seat: number, input: Input) {
   const f = m.fighters[seat];
   const gravity = stageOf(m).gravity ?? GRAVITY;
   if (!f.alive) {
+    // Timed mode: back in the fight after a moment.
+    if (f.respawn > 0 && --f.respawn === 0) return revive(m, seat);
     // Down: limp, falling, gone from the fight.
     f.deadFor++;
     f.vy = Math.min(f.vy + gravity, MAX_LAUNCH_FALL);
@@ -663,7 +671,7 @@ function updateFighter(m: Match, seat: number, input: Input) {
   if (f.dodgeCooldown > 0 && f.dodge === 0) f.dodgeCooldown--;
 
   // Riding a moving platform: carried along with it.
-  if (f.platform >= stage.platforms.length && f.platform < ICE_BASE) {
+  if (f.platform >= stage.platforms.length) {
     const mover = stage.movers[f.platform - stage.platforms.length];
     f.x += (moverAt(mover, m.frame).left - moverAt(mover, m.frame - 1).left) * SUB;
   }
@@ -727,7 +735,12 @@ function updateFighter(m: Match, seat: number, input: Input) {
   // Run on the ground, drift in the air; a swing on the ground plants the feet; a roll carries on.
   if (f.dodge > 0) {
     f.dodge--;
-    f.vx = approach(f.vx, 0, 40);
+    if (f.platform >= 0) f.vx = approach(f.vx, 0, 40);
+    else if (f.dodge === 0) {
+      // The dash ends: it slows, and gravity takes over again.
+      f.vx = Math.trunc(f.vx / 2);
+      f.vy = Math.trunc(f.vy / 2);
+    }
   }
   const control = f.hitstun === 0 && f.lag === 0 && f.dodge === 0 && (!f.move || f.platform < 0);
   const underfoot = f.platform >= 0 ? surface(m, f.platform) : null;
@@ -736,12 +749,12 @@ function updateFighter(m: Match, seat: number, input: Input) {
     const ground = f.platform >= 0;
     // Charging, you can only shuffle along on the ground.
     const target = dx * (ground ? (f.charge > 0 ? Math.trunc(BODY.run / CHARGE_WALK) : BODY.run) : BODY.air);
-    f.vx = approach(f.vx, target, ground ? (icy ? ICE_ACCEL : GROUND_ACCEL) : dx === 0 ? 20 : AIR_ACCEL);
+    f.vx = approach(f.vx, target, ground ? (icy ? SLIP_ACCEL : GROUND_ACCEL) : dx === 0 ? 20 : AIR_ACCEL);
     if (ground && dx !== 0 && !f.move) f.facing = dx as 1 | -1;
   } else if (f.dodge > 0) {
     // The roll keeps its own pace.
   } else if (f.platform >= 0) {
-    f.vx = approach(f.vx, 0, icy ? ICE_FRICTION : f.hitstun > 0 ? 50 : FRICTION / 2);
+    f.vx = approach(f.vx, 0, icy ? SLIP_FRICTION : f.hitstun > 0 ? 50 : FRICTION / 2);
   } else {
     f.vx = approach(f.vx, 0, f.hitstun > 0 ? LAUNCH_DRAG : 20);
   }
@@ -750,7 +763,8 @@ function updateFighter(m: Match, seat: number, input: Input) {
   const wind = windAt(m);
   if (wind.dir !== 0 && !wind.warning) f.vx += wind.dir * (f.platform >= 0 ? WIND.push / 2 : WIND.push);
 
-  if (f.platform < 0) {
+  // No falling mid-dash.
+  if (f.platform < 0 && f.dodge === 0) {
     const cap = f.hitstun > 0 ? MAX_LAUNCH_FALL : input & DOWN && f.vy > 0 ? FAST_FALL : MAX_FALL;
     f.vy = Math.min(f.vy + gravity, Math.max(cap, f.vy));
   }
@@ -859,7 +873,7 @@ function applyHit(m: Match, h: Hit) {
   // A hit knocks the charge out of a held heavy.
   target.charge = 0;
   target.dodge = 0;
-  target.iceUsed = false;
+  target.airDashUsed = false;
   target.lag = 0;
   target.buffer = 0;
   target.bufferAge = 0;
@@ -1109,8 +1123,9 @@ function hazards(m: Match) {
         break;
       }
     }
-    if (hazard.kind === 'spikes') {
-      for (const s of hazard.strips) {
+    const beds = [...stageOf(m).pits, ...(hazard.kind === 'spikes' ? hazard.strips : [])];
+    if (beds.length) {
+      for (const s of beds) {
         const box = { left: s.left * SUB, right: s.right * SUB, top: s.top * SUB, bottom: s.bottom * SUB };
         if (!overlaps(box, f)) continue;
         f.hazardCooldown = HAZARD_COOLDOWN;
@@ -1134,12 +1149,86 @@ function knockOut(m: Match, f: FighterState) {
   f.deadFor = 0;
   f.falls++;
   if (f.lastHitBy >= 0) m.fighters[f.lastHitBy].kos++;
+  if (m.rules.mode === 'timed') {
+    // A death costs 3; whoever hit them last gets 2. Back in a moment.
+    f.score -= DEATH_POINTS;
+    if (f.lastHitBy >= 0) m.fighters[f.lastHitBy].score += KILL_POINTS;
+    f.respawn = RESPAWN_FRAMES;
+  }
   f.platform = -1;
   f.move = 0;
   f.charge = 0;
   f.dodge = 0;
   // Go limp, with a last little hop.
   f.vy = Math.min(f.vy, -600);
+}
+
+/** Stands a fighter on whatever ground is under their feet, if any. */
+function settleOne(m: Match, f: FighterState) {
+  stageOf(m).platforms.forEach((p, i) => {
+    if (f.platform < 0 && f.x >= p.left * SUB && f.x <= p.right * SUB && f.y === p.top * SUB) f.platform = i;
+  });
+}
+
+/** Timed mode: back in, bare-handed and whole, at the spawn furthest from everyone else. */
+function revive(m: Match, seat: number) {
+  const stage = stageOf(m);
+  const others = m.fighters.filter((g, i) => i !== seat && g.alive);
+  let best = stage.spawns[0];
+  let bestGap = -1;
+  for (const s of stage.spawns) {
+    const gap = others.length ? Math.min(...others.map((g) => Math.abs(g.x - s.x * SUB) + Math.abs(g.y - s.y * SUB))) : 0;
+    if (gap > bestGap) {
+      bestGap = gap;
+      best = s;
+    }
+  }
+  const old = m.fighters[seat];
+  const fresh = freshFighter(best);
+  m.fighters[seat] = { ...fresh, kos: old.kos, falls: old.falls, dealt: old.dealt, score: old.score, invulnerable: RESPAWN_SAFE };
+  settleOne(m, m.fighters[seat]);
+}
+
+/** Timed mode, each minute: everyone to the next stage, at its spawns; scores and HP stay. */
+function nextStage(m: Match) {
+  m.round++;
+  m.stage = m.order[m.round % m.order.length];
+  const stage = STAGES[m.stage];
+  m.fighters = m.fighters.map((f, i) => {
+    if (!f.alive) return f;
+    const spawn = stage.spawns[i % stage.spawns.length];
+    const moved = { ...f, x: spawn.x * SUB, y: spawn.y * SUB, vx: 0, vy: 0, platform: -1, move: 0 as const, dodge: 0, hitstun: 0, charge: 0 };
+    settleOne(m, moved);
+    return moved;
+  });
+  m.crumble = stage.platforms.map(() => 0);
+  m.mines = stage.hazard.kind === 'mines' ? stage.hazard.xs.map(() => 0) : [];
+  m.items = [];
+  m.projectiles = [];
+  m.blasts = [];
+  m.nextItem = m.frame + FIRST_ITEM;
+}
+
+/** The single leader by score, or -1 if the lead is shared. */
+export function leader(m: Match): number {
+  const top = Math.max(...m.fighters.map((f) => f.score));
+  const at = m.fighters.flatMap((f, i) => (f.score === top ? [i] : []));
+  return at.length === 1 ? at[0] : -1;
+}
+
+/** Frames left in a timed match (0 once time's up). */
+export const timeLeft = (m: Match) => Math.max(0, m.rules.value * FRAMES_PER_MINUTE - m.frame);
+
+function timed(m: Match) {
+  const end = m.rules.value * FRAMES_PER_MINUTE;
+  if (m.frame < end) {
+    if (m.frame % FRAMES_PER_MINUTE === 0) nextStage(m);
+    return;
+  }
+  // Time's up: one clear leader wins; a tie plays on until someone leads alone.
+  const w = leader(m);
+  if (w >= 0) m.winner = w;
+  else m.overtime = true;
 }
 
 /** One frame of the fight, from every seat's input. Returns a new match; the old one is untouched. */
@@ -1155,8 +1244,6 @@ export function step(match: Match, inputs: readonly Input[]): Match {
     items: match.items,
     projectiles: match.projectiles.map((p) => ({ ...p })),
     blasts: match.blasts.map((b) => ({ ...b, age: b.age + 1 })).filter((b) => b.age < BLAST_FRAMES),
-    // Ice melts; anyone on a floor that's gone simply falls.
-    ice: match.ice.map((i) => ({ ...i, life: i.life - 1 })).filter((i) => i.life > 0),
   };
 
   m.fighters.forEach((_, i) => updateFighter(m, i, inputs[i] ?? 0));
@@ -1204,20 +1291,26 @@ export function step(match: Match, inputs: readonly Input[]): Match {
   for (const h of hits) applyHit(m, h);
   hazards(m);
 
-  // Off the edge of the world: out.
+  // Off the sides or the bottom of the world: out. (The walls make that rare.) The top is
+  // open: anyone launched up there just falls back in.
   const blast = stageOf(m).blast;
   m.fighters.forEach((f) => {
     if (!f.alive) return;
     const x = f.x / SUB;
     const y = f.y / SUB;
-    if (x < blast.left || x > blast.right || y < blast.top || y > blast.bottom) knockOut(m, f);
+    if (x < blast.left || x > blast.right || y > blast.bottom) knockOut(m, f);
   });
+
+  if (m.rules.mode === 'timed') {
+    timed(m);
+    return m;
+  }
 
   // The round: over when one (or none) is left; after a pause, the next, or the match is won.
   if (m.between > 0) {
     if (--m.between === 0) {
       const w = m.roundWinner ?? -1;
-      if (w >= 0 && m.wins[w] >= ROUNDS_TO_WIN) m.winner = w;
+      if (w >= 0 && m.wins[w] >= m.rules.value) m.winner = w;
       else startRound(m, m.round + 1);
     }
   } else {

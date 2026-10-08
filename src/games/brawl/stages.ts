@@ -24,6 +24,8 @@ export interface Platform {
   slippery?: boolean;
   /** A conveyor: carries anyone standing on it this many sub-units a frame (negative is left). */
   belt?: number;
+  /** The stage's enclosure (a wall or the floor), not part of its own layout. */
+  frame?: boolean;
 }
 
 /** A platform riding back and forth: `dx`/`dy` either side of where it's drawn, once each `period`. */
@@ -99,12 +101,18 @@ export interface Stage {
   safe: { left: number; right: number; top: number }[];
   /** Sub-units a frame², if not the usual 50: the Moon's is lower. */
   gravity?: number;
+  /** The enclosure: side walls (their inner faces) and the floor's top. */
+  walls: { left: number; right: number };
+  floor: number;
+  /** Spike beds at the bottom of its pits. */
+  pits: Box[];
 }
 
 const solid = (left: number, right: number, top: number, bottom: number, extra: Partial<Platform> = {}): Platform => ({ left, right, top, bottom, soft: false, ...extra });
 const ledge = (left: number, right: number, top: number, extra: Partial<Platform> = {}): Platform => ({ left, right, top, bottom: top, soft: true, ...extra });
 
-export const STAGES: readonly Stage[] = [
+/** The stages as designed, before they're closed in. */
+const LAYOUTS: readonly Omit<Stage, 'walls' | 'floor' | 'pits'>[] = [
   {
     id: 'rooftops',
     name: 'Rooftops',
@@ -337,8 +345,8 @@ export const STAGES: readonly Stage[] = [
   {
     id: 'cave',
     name: 'Cave',
-    // A rock ceiling close overhead: no flying out the top here.
-    platforms: [solid(-360, 360, 0, 40), solid(-360, 360, -330, -290), ledge(-250, -120, -150), ledge(120, 250, -150)],
+    // A rock ceiling close overhead, wall to wall: the one stage with a closed top.
+    platforms: [solid(-360, 360, 0, 40), solid(-400, 400, -330, -290), ledge(-250, -120, -150), ledge(120, 250, -150)],
     movers: [],
     spawns: [
       { x: -230, y: 0 },
@@ -403,6 +411,57 @@ export const STAGES: readonly Stage[] = [
     safe: [{ left: -300, right: 300, top: 0 }],
   },
 ];
+
+/**
+ * Every stage is closed in (the user's choice): walls either side that rise far above the
+ * screen, and a floor within a double jump of the main ground. Where a stage had a gap,
+ * the bottom of the gap is a bed of spikes. Nobody falls out; the top stays open, and
+ * whoever's launched up there just falls back in.
+ */
+const CLOSING: Record<string, { walls: [number, number]; floor: number; pits?: Box[] }> = {
+  rooftops: { walls: [-400, 400], floor: 200, pits: [{ left: -90, right: 90, top: 186, bottom: 200 }] },
+  lifts: { walls: [-470, 470], floor: 200 },
+  lava: { walls: [-500, 500], floor: 260 },
+  spikes: { walls: [-480, 480], floor: 110 },
+  crumble: { walls: [-420, 420], floor: 200, pits: [{ left: -420, right: 420, top: 186, bottom: 200 }] },
+  gusts: { walls: [-420, 420], floor: 200 },
+  conveyor: { walls: [-400, 400], floor: 200, pits: [{ left: -50, right: 50, top: 186, bottom: 200 }] },
+  rink: { walls: [-400, 400], floor: 200 },
+  moon: { walls: [-420, 420], floor: 260 },
+  sawmill: { walls: [-420, 420], floor: 200 },
+  trampolines: { walls: [-430, 430], floor: 220 },
+  columns: {
+    walls: [-400, 400],
+    floor: 200,
+    pits: [
+      { left: -310, right: -200, top: 186, bottom: 200 },
+      { left: -110, right: -45, top: 186, bottom: 200 },
+      { left: 45, right: 110, top: 186, bottom: 200 },
+      { left: 200, right: 310, top: 186, bottom: 200 },
+    ],
+  },
+  cave: { walls: [-400, 400], floor: 200 },
+  minefield: { walls: [-400, 400], floor: 200 },
+  lasers: { walls: [-400, 400], floor: 200 },
+  anvils: { walls: [-400, 400], floor: 200 },
+};
+
+/** How high the walls reach: far above anything a launch can reach. */
+const WALL_TOP = -3000;
+
+export const STAGES: readonly Stage[] = LAYOUTS.map((stage) => {
+  const c = CLOSING[stage.id];
+  const [left, right] = c.walls;
+  const enclosure: Platform[] = [
+    { left, right, top: c.floor, bottom: c.floor + 60, soft: false, frame: true },
+    { left: left - 60, right: left, top: WALL_TOP, bottom: c.floor + 60, soft: false, frame: true },
+    { left: right, right: right + 60, top: WALL_TOP, bottom: c.floor + 60, soft: false, frame: true },
+  ];
+  return { ...stage, platforms: [...stage.platforms, ...enclosure], walls: { left, right }, floor: c.floor, pits: c.pits ?? [] };
+});
+
+/** A stage's own platforms, without its walls and floor. */
+export const layoutOf = (stage: Stage) => stage.platforms.filter((p) => !p.frame);
 
 /** How far along its trip a mover (or saw) is at a frame: -1000 to 1000, back and forth (a triangle wave). */
 export function swing(mover: { period: number; phase: number }, frame: number): number {

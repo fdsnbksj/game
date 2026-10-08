@@ -4,7 +4,9 @@ import { Page } from '../../components/Page';
 import { Lobby as LobbyFrame } from '../../components/RoomSetup';
 import { decode, encode, type Message } from '../../games/brawl/net';
 import { Session } from '../../games/brawl/rollback';
-import { newMatch, type Match } from '../../games/brawl/state';
+import { newMatch, type Match, type Rules } from '../../games/brawl/state';
+import { useBrawlStore } from '../../brawlStore';
+import { FinalScores, RulesPicker } from './Brawl';
 import { forgetRoom } from '../../lastPage';
 import {
   connect,
@@ -88,6 +90,8 @@ function NotIn({ room }: { room: Brawl }) {
 
 function Lobby({ room, uid }: { room: Brawl; uid: string }) {
   const [error, setError] = useState<string | null>(null);
+  // The host's choice, starting from the rules they last played with.
+  const [rules, setRules] = useState<Rules>(() => useBrawlStore.getState().rules);
   const ready = room.playerIds.length === 2;
   return (
     <LobbyFrame
@@ -110,11 +114,12 @@ function Lobby({ room, uid }: { room: Brawl; uid: string }) {
           <p className="note center-note">Best on the same Wi-Fi. Some mobile networks can't connect two phones directly.</p>
         </>
       }
+      options={room.host === uid ? <RulesPicker rules={rules} onChange={setRules} /> : undefined}
       action={
         <>
           {error && <p className="error">{error}</p>}
           {room.host === uid ? (
-            <button className="button primary" disabled={!ready} onClick={() => void startBrawl(room.code).catch((e) => setError(String(e)))}>
+            <button className="button primary" disabled={!ready} onClick={() => void startBrawl(room.code, rules).catch((e) => setError(String(e)))}>
               {ready ? 'Fight' : 'Waiting for a rival'}
             </button>
           ) : (
@@ -177,7 +182,7 @@ function OnlineFight({ room, uid }: { room: Brawl; uid: string }) {
   };
 
   const startRound = (r: number, seed: string) => {
-    session.current = new Session(newMatch(seed, seats), local, r);
+    session.current = new Session(newMatch(seed, seats, room.rules), local, r);
     lastHeard.current = performance.now();
     over.current = false;
     setEnded(null);
@@ -402,10 +407,12 @@ function OnlineFight({ room, uid }: { room: Brawl; uid: string }) {
           <div className="panel" role="dialog" aria-label="Fight over">
             <p className="solved-title">Fight over</p>
             <p className="brawl-result">
-              {won ? 'You win' : `${otherName} wins`} {ended.wins[ended.winner ?? 0]}–{ended.wins[1 - (ended.winner ?? 0)]}
+              {won ? 'You win' : `${otherName} wins`}
+              {ended.rules.mode === 'score' && ` ${ended.wins[ended.winner ?? 0]}–${ended.wins[1 - (ended.winner ?? 0)]}`}
             </p>
+            {ended.rules.mode === 'timed' && <FinalScores match={ended} names={labels} />}
             <p className="note">
-              {ended.fighters[local].kos} {ended.fighters[local].kos === 1 ? 'knockout' : 'knockouts'} · {ended.fighters[local].dealt}% damage dealt
+              {ended.fighters[local].kos} {ended.fighters[local].kos === 1 ? 'knockout' : 'knockouts'} · {ended.fighters[local].dealt} damage dealt
             </p>
             {host ? (
               <button className="button primary" onClick={again}>

@@ -1,6 +1,7 @@
 import { FirebaseError } from 'firebase/app';
 import { collection, doc, getDoc, getDocs, onSnapshot, serverTimestamp, setDoc, updateDoc, type Unsubscribe } from 'firebase/firestore';
 import { db } from '../firebase';
+import { DEFAULT_RULES, type Rules } from '../games/brawl/state';
 import { useGameStore } from '../store';
 import { newCode } from './roomCode';
 
@@ -17,6 +18,8 @@ export interface Brawl {
   names: Record<string, string>;
   status: 'lobby' | 'playing' | 'done';
   seed: string | null;
+  /** How the fight is won, chosen by the host (older rooms have none: the default). */
+  rules: Rules;
 }
 
 const brawlRef = (code: string) => doc(db, 'brawls', code);
@@ -57,9 +60,10 @@ export async function joinBrawl(code: string): Promise<string | null> {
   return null;
 }
 
-export async function startBrawl(code: string) {
+/** Starts the fight with a fresh seed and the host's rules; both phones build the match from these. */
+export async function startBrawl(code: string, rules: Rules) {
   const seed = Array.from(crypto.getRandomValues(new Uint32Array(3)), (n) => n.toString(36)).join('');
-  await updateDoc(brawlRef(code), { status: 'playing', seed, startedAt: serverTimestamp() });
+  await updateDoc(brawlRef(code), { status: 'playing', seed, rules: { mode: rules.mode, value: rules.value }, startedAt: serverTimestamp() });
 }
 
 export async function finishBrawl(code: string) {
@@ -80,7 +84,7 @@ export function watchBrawl(code: string, onChange: (data: BrawlData) => void): U
       if (!snap.exists()) return onChange({ room: null, missing: true });
       const d = snap.data();
       onChange({
-        room: { code, host: d.host, playerIds: d.playerIds, names: d.names, status: d.status, seed: d.seed ?? null },
+        room: { code, host: d.host, playerIds: d.playerIds, names: d.names, status: d.status, seed: d.seed ?? null, rules: d.rules ?? DEFAULT_RULES },
         missing: false,
       });
     },

@@ -1,7 +1,7 @@
 import { stream } from '../../nonogram/rng';
 import { DODGE, DOWN, JUMP, LEFT, RIGHT, SKILL1, SKILL2, UP, type Input } from './input';
 import { SUB } from './stages';
-import { attackOf, ICE_BASE, inPlay, isActive, nearest, stageOf, surface, type Match } from './state';
+import { attackOf, inPlay, isActive, nearest, stageOf, surface, type Match } from './state';
 import { RANGED } from './weapons';
 
 /**
@@ -9,8 +9,8 @@ import { RANGED } from './weapons';
  * on every phone. It thinks every few frames (slower when easier), and between thoughts it
  * only keeps moving. Bare-handed it runs for the nearest weapon; with a gun it gets level
  * with someone and shoots; with a blade it closes in; empty, it throws. It rolls away from
- * swings it sees coming, and when knocked off it heads back to solid ground, laying ice
- * when it's out of jumps.
+ * swings it sees coming, and when knocked off it heads back to solid ground, dashing when
+ * it's out of jumps, or climbs back up from the floor.
  */
 const THINK = [0, 14, 7, 3];
 const AGGRESSION = [0, 0.35, 0.6, 0.85];
@@ -55,23 +55,28 @@ export function botInput(m: Match, seat: number): Input {
     return SKILL2 | (aim & (LEFT | RIGHT));
   }
 
-  // Standing on ice out over the drop: jump back toward the ground.
-  if (me.platform >= ICE_BASE && (x < home.left || x > home.right || y > home.top)) {
-    const back = x < homeX ? RIGHT : LEFT;
-    return thinking && !busy && !(me.prevInput & JUMP) ? back | JUMP : back;
+  // Down on the floor with the fight above: out from under the ground, then jump back up.
+  const above = nearest(m, seat);
+  const low = me.platform >= 0 && y > home.top + 30;
+  if (low && !busy && (above < 0 || (m.fighters[above].y - me.y) / SUB < -60)) {
+    // Clear of the edge: jump straight up (the air logic steers in once above the ground).
+    if (x > home.left - 30 && x < home.right + 30) return x < homeX ? LEFT : RIGHT;
+    return thinking && !(me.prevInput & JUMP) ? JUMP : 0;
   }
 
   // Off the ground: get back above it, then over it.
   if (offstage) {
     let input = 0;
     const below = y > home.top - 10;
-    const beside = x < home.left || x > home.right;
-    if (below && !beside) input |= x < homeX ? LEFT : RIGHT;
-    else input |= x < homeX ? RIGHT : LEFT;
+    // Under the ground: out from beneath it. Beside it but still below: rise straight up,
+    // clear of the edge (drifting in would hit its underside). Above it: in toward the middle.
+    const clear = x < home.left - 30 || x > home.right + 30;
+    if (below && !clear) input |= x < homeX ? LEFT : RIGHT;
+    else if (!below) input |= x < homeX ? RIGHT : LEFT;
     if (!busy && (me.vy > 0 || below) && thinking) {
       if (me.airJumps > 0 && !(me.prevInput & JUMP)) input |= JUMP;
       else if (!me.recoveryUsed && me.vy > 0) return SKILL2 | UP;
-      else if (!me.iceUsed && me.vy > 0) return DODGE;
+      else if (!me.airDashUsed && me.vy > 0) return DODGE | UP | (below ? 0 : x < homeX ? RIGHT : LEFT);
     }
     return input;
   }
