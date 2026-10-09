@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { DEFENDER_SPREAD, MAX_DELTA, pickOpponent, ratingChange, tierOf } from '../../src/games/hero/arena';
 import { BOT_LEVELS, botFighter, botMove, sparringTree } from '../../src/games/hero/bots';
 import { ATTACKS, BURN_PCT, isAttack, resolveAttack, type Kit } from '../../src/games/hero/monsters';
-import { accuracyPct, afterDef, resolve, seconds, stopwatchTarget, WHEEL, type Move } from '../../src/games/hero/skills';
+import { accuracyPct, afterDef, punchPower, resolve, rouletteBalls, seconds, stopwatchTarget, WHEEL, type Move } from '../../src/games/hero/skills';
 import { apply, replay, start, type Fighter, type HeroState, type Side } from '../../src/games/hero/state';
 import { BOT_COUNT, buy, canBuy, FRESH_TREE, GROUPS, isUpgrade, NODES, pointsFor, spent, statsOf, validTree, type NodeId, type Tree } from '../../src/games/hero/stats';
 import { hashSeed } from '../../src/shared/random';
@@ -80,19 +80,24 @@ describe('the skills', () => {
     }
   });
 
+  it('gives one ball, a second at level 5 and a third at 10, and a harder punch at every other level', () => {
+    expect([0, 1, 4, 5, 9, 10].map(rouletteBalls)).toEqual([0, 1, 1, 2, 2, 3]);
+    expect([1, 2, 4, 5, 6, 9, 10].map(punchPower)).toEqual([12, 17, 27, 27, 32, 47, 47]);
+  });
+
   it('kills outright when a roulette ball lands on the pick, about as often as the balls say', () => {
     let hits = 0;
-    const games = 4000;
+    const games = 6000;
     for (let i = 0; i < games; i++) {
       const hit = resolve({ skill: 'roulette', pick: 7 }, tree({ roulette: 10 }), plain, plain, `r${i}`, 0);
       if (hit.detail.skill !== 'roulette') throw new Error();
-      expect(hit.detail.balls).toHaveLength(10);
+      expect(hit.detail.balls).toHaveLength(3);
       expect(hit.kill).toBe(hit.detail.balls.includes(7));
       if (hit.kill) hits++;
-      else expect(hit.damage).toBeGreaterThan(0);
+      else expect(hit.damage).toBeGreaterThanOrEqual(47);
     }
-    const expected = 1 - (36 / WHEEL) ** 10;
-    expect(Math.abs(hits / games - expected)).toBeLessThan(0.03);
+    const expected = 1 - (36 / WHEEL) ** 3;
+    expect(Math.abs(hits / games - expected)).toBeLessThan(0.015);
   });
 
   it('lays out a shuffled deck, you pick and they take another, ace high, a win doing 100 as a crit and a loss nothing', () => {
@@ -207,7 +212,7 @@ describe('a fight', () => {
       const s = botFight(`golden${i}`, tree({ stopwatch: 2, roulette: 2, poker: 1, hp: 1 }), BOT_LEVELS[i % BOT_COUNT]);
       return `${s.winner}:${s.hp.join(',')}:${s.log.length}`;
     });
-    expect(hashSeed(results.join('|'))).toBe(3907017884);
+    expect(hashSeed(results.join('|'))).toBe(2961552066);
   });
 
   it('plays hero against hero with no effects, the same every time', () => {
@@ -216,7 +221,7 @@ describe('a fight', () => {
       expect(s.effects).toEqual([[], []]);
       return `${s.winner}:${s.hp.join(',')}:${s.log.length}`;
     });
-    expect(hashSeed(results.join('|'))).toBe(1961592054);
+    expect(hashSeed(results.join('|'))).toBe(2535742092);
   });
 });
 

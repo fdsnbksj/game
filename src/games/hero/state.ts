@@ -24,7 +24,7 @@ import { SKILLS, statsOf, type SkillId, type Stats, type Tree } from './stats';
 // buffs and hindrances are effects that last a few turns.
 
 /** Bump when a change would make old fights replay differently. */
-export const HERO_VERSION = 5;
+export const HERO_VERSION = 6;
 
 export type Side = 0 | 1;
 

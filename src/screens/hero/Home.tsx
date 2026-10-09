@@ -140,7 +140,7 @@ export function Home() {
               <strong>Stopwatch:</strong> you're shown a time between 1.00 and 10.00 seconds, like 4.37. Press Start, count, press Stop. The closer you are, the harder the hit. Within 0.05 s is Perfect: a sure crit.
             </p>
             <p>
-              <strong>Roulette:</strong> pick a number from 0 to 36. Each level adds a ball. If any ball lands on your number, it's an instant kill; if not, you punch.
+              <strong>Roulette:</strong> pick a number from 0 to 36. You start with one ball and get another at levels 5 and 10 (three at most); the other levels make your punch harder. If any ball lands on your number, it's an instant kill; if not, you punch.
             </p>
             <p>
               <strong>Poker:</strong> you each draw a card, 2 low to A high. Higher card hits for 100 as a crit; lower does nothing.

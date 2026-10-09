@@ -6825,3 +6825,20 @@ button.icon-button {
   font-size: var(--fs-sm);
   font-weight: 600;
 }
+
+/* Roulette's ball levels (5 and 10) carry a little ball on their slot. */
+.st-slot.ball {
+  position: relative;
+}
+
+.st-slot.ball::after {
+  content: '';
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  width: 10px;
+  height: 10px;
+  border: 2px solid var(--ink);
+  border-radius: 50%;
+  background: var(--surface);
+}

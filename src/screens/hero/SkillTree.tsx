@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router';
 import { Page } from '../../components/Page';
 import { Sheet } from '../../components/Sheet';
 import { buy, canBuy, GROUPS, NODES, pointsFor, spent, type NodeId, type NodeInfo, type Tree } from '../../games/hero/stats';
+import { BALL_LEVELS } from '../../games/hero/skills';
 import { useHeroStore } from '../../heroStore';
 import { SkillIcon } from './Fight';
 
@@ -66,7 +67,7 @@ export function SkillTree() {
                           return (
                             <button
                               key={k}
-                              className={`st-slot${owned ? ' owned' : ''}${fresh ? ' fresh' : ''}${next ? ' next' : ''}${!owned && !next ? ' chained' : ''}`}
+                              className={`st-slot${owned ? ' owned' : ''}${fresh ? ' fresh' : ''}${next ? ' next' : ''}${!owned && !next ? ' chained' : ''}${n.id === 'roulette' && BALL_LEVELS.includes(k + 1) ? ' ball' : ''}`}
                               disabled={!next}
                               onClick={() => spend(n.id)}
                               aria-label={`${n.name} level ${k + 1}`}

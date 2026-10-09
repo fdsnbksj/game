@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 
 import { Sheet } from '../../components/Sheet';
 import { botMove } from '../../games/hero/bots';
 import { ATTACK_NAMES, ATTACKS, hasEffect, type EffectId } from '../../games/hero/monsters';
-import { RANKS, rankName, seconds, stopwatchTarget, VISIBLE_MS, WHEEL, type Move } from '../../games/hero/skills';
+import { RANKS, rankName, rouletteBalls, seconds, stopwatchTarget, VISIBLE_MS, WHEEL, type Move } from '../../games/hero/skills';
 import { enraged, type HeroState, type Side, type Turn } from '../../games/hero/state';
 import { SKILLS, type SkillId } from '../../games/hero/stats';
 import { AttackFx, attackImpactMs, quakes } from './AttackFx';
@@ -415,7 +415,7 @@ function SkillPlay({ skill, state, me, onMove, onCommit }: { skill: SkillId; sta
         onStop={(ms) => onMove({ skill, ms })}
       />
     );
-  if (skill === 'roulette') return <RoulettePick balls={state.fighters[me].tree.roulette} onPick={(pick) => onMove({ skill, pick })} />;
+  if (skill === 'roulette') return <RoulettePick balls={rouletteBalls(state.fighters[me].tree.roulette)} onPick={(pick) => onMove({ skill, pick })} />;
   return <PokerPick onPick={(pick) => onMove({ skill, pick })} onCommit={onCommit} />;
 }
 
