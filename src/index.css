@@ -6608,6 +6608,7 @@ button.icon-button {
 
 /* The skill tree: a branch per group on a paper board, each skill a row of level slots. */
 .st-board {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -6638,22 +6639,6 @@ button.icon-button {
   background: var(--success-soft);
 }
 
-/* The line from the All skills branch down to the Gambler branch it opens. */
-.st-branch.st-gambler::before {
-  content: '';
-  position: absolute;
-  top: -20px;
-  left: 30px;
-  width: 6px;
-  height: 20px;
-  border: 2px solid var(--ink);
-  background: var(--accent-grad);
-}
-
-.st-branch.st-gambler.shut::before {
-  background: var(--fill-3);
-}
-
 .st-branch.shut .st-row {
   opacity: 0.6;
 }
@@ -6680,21 +6665,6 @@ button.icon-button {
   display: flex;
   align-items: center;
   gap: 10px;
-}
-
-/* Roulette to Poker: an elbow from the row above. */
-.st-link {
-  position: absolute;
-  top: -14px;
-  left: 22px;
-  width: 6px;
-  height: 14px;
-  border: 2px solid var(--ink);
-  background: var(--fill-3);
-}
-
-.st-link.on {
-  background: var(--accent-grad);
 }
 
 .st-badge {
@@ -7155,4 +7125,97 @@ button.icon-button {
   background: var(--fill-2);
   color: var(--label-2);
   -webkit-text-stroke: 0;
+}
+
+/* The skill map's roads: from the slot that opens a skill to its badge. */
+.st-roads {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 1;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.st-roads path {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.st-road-edge {
+  stroke: var(--ink);
+  stroke-width: 10;
+}
+
+.st-road {
+  stroke: var(--surface);
+  stroke-width: 5;
+  stroke-dasharray: 4 5;
+}
+
+.st-roads .open .st-road {
+  stroke: var(--accent-grad);
+  stroke-dasharray: none;
+  animation: none;
+}
+
+.st-roads .shut .st-road {
+  animation: st-road-march 1.2s linear infinite;
+}
+
+@keyframes st-road-march {
+  to {
+    stroke-dashoffset: -18;
+  }
+}
+
+.st-road-end {
+  fill: var(--surface);
+  stroke: var(--ink);
+  stroke-width: 2.5;
+}
+
+.st-roads .open .st-road-end {
+  fill: var(--accent-grad);
+}
+
+/* A slot that opens another skill wears a little flag. */
+.st-slot.opens {
+  position: relative;
+  z-index: 2;
+}
+
+.st-slot.opens::before {
+  content: '';
+  position: absolute;
+  top: -7px;
+  left: 50%;
+  width: 9px;
+  height: 9px;
+  border: 2px solid var(--ink);
+  border-radius: 50% 50% 50% 0;
+  background: var(--danger);
+  transform: translateX(-50%) rotate(-45deg);
+}
+
+.st-badge {
+  position: relative;
+  z-index: 2;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .st-roads .shut .st-road {
+    animation: none;
+  }
+}
+
+/* Room for the roads: wider gaps between rows, a margin on the left for the long ones. */
+.st-branch {
+  gap: 18px;
+  padding-left: 26px;
+}
+
+.st-board {
+  gap: 22px;
 }

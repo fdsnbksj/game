@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Page } from '../../components/Page';
 import { Sheet } from '../../components/Sheet';
@@ -23,8 +23,9 @@ import { useHeroStore } from '../../heroStore';
 import { SKILL_NAME, SkillIcon } from './Fight';
 
 // The skill tree, laid out like a game's: a branch per group (All skills, Gambler, Body),
-// each skill a row of ten level slots, chained until they open, with lines from the slot
-// that opens the next row; the next slot shows its price. Spending is a draft: Undo steps
+// each skill a row of ten level slots, chained until they open. Like a map, a road runs
+// from the exact slot that opens a skill (Stopwatch 5 → I'm Speed) to that skill's badge,
+// lit once it's open; the next slot shows its price. Spending is a draft: Undo steps
 // back, Confirm keeps it. Above it, the loadout: the skills you take into a fight.
 
 export function SkillTree() {
@@ -87,6 +88,7 @@ export function SkillTree() {
       </section>
 
       <div className="st-board">
+        <Roads draft={draft} />
         {GROUPS.map((g) => {
           const nodes = NODES.filter((n) => n.group === g.id);
           const opener = nodes[0].needs;
@@ -97,13 +99,12 @@ export function SkillTree() {
                 <strong className="tree-title">{g.name}</strong>
                 <small>{opener && !open ? `Opens at ${name(opener.node)} ${opener.level}` : g.blurb}</small>
               </header>
-              {nodes.map((n, i) => {
+              {nodes.map((n) => {
                 const level = draft[n.id];
                 const locked = !!n.needs && draft[n.needs.node] < n.needs.level;
                 return (
                   <div key={n.id} className={`st-row${locked ? ' locked' : ''}`}>
-                    {i > 0 && n.needs?.node === nodes[i - 1].id && <span className={`st-link${locked ? '' : ' on'}`} aria-hidden="true" />}
-                    <button className="st-badge" onClick={() => setInfo(n)} aria-label={`About ${n.name}`}>
+                    <button data-badge={n.id} className="st-badge" onClick={() => setInfo(n)} aria-label={`About ${n.name}`}>
                       <NodeIcon id={n.id} />
                     </button>
                     <div className="st-main">
@@ -118,10 +119,13 @@ export function SkillTree() {
                           // The next level, open but more than you have: its price, greyed.
                           const pricey = k === level && !next && !locked;
                           const cost = levelCost(n.id, k + 1);
+                          // This slot opens another skill: a road starts here.
+                          const opens = NODES.find((m) => m.needs?.node === n.id && m.needs.level === k + 1);
                           return (
                             <button
                               key={k}
-                              className={`st-slot${owned ? ' owned' : ''}${fresh ? ' fresh' : ''}${next ? ' next' : ''}${pricey ? ' pricey' : ''}${!owned && !next && !pricey ? ' chained' : ''}${n.id === 'roulette' && BALL_LEVELS.includes(k + 1) ? ' ball' : ''}`}
+                              data-slot={`${n.id}:${k + 1}`}
+                              className={`st-slot${owned ? ' owned' : ''}${fresh ? ' fresh' : ''}${next ? ' next' : ''}${pricey ? ' pricey' : ''}${!owned && !next && !pricey ? ' chained' : ''}${n.id === 'roulette' && BALL_LEVELS.includes(k + 1) ? ' ball' : ''}${opens ? ' opens' : ''}`}
                               disabled={!next}
                               onClick={() => spend(n.id)}
                               aria-label={`${n.name} level ${k + 1}${next || pricey ? `, ${cost} ${cost === 1 ? 'point' : 'points'}` : ''}`}
@@ -210,6 +214,91 @@ export function SkillTree() {
 }
 
 const name = (id: NodeId) => NODES.find((n) => n.id === id)!.name;
+
+/** Where an element sits inside `root`, by offsets (so a slot's pulsing scale doesn't move it). */
+function boxIn(el: HTMLElement, root: HTMLElement) {
+  let x = 0;
+  let y = 0;
+  for (let at: HTMLElement | null = el; at && at !== root; at = at.offsetParent as HTMLElement | null) {
+    x += at.offsetLeft;
+    y += at.offsetTop;
+  }
+  return { x, y, w: el.offsetWidth, h: el.offsetHeight };
+}
+
+interface Road {
+  id: NodeId;
+  d: string;
+  open: boolean;
+  end: { x: number; y: number };
+}
+
+/**
+ * The roads between skills, drawn over the board. Each leaves the bottom of the slot that
+ * opens a skill. When that skill's row is just below, the road crosses the gap between the
+ * rows and drops onto its badge; otherwise (another branch) it runs down the left margin
+ * and turns into the badge from the side, so it never crosses a slot.
+ */
+function Roads({ draft }: { draft: Tree }) {
+  const svg = useRef<SVGSVGElement>(null);
+  const [roads, setRoads] = useState<Road[]>([]);
+  const [size, setSize] = useState({ w: 0, h: 0 });
+  useLayoutEffect(() => {
+    // The board is the roads' own parent (its ref isn't attached yet when this runs).
+    const root = svg.current?.parentElement;
+    if (!root) return;
+    const measure = () => {
+      const next: Road[] = [];
+      for (const n of NODES) {
+        if (!n.needs) continue;
+        const slot = root.querySelector<HTMLElement>(`[data-slot="${n.needs.node}:${n.needs.level}"]`);
+        const badge = root.querySelector<HTMLElement>(`[data-badge="${n.id}"]`);
+        if (!slot || !badge) continue;
+        const a = boxIn(slot, root);
+        const b = boxIn(badge, root);
+        const fromRow = slot.closest('.st-row') as HTMLElement;
+        const toRow = badge.closest('.st-row') as HTMLElement;
+        const sx = a.x + a.w / 2;
+        const sy = a.y + a.h;
+        const rowBottom = boxIn(fromRow, root).y + fromRow.offsetHeight;
+        let d: string;
+        let end: { x: number; y: number };
+        if (fromRow.nextElementSibling === toRow) {
+          const gap = (rowBottom + boxIn(toRow, root).y) / 2;
+          const bx = b.x + b.w / 2;
+          end = { x: bx, y: b.y };
+          d = `M${sx} ${sy} V${gap} H${bx} V${b.y}`;
+        } else {
+          const gap = rowBottom + 5;
+          const lane = b.x - 14;
+          const by = b.y + b.h / 2;
+          end = { x: b.x, y: by };
+          d = `M${sx} ${sy} V${gap} H${lane} V${by} H${b.x}`;
+        }
+        next.push({ id: n.id, d, open: draft[n.needs.node] >= n.needs.level, end });
+      }
+      setRoads(next);
+      setSize({ w: root.offsetWidth, h: root.offsetHeight });
+    };
+    measure();
+    const watch = new ResizeObserver(measure);
+    watch.observe(root);
+    void document.fonts?.ready.then(measure);
+    return () => watch.disconnect();
+  }, [draft]);
+
+  return (
+    <svg ref={svg} className="st-roads" width={size.w} height={size.h} aria-hidden="true">
+      {roads.map((r) => (
+        <g key={r.id} className={r.open ? 'open' : 'shut'}>
+          <path className="st-road-edge" d={r.d} />
+          <path className="st-road" d={r.d} />
+          <circle className="st-road-end" cx={r.end.x} cy={r.end.y} r="5" />
+        </g>
+      ))}
+    </svg>
+  );
+}
 
 function priceLine(info: NodeInfo): string {
   const skill = (SKILLS as readonly NodeId[]).includes(info.id);
