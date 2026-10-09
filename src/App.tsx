@@ -16,11 +16,12 @@ import { BrawlRoom } from './screens/brawl/BrawlRoom';
 import { Arena } from './screens/hero/Arena';
 import { ArenaFight } from './screens/hero/ArenaFight';
 import { HeroFight } from './screens/hero/HeroFight';
-import { HeroHome } from './screens/hero/HeroHome';
+import { Home } from './screens/hero/Home';
+import { Summon } from './screens/hero/Summon';
+import { Wardrobe } from './screens/hero/Wardrobe';
 import { HeroOnline } from './screens/hero/HeroOnline';
 import { HeroRoom } from './screens/hero/HeroRoom';
 import { SkillTree } from './screens/hero/SkillTree';
-import { WorldMap } from './screens/world/WorldMap';
 import { WorldShell } from './screens/world/WorldShell';
 import { Zone } from './screens/world/Zone';
 import { Play } from './screens/Play';
@@ -41,7 +42,7 @@ export function App() {
           path="/"
           element={
             <WorldShell>
-              <WorldMap />
+              <Home />
             </WorldShell>
           }
         />
@@ -66,7 +67,23 @@ export function App() {
         <Route path="/brawl" element={<Brawl />} />
         <Route path="/brawl/online" element={<BrawlOnline />} />
         <Route path="/brawl/:code" element={<BrawlRoom />} />
-        <Route path="/hero" element={<HeroHome />} />
+        <Route path="/hero" element={<Navigate to="/" replace />} />
+        <Route
+          path="/hero/wardrobe"
+          element={
+            <WorldShell>
+              <Wardrobe />
+            </WorldShell>
+          }
+        />
+        <Route
+          path="/hero/summon"
+          element={
+            <WorldShell>
+              <Summon />
+            </WorldShell>
+          }
+        />
         <Route path="/hero/tree" element={<SkillTree />} />
         <Route path="/hero/fight" element={<HeroFight />} />
         <Route path="/hero/arena" element={<Arena />} />

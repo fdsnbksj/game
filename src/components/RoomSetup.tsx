@@ -14,6 +14,7 @@ export function GameHome({
   title,
   tagline,
   base,
+  back,
   howTo,
   onHost,
   onJoin,
@@ -22,6 +23,8 @@ export function GameHome({
   tagline: string;
   /** Where rooms live: `/avalon`, `/duel`, `/wonders`, `/isle`. */
   base: string;
+  /** Where the back arrow goes; the game's zone unless given. */
+  back?: string;
   howTo: ReactNode;
   onHost: () => Promise<string>;
   /** Joins; returns why not, or null. */
@@ -52,7 +55,7 @@ export function GameHome({
   };
 
   return (
-    <Page title={title} back={`/zone/${zoneOf(gameId)?.id ?? ''}`}>
+    <Page title={title} back={back ?? `/zone/${zoneOf(gameId)?.id ?? ''}`}>
       <section className="door-hero frame">
         {Glyph && (
           <span className={`game-glyph ${gameId}`}>

@@ -1,23 +1,24 @@
 import type { CSSProperties } from 'react';
 import type { AttackId, Family } from '../../games/hero/monsters';
 
-// A boss's attacks, drawn over the battlefield: slashes, shockwaves, flames, smoke, a
-// shield, a charge-up, a drain, and each family's own finisher. Bosses are always the foe,
-// so everything flies from the top right to your hero at the bottom left. The hit lands
-// at `bossImpactMs` (Fight.tsx waits for it before the HP bars move).
+// A creature's attacks, drawn over the battlefield: slashes, shockwaves, flames, smoke, a
+// shield, a charge-up, a drain, and each boss family's own finisher. Creatures are always
+// the foe, so everything flies from the top right to your hero at the bottom left. Normal
+// creatures play a smaller version (`small`); bosses the full one, and only bosses shake
+// the field. The hit lands at `attackImpactMs` (Fight.tsx waits for it).
 
-/** When a boss's attack lands, in ms from the start of its turn. */
-export const bossImpactMs = (id: AttackId) => (id === 'finisher' ? 1800 : 950);
+/** When a creature's attack lands, in ms from the start of its turn. */
+export const attackImpactMs = (id: AttackId, boss: boolean) => (id === 'finisher' ? 1800 : boss ? 950 : 850);
 
-/** Heavy hits that shake the whole field. */
-export const quakes = (id: AttackId) => id === 'slam' || id === 'finisher';
+/** Heavy hits that shake the whole field: a boss's. */
+export const quakes = (id: AttackId, boss: boolean) => boss && (id === 'slam' || id === 'finisher');
 
 const n = (count: number) => Array.from({ length: count }, (_, i) => i);
 const at = (i: number, style: CSSProperties = {}) => ({ '--i': i, ...style }) as CSSProperties;
 
-export function BossFx({ id, family }: { id: AttackId; family: Family }) {
+export function AttackFx({ id, family, boss }: { id: AttackId; family: Family; boss: boolean }) {
   return (
-    <div className={`fx-layer fx-${id}`} aria-hidden="true">
+    <div className={`fx-layer fx-${id}${boss ? '' : ' small'}`} aria-hidden="true">
       {id === 'strike' && (
         <svg className="fx-slash at-hero" viewBox="0 0 100 100">
           {n(3).map((i) => (

@@ -4,7 +4,10 @@ import { Page } from '../../components/Page';
 import { SummaryRow } from '../../components/SummaryRow';
 import { ARENA_UNLOCK, pickOpponent, START_RATING, tierOf, type ArenaHero } from '../../games/hero/arena';
 import { BOT_LEVELS, sparringTree } from '../../games/hero/bots';
+import { costumeOf } from '../../games/hero/costumes';
+import { PLAIN } from '../../games/hero/look';
 import { heroLevel, statsOf } from '../../games/hero/stats';
+import { HeroFigure } from './Avatar';
 import { useHeroStore } from '../../heroStore';
 import { findOpponents } from '../../services/arena';
 import { useGameStore } from '../../store';
@@ -51,13 +54,13 @@ export function Arena() {
 
   if (!open) {
     return (
-      <Page title="Arena" back="/hero">
+      <Page title="Arena" back="/">
         <section className="hero-card frame arena-card">
           <span className="micro">Locked</span>
           <strong className="arena-rating">Level {ARENA_UNLOCK}</strong>
           <p className="note center-note">Beat bot level {ARENA_UNLOCK} to enter the arena and fight other players' heroes.</p>
         </section>
-        <Link className="button" to="/hero">
+        <Link className="button" to="/">
           Back to your hero
         </Link>
       </Page>
@@ -65,7 +68,7 @@ export function Arena() {
   }
 
   return (
-    <Page title="Arena" back="/hero">
+    <Page title="Arena" back="/">
       <section className="hero-card frame arena-card">
         <span className={`arena-tier ${tierOf(rating).toLowerCase()}`}>{tierOf(rating)}</span>
         <strong className="arena-rating">{rating}</strong>
@@ -114,12 +117,12 @@ export function Arena() {
 }
 
 function OpponentCard({ hero, mine }: { hero: ArenaHero; mine: number }) {
-  const stats = statsOf(hero.tree);
+  const stats = statsOf(hero.tree, costumeOf(hero.appearance?.costume)?.bonus);
   const diff = hero.rating - mine;
   return (
     <section className="arena-opponent frame">
       <div className="hero-who">
-        <span className="hero-avatar foe">{hero.name.slice(0, 1).toUpperCase()}</span>
+        <HeroFigure appearance={hero.appearance ?? PLAIN} className="arena-figure" />
         <span>
           <strong>{hero.name}</strong>
           <small className="micro">

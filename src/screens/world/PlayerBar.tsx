@@ -1,20 +1,22 @@
 import { Link } from 'react-router';
 import { heroLevel } from '../../games/hero/stats';
 import { useHeroStore } from '../../heroStore';
-import { useKnowledgeStore } from '../../knowledgeStore';
-import { useNonogramStore } from '../../nonogramStore';
 import { useGameStore } from '../../store';
+import { useWardrobeStore } from '../../wardrobeStore';
+import { HeroFigure } from '../hero/Avatar';
+import { GemIcon } from '../hero/Summon';
 
-/** Who you are, along the top: your avatar and name, your hero's level, your tower floor, cards kept, and settings. */
+/** Who you are, along the top: your hero's face, your name, its level, your gems, and settings. */
 export function PlayerBar() {
   const name = useGameStore((s) => s.player?.displayName);
-  const level = useNonogramStore((s) => s.level);
   const hero = useHeroStore((s) => heroLevel(s.tree));
-  const cards = useKnowledgeStore((s) => s.saved.length);
+  const gems = useWardrobeStore((s) => s.gems);
+  const look = useWardrobeStore((s) => s.look);
+  const costume = useWardrobeStore((s) => s.costume);
   return (
     <header className="player-bar">
       <Link className="player-avatar" to="/account" aria-label="Your account">
-        {name ? name.slice(0, 1).toUpperCase() : '·'}
+        <HeroFigure appearance={{ look, costume }} className="player-face" />
       </Link>
       <div className="player-who">
         <strong>{name ?? 'Traveller'}</strong>
@@ -22,14 +24,9 @@ export function PlayerBar() {
           <span className="player-chip hero" title="Hero level">
             Hero {hero}
           </span>
-          <span className="player-chip tower" title="Puzzle Tower floor">
-            Lv {level}
-          </span>
-          <span className="player-chip cards" title="Cards kept">
-            <svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true">
-              <rect x="5" y="3" width="13" height="18" rx="2.5" fill="currentColor" />
-            </svg>
-            {cards}
+          <span className="player-chip gems" title="Gems">
+            <GemIcon />
+            {gems}
           </span>
         </span>
       </div>

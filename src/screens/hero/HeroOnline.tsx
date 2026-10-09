@@ -1,6 +1,10 @@
 import { GameHome } from '../../components/RoomSetup';
 import { heroReady, useHeroStore } from '../../heroStore';
 import { createHeroRoom, joinHeroRoom } from '../../services/hero';
+import { useWardrobeStore } from '../../wardrobeStore';
+
+const tree = () => useHeroStore.getState().tree;
+const appearance = () => useWardrobeStore.getState().appearance();
 
 export function HeroOnline() {
   return (
@@ -8,8 +12,9 @@ export function HeroOnline() {
       title="Hero Gambit"
       tagline="Your hero against a friend's. One phone each."
       base="/hero"
-      onHost={() => createHeroRoom(() => useHeroStore.getState().tree, heroReady)}
-      onJoin={(code) => joinHeroRoom(code, () => useHeroStore.getState().tree, heroReady)}
+      back="/"
+      onHost={() => createHeroRoom(tree, appearance, heroReady)}
+      onJoin={(code) => joinHeroRoom(code, tree, appearance, heroReady)}
       howTo={
         <>
           <p>Each of you brings your own hero, with the skills and stats from your skill tree.</p>

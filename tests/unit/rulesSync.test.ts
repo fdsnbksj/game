@@ -1,6 +1,8 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { ARENA_UNLOCK, MAX_DELTA, MIN_GAIN } from '../../src/games/hero/arena';
+import { ALL_ITEMS } from '../../src/games/hero/gacha';
+import { LOOK_SIZES } from '../../src/games/hero/look';
 import { BOT_COUNT, pointsFor } from '../../src/games/hero/stats';
 import { NONOGRAM_VERSION, sizeFor } from '../../src/nonogram/generate';
 
@@ -42,5 +44,17 @@ describe('firestore.rules matches src/games/hero', () => {
     expect(Number(body('arenaUnlock'))).toBe(ARENA_UNLOCK);
     expect(Number(body('arenaMaxDelta'))).toBe(MAX_DELTA);
     expect(Number(body('arenaMinGain'))).toBe(MIN_GAIN);
+  });
+});
+
+describe('firestore.rules matches the wardrobe', () => {
+  it('knows every catalogue size', () => {
+    const isLook = body('isLook');
+    for (const [field, size] of Object.entries(LOOK_SIZES)) expect(isLook, field).toContain(`isLookPart(l.${field}, ${size})`);
+  });
+
+  it('knows every item Summon can give', () => {
+    const items = [...body('summonItems').matchAll(/'([^']+)'/g)].map((m) => m[1]);
+    expect([...items].sort()).toEqual([...ALL_ITEMS].sort());
   });
 });

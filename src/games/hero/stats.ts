@@ -1,3 +1,5 @@
+import { NO_BONUS, type Bonus } from './costumes';
+
 // A hero's growth: one skill tree that holds the three skills and the four stats. Every
 // point comes from clearing a bot level for the first time (BOT_LEVELS in bots.ts). All the
 // numbers a designer might tune live here and in skills.ts.
@@ -41,12 +43,14 @@ export interface Stats {
   critDmg: number;
 }
 
-export function statsOf(tree: Tree): Stats {
+/** A hero's stats from its tree, plus a costume's bonus (costumes.ts) if it wears one. */
+export function statsOf(tree: Tree, bonus: Bonus = NO_BONUS): Stats {
+  const hp = 100 + 15 * tree.hp;
   return {
-    hp: 100 + 15 * tree.hp,
-    def: 2 * tree.def,
-    crit: Math.min(50, 5 + 3 * tree.crit),
-    critDmg: 150 + 10 * tree.critDmg,
+    hp: hp + Math.floor((hp * bonus.hpPct) / 100),
+    def: 2 * tree.def + bonus.def,
+    crit: Math.min(50, 5 + 3 * tree.crit + bonus.crit),
+    critDmg: 150 + 10 * tree.critDmg + bonus.critDmg,
   };
 }
 

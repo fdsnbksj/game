@@ -1,6 +1,9 @@
 import { create } from 'zustand';
 import { ARENA_UNLOCK, ratingChange, RESULT_SPACING_MS, START_RATING, type ArenaHero } from './games/hero/arena';
 import { BOT_LEVELS } from './games/hero/bots';
+import type { CostumeId } from './games/hero/costumes';
+import { gemsFor } from './games/hero/gacha';
+import type { Appearance } from './games/hero/look';
 import type { Move } from './games/hero/skills';
 import { HERO_VERSION, type Recorded } from './games/hero/state';
 import { BOT_COUNT, buy, canBuy, FRESH_TREE, NODES, pointsFor, rewardFor, spent, validTree, type NodeId, type Tree } from './games/hero/stats';
@@ -8,6 +11,7 @@ import { fetchOwnArena, joinArena, refreshArenaHero, writeArenaResult, type Aren
 import { fetchHero, writeHero } from './services/hero';
 import { isRetryable } from './services/solves';
 import { useGameStore } from './store';
+import { useWardrobeStore } from './wardrobeStore';
 
 // Your hero, saved to localStorage the moment anything changes (levels cleared, the tree,
 // every move of a bot or arena fight), then synced to heroes/{uid} in the background, and
@@ -26,6 +30,8 @@ export interface BotFight {
   seed: string;
   /** Your tree when the fight began, so buying a node mid-fight can't change it. */
   tree: Tree;
+  /** Your costume when it began, for its bonus. */
+  costume?: CostumeId | null;
   moves: Recorded[];
 }
 
@@ -34,6 +40,7 @@ export interface ArenaFight {
   v: number;
   seed: string;
   tree: Tree;
+  costume?: CostumeId | null;
   opponent: ArenaHero;
   moves: Recorded[];
 }
@@ -101,15 +108,15 @@ interface HeroStore extends Saved {
   startFight: (level: number) => void;
   /** Your move or the bot's, in a bot fight. */
   play: (by: 'me' | 'bot', move: Move) => void;
-  /** The bot fight ended; counts a first win's points. Returns the points gained. */
-  endFight: (won: boolean) => number;
+  /** The bot fight ended; counts a first win's points and any win's gems. Returns what was gained. */
+  endFight: (won: boolean) => { points: number; gems: number };
   quitFight: () => void;
   /** The arena is open once the first boss is beaten. */
   arenaOpen: () => boolean;
   startArenaFight: (opponent: ArenaHero) => void;
   playArena: (by: 'me' | 'bot', move: Move) => void;
-  /** Counts the arena fight (giving up is a loss) and queues it. Returns the rating change. */
-  endArenaFight: (won: boolean) => number;
+  /** Counts the arena fight (giving up is a loss) and queues it. Returns the rating change and gems. */
+  endArenaFight: (won: boolean) => { delta: number; gems: number };
   claim: (uid: string) => void;
   /** Writes the hero to Firestore if it changed. Resolves once done (or given up for now). */
   sync: () => Promise<void>;
@@ -122,6 +129,8 @@ let arenaRead = false;
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, Math.max(0, Math.min(ms, 60_000))));
 const sameTree = (a: Tree, b: Tree) => NODES.every((n) => a[n.id] === b[n.id]);
 const standingOf = (r: ArenaRecord): ArenaStanding => ({ rating: r.rating, wins: r.wins, losses: r.losses });
+const sameAppearance = (a: Appearance, b: Appearance) => a.costume === b.costume && JSON.stringify(a.look) === JSON.stringify(b.look);
+const wardrobe = () => useWardrobeStore.getState();
 
 export const useHeroStore = create<HeroStore>()((set, get) => {
   const update = (change: Partial<Saved>) => {
@@ -144,14 +153,20 @@ export const useHeroStore = create<HeroStore>()((set, get) => {
         update({ cleared: server.cleared, tree: server.tree, dirty: false });
         return;
       }
-      if (!local.dirty && server) return await syncArena(uid);
+      if (!local.dirty && server && sameAppearance(server.appearance, wardrobe().appearance())) return await syncArena(uid);
+      // A costume must be on the wardrobe doc before the hero doc can wear it.
+      if (wardrobe().costume) {
+        await wardrobe().sync();
+        if (wardrobe().dirty) return;
+      }
       // The rules let `cleared` rise by one a write; levels beaten offline go up step by step
       // with the server's tree (or a fresh one), and the last write carries this phone's tree.
       const base = server ?? { cleared: 0, tree: FRESH_TREE };
-      for (let c = base.cleared + 1; c < local.cleared; c++) await writeHero(uid, { cleared: c, tree: base.tree });
+      const appearance = wardrobe().appearance();
+      for (let c = base.cleared + 1; c < local.cleared; c++) await writeHero(uid, { cleared: c, tree: base.tree, appearance });
       const { cleared, tree } = get();
-      await writeHero(uid, { cleared, tree });
-      if (get().cleared === cleared && get().tree === tree) update({ dirty: false });
+      await writeHero(uid, { cleared, tree, appearance });
+      if (get().cleared === cleared && get().tree === tree && sameAppearance(appearance, wardrobe().appearance())) update({ dirty: false });
       await syncArena(uid);
     } catch (error) {
       if (isRetryable(error)) return; // Still dirty: the next change or connection tries again.
@@ -165,9 +180,10 @@ export const useHeroStore = create<HeroStore>()((set, get) => {
     const name = useGameStore.getState().player?.displayName;
     if (!name || get().cleared < ARENA_UNLOCK || get().dirty) return;
     const found = await fetchOwnArena(uid);
-    if (!found) await joinArena(uid, name, get().tree);
-    else if (!sameTree(found.tree, get().tree) || found.name !== name) await refreshArenaHero(uid, name, get().tree);
-    let server: ArenaRecord = found ?? { name, tree: get().tree, rating: START_RATING, wins: 0, losses: 0 };
+    const appearance = wardrobe().appearance();
+    if (!found) await joinArena(uid, name, get().tree, appearance);
+    else if (!sameTree(found.tree, get().tree) || found.name !== name || !sameAppearance(found.appearance, appearance)) await refreshArenaHero(uid, name, get().tree, appearance);
+    let server: ArenaRecord = found ?? { name, tree: get().tree, appearance, rating: START_RATING, wins: 0, losses: 0 };
     // Nothing queued: the server's standing is the true one (another phone may have fought).
     if (!arenaRead && !get().arenaPending.length) update({ arena: standingOf(server) });
     arenaRead = true;
@@ -210,7 +226,7 @@ export const useHeroStore = create<HeroStore>()((set, get) => {
     startFight: (level) => {
       if (level < 1 || level > Math.min(BOT_COUNT, get().cleared + 1)) return;
       const seed = Array.from(crypto.getRandomValues(new Uint32Array(3)), (n) => n.toString(36)).join('');
-      update({ fight: { v: HERO_VERSION, level, seed, tree: get().tree, moves: [] } });
+      update({ fight: { v: HERO_VERSION, level, seed, tree: get().tree, costume: wardrobe().costume, moves: [] } });
     },
 
     play: (by, move) => {
@@ -220,14 +236,16 @@ export const useHeroStore = create<HeroStore>()((set, get) => {
 
     endFight: (won) => {
       const { fight, cleared } = get();
-      if (!fight) return 0;
+      if (!fight) return { points: 0, gems: 0 };
       const first = won && fight.level === cleared + 1;
+      const gems = won ? gemsFor({ kind: 'bot', boss: BOT_LEVELS[fight.level - 1].boss, first }) : 0;
+      wardrobe().earn(gems);
       if (!first) {
         update({ fight: null });
-        return 0;
+        return { points: 0, gems };
       }
       changed({ fight: null, cleared: fight.level });
-      return rewardFor(fight.level);
+      return { points: rewardFor(fight.level), gems };
     },
 
     quitFight: () => update({ fight: null }),
@@ -239,7 +257,7 @@ export const useHeroStore = create<HeroStore>()((set, get) => {
       const seed = Array.from(crypto.getRandomValues(new Uint32Array(3)), (n) => n.toString(36)).join('');
       update({
         arena: get().arena ?? { rating: START_RATING, wins: 0, losses: 0 },
-        arenaFight: { v: HERO_VERSION, seed, tree: get().tree, opponent, moves: [] },
+        arenaFight: { v: HERO_VERSION, seed, tree: get().tree, costume: wardrobe().costume, opponent, moves: [] },
       });
     },
 
@@ -250,7 +268,7 @@ export const useHeroStore = create<HeroStore>()((set, get) => {
 
     endArenaFight: (won) => {
       const { arenaFight, arena, arenaPending } = get();
-      if (!arenaFight || !arena) return 0;
+      if (!arenaFight || !arena) return { delta: 0, gems: 0 };
       const delta = ratingChange(arena.rating, arenaFight.opponent.rating, won);
       update({
         arenaFight: null,
@@ -258,7 +276,9 @@ export const useHeroStore = create<HeroStore>()((set, get) => {
         arenaPending: [...arenaPending, { delta, won }],
       });
       void get().sync();
-      return delta;
+      const gems = gemsFor({ kind: 'arena', won });
+      wardrobe().earn(gems);
+      return { delta, gems };
     },
 
     claim: (uid) => {
@@ -293,3 +313,11 @@ useGameStore.subscribe((session, before) => {
   }
 });
 if (typeof window !== 'undefined') window.addEventListener('online', () => void useHeroStore.getState().sync());
+
+// What you wear shows on your hero doc (and arena hero), so a change there is a change here.
+useWardrobeStore.subscribe((now, before) => {
+  if (now.look !== before.look || now.costume !== before.costume) {
+    useHeroStore.setState({ dirty: true });
+    void useHeroStore.getState().sync();
+  }
+});

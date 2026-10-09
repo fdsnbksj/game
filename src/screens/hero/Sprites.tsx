@@ -1,53 +1,19 @@
 import type { CSSProperties } from 'react';
+import type { Appearance } from '../../games/hero/look';
 import type { Family } from '../../games/hero/monsters';
+import { HeroFigure } from './Avatar';
 
 // The fighters as drawn on the battlefield: your hero from behind, an opponent hero from
-// the front, and the bot ladder's creatures in five families (clocks, coins, cards, dice
+// the front (both Avatar.tsx), and the bot ladder's creatures in five families (clocks, coins, cards, dice
 // and wheels), each level its own colour, bosses crowned. Our own art; colours are tokens.
 
-export type SpriteSpec = { kind: 'hero' } | { kind: 'creature'; family: Family; level: number; boss: boolean };
+export type SpriteSpec = { kind: 'hero'; appearance: Appearance } | { kind: 'creature'; family: Family; level: number; boss: boolean };
 
 const MON_COLOURS = 8;
 
 export function Sprite({ spec, back = false, className = '' }: { spec: SpriteSpec; back?: boolean; className?: string }) {
-  if (spec.kind === 'hero') return <HeroSprite back={back} className={className} />;
+  if (spec.kind === 'hero') return <HeroFigure appearance={spec.appearance} back={back} className={className} />;
   return <CreatureSprite family={spec.family} level={spec.level} boss={spec.boss} className={className} />;
-}
-
-function HeroSprite({ back, className }: { back: boolean; className: string }) {
-  return (
-    <svg className={`sprite hero-sprite ${className}`} viewBox="0 0 120 120" aria-hidden="true">
-      {back ? (
-        <>
-          {/* A sword across the back. */}
-          <path className="s-blade" d="M86 14 L46 70" strokeWidth="5" strokeLinecap="round" />
-          <path className="s-gold" d="M80 16 l10 7 -3 4 -10 -7z" />
-          <path className="s-cape s-ink" d="M38 52 Q60 44 82 52 L94 112 Q60 118 26 112 Z" />
-          <path className="s-shade" d="M60 50 L60 115 Q44 116 26 112 L38 52 Q50 47 60 50z" />
-          <path className="s-gold" d="M34 54 Q60 46 86 54 L84 60 Q60 52 36 60z" />
-          <circle className="s-skin s-ink" cx="44" cy="38" r="4" />
-          <circle className="s-skin s-ink" cx="76" cy="38" r="4" />
-          <circle className="s-hair s-ink" cx="60" cy="34" r="17" />
-          <path className="s-shine" d="M50 24 q8 -6 18 -2" fill="none" strokeWidth="3" strokeLinecap="round" />
-        </>
-      ) : (
-        <>
-          <path className="s-cape s-ink" d="M36 50 Q60 42 84 50 L96 108 Q60 112 24 108 Z" />
-          <rect className="s-boots s-ink" x="47" y="94" width="10" height="16" rx="3" />
-          <rect className="s-boots s-ink" x="63" y="94" width="10" height="16" rx="3" />
-          <path className="s-armor s-ink" d="M44 52 Q60 46 76 52 L74 98 Q60 102 46 98 Z" />
-          <path className="s-gold" d="M46 72 h28 v5 h-28z" />
-          <path className="s-blade" d="M84 60 L98 26" strokeWidth="4" strokeLinecap="round" />
-          <path className="s-gold" d="M79 62 l12 4 -1 4 -12 -4z" />
-          <circle className="s-skin s-ink" cx="60" cy="34" r="15" />
-          <path className="s-hair s-ink" d="M44 33 Q46 16 60 16 Q75 16 76 33 Q70 24 60 25 Q50 24 44 33z" />
-          <ellipse className="s-pupil" cx="54" cy="36" rx="2" ry="3" />
-          <ellipse className="s-pupil" cx="66" cy="36" rx="2" ry="3" />
-          <path className="s-mouth" d="M55 43 q5 3 10 0" fill="none" strokeWidth="2" strokeLinecap="round" />
-        </>
-      )}
-    </svg>
-  );
 }
 
 function Eyes({ y, gap = 12, cx = 60, size = 7, angry }: { y: number; gap?: number; cx?: number; size?: number; angry: boolean }) {

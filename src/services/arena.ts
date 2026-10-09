@@ -1,6 +1,7 @@
 import { collection, doc, getDoc, getDocs, limit, orderBy, query, serverTimestamp, setDoc, updateDoc, where } from 'firebase/firestore/lite';
 import { dbRest as db } from '../firebase';
 import type { ArenaHero } from '../games/hero/arena';
+import { appearanceOf, type Appearance } from '../games/hero/look';
 import { validTree, type Tree } from '../games/hero/stats';
 
 // The Hero Gambit arena in Firestore: arena/{uid}, one per player who has beaten the first
@@ -13,6 +14,7 @@ export const ARENA_TOP = 50;
 export interface ArenaRecord {
   name: string;
   tree: Tree;
+  appearance: Appearance;
   rating: number;
   wins: number;
   losses: number;
@@ -24,7 +26,7 @@ const arenaCollection = () => collection(db, 'arena');
 function heroOf(uid: string, data: Record<string, unknown>): ArenaHero | null {
   const tree = validTree(data.tree);
   if (!tree || typeof data.name !== 'string' || !Number.isInteger(data.rating)) return null;
-  return { uid, name: data.name, tree, rating: data.rating as number };
+  return { uid, name: data.name, tree, rating: data.rating as number, appearance: appearanceOf(data.look, data.costume) };
 }
 
 export async function fetchOwnArena(uid: string): Promise<ArenaRecord | null> {
@@ -32,16 +34,16 @@ export async function fetchOwnArena(uid: string): Promise<ArenaRecord | null> {
   if (!snap.exists()) return null;
   const d = snap.data();
   const tree = validTree(d.tree);
-  return tree ? { name: d.name, tree, rating: d.rating, wins: d.wins, losses: d.losses } : null;
+  return tree ? { name: d.name, tree, appearance: appearanceOf(d.look, d.costume), rating: d.rating, wins: d.wins, losses: d.losses } : null;
 }
 
-export async function joinArena(uid: string, name: string, tree: Tree) {
-  await setDoc(arenaRef(uid), { name, tree, rating: 1000, wins: 0, losses: 0, lastFightAt: serverTimestamp() });
+export async function joinArena(uid: string, name: string, tree: Tree, appearance: Appearance) {
+  await setDoc(arenaRef(uid), { name, tree, look: appearance.look, costume: appearance.costume, rating: 1000, wins: 0, losses: 0, lastFightAt: serverTimestamp() });
 }
 
-/** Your arena hero takes your hero's tree and your name as they are now. */
-export async function refreshArenaHero(uid: string, name: string, tree: Tree) {
-  await updateDoc(arenaRef(uid), { name, tree });
+/** Your arena hero takes your hero's tree, look and your name as they are now. */
+export async function refreshArenaHero(uid: string, name: string, tree: Tree, appearance: Appearance) {
+  await updateDoc(arenaRef(uid), { name, tree, look: appearance.look, costume: appearance.costume });
 }
 
 export async function writeArenaResult(uid: string, record: Pick<ArenaRecord, 'rating' | 'wins' | 'losses'>) {

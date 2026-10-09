@@ -6,12 +6,15 @@ import { replay, type HeroState } from '../../games/hero/state';
 import { heroLevel } from '../../games/hero/stats';
 import { BOT_PLAYERS, useHeroStore, type ArenaFight as Saved } from '../../heroStore';
 import { useGameStore } from '../../store';
+import { useWardrobeStore } from '../../wardrobeStore';
+import { PLAIN } from '../../games/hero/look';
 import { Fight, turnShowMs, useBotTurn } from './Fight';
 
 interface Ended {
   fight: Saved;
   won: boolean;
   delta: number;
+  gems: number;
   rating: number;
 }
 
@@ -30,16 +33,18 @@ function ArenaFightView({ fight, ended, onEnd }: { fight: Saved; ended: Ended | 
   const endArenaFight = useHeroStore((s) => s.endArenaFight);
   const name = useGameStore((s) => s.player?.displayName ?? 'You');
   const foe = fight.opponent;
+  const lookNow = useWardrobeStore((s) => s.look);
+  const look = useMemo(() => ({ look: lookNow, costume: fight.costume ?? null }), [lookNow, fight.costume]);
   const state: HeroState = useMemo(
-    () => replay(fight.seed, [{ name, tree: fight.tree }, { name: foe.name, tree: foe.tree }], BOT_PLAYERS, fight.moves),
+    () => replay(fight.seed, [{ name, tree: fight.tree, costume: fight.costume }, { name: foe.name, tree: foe.tree, costume: foe.appearance?.costume }], BOT_PLAYERS, fight.moves),
     [fight, foe, name],
   );
 
   useBotTurn(state, DEFENDER_SPREAD, (move) => playArena('bot', move));
 
   const finish = (won: boolean) => {
-    const delta = endArenaFight(won);
-    onEnd({ fight, won, delta, rating: useHeroStore.getState().arena?.rating ?? 0 });
+    const { delta, gems } = endArenaFight(won);
+    onEnd({ fight, won, delta, gems, rating: useHeroStore.getState().arena?.rating ?? 0 });
   };
 
   // Over: count it once, after the last hit has shown.
@@ -57,7 +62,8 @@ function ArenaFightView({ fight, ended, onEnd }: { fight: Saved; ended: Ended | 
         me={0}
         names={[name, foe.name]}
         levels={[heroLevel(fight.tree), heroLevel(foe.tree)]}
-        foe={{ kind: 'hero' }}
+        foe={{ kind: 'hero', appearance: foe.appearance ?? PLAIN }}
+        look={look}
         onMove={(move) => playArena('me', move)} waiting={`${foe.name} is choosing…`}>
         {ended && (
           <div className="overlay">
@@ -68,10 +74,11 @@ function ArenaFightView({ fight, ended, onEnd }: { fight: Saved; ended: Ended | 
                 {ended.delta > 0 ? '+' : ''}
                 {ended.delta} · {ended.rating} {tierOf(ended.rating)}
               </p>
+              {ended.gems > 0 && <p className="hero-reward">+{ended.gems} gems</p>}
               <Link className="button primary" to="/hero/arena">
                 Fight again
               </Link>
-              <Link className="button ghost" to="/hero">
+              <Link className="button ghost" to="/">
                 Back to your hero
               </Link>
             </div>

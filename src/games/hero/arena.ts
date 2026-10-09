@@ -1,4 +1,5 @@
 import { stream } from '../../nonogram/rng';
+import type { Appearance } from './look';
 import type { Tree } from './stats';
 
 // The arena: fights against other players' heroes, played by the bot brain while their
@@ -22,6 +23,8 @@ export interface ArenaHero {
   name: string;
   tree: Tree;
   rating: number;
+  /** How it looks, and the costume whose bonus it fights with. */
+  appearance?: Appearance;
   /** A bot-ladder hero standing in while the arena is empty. */
   sparring?: boolean;
 }

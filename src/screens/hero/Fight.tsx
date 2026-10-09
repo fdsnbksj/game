@@ -5,7 +5,8 @@ import { ATTACK_NAMES, ATTACKS, hasEffect, type EffectId } from '../../games/her
 import { rankName, seconds, stopwatchTarget, VISIBLE_MS, WHEEL, type Move } from '../../games/hero/skills';
 import { enraged, type HeroState, type Side, type Turn } from '../../games/hero/state';
 import { SKILLS, type SkillId } from '../../games/hero/stats';
-import { BossFx, bossImpactMs, quakes } from './BossFx';
+import { AttackFx, attackImpactMs, quakes } from './AttackFx';
+import type { Appearance } from '../../games/hero/look';
 import { Sprite, type SpriteSpec } from './Sprites';
 
 // One fight on screen, a bot's, an arena hero's or a friend's, laid out like a handheld
@@ -29,6 +30,7 @@ export function Fight({
   names,
   levels,
   foe,
+  look,
   onMove,
   waiting,
   locked = false,
@@ -42,6 +44,8 @@ export function Fight({
   levels: [number, number];
   /** How the other side is drawn. */
   foe: SpriteSpec;
+  /** How you look. */
+  look: Appearance;
   /** Sends your move; only called on your turn. */
   onMove: (move: Move) => void;
   /** What the other side is doing while it's their turn. */
@@ -79,13 +83,14 @@ export function Fight({
     if (turn.by !== side && show.hit && (turn.damage > 0 || turn.kill)) return ' struck';
     return '';
   };
-  // A boss's attack gets drawn over the field, and its heaviest shake it.
-  const bossAttack = playing && turn?.detail.skill === 'attack' && !turn.detail.missed && state.fighters[turn.by].kit?.enrage ? turn.detail : null;
+  // A creature's attack is drawn over the field, and a boss's heaviest shake it.
+  const attack = playing && turn?.detail.skill === 'attack' && !turn.detail.missed ? turn.detail : null;
+  const attacker = turn ? state.fighters[turn.by].kit : undefined;
   const spot = (side: Side) => `${pose(side)}${enraged(state, side) ? ' enraged' : ''}`;
 
   return (
     <div className="battle">
-      <div className={`battle-field${bossAttack && show.hit && quakes(bossAttack.id) ? ' quake' : ''}`}>
+      <div className={`battle-field${attack && show.hit && quakes(attack.id, !!attacker?.enrage) ? ' quake' : ''}`}>
         <InfoBox name={names[them]} level={levels[them]} hp={hp[them]} max={state.stats[them].hp} effects={fx(them)} foe />
         <div className={`battle-spot foe${spot(them)}`}>
           <span className="battle-platform" />
@@ -93,10 +98,10 @@ export function Fight({
         </div>
         <div className={`battle-spot mine${spot(me)}`}>
           <span className="battle-platform" />
-          <Sprite spec={{ kind: 'hero' }} back />
+          <Sprite spec={{ kind: 'hero', appearance: look }} back />
         </div>
         <InfoBox name="You" level={levels[me]} hp={hp[me]} max={state.stats[me].hp} effects={fx(me)} numbers />
-        {bossAttack && <BossFx key={`fx${state.log.length}`} id={bossAttack.id} family={state.fighters[turn!.by].kit!.family} />}
+        {attack && attacker && <AttackFx key={`fx${state.log.length}`} id={attack.id} family={attacker.family} boss={attacker.enrage} />}
         {playing && show.hit && turn && (turn.damage > 0 || turn.kill) && (
           <span key={`pop${state.log.length}`} className={`battle-pop ${turn.by === me ? 'at-foe' : 'at-mine'}${turn.crit || turn.kill ? ' crit' : ''}`}>
             {turn.kill ? 'KO!' : `−${turn.damage}`}
@@ -255,7 +260,7 @@ function plan(state: HeroState, names: [string, string], me: Side, before: [numb
     const kit = state.fighters[by].kit;
     opening.push(`${who(by)} used ${kit ? ATTACK_NAMES[kit.family][d.id] : d.id}!`);
     const attack = ATTACKS[d.id];
-    delay = kit?.enrage && !d.missed ? bossImpactMs(d.id) : 650;
+    delay = d.missed ? 650 : attackImpactMs(d.id, !!kit?.enrage);
     if (d.missed) result.push(attack.power > 0 ? 'But it missed!' : 'But it didn’t work!');
     else if (attack.power > 0) hurt();
     if (d.healed > 0) result.push(`${who(by)} drained ${d.healed} HP.`);

@@ -202,6 +202,89 @@
   --fx-flash: #fff7e6;
   --fx-rage-glow: drop-shadow(0 0 12px rgb(240 70 80 / 0.8));
   --fx-rage-platform: radial-gradient(closest-side, rgb(240 80 90 / 0.6), rgb(240 80 90 / 0) 100%);
+  /* Your hero's look (Avatar.tsx): six skin tones, twelve cloth and hair colours, parts. */
+  --av-skin-1: #f6d7bf;
+  --av-skin-2: #edbf98;
+  --av-skin-3: #d49a6a;
+  --av-skin-4: #b07445;
+  --av-skin-5: #87522e;
+  --av-skin-6: #5a3520;
+  --av-c-1: #e0474c;
+  --av-c-2: #f08a3c;
+  --av-c-3: #eebb45;
+  --av-c-4: #9cc94f;
+  --av-c-5: #3fbf88;
+  --av-c-6: #39b5b0;
+  --av-c-7: #5fb2ee;
+  --av-c-8: #3d6fd6;
+  --av-c-9: #8e6bd8;
+  --av-c-10: #e46ba5;
+  --av-c-11: #2a2d36;
+  --av-c-12: #eef0f4;
+  --av-inner: #f4efe3;
+  --av-cape: #b8323f;
+  --av-scarf: #e0474c;
+  --av-wings: #f4f6fb;
+  --av-phones: #2a2d36;
+  --av-hat: #3d6fd6;
+  --av-bandana: #e0474c;
+  /* Summon's four rarities. */
+  --rarity-common: #9aa3b2;
+  --rarity-rare: #4f9be8;
+  --rarity-epic: #a66be8;
+  --rarity-legendary: #f2b33d;
+  --rarity-common-soft: rgb(154 163 178 / 0.16);
+  --rarity-rare-soft: rgb(79 155 232 / 0.18);
+  --rarity-epic-soft: rgb(166 107 232 / 0.2);
+  --rarity-legendary-soft: rgb(242 179 61 / 0.22);
+  /* The meme costumes (Costumes.tsx). */
+  --meme-limb: #2a2320;
+  --meme-shoe: #2a2d36;
+  --meme-sneaker: #4f9be8;
+  --meme-sandal: #b07445;
+  --meme-boot: #6b4a2b;
+  --meme-hoof: #3a3030;
+  --meme-wood: #b9844e;
+  --meme-wood-dark: #7a5230;
+  --meme-bat: #d9b07a;
+  --meme-shark: #6f9fc9;
+  --meme-belly: #eef3f7;
+  --meme-plane: #8e98a6;
+  --meme-plane-dark: #5d6672;
+  --meme-croc: #5a9a4a;
+  --meme-cup: #f4efe3;
+  --meme-foam: #e9d7b5;
+  --meme-coffee: #6b4528;
+  --meme-tutu: #f0a3c4;
+  --meme-limb-pink: #f3c6b0;
+  --meme-leaf: #57a84b;
+  --meme-nose: #e88a8a;
+  --meme-banana: #f2d34b;
+  --meme-chimp: #7a5230;
+  --meme-chimp-face: #e3b58b;
+  --meme-cactus: #4f9a54;
+  --meme-elephant: #a5adb8;
+  --meme-cloak: #2a2d36;
+  --meme-planet: #e0a96b;
+  --meme-ring: #f2d79b;
+  --meme-cow: #f4f4f0;
+  --meme-cow-spot: #2a2320;
+  --meme-horn: #e9dcc0;
+  --meme-shrimp: #f09a7c;
+  --meme-cat: #e8a75b;
+  --meme-tyre: #2a2d36;
+  --meme-tyre-hub: #8e98a6;
+  --meme-frog: #7cc458;
+  --meme-fridge: #e8ecf1;
+  --meme-fridge-handle: #8e98a6;
+  --meme-camel: #d8aa6a;
+  --meme-rind: #3f8a3e;
+  --meme-melon: #ec5a62;
+  --meme-coconut: #6b4528;
+  --meme-coconut-flesh: #f4efe3;
+  --meme-capy: #a57a4e;
+  --meme-capy-dark: #6b4a2b;
+  --meme-orange: #f08a3c;
   /* The arena's tiers. */
   --tier-bronze: #c98a5a;
   --tier-silver: #b9c2cf;
@@ -5215,3 +5298,665 @@ button.seat:disabled {
   color: var(--danger);
 }
 
+/* ---------- Hero Gambit: home, your look, Summon ---------- */
+.s-ink-lines :is(rect, path, circle, ellipse):not([class]),
+.costume :is(rect, path, circle, ellipse):not([class]) {
+  stroke: var(--mon-ink);
+  stroke-width: 2.5;
+  stroke-linejoin: round;
+}
+
+.costume.back :is(rect, path, circle, ellipse) {
+  filter: brightness(0.82);
+}
+
+.fx-layer.small .fx-slash,
+.fx-layer.small .fx-burst,
+.fx-layer.small .fx-shield,
+.fx-layer.small .fx-aura,
+.fx-layer.small .fx-drop {
+  scale: 0.7;
+}
+
+.fx-layer.small .fx-ring:nth-child(n + 3),
+.fx-layer.small .fx-wave:nth-child(n + 3),
+.fx-layer.small .fx-flame:nth-child(n + 4),
+.fx-layer.small .fx-puff:nth-child(n + 5),
+.fx-layer.small .fx-orb:nth-child(n + 5),
+.fx-layer.small .fx-spark:nth-child(n + 5) {
+  display: none;
+}
+
+.home {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-top: 4px;
+}
+
+.home-stage {
+  position: relative;
+  display: grid;
+  place-items: end center;
+  height: clamp(220px, 34dvh, 300px);
+  overflow: hidden;
+  border: 1px solid var(--separator);
+  border-radius: var(--r-xl);
+  background: var(--battle-sky);
+  box-shadow: var(--highlight), var(--shadow-1);
+}
+
+.home-glow {
+  position: absolute;
+  inset: 20% 20% 10%;
+  border-radius: 50%;
+  background: var(--fx-aura);
+  opacity: 0.6;
+}
+
+.home-platform {
+  bottom: 10px;
+  width: 70%;
+  height: 40px;
+}
+
+.home-figure {
+  position: relative;
+  margin-bottom: 18px;
+  animation: battle-bob 2.6s ease-in-out infinite;
+}
+
+.home-figure .sprite {
+  width: min(56vw, 230px);
+  height: min(56vw, 230px);
+}
+
+.home-plate {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  text-align: center;
+}
+
+.home-plate > strong {
+  font-size: var(--fs-lg);
+}
+
+.home-chips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+}
+
+.home-stats {
+  display: flex;
+  gap: 12px;
+  color: var(--label-2);
+  font-size: var(--fs-cap);
+  font-variant-numeric: tabular-nums;
+}
+
+.home-go {
+  min-height: 56px;
+}
+
+.home-actions {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+}
+
+.home-round {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  color: var(--label-2);
+  font-size: var(--fs-label);
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-align: center;
+  text-decoration: none;
+  text-transform: uppercase;
+}
+
+.home-round-icon {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 54px;
+  height: 54px;
+  border: 1px solid var(--accent-line);
+  border-radius: 50%;
+  background: var(--surface-grad);
+  box-shadow: var(--highlight), var(--shadow-1);
+  color: var(--accent);
+  transition: transform var(--dur-fast) var(--ease);
+}
+
+.home-round:active .home-round-icon {
+  transform: scale(0.92);
+}
+
+.home-round.dim .home-round-icon {
+  border-color: var(--separator);
+  color: var(--label-3);
+}
+
+.home-round-icon .hero-badge {
+  position: absolute;
+  top: -6px;
+  right: -10px;
+  margin: 0;
+  font-size: 9px;
+}
+
+.home-more {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.player-avatar {
+  overflow: hidden;
+}
+
+.player-face {
+  flex: none;
+  width: 112px;
+  height: 112px;
+  transform: translateY(26px);
+}
+
+.player-chip.gems {
+  background: var(--rarity-rare-soft);
+  color: var(--rarity-rare);
+}
+
+.gem-icon {
+  vertical-align: -2px;
+  fill: var(--rarity-rare);
+  stroke: var(--rarity-rare-soft);
+}
+
+.player-chip .gem-icon {
+  width: 11px;
+  height: 11px;
+}
+
+.player-chip.rarity-rare,
+.wardrobe-worn.rarity-rare {
+  background: var(--rarity-rare-soft);
+  color: var(--rarity-rare);
+}
+
+.player-chip.rarity-epic,
+.wardrobe-worn.rarity-epic {
+  background: var(--rarity-epic-soft);
+  color: var(--rarity-epic);
+}
+
+.player-chip.rarity-legendary,
+.wardrobe-worn.rarity-legendary {
+  background: var(--rarity-legendary-soft);
+  color: var(--rarity-legendary);
+}
+
+.tabbar {
+  grid-template-columns: repeat(5, 1fr);
+}
+
+.arena-figure {
+  width: 64px;
+  height: 64px;
+}
+
+/* The wardrobe: a preview, category tabs, then a grid of choices. */
+.wardrobe-stage {
+  position: relative;
+  display: grid;
+  place-items: end center;
+  height: 210px;
+  overflow: hidden;
+  border: 1px solid var(--separator);
+  border-radius: var(--r-xl);
+  background: var(--battle-sky);
+}
+
+.wardrobe-figure {
+  width: 180px;
+  height: 180px;
+  margin-bottom: 14px;
+}
+
+.wardrobe-turn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--accent-line);
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--accent);
+  font-size: 20px;
+  cursor: pointer;
+}
+
+.wardrobe-worn {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: var(--fs-label);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.wardrobe-tabs {
+  display: flex;
+  gap: 6px;
+  margin: 10px -16px 4px;
+  padding: 2px 16px 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.wardrobe-tab {
+  flex: none;
+  padding: 7px 12px;
+  border: 1px solid var(--separator);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--label-2);
+  font: inherit;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.wardrobe-tab.on {
+  border-color: var(--accent-line);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.wardrobe-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.wardrobe-grid.colours {
+  grid-template-columns: repeat(6, 1fr);
+}
+
+.wardrobe-cell {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 4px 8px;
+  border: 1px solid var(--separator);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  color: var(--label);
+  font: inherit;
+  cursor: pointer;
+}
+
+.wardrobe-cell small {
+  font-size: var(--fs-label);
+  font-weight: 650;
+  line-height: 1.2;
+  text-align: center;
+}
+
+.wardrobe-cell.on {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+
+.wardrobe-cell.rarity-rare {
+  border-color: var(--rarity-rare-soft);
+}
+
+.wardrobe-cell.rarity-epic {
+  border-color: var(--rarity-epic-soft);
+}
+
+.wardrobe-cell.rarity-legendary {
+  border-color: var(--rarity-legendary-soft);
+}
+
+.wardrobe-cell.locked .sprite {
+  filter: grayscale(1) brightness(0.35);
+}
+
+.wardrobe-cell.locked small {
+  color: var(--label-3);
+}
+
+.thumb-figure {
+  width: 76px;
+  height: 76px;
+}
+
+.wardrobe-swatch {
+  aspect-ratio: 1;
+  border: 2px solid var(--separator);
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.wardrobe-swatch.on {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+/* Summon: the banner, gems, and the capsule machine. */
+.summon-banner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 14px;
+  background: radial-gradient(120% 90% at 50% 0%, var(--rarity-legendary-soft), transparent 70%), var(--surface-grad);
+  text-align: center;
+}
+
+.summon-stars {
+  display: flex;
+  justify-content: center;
+}
+
+.summon-star {
+  width: 100px;
+  height: 100px;
+  margin: 0 -8px;
+}
+
+.summon-star:nth-child(2) {
+  width: 120px;
+  height: 120px;
+  margin-top: -10px;
+}
+
+.summon-line {
+  margin: 0;
+  color: var(--rarity-legendary);
+  font-size: var(--fs-sm);
+  font-weight: 700;
+}
+
+.summon-pity {
+  color: var(--label-2);
+  font-size: var(--fs-cap);
+}
+
+.summon-gems {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin: 10px 0 0;
+  font-size: var(--fs-lg);
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+}
+
+.summon-gems .gem-icon {
+  width: 22px;
+  height: 22px;
+}
+
+.rarity-text-common {
+  color: var(--rarity-common);
+}
+
+.rarity-text-rare {
+  color: var(--rarity-rare);
+}
+
+.rarity-text-epic {
+  color: var(--rarity-epic);
+}
+
+.rarity-text-legendary {
+  color: var(--rarity-legendary);
+}
+
+.summon-overlay {
+  place-items: center;
+  cursor: pointer;
+}
+
+.summon-machine {
+  position: relative;
+  display: grid;
+  place-items: center;
+  animation: summon-shake 1100ms ease-in-out both;
+}
+
+.summon-machine-art {
+  width: 200px;
+  height: 266px;
+}
+
+.machine-globe {
+  fill: var(--battle-info);
+  stroke: var(--label-2);
+  stroke-width: 3;
+}
+
+.machine-ball {
+  stroke: var(--mon-ink);
+  stroke-width: 1.5;
+}
+
+.machine-ball.b0,
+.machine-ball.b3 {
+  fill: var(--rarity-rare);
+}
+
+.machine-ball.b1,
+.machine-ball.b4 {
+  fill: var(--rarity-epic);
+}
+
+.machine-ball.b2 {
+  fill: var(--rarity-legendary);
+}
+
+.machine-ball.b5 {
+  fill: var(--rarity-common);
+}
+
+.machine-base {
+  fill: var(--av-c-1);
+  stroke: var(--mon-ink);
+  stroke-width: 3;
+}
+
+.machine-slot {
+  fill: var(--mon-ink);
+}
+
+.machine-knob {
+  fill: var(--accent);
+  stroke: var(--mon-ink);
+  stroke-width: 2;
+}
+
+.summon-capsule {
+  position: absolute;
+  bottom: 18px;
+  width: 34px;
+  height: 34px;
+  border: 3px solid var(--mon-ink);
+  border-radius: 50%;
+  background: linear-gradient(180deg, var(--capsule) 50%, var(--mon-eye) 50%);
+  animation: summon-drop 700ms 1000ms cubic-bezier(0.3, 0, 0.6, 1) both;
+}
+
+.summon-capsule.rarity-common,
+.summon-prize.rarity-common {
+  --capsule: var(--rarity-common);
+}
+
+.summon-capsule.rarity-rare,
+.summon-prize.rarity-rare {
+  --capsule: var(--rarity-rare);
+}
+
+.summon-capsule.rarity-epic,
+.summon-prize.rarity-epic {
+  --capsule: var(--rarity-epic);
+}
+
+.summon-capsule.rarity-legendary,
+.summon-prize.rarity-legendary {
+  --capsule: var(--rarity-legendary);
+}
+
+@keyframes summon-shake {
+  10%,
+  30%,
+  50%,
+  70% {
+    transform: rotate(-5deg);
+  }
+  20%,
+  40%,
+  60%,
+  80% {
+    transform: rotate(5deg);
+  }
+  90%,
+  100% {
+    transform: rotate(0);
+  }
+}
+
+@keyframes summon-drop {
+  from {
+    opacity: 0;
+    transform: translateY(-20px) scale(0.6);
+  }
+  60% {
+    opacity: 1;
+    transform: translateY(46px) scale(1);
+  }
+  80% {
+    transform: translateY(36px);
+  }
+  to {
+    transform: translateY(46px) scale(1.3);
+  }
+}
+
+.summon-prize {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 24px 28px;
+  border: 2px solid var(--capsule);
+  border-radius: var(--r-xl);
+  background: var(--surface-grad);
+  box-shadow: 0 0 40px var(--capsule);
+  text-align: center;
+  animation: pop-in 420ms var(--ease) both;
+}
+
+.summon-prize strong {
+  font-size: var(--fs-lg);
+}
+
+.summon-burst {
+  position: absolute;
+  inset: -40px;
+  z-index: -1;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, var(--capsule), transparent);
+  opacity: 0.45;
+  animation: summon-burst 900ms ease-out both;
+}
+
+@keyframes summon-burst {
+  from {
+    opacity: 1;
+    transform: scale(0.2);
+  }
+}
+
+.summon-art {
+  width: 170px;
+  height: 170px;
+}
+
+.summon-rarity {
+  font-size: var(--fs-label);
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.summon-new {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.summon-all {
+  width: min(100%, 420px);
+}
+
+.summon-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.summon-mini {
+  position: relative;
+  display: grid;
+  place-items: center;
+  border: 2px solid var(--rarity-common);
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+}
+
+.summon-mini.rarity-rare {
+  border-color: var(--rarity-rare);
+}
+
+.summon-mini.rarity-epic {
+  border-color: var(--rarity-epic);
+}
+
+.summon-mini.rarity-legendary {
+  border-color: var(--rarity-legendary);
+  box-shadow: 0 0 12px var(--rarity-legendary);
+}
+
+.summon-mini .thumb-figure {
+  width: 100%;
+  height: auto;
+}
+
+.summon-mini small {
+  position: absolute;
+  right: 3px;
+  bottom: 1px;
+  color: var(--rarity-rare);
+  font-size: 9px;
+  font-weight: 700;
+}

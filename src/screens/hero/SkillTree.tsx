@@ -43,7 +43,7 @@ export function SkillTree() {
   const stats = NODES.filter((n) => !isSkill(n.id));
 
   return (
-    <Page title="Skill tree" back="/hero">
+    <Page title="Skill tree" back="/">
       <div className="tree-points frame">
         <span className="micro">Skill points</span>
         <strong>{unspent}</strong>

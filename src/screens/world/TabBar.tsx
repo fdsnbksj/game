@@ -3,16 +3,22 @@ import { NavLink } from 'react-router';
 const TABS = [
   {
     to: '/',
-    label: 'Map',
-    icon: <path d="M9 4 3 6.5v13.5l6-2.5 6 2.5 6-2.5V4l-6 2.5zM9 4v13.5M15 6.5V20" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" />,
+    label: 'Home',
+    icon: <path d="M4 11.5 12 5l8 6.5V20h-5.5v-5h-5v5H4z" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" />,
   },
   {
-    to: '/saved',
-    label: 'Cards',
+    to: '/hero/wardrobe',
+    label: 'Wardrobe',
+    icon: <path d="M9 4l3 2 3-2 5 3-2 4-2-1v10H8V10l-2 1-2-4z" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" />,
+  },
+  {
+    to: '/hero/summon',
+    label: 'Summon',
     icon: (
       <>
-        <rect x="7" y="3.5" width="12" height="16" rx="2.5" fill="none" stroke="currentColor" strokeWidth="1.7" />
-        <path d="M4.5 7v11.5A2.5 2.5 0 0 0 7 21h9" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+        <circle cx="12" cy="13" r="7" fill="none" stroke="currentColor" strokeWidth="1.7" />
+        <path d="M5 13h14M12 3v3" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+        <circle cx="12" cy="13" r="2" fill="currentColor" />
       </>
     ),
   },
@@ -42,7 +48,7 @@ const TABS = [
   },
 ];
 
-/** The four tabs along the bottom, game-style: the map, your cards, the rankings, and you. */
+/** The tabs along the bottom, game-style: home (your hero), the wardrobe, Summon, the rankings, and you. */
 export function TabBar() {
   return (
     <nav className="tabbar" aria-label="Sections">
