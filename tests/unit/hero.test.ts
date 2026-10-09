@@ -4,7 +4,7 @@ import { BOT_LEVELS, botFighter, botMove, sparringTree } from '../../src/games/h
 import { ATTACKS, BURN_PCT, isAttack, resolveAttack, type Kit } from '../../src/games/hero/monsters';
 import { accuracyPct, afterDef, resolve, seconds, stopwatchTarget, WHEEL, type Move } from '../../src/games/hero/skills';
 import { apply, replay, start, type Fighter, type HeroState, type Side } from '../../src/games/hero/state';
-import { BOT_COUNT, buy, canBuy, FRESH_TREE, pointsFor, spent, statsOf, validTree, type NodeId, type Tree } from '../../src/games/hero/stats';
+import { BOT_COUNT, buy, canBuy, FRESH_TREE, GROUPS, isUpgrade, NODES, pointsFor, spent, statsOf, validTree, type NodeId, type Tree } from '../../src/games/hero/stats';
 import { hashSeed } from '../../src/shared/random';
 
 const tree = (change: Partial<Tree> = {}): Tree => ({ ...FRESH_TREE, ...change });
@@ -28,6 +28,21 @@ describe('the tree', () => {
     expect(canBuy(two, 'poker', 5)).toBe(false);
     expect(canBuy(two, 'hp', 1)).toBe(false);
     expect(canBuy(tree({ hp: 10 }), 'hp', 20)).toBe(false);
+  });
+
+  it('sorts every node into a branch: Stopwatch for all, Roulette and Poker for gamblers, stats for the body', () => {
+    expect(GROUPS.map((g) => g.id)).toEqual(['all', 'gambler', 'body']);
+    expect(NODES.filter((n) => n.group === 'gambler').map((n) => n.id)).toEqual(['roulette', 'poker']);
+    expect(NODES.find((n) => n.id === 'stopwatch')!.group).toBe('all');
+    for (const n of NODES) if (n.needs) expect(['all', n.group]).toContain(NODES.find((m) => m.id === n.needs!.node)!.group);
+  });
+
+  it('confirms a draft only when it adds earned points', () => {
+    const now = tree({ stopwatch: 2 });
+    expect(isUpgrade(now, tree({ stopwatch: 2, roulette: 1, hp: 1 }), 3)).toBe(true);
+    expect(isUpgrade(now, tree({ stopwatch: 2, roulette: 1, hp: 2 }), 3)).toBe(false); // 4 points, 3 earned
+    expect(isUpgrade(now, tree({ stopwatch: 1, hp: 1 }), 3)).toBe(false); // takes a point back
+    expect(isUpgrade(tree(), tree({ poker: 1 }), 5)).toBe(false); // Poker before Roulette 2
   });
 
   it('refuses trees no hero could have', () => {

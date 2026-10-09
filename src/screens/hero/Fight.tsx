@@ -107,6 +107,11 @@ export function Fight({
             {turn.kill ? 'KO!' : `−${turn.damage}`}
           </span>
         )}
+        {playing && show.hit && turn && stampOf(turn) && (
+          <span key={`meme${state.log.length}`} className="battle-meme">
+            {stampOf(turn)}
+          </span>
+        )}
         {playing && turn?.detail.skill === 'roulette' && <RouletteSpin key={`spin${state.log.length}`} pick={turn.detail.pick} balls={turn.detail.balls} />}
         {playing && turn?.detail.skill === 'poker' && (
           <PokerReveal
@@ -355,6 +360,17 @@ function useShow(state: HeroState, names: [string, string], me: Side) {
     done: !current || t >= current.end,
     skip: () => current && setT(current.end),
   };
+}
+
+/** A big moment gets a stamp across the field. */
+function stampOf(t: Turn): string | null {
+  const d = t.detail;
+  if (t.kill) return '💀 INSTANT KO';
+  if (d.skill === 'stopwatch' && d.perfect) return 'NO WAY!!';
+  if (d.skill === 'poker') return d.won ? 'ROYAL W' : 'FOLDED';
+  if (d.skill === 'attack' && d.missed) return 'MISSED LOL';
+  if (t.crit) return 'CRIT!!';
+  return null;
 }
 
 /** One line for the log. */

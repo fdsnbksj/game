@@ -8,6 +8,7 @@ import { BOT_PLAYERS, useHeroStore, type ArenaFight as Saved } from '../../heroS
 import { useGameStore } from '../../store';
 import { useWardrobeStore } from '../../wardrobeStore';
 import { PLAIN } from '../../games/hero/look';
+import { ResultTitle } from './ResultTitle';
 import { Fight, turnShowMs, useBotTurn } from './Fight';
 
 interface Ended {
@@ -68,7 +69,7 @@ function ArenaFightView({ fight, ended, onEnd }: { fight: Saved; ended: Ended | 
         {ended && (
           <div className="overlay">
             <div className="panel" role="dialog" aria-label="Fight over">
-              <p className="solved-title">{ended.won ? 'Victory' : 'Defeated'}</p>
+              <ResultTitle won={ended.won} n={fight.moves.length} />
               <p className="hero-result">{ended.won ? `You beat ${foe.name}` : `${foe.name} wins`}</p>
               <p className={`hero-reward${ended.delta < 0 ? ' down' : ''}`}>
                 {ended.delta > 0 ? '+' : ''}

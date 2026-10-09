@@ -10,6 +10,7 @@ import { finishHeroRoom, joinHeroRoom, sendHeroMove, startHeroRoom, watchHeroRoo
 import { useGameStore } from '../../store';
 import { useWardrobeStore } from '../../wardrobeStore';
 import { PLAIN } from '../../games/hero/look';
+import { ResultTitle } from './ResultTitle';
 import { Fight, turnShowMs } from './Fight';
 
 /** A fight between two phones: each move is written to the room, and both replay them. */
@@ -163,7 +164,7 @@ function Game({ room, moves, uid }: { room: Room; moves: HeroRoomData['moves']; 
         {state.winner !== null && over && (
           <div className="overlay">
             <div className="panel" role="dialog" aria-label="Fight over">
-              <p className="solved-title">{state.winner === me ? 'Victory' : 'Defeated'}</p>
+              <ResultTitle won={state.winner === me} n={moves.length} />
               <p className="hero-result">{state.winner === me ? `You beat ${names[them]}` : `${names[them]} wins`}</p>
               <Link className="button primary" to="/hero/online">
                 New fight

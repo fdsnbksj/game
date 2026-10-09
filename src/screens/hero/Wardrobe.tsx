@@ -41,7 +41,7 @@ export function Wardrobe() {
   const worn = costumeOf(costume);
 
   return (
-    <Page title="Wardrobe" back={null}>
+    <Page title="Drip" back={null}>
       <section className="wardrobe-stage">
         <span className="battle-platform home-platform" />
         <HeroFigure appearance={{ look, costume }} back={back} className="wardrobe-figure" />
@@ -75,7 +75,7 @@ export function Wardrobe() {
                 <button
                   key={c.id}
                   className={`wardrobe-cell rarity-${c.rarity}${costume === c.id ? ' on' : ''}${have ? '' : ' locked'}`}
-                  onClick={() => (have ? wear(c.id) : setHint(`${c.name} comes from Summon.`))}
+                  onClick={() => (have ? wear(c.id) : setHint(`${c.name} comes from the Gacha.`))}
                 >
                   <CostumeArt id={c.id} className="thumb-figure" />
                   <small>{c.name}</small>
@@ -89,7 +89,7 @@ export function Wardrobe() {
             const part = PARTS_OF[tab]?.[i];
             const on = look[tab] === i;
             const pick = () => {
-              if (!have) return setHint(`${part?.name ?? 'That'} comes from Summon.`);
+              if (!have) return setHint(`${part?.name ?? 'That'} comes from the Gacha.`);
               setHint(null);
               setLook(tab, i);
             };
@@ -108,7 +108,7 @@ export function Wardrobe() {
         )}
       </div>
       <Link className="button" to="/hero/summon">
-        Summon for more
+        Get more in the Gacha
       </Link>
     </Page>
   );

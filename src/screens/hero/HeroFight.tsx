@@ -7,6 +7,7 @@ import { BOT_COUNT, heroLevel } from '../../games/hero/stats';
 import { BOT_PLAYERS, botLevel, useHeroStore, type BotFight } from '../../heroStore';
 import { useGameStore } from '../../store';
 import { useWardrobeStore } from '../../wardrobeStore';
+import { ResultTitle } from './ResultTitle';
 import { Fight, turnShowMs, useBotTurn } from './Fight';
 
 interface Ended {
@@ -77,7 +78,7 @@ function BotFightView({
         {ended && (
           <div className="overlay">
             <div className="panel" role="dialog" aria-label="Fight over">
-              <p className="solved-title">{won ? 'Victory' : 'Defeated'}</p>
+              <ResultTitle won={won} n={fight.moves.length} />
               <p className="hero-result">{won ? `You beat ${bot.name}` : `${bot.name} wins this time`}</p>
               {(ended.points > 0 || ended.gems > 0) && (
                 <p className="hero-reward">

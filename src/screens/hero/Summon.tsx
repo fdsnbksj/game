@@ -24,7 +24,7 @@ export function Summon() {
   const legendaries = COSTUMES.filter((c) => c.rarity === 'legendary');
 
   return (
-    <Page title="Summon" back={null}>
+    <Page title="Gacha" back={null}>
       <section className="summon-banner frame">
         <span className="micro">Meme summon</span>
         <div className="summon-stars">

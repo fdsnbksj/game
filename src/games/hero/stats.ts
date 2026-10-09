@@ -9,9 +9,19 @@ export type StatId = 'hp' | 'def' | 'crit' | 'critDmg';
 export type NodeId = SkillId | StatId;
 export type Tree = Record<NodeId, number>;
 
+/** The tree's three branches. */
+export type GroupId = 'all' | 'gambler' | 'body';
+
+export const GROUPS: readonly { id: GroupId; name: string; blurb: string }[] = [
+  { id: 'all', name: 'All skills', blurb: 'Anyone can use these' },
+  { id: 'gambler', name: 'Gambler', blurb: 'Luck-based moves' },
+  { id: 'body', name: 'Body', blurb: 'Tougher, crittier' },
+];
+
 export interface NodeInfo {
   id: NodeId;
   name: string;
+  group: GroupId;
   /** What one more level does, in a few words. */
   per: string;
   max: number;
@@ -20,13 +30,13 @@ export interface NodeInfo {
 }
 
 export const NODES: readonly NodeInfo[] = [
-  { id: 'stopwatch', name: 'Stopwatch', per: '+4 power', max: 10 },
-  { id: 'roulette', name: 'Roulette', per: '+1 ball', max: 10, needs: { node: 'stopwatch', level: 2 } },
-  { id: 'poker', name: 'Poker', per: '+10 damage', max: 10, needs: { node: 'roulette', level: 2 } },
-  { id: 'hp', name: 'HP', per: '+15 HP', max: 10 },
-  { id: 'def', name: 'DEF', per: '+2 DEF', max: 10 },
-  { id: 'crit', name: 'Crit', per: '+3% crit', max: 10 },
-  { id: 'critDmg', name: 'Crit dmg', per: '+10% crit damage', max: 10 },
+  { id: 'stopwatch', name: 'Stopwatch', group: 'all', per: '+4 power', max: 10 },
+  { id: 'roulette', name: 'Roulette', group: 'gambler', per: '+1 ball', max: 10, needs: { node: 'stopwatch', level: 2 } },
+  { id: 'poker', name: 'Poker', group: 'gambler', per: '+10 damage', max: 10, needs: { node: 'roulette', level: 2 } },
+  { id: 'hp', name: 'HP', group: 'body', per: '+15 HP', max: 10 },
+  { id: 'def', name: 'DEF', group: 'body', per: '+2 DEF', max: 10 },
+  { id: 'crit', name: 'Crit', group: 'body', per: '+3% crit', max: 10 },
+  { id: 'critDmg', name: 'Crit dmg', group: 'body', per: '+10% crit damage', max: 10 },
 ];
 
 export const SKILLS: readonly SkillId[] = ['stopwatch', 'roulette', 'poker'];
@@ -91,4 +101,11 @@ export function validTree(value: unknown, cleared = BOT_COUNT): Tree | null {
   }
   if (tree.stopwatch < 1 || spent(tree) > pointsFor(cleared)) return null;
   return tree;
+}
+
+/** Whether `next` is `tree` with points added (never taken away) and is a tree a hero with `cleared` could have. */
+export function isUpgrade(tree: Tree, next: Tree, cleared: number): boolean {
+  if (!validTree(next, cleared)) return false;
+  if (NODES.some((n) => next[n.id] < tree[n.id])) return false;
+  return NODES.every((n) => !n.needs || next[n.id] === 0 || next[n.needs.node] >= n.needs.level);
 }

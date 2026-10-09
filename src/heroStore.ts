@@ -6,7 +6,7 @@ import { gemsFor } from './games/hero/gacha';
 import type { Appearance } from './games/hero/look';
 import type { Move } from './games/hero/skills';
 import { HERO_VERSION, type Recorded } from './games/hero/state';
-import { BOT_COUNT, buy, canBuy, FRESH_TREE, NODES, pointsFor, rewardFor, spent, validTree, type NodeId, type Tree } from './games/hero/stats';
+import { BOT_COUNT, buy, canBuy, FRESH_TREE, isUpgrade, NODES, pointsFor, rewardFor, spent, validTree, type NodeId, type Tree } from './games/hero/stats';
 import { fetchOwnArena, joinArena, refreshArenaHero, writeArenaResult, type ArenaRecord } from './services/arena';
 import { fetchHero, writeHero } from './services/hero';
 import { isRetryable } from './services/solves';
@@ -102,6 +102,8 @@ interface HeroStore extends Saved {
   /** Points earned and not yet spent. */
   unspent: () => number;
   buy: (node: NodeId) => void;
+  /** Applies a drafted tree (the skill tree's Confirm): only points added, none beyond those earned. */
+  commit: (tree: Tree) => boolean;
   /** Every point back, for free. */
   reset: () => void;
   /** A new fight against a bot level you've reached. */
@@ -219,6 +221,12 @@ export const useHeroStore = create<HeroStore>()((set, get) => {
     buy: (node) => {
       const { tree, cleared } = get();
       if (canBuy(tree, node, cleared)) changed({ tree: buy(tree, node) });
+    },
+
+    commit: (next) => {
+      if (!isUpgrade(get().tree, next, get().cleared)) return false;
+      changed({ tree: next });
+      return true;
     },
 
     reset: () => changed({ tree: FRESH_TREE }),

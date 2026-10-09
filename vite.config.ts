@@ -15,8 +15,8 @@ export default defineConfig({
         short_name: 'a game',
         description: 'Small logic puzzles for between chapters. One thumb, no sound, stop anytime.',
         // The page background, which is also the icon's tile.
-        theme_color: '#0a0b0d',
-        background_color: '#0a0b0d',
+        theme_color: '#fff4d6',
+        background_color: '#fff4d6',
         display: 'standalone',
         orientation: 'portrait',
         categories: ['games'],

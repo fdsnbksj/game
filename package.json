@@ -17,7 +17,8 @@
     "set-level": "tsx scripts/setLevel.ts"
   },
   "dependencies": {
-    "@fontsource-variable/inter": "^5.3.0",
+    "@fontsource-variable/fredoka": "5.3.0",
+    "@fontsource/lilita-one": "5.3.0",
     "firebase": "^12.19.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",

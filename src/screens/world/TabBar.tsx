@@ -8,12 +8,12 @@ const TABS = [
   },
   {
     to: '/hero/wardrobe',
-    label: 'Wardrobe',
+    label: 'Drip',
     icon: <path d="M9 4l3 2 3-2 5 3-2 4-2-1v10H8V10l-2 1-2-4z" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" />,
   },
   {
     to: '/hero/summon',
-    label: 'Summon',
+    label: 'Gacha',
     icon: (
       <>
         <circle cx="12" cy="13" r="7" fill="none" stroke="currentColor" strokeWidth="1.7" />

@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { SummaryRow } from '../../components/SummaryRow';
 import { ARENA_UNLOCK, START_RATING, tierOf } from '../../games/hero/arena';
@@ -9,6 +9,7 @@ import { useHeroStore } from '../../heroStore';
 import { useGameStore } from '../../store';
 import { useWardrobeStore } from '../../wardrobeStore';
 import { HeroFigure } from './Avatar';
+import { HOME_LINES, pick } from './memes';
 import { CreatureThumb } from './Sprites';
 
 // Home is Hero Gambit (the other games are hidden for now): your hero standing large, the
@@ -33,6 +34,13 @@ export function Home() {
   const next = Math.min(BOT_COUNT, cleared + 1);
   const nextBot = BOT_LEVELS[next - 1];
 
+  // What your hero says, a new line every few seconds.
+  const [line, setLine] = useState(() => Math.floor(Math.random() * HOME_LINES.length));
+  useEffect(() => {
+    const t = setInterval(() => setLine((n) => n + 1), 4500);
+    return () => clearInterval(t);
+  }, []);
+
   const fightLevel = (level: number) => {
     startFight(level);
     navigate('/hero/fight');
@@ -42,6 +50,9 @@ export function Home() {
     <main className="screen home">
       <section className="home-stage">
         <span className="home-glow" />
+        <span key={line} className="home-bubble">
+          {pick(HOME_LINES, line)}
+        </span>
         <span className="battle-platform home-platform" />
         <Link to="/hero/wardrobe" className="home-figure" aria-label="Change your look">
           <HeroFigure appearance={{ look, costume: costumeId }} />
@@ -52,7 +63,7 @@ export function Home() {
         <strong>{name}</strong>
         <span className="home-chips">
           <span className="player-chip hero">Lv {heroLevel(tree)}</span>
-          {arenaOpen && <span className="player-chip">{tierOf(rating)}</span>}
+          {arenaOpen && <span className="player-chip">{tierOf(rating)} {rating}</span>}
           {costume && <span className={`player-chip rarity-${costume.rarity}`}>{costume.name}</span>}
         </span>
         <span className="home-stats">
@@ -65,38 +76,42 @@ export function Home() {
 
       {fight ? (
         <Link className="button primary home-go" to="/hero/fight">
-          Continue fight · {BOT_LEVELS[fight.level - 1].name}
+          Back to the fight!
         </Link>
       ) : (
         <button className="button primary home-go" onClick={() => fightLevel(next)}>
-          {cleared >= BOT_COUNT ? `Fight ${nextBot.name} again` : `Fight level ${next} · ${nextBot.name}`}
+          {cleared >= BOT_COUNT ? 'FIGHT!! (again)' : 'FIGHT!!'}
+          <small className="home-go-sub">
+            Lv {next} · {nextBot.name}
+          </small>
         </button>
       )}
 
       <nav className="home-actions" aria-label="Your hero">
         <Round to="/hero/tree" label="Skills" badge={unspent > 0 ? String(unspent) : null}>
-          <path d="M12 3v6M12 9l-6 5M12 9l6 5M6 14v5M18 14v5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-          <circle cx="12" cy="3.5" r="2" fill="currentColor" />
-          <circle cx="6" cy="19.5" r="2" fill="currentColor" />
-          <circle cx="18" cy="19.5" r="2" fill="currentColor" />
+          <path d="M12 3v6M12 9l-6 5M12 9l6 5M6 14v5M18 14v5" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+          <circle cx="12" cy="3.5" r="2.2" fill="currentColor" />
+          <circle cx="6" cy="19.5" r="2.2" fill="currentColor" />
+          <circle cx="18" cy="19.5" r="2.2" fill="currentColor" />
         </Round>
-        <Round to="/hero/wardrobe" label="Wardrobe">
-          <path d="M9 4l3 2 3-2 5 3-2 4-2-1v10H8V10l-2 1-2-4z" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+        <Round to="/hero/wardrobe" label="Drip">
+          <path d="M9 4l3 2 3-2 5 3-2 4-2-1v10H8V10l-2 1-2-4z" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinejoin="round" />
         </Round>
-        <Round to="/hero/summon" label="Summon" badge={free ? 'Free' : null}>
-          <circle cx="12" cy="13" r="7" fill="none" stroke="currentColor" strokeWidth="1.8" />
-          <path d="M5 13h14M12 3v3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-          <circle cx="12" cy="13" r="2" fill="currentColor" />
-        </Round>
-        <Round to="/hero/arena" label={arenaOpen ? 'Arena' : `Arena · ${ARENA_UNLOCK}`} dim={!arenaOpen}>
-          <path d="M5 19L17 7M17 7h-4M17 7v4M19 19L7 7M7 7h4M7 7v4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-        </Round>
-        <Round to="/hero/online" label="Friend">
-          <circle cx="9" cy="9" r="3" fill="none" stroke="currentColor" strokeWidth="1.8" />
-          <circle cx="16" cy="10" r="2.5" fill="none" stroke="currentColor" strokeWidth="1.8" />
-          <path d="M3.5 19c.8-3 3-4.5 5.5-4.5s4.7 1.5 5.5 4.5M14.5 15c2.6-.4 4.6.8 5.5 4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+        <Round to="/hero/summon" label="Gacha" badge={free ? 'Free' : null}>
+          <circle cx="12" cy="13" r="7" fill="none" stroke="currentColor" strokeWidth="2.2" />
+          <path d="M5 13h14M12 3v3" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+          <circle cx="12" cy="13" r="2.2" fill="currentColor" />
         </Round>
       </nav>
+
+      <div className="home-versus">
+        <Link className={`button${arenaOpen ? '' : ' dim'}`} to="/hero/arena">
+          {arenaOpen ? 'Arena ⚔️' : `Arena · Lv ${ARENA_UNLOCK}`}
+        </Link>
+        <Link className="button" to="/hero/online">
+          Vs a friend
+        </Link>
+      </div>
 
       <div className="home-more">
         <SummaryRow label="Bot ladder" figures={`${cleared} / ${BOT_COUNT}`} title="Bot ladder">

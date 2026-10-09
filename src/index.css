@@ -1,57 +1,67 @@
-/* One dark palette of our own. There is no light theme: every colour in this file is
-   written in :root, and everything below uses var(). --bg matches index.html's boot
-   styles, the manifest and the icons in public/, so keep them in step. */
+/* A goofy cartoon-sticker look (the user's choice): a light cream page with doodles, white
+   stickers with thick ink outlines and hard shadows, candy colours, a chunky display font.
+   Every colour in this file is written in :root, and everything below uses var(). --bg
+   matches index.html's boot styles and the manifest, so keep them in step. */
 
-/* Inter, bundled rather than fetched, so the offline cache has it in a tunnel. Latin
-   only; anything else falls back to the system face. */
+/* Fredoka for text and Lilita One for titles and buttons, bundled rather than fetched so
+   the offline cache has them. Latin only; anything else falls back to the system face. */
 @font-face {
-  font-family: 'Inter Variable';
+  font-family: 'Fredoka Variable';
   font-style: normal;
   font-display: swap;
-  font-weight: 100 900;
-  src: url('@fontsource-variable/inter/files/inter-latin-wght-normal.woff2') format('woff2-variations');
+  font-weight: 300 700;
+  src: url('@fontsource-variable/fredoka/files/fredoka-latin-wght-normal.woff2') format('woff2-variations');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Lilita One';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400;
+  src: url('@fontsource/lilita-one/files/lilita-one-latin-400-normal.woff2') format('woff2');
   unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
 
 :root {
-  color-scheme: dark;
+  color-scheme: light;
 
   /* Surfaces lift by luminance and a soft shadow; a faint top highlight edges each card. */
-  --bg: #0a0b0d;
-  --surface: #15171d;
-  --surface-2: #1d2028;
-  --surface-grad: linear-gradient(180deg, #181b22, #13151a);
-  --scrim: rgb(4 5 8 / 0.55);
-  --glow: radial-gradient(110% 55% at 50% -12%, rgb(232 179 57 / 0.09), transparent 62%);
-  --highlight: inset 0 1px 0 rgb(255 255 255 / 0.05);
-  --shadow-1: 0 1px 2px rgb(0 0 0 / 0.35), 0 6px 18px rgb(0 0 0 / 0.28);
-  --shadow-2: 0 -2px 6px rgb(0 0 0 / 0.25), 0 18px 48px rgb(0 0 0 / 0.5);
-  --fill-1: rgb(255 255 255 / 0.04);
-  --fill-2: rgb(255 255 255 / 0.07);
-  --fill-3: rgb(255 255 255 / 0.1);
-  --bar-bg: rgb(10 11 13 / 0.72);
+  --bg: #fff4d6;
+  --surface: #ffffff;
+  --surface-2: #fff1c9;
+  --surface-grad: #ffffff;
+  --scrim: rgb(40 28 10 / 0.45);
+  --glow: radial-gradient(110% 55% at 50% -12%, rgb(255 210 63 / 0.35), transparent 62%);
+  --highlight: inset 0 -3px 0 rgb(27 27 31 / 0.07);
+  --shadow-1: 4px 4px 0 #1b1b1f;
+  --shadow-2: 6px 6px 0 #1b1b1f;
+  --fill-1: rgb(27 27 31 / 0.04);
+  --fill-2: rgb(27 27 31 / 0.08);
+  --fill-3: rgb(27 27 31 / 0.14);
+  --bar-bg: #ffffff;
 
-  --label: #f1f2f4;
-  --label-2: #969ba6;
-  --label-3: #636874;
+  --label: #1b1b1f;
+  --label-2: #5d5662;
+  --label-3: #9b94a2;
 
-  --separator: #252831;
-  --border-strong: #353945;
+  --separator: #eadfc6;
+  --border-strong: #1b1b1f;
 
   /* the one accent: warm gold, solid on primary actions */
-  --accent: #eebb45;
-  --accent-grad: linear-gradient(180deg, #f6cc63, #e0a62c);
-  --on-accent: #1a1406;
-  --accent-glow: 0 6px 20px rgb(232 170 50 / 0.25), inset 0 1px 0 rgb(255 255 255 / 0.35);
-  --accent-soft: rgb(238 187 69 / 0.12);
-  --accent-line: rgb(238 187 69 / 0.45);
+  --accent: #f08c00;
+  --accent-grad: #ffd23f;
+  --on-accent: #1b1b1f;
+  --accent-glow: 4px 4px 0 #1b1b1f;
+  --accent-soft: rgb(255 210 63 / 0.3);
+  --accent-line: #f08c00;
   --cell-fill: linear-gradient(160deg, #f6cc63, #dda02a);
-  --danger: #f0616d;
-  --danger-soft: rgb(240 97 109 / 0.1);
-  --danger-line: rgb(240 97 109 / 0.4);
+  --danger: #ff4d6d;
+  --danger-soft: rgb(255 77 109 / 0.14);
+  --danger-line: #ff4d6d;
   /* Avalon's two sides, invest's long and short. */
-  --success: #3fbf88;
-  --success-soft: rgb(63 191 136 / 0.12);
+  --success: #22b45a;
+  --success-soft: rgb(34 180 90 / 0.14);
   /* The Lady of the Lake's token. */
   --lady: #8fb0ff;
   --lady-soft: rgb(143 176 255 / 0.14);
@@ -145,10 +155,10 @@
   --plate: rgb(10 11 13 / 0.78);
   --game-brawl-soft: rgb(240 138 93 / 0.14);
   /* Hero Gambit: its emblem, HP bars, the roulette wheel's three colours, playing cards. */
-  --game-hero: #ff7a9c;
-  --game-hero-soft: rgb(255 122 156 / 0.14);
-  --hero-hp: linear-gradient(90deg, #3fbf88, #7ad9a8);
-  --hero-hp-foe: linear-gradient(90deg, #f0616d, #ff8f86);
+  --game-hero: #ff5fa2;
+  --game-hero-soft: rgb(255 95 162 / 0.18);
+  --hero-hp: #22c55e;
+  --hero-hp-foe: #ff4d6d;
   --hero-wheel-red: #c8414e;
   --hero-wheel-black: #22252d;
   --hero-wheel-green: #2f9d6c;
@@ -156,11 +166,11 @@
   --hero-card-ink: #1a1406;
   --hero-card-back: linear-gradient(135deg, #3a2a63, #22183d);
   /* The battlefield: sky, platforms, boxes, the spinning wheel. */
-  --battle-sky: radial-gradient(120% 70% at 75% 30%, #2a2346 0%, transparent 60%), linear-gradient(180deg, #17152a 0%, #141a28 55%, #121816 100%);
-  --battle-platform: radial-gradient(closest-side, #3c4636, #262d24 70%, transparent 100%);
-  --battle-info: rgb(21 23 29 / 0.92);
-  --battle-scrim: rgb(8 9 12 / 0.55);
-  --hero-hp-mid: linear-gradient(90deg, #e0a62c, #f6cc63);
+  --battle-sky: linear-gradient(180deg, #7fd0ff 0%, #c8eeff 58%, #8bd86a 58.2%, #5fbf45 100%);
+  --battle-platform: radial-gradient(closest-side, #4fae35, #3a8f26 70%, transparent 100%);
+  --battle-info: #ffffff;
+  --battle-scrim: rgb(20 24 40 / 0.35);
+  --hero-hp-mid: #ffc21a;
   --spin-rim: #4b2f1c;
   --spin-track: #2a1b11;
   --spin-cone: #6a4529;
@@ -193,12 +203,12 @@
   --fx-slash: #fff6dc;
   --fx-fire: radial-gradient(circle at 50% 70%, #ffe27a, #ff8a3d 55%, rgb(240 70 60 / 0) 75%);
   --fx-burst: #ffd25e;
-  --fx-wave: rgb(255 255 255 / 0.65);
+  --fx-wave: rgb(255 255 255 / 0.95);
   --fx-smoke: rgb(150 156 170 / 0.6);
   --fx-shield: rgb(120 190 255 / 0.85);
   --fx-shield-soft: rgb(120 190 255 / 0.14);
   --fx-drain: #7cf2b0;
-  --fx-aura: radial-gradient(closest-side, rgb(238 187 69 / 0.55), rgb(238 187 69 / 0));
+  --fx-aura: radial-gradient(closest-side, rgb(255 210 63 / 0.7), rgb(255 210 63 / 0));
   --fx-flash: #fff7e6;
   --fx-rage-glow: drop-shadow(0 0 12px rgb(240 70 80 / 0.8));
   --fx-rage-platform: radial-gradient(closest-side, rgb(240 80 90 / 0.6), rgb(240 80 90 / 0) 100%);
@@ -352,7 +362,12 @@
   --cell-focus: rgb(238 187 69 / 0.14);
   --knob: #ecedef;
 
-  --font: 'Inter Variable', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --ink: #1b1b1f;
+  --sticker: 4px 4px 0 #1b1b1f;
+  --sticker-sm: 2px 2px 0 #1b1b1f;
+  --doodle: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120'%3E%3Cg fill='none' stroke='%23f0e2bd' stroke-width='3' stroke-linecap='round'%3E%3Cpath d='M14 20l6 6m0-6l-6 6'/%3E%3Ccircle cx='86' cy='26' r='6'/%3E%3Cpath d='M40 84q8-10 16 0t16 0'/%3E%3Cpath d='M98 92l4 8 8 2-6 6 2 8-8-4-8 4 2-8-6-6 8-2z'/%3E%3C/g%3E%3C/svg%3E");
+  --font-display: 'Lilita One', 'Fredoka Variable', system-ui, sans-serif;
+  --font: 'Fredoka Variable', 'Fredoka', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   --fs-label: 0.625rem;
   --fs-cap: 0.75rem;
   --fs-sm: 0.8125rem;
@@ -5409,11 +5424,18 @@ button.seat:disabled {
   overflow: hidden;
 }
 
+.player-avatar {
+  position: relative;
+}
+
+/* Your hero's head, filling the round avatar. */
 .player-face {
-  flex: none;
-  width: 112px;
-  height: 112px;
-  transform: translateY(26px);
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 104px;
+  height: 104px;
+  transform: translate(-50%, calc(-50% + 21px));
 }
 
 .player-chip.gems {
@@ -6050,4 +6072,756 @@ button.seat:disabled {
 .pk-card.top .pk-who {
   top: auto;
   bottom: calc(100% + 4px);
+}
+
+/* ---------- The sticker layer ----------
+   The goofy cartoon look over the shared parts: white stickers with thick ink outlines
+   and hard shadows, a chunky display font, buttons that squash into their shadow. */
+body {
+  background: var(--glow) no-repeat, var(--doodle), var(--bg);
+}
+
+.bar-title,
+.solved-title,
+.hero-result,
+.ribbon,
+.home-plate > strong,
+.summon-prize strong,
+.summon-gems,
+.tree-title,
+.arena-rating,
+.battle-prompt {
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: 0.01em;
+}
+
+.bar-title {
+  font-size: var(--fs-lg);
+}
+
+.solved-title {
+  color: var(--label);
+  font-size: 2.6rem;
+  line-height: 1;
+}
+
+.button {
+  min-height: 50px;
+  border: 3px solid var(--ink);
+  border-radius: 16px;
+  background: var(--surface);
+  box-shadow: var(--sticker);
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-size: var(--fs-md);
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  transition:
+    transform 90ms ease,
+    box-shadow 90ms ease;
+}
+
+.button:active:not(:disabled) {
+  transform: translate(3px, 3px) scale(0.98, 0.96);
+  box-shadow: 1px 1px 0 var(--ink);
+  background: var(--surface);
+}
+
+.button.primary {
+  min-height: 60px;
+  border-color: var(--ink);
+  background: var(--accent-grad);
+  box-shadow: var(--sticker);
+  color: var(--ink);
+  font-size: var(--fs-lg);
+  animation: goofy-wiggle 5s ease-in-out 2s infinite;
+}
+
+.button.primary:active:not(:disabled) {
+  background: var(--accent-grad);
+  animation: none;
+}
+
+.button.primary:disabled {
+  border-color: var(--ink);
+  background: var(--fill-2);
+  box-shadow: var(--sticker-sm);
+  color: var(--label-3);
+  animation: none;
+}
+
+.button.ghost {
+  border-color: transparent;
+  background: none;
+  box-shadow: none;
+  color: var(--label-2);
+  font-family: var(--font);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+
+.button.ghost:active:not(:disabled) {
+  box-shadow: none;
+}
+
+@keyframes goofy-wiggle {
+  0%,
+  86%,
+  100% {
+    transform: rotate(0);
+  }
+  89% {
+    transform: rotate(-2deg) scale(1.03);
+  }
+  92% {
+    transform: rotate(2deg) scale(1.03);
+  }
+  95% {
+    transform: rotate(-1deg);
+  }
+}
+
+a.icon-button,
+button.icon-button {
+  border: 3px solid var(--ink);
+  background: var(--surface);
+  box-shadow: var(--sticker-sm);
+  color: var(--ink);
+}
+
+.group,
+.summary-row,
+.panel,
+.sheet,
+.frame,
+.battle-field,
+.battle-box,
+.battle-info,
+.home-stage,
+.wardrobe-stage,
+.wardrobe-cell,
+.battle-cmd,
+.home-round-icon,
+.player-avatar,
+.summon-prize,
+.battle-stop,
+.wardrobe-turn {
+  border: 3px solid var(--ink);
+  box-shadow: var(--sticker);
+}
+
+.group,
+.summary-row,
+.panel,
+.frame,
+.battle-box,
+.wardrobe-cell,
+.battle-cmd {
+  background: var(--surface);
+}
+
+.sheet {
+  border-bottom: none;
+  box-shadow: 0 -4px 0 var(--ink);
+}
+
+.frame::before,
+.frame::after {
+  display: none;
+}
+
+.summary-row {
+  font-weight: 600;
+  transition: transform 90ms ease, box-shadow 90ms ease;
+}
+
+.summary-row:active {
+  transform: translate(3px, 3px);
+  box-shadow: 1px 1px 0 var(--ink);
+}
+
+.row + .row {
+  border-top: 2px dashed var(--separator);
+}
+
+.micro,
+.group-title {
+  color: var(--label-2);
+  font-weight: 700;
+}
+
+.overlay .panel {
+  animation: goofy-pop 380ms cubic-bezier(0.3, 1.6, 0.5, 1) both;
+}
+
+@keyframes goofy-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.6) rotate(-4deg);
+  }
+}
+
+/* The bars: a white sticker strip on top, chunky tabs at the bottom. */
+.player-bar {
+  margin: 8px 12px 4px;
+  padding: 8px 10px;
+  border: 3px solid var(--ink);
+  border-radius: 18px;
+  background: var(--surface);
+  box-shadow: var(--sticker);
+}
+
+.player-bar strong {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: var(--fs-md);
+}
+
+.player-chip {
+  border: 2px solid var(--ink);
+  font-weight: 700;
+}
+
+.player-avatar {
+  width: 46px;
+  height: 46px;
+  box-shadow: var(--sticker-sm);
+  background: var(--surface-2);
+}
+
+.tabbar {
+  border-top: 3px solid var(--ink);
+  background: var(--surface);
+  backdrop-filter: none;
+}
+
+.tab {
+  font-family: var(--font-display);
+  font-weight: 400;
+}
+
+.tab.active {
+  color: var(--ink);
+}
+
+.tab.active svg {
+  padding: 2px;
+  border: 2px solid var(--ink);
+  border-radius: 10px;
+  background: var(--accent-grad);
+  animation: goofy-pop 300ms cubic-bezier(0.3, 1.6, 0.5, 1) both;
+}
+
+.hero-badge {
+  border: 2px solid var(--ink);
+  font-family: var(--font-display);
+  font-weight: 400;
+}
+
+/* Home: the hero on a sunny hill, a speech bubble, one fat button. */
+.home-stage {
+  border-radius: 28px;
+}
+
+.home-glow {
+  background: radial-gradient(closest-side, rgb(255 255 255 / 0.7), transparent);
+}
+
+.home-bubble {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  z-index: 1;
+  max-width: 78%;
+  padding: 6px 12px;
+  border: 3px solid var(--ink);
+  border-radius: 16px;
+  background: var(--surface);
+  box-shadow: var(--sticker-sm);
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-size: var(--fs-md);
+  text-align: center;
+  transform: translateX(-50%) rotate(-3deg);
+  animation: goofy-pop 400ms cubic-bezier(0.3, 1.6, 0.5, 1) both;
+}
+
+.home-bubble::after {
+  content: '';
+  position: absolute;
+  bottom: -12px;
+  left: 50%;
+  width: 16px;
+  height: 16px;
+  border-right: 3px solid var(--ink);
+  border-bottom: 3px solid var(--ink);
+  background: var(--surface);
+  transform: translateX(-50%) rotate(45deg);
+}
+
+.home-go {
+  font-size: 1.6rem;
+}
+
+.home-actions {
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.home-round {
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-size: var(--fs-sm);
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  text-transform: none;
+}
+
+.home-round-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 22px;
+  color: var(--ink);
+}
+
+.home-round:nth-child(1) .home-round-icon {
+  background: var(--rarity-rare-soft);
+  transform: rotate(-4deg);
+}
+
+.home-round:nth-child(2) .home-round-icon {
+  background: var(--game-hero-soft);
+  transform: rotate(3deg);
+}
+
+.home-round:nth-child(3) .home-round-icon {
+  background: var(--accent-soft);
+  transform: rotate(-2deg);
+}
+
+.home-round:active .home-round-icon {
+  transform: translate(3px, 3px) rotate(0);
+  box-shadow: 1px 1px 0 var(--ink);
+}
+
+.home-versus {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.home-versus .button {
+  font-size: var(--fs-base);
+}
+
+.home-versus .button.dim {
+  color: var(--label-3);
+}
+
+/* The fight, as stickers on a sunny field. */
+.battle-info {
+  border-radius: 14px;
+}
+
+.battle-info-top strong {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: var(--fs-base);
+}
+
+.battle-hp-track {
+  height: 10px;
+  border: 2px solid var(--ink);
+  background: var(--surface-2);
+}
+
+.battle-hp small {
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-weight: 400;
+}
+
+.battle-text {
+  color: var(--label-2);
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: var(--fs-lg);
+  line-height: 1.25;
+}
+
+.battle-text .new {
+  color: var(--ink);
+}
+
+.battle-cmd {
+  border-radius: 16px;
+  color: var(--ink);
+}
+
+.battle-cmd strong {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: var(--fs-md);
+}
+
+.battle-cmd.stopwatch {
+  background: var(--rarity-rare-soft);
+}
+
+.battle-cmd.roulette {
+  background: var(--danger-soft);
+}
+
+.battle-cmd.poker {
+  background: var(--rarity-epic-soft);
+}
+
+.battle-cmd:active:not(:disabled) {
+  transform: translate(3px, 3px);
+  box-shadow: 1px 1px 0 var(--ink);
+}
+
+.battle-pop {
+  color: var(--danger);
+  font-family: var(--font-display);
+  font-size: 2.4rem;
+  font-weight: 400;
+  -webkit-text-stroke: 2px var(--ink);
+  text-shadow: 3px 3px 0 var(--ink);
+}
+
+.battle-pop.crit {
+  color: var(--accent-grad);
+}
+
+.battle-meme {
+  position: absolute;
+  top: 38%;
+  left: 50%;
+  z-index: 5;
+  padding: 4px 14px;
+  border: 3px solid var(--ink);
+  border-radius: 12px;
+  background: var(--accent-grad);
+  box-shadow: var(--sticker);
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-size: 1.6rem;
+  white-space: nowrap;
+  pointer-events: none;
+  transform: translateX(-50%) rotate(-6deg);
+  animation: goofy-stamp 1300ms cubic-bezier(0.3, 1.6, 0.5, 1) both;
+}
+
+@keyframes goofy-stamp {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) rotate(-20deg) scale(2.2);
+  }
+  25% {
+    opacity: 1;
+    transform: translateX(-50%) rotate(-6deg) scale(1);
+  }
+  80% {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+    transform: translateX(-50%) rotate(-6deg) scale(1.05);
+  }
+}
+
+.result-big {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 4.5rem;
+  line-height: 1;
+  text-align: center;
+  -webkit-text-stroke: 3px var(--ink);
+  text-shadow: 5px 5px 0 var(--ink);
+  animation: goofy-pop 500ms cubic-bezier(0.3, 1.6, 0.5, 1) both;
+}
+
+.result-big.win {
+  color: var(--accent-grad);
+}
+
+.result-big.lose {
+  color: var(--danger);
+}
+
+.result-caption {
+  margin: -6px 0 0;
+  color: var(--label-2);
+  font-family: var(--font-display);
+  font-size: var(--fs-md);
+  text-align: center;
+}
+
+.hero-reward {
+  font-family: var(--font-display);
+  font-weight: 400;
+}
+
+.wardrobe-tab,
+.wardrobe-tab.on {
+  border: 2px solid var(--ink);
+  font-family: var(--font-display);
+  font-weight: 400;
+}
+
+.wardrobe-tab.on {
+  background: var(--accent-grad);
+  color: var(--ink);
+}
+
+.wardrobe-swatch {
+  border: 3px solid var(--ink);
+}
+
+.wardrobe-swatch.on {
+  box-shadow: var(--sticker-sm);
+  transform: scale(1.1);
+}
+
+.pk-face,
+.pk-back,
+.hero-slot {
+  border: 2px solid var(--ink);
+}
+
+.pk-face {
+  font-family: var(--font-display);
+  font-weight: 400;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .button.primary,
+  .home-figure,
+  .battle-spot.foe .sprite {
+    animation: none;
+  }
+}
+
+/* The skill tree: a branch per group on a paper board, each skill a row of level slots. */
+.st-board {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding-bottom: 8px;
+}
+
+.st-branch {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border: 3px solid var(--ink);
+  border-radius: 20px;
+  background: var(--surface);
+  box-shadow: var(--sticker);
+}
+
+.st-branch.st-all {
+  background: var(--rarity-rare-soft);
+}
+
+.st-branch.st-gambler {
+  background: var(--danger-soft);
+}
+
+.st-branch.st-body {
+  background: var(--success-soft);
+}
+
+/* The line from the All skills branch down to the Gambler branch it opens. */
+.st-branch.st-gambler::before {
+  content: '';
+  position: absolute;
+  top: -20px;
+  left: 30px;
+  width: 6px;
+  height: 20px;
+  border: 2px solid var(--ink);
+  background: var(--accent-grad);
+}
+
+.st-branch.st-gambler.shut::before {
+  background: var(--fill-3);
+}
+
+.st-branch.shut .st-row {
+  opacity: 0.6;
+}
+
+.st-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.st-head strong {
+  font-size: var(--fs-lg);
+}
+
+.st-head small {
+  color: var(--label-2);
+  font-size: var(--fs-cap);
+  font-weight: 600;
+}
+
+.st-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Roulette to Poker: an elbow from the row above. */
+.st-link {
+  position: absolute;
+  top: -14px;
+  left: 22px;
+  width: 6px;
+  height: 14px;
+  border: 2px solid var(--ink);
+  background: var(--fill-3);
+}
+
+.st-link.on {
+  background: var(--accent-grad);
+}
+
+.st-badge {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 50px;
+  height: 50px;
+  padding: 0;
+  border: 3px solid var(--ink);
+  border-radius: 14px;
+  background: var(--accent-grad);
+  box-shadow: var(--sticker-sm);
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.st-row.locked .st-badge {
+  background: var(--fill-2);
+  color: var(--label-3);
+}
+
+.st-main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.st-name {
+  font-family: var(--font-display);
+  font-size: var(--fs-md);
+}
+
+.st-name small {
+  color: var(--label-2);
+  font-size: var(--fs-sm);
+}
+
+.st-slots {
+  display: grid;
+  grid-template-columns: repeat(10, 1fr);
+  gap: 3px;
+}
+
+.st-slot {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1;
+  min-width: 0;
+  padding: 0;
+  border: 2px solid var(--ink);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--label-3);
+  font-family: var(--font-display);
+  font-size: var(--fs-md);
+  cursor: default;
+}
+
+.st-slot.owned {
+  background: var(--accent-grad);
+}
+
+.st-slot.fresh {
+  background: var(--game-hero);
+  animation: goofy-pop 300ms cubic-bezier(0.3, 1.6, 0.5, 1) both;
+}
+
+.st-slot.next {
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: 0 0 0 3px var(--accent-grad);
+  cursor: pointer;
+  animation: st-glow 1.2s ease-in-out infinite;
+}
+
+.st-slot.chained {
+  background: var(--fill-2);
+}
+
+@keyframes st-glow {
+  50% {
+    transform: scale(1.12);
+  }
+}
+
+.st-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 8px;
+  margin: 0 -4px;
+  padding: 10px;
+  border: 3px solid var(--ink);
+  border-radius: 18px;
+  background: var(--surface);
+  box-shadow: var(--sticker);
+}
+
+.st-left {
+  font-family: var(--font-display);
+  font-size: var(--fs-sm);
+}
+
+.st-left strong {
+  font-size: 1.8rem;
+  font-weight: 400;
+  vertical-align: -3px;
+}
+
+.st-bar .button {
+  min-height: 46px;
+  padding: 8px 14px;
+  font-size: var(--fs-base);
+}
+
+.home-go {
+  flex-direction: column;
+  gap: 0;
+  line-height: 1.1;
+}
+
+.home-go-sub {
+  font-family: var(--font);
+  font-size: var(--fs-sm);
+  font-weight: 600;
 }
