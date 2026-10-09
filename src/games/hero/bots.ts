@@ -121,6 +121,8 @@ export const botFighter = (bot: BotLevel): Fighter => ({ name: bot.name, tree: b
  */
 export function botMove(state: HeroState, side: Side, bot: Pick<BotLevel, 'spread'>): Move {
   const turn = state.log.length;
+  // The other side played Poker: pick a card of the twelve left.
+  if (state.pending) return { skill: 'card', pick: (state.pending.pick + 1 + stream(`${state.seed}:bot:${turn}:card`)(RANKS - 1)) % RANKS };
   const kit = state.fighters[side].kit;
   if (kit) {
     const them = side === 0 ? 1 : 0;

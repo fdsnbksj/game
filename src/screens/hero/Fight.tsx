@@ -113,6 +113,7 @@ export function Fight({
             key={`poker${state.log.length}`}
             detail={turn.detail}
             mine={turn.by === me ? 'You' : names[turn.by]}
+            chose={turn.by !== me}
             theirs={turn.by === me ? names[them] : 'You'}
           />
         )}
@@ -138,7 +139,17 @@ export function Fight({
         ) : state.winner !== null ? (
           <p className="battle-text static">{state.winner === me ? 'You win!' : `${names[them]} wins.`}</p>
         ) : !mine ? (
-          <p className="battle-text static">{waiting}</p>
+          <p className="battle-text static">{state.pending?.by === me && !locked ? `${names[them]} is picking a card…` : waiting}</p>
+        ) : state.pending ? (
+          <div className="battle-play">
+            <PokerPick
+              key={`answer${state.log.length}`}
+              taken={state.pending.pick}
+              takenBy={names[them]}
+              onPick={(pick) => onMove({ skill: 'card', pick })}
+              onCommit={() => setCommitted(true)}
+            />
+          </div>
         ) : skill ? (
           <div className="battle-play">
             <SkillPlay key={`${state.log.length}:${skill}`} skill={skill} state={state} me={me} onMove={onMove} onCommit={() => setCommitted(true)} />
@@ -369,7 +380,9 @@ export function useBotTurn(state: HeroState, spread: number, play: (move: Move) 
   useEffect(() => {
     if (state.winner !== null || state.turn !== 1) return;
     // Let the last turn play out, then move.
-    const timer = setTimeout(() => latest.current(botMove(state, 1, { spread })), state.log.length ? turnShowMs(state) + 500 : 900);
+    // Answering a Poker is quick; anything else waits for the last turn to play out.
+    const wait = state.pending ? 1400 : state.log.length ? turnShowMs(state) + 500 : 900;
+    const timer = setTimeout(() => latest.current(botMove(state, 1, { spread })), wait);
     return () => clearTimeout(timer);
   }, [state, spread]);
 }
@@ -403,8 +416,11 @@ const ORDERED = Array.from({ length: RANKS }, (_, i) => i + 2);
 /** Where card `i` lies: seven on top, six under, as offsets from the middle in card widths. */
 const slot = (i: number) => (i < 7 ? { col: i - 3, row: -0.5 } : { col: i - 7 - 2.5, row: 0.5 });
 
-/** The deck shows 2 to A face up, turns over and shuffles; then you pick one. */
-function PokerPick({ onPick, onCommit }: { onPick: (pick: number) => void; onCommit: () => void }) {
+/**
+ * The deck shows 2 to A face up, turns over and shuffles; then you pick one. Answering the
+ * other side's Poker, their card (`taken`, with its owner's name) is already out.
+ */
+function PokerPick({ onPick, onCommit, taken, takenBy }: { onPick: (pick: number) => void; onCommit: () => void; taken?: number; takenBy?: string }) {
   const [phase, setPhase] = useState<'show' | 'shuffle' | 'pick'>('show');
   useEffect(() => {
     const a = setTimeout(() => setPhase('shuffle'), POKER_SHOW_MS);
@@ -417,19 +433,26 @@ function PokerPick({ onPick, onCommit }: { onPick: (pick: number) => void; onCom
   return (
     <div className="hero-play">
       <p className="note center-note">
-        {phase === 'show' ? 'Thirteen cards, 2 to A…' : phase === 'shuffle' ? 'Shuffling…' : 'Pick a card. They take another; the higher card wins a big crit.'}
+        {phase === 'show'
+          ? 'Thirteen cards, 2 to A…'
+          : phase === 'shuffle'
+            ? 'Shuffling…'
+            : taken !== undefined
+              ? `${takenBy} took a card. Pick yours: beat it and their hit misses.`
+              : 'Pick a card. They pick another; the higher card wins a big crit.'}
       </p>
       <div className={`pk-table pk-${phase}`}>
         {ORDERED.map((rank, i) => {
           const { col, row } = slot(i);
           // Each card's own path into the pile and back.
           const style = { '--col': col, '--row': row, '--spin': `${((i * 47) % 40) - 20}deg`, '--wait': `${(i * 37) % 300}ms` } as CSSProperties;
+          const out = phase === 'pick' && i === taken;
           return (
             <button
               key={i}
-              className="pk-card"
+              className={`pk-card${out ? ' theirs' : ''}`}
               style={style}
-              disabled={phase !== 'pick'}
+              disabled={phase !== 'pick' || out}
               onClick={() => {
                 onCommit();
                 onPick(i);
@@ -440,6 +463,7 @@ function PokerPick({ onPick, onCommit }: { onPick: (pick: number) => void; onCom
                 <span className="pk-face">{rankName(rank)}</span>
                 <span className="pk-back" />
               </span>
+              {out && <small className="pk-who">{takenBy}</small>}
             </button>
           );
         })}
@@ -449,14 +473,15 @@ function PokerPick({ onPick, onCommit }: { onPick: (pick: number) => void; onCom
 }
 
 /** Over the field: the face-down deck, the attacker's pick, the defender's choosing, then both turn over. */
-function PokerReveal({ detail, mine, theirs }: { detail: Extract<Turn['detail'], { skill: 'poker' }>; mine: string; theirs: string }) {
+function PokerReveal({ detail, mine, theirs, chose }: { detail: Extract<Turn['detail'], { skill: 'poker' }>; mine: string; theirs: string; chose: boolean }) {
   const [hover, setHover] = useState<number | null>(null);
   const [flipped, setFlipped] = useState(false);
   const [all, setAll] = useState(false);
   useEffect(() => {
     // The defender's eye wanders over the other cards, then settles.
     const others = ORDERED.map((_, i) => i).filter((i) => i !== detail.pick);
-    const hops = [3, 9, 1, 6, 11].map((k) => others[(k + detail.theirPick) % others.length]);
+    // You picked it yourself: no need to watch yourself choose.
+    const hops = chose ? [] : [3, 9, 1, 6, 11].map((k) => others[(k + detail.theirPick) % others.length]);
     const timers = hops.map((h, k) => setTimeout(() => setHover(h), 250 + k * 180));
     timers.push(setTimeout(() => setHover(detail.theirPick), 250 + hops.length * 180));
     timers.push(setTimeout(() => setFlipped(true), POKER_FLIP_MS));
@@ -468,21 +493,24 @@ function PokerReveal({ detail, mine, theirs }: { detail: Extract<Turn['detail'],
       <div className="pk-table reveal">
         {detail.deck.map((rank, i) => {
           const { col, row } = slot(i);
-          const isMine = i === detail.pick;
-          const isTheirs = i === detail.theirPick && hover === detail.theirPick;
+          const isAttacker = i === detail.pick;
+          const isDefender = i === detail.theirPick && hover === detail.theirPick;
           const up = (flipped && (i === detail.pick || i === detail.theirPick)) || all;
-          const won = flipped && ((isMine && detail.won) || (i === detail.theirPick && !detail.won));
+          const won = flipped && ((isAttacker && detail.won) || (i === detail.theirPick && !detail.won));
+          // Your card is ringed in gold, theirs in red, whoever attacked.
+          const yours = chose ? isDefender : isAttacker;
+          const foes = chose ? isAttacker : isDefender;
           return (
             <span
               key={i}
-              className={`pk-card${isMine ? ' picked' : ''}${isTheirs ? ' theirs' : ''}${hover === i && !isTheirs ? ' hover' : ''}${won ? ' won' : ''}${all && !isMine && i !== detail.theirPick ? ' dim' : ''}`}
+              className={`pk-card${yours ? ' picked' : ''}${foes ? ' theirs' : ''}${hover === i && !isDefender ? ' hover' : ''}${won ? ' won' : ''}${all && !isAttacker && i !== detail.theirPick ? ' dim' : ''}${row < 0 ? ' top' : ''}`}
               style={{ '--col': col, '--row': row } as CSSProperties}
             >
               <span className={`pk-inner${up ? '' : ' down'}`}>
                 <span className="pk-face">{rankName(rank)}</span>
                 <span className="pk-back" />
               </span>
-              {isMine && <small className="pk-who">{mine}</small>}
+              {isAttacker && <small className="pk-who">{mine}</small>}
               {i === detail.theirPick && hover === detail.theirPick && <small className="pk-who">{theirs}</small>}
             </span>
           );

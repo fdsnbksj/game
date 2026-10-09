@@ -6046,3 +6046,8 @@ button.seat:disabled {
   text-transform: uppercase;
   white-space: nowrap;
 }
+
+.pk-card.top .pk-who {
+  top: auto;
+  bottom: calc(100% + 4px);
+}

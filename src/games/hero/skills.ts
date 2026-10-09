@@ -28,9 +28,10 @@ export const seconds = (ms: number) => `${Math.floor(ms / 1000)}.${String(Math.f
 export const accuracyPct = (error: number) => Math.max(10, 100 - Math.floor(error / 20));
 
 /** A hero's skill, or a bot creature's attack (monsters.ts). */
-export type Move = { skill: 'stopwatch'; ms: number } | { skill: 'roulette'; pick: number } | { skill: 'poker'; pick: number } | { skill: 'attack'; id: AttackId };
+export type Move = { skill: 'stopwatch'; ms: number } | { skill: 'roulette'; pick: number } | { skill: 'poker'; pick: number } | { skill: 'card'; pick: number } | { skill: 'attack'; id: AttackId };
 
-export type SkillMove = Exclude<Move, { skill: 'attack' }>;
+/** A skill's move. `card` isn't one: it's the defender's answer to Poker. */
+export type SkillMove = Exclude<Move, { skill: 'attack' } | { skill: 'card' }>;
 
 export type Detail =
   | { skill: 'stopwatch'; target: number; ms: number; pct: number; perfect: boolean }
@@ -65,7 +66,7 @@ const critOf = (dmg: number, stats: Stats) => Math.floor((dmg * stats.critDmg) /
  * One skill. `boost` is the percent its damage is at, before DEF: 100 unless an effect
  * (monsters.ts) changes it, so fights without effects come out as they always did.
  */
-export function resolve(move: SkillMove, tree: Tree, attacker: Stats, defender: Stats, seed: string, turn: number, boost = 100): Hit {
+export function resolve(move: SkillMove, tree: Tree, attacker: Stats, defender: Stats, seed: string, turn: number, boost = 100, theirPick_?: number): Hit {
   const name = `${seed}:turn:${turn}`;
   const out = (dmg: number) => afterDef(Math.floor((dmg * boost) / 100), defender.def);
   const rolledCrit = stream(`${name}:crit`)(100) < attacker.crit;
@@ -89,8 +90,8 @@ export function resolve(move: SkillMove, tree: Tree, attacker: Stats, defender: 
       return { damage: out(rolledCrit ? critOf(base, attacker) : base), crit: rolledCrit, kill: false, detail };
     }
     case 'poker': {
-      // One shuffled deck of 2 to A laid face down. The attacker picks a card; the defender
-      // takes another (seeded), so there's never a tie.
+      // One shuffled deck of 2 to A laid face down. The attacker picks a card and the
+      // defender another (state.ts waits for it; without one it's seeded), so never a tie.
       const shuffle = stream(`${name}:deck`);
       const deck = Array.from({ length: RANKS }, (_, i) => i + 2);
       for (let i = RANKS - 1; i > 0; i--) {
@@ -98,7 +99,7 @@ export function resolve(move: SkillMove, tree: Tree, attacker: Stats, defender: 
         [deck[i], deck[j]] = [deck[j], deck[i]];
       }
       const pick = move.pick;
-      const theirPick = (pick + 1 + stream(`${name}:theirs`)(RANKS - 1)) % RANKS;
+      const theirPick = theirPick_ ?? (pick + 1 + stream(`${name}:theirs`)(RANKS - 1)) % RANKS;
       const mine = deck[pick];
       const theirs = deck[theirPick];
       const won = mine > theirs;

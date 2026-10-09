@@ -127,15 +127,18 @@ function fightOut(seed: string, a: Tree, foe: Fighter, foeSpread = 500): HeroSta
 
 const botFight = (seed: string, a: Tree, bot = BOT_LEVELS[0]) => fightOut(seed, a, botFighter(bot), bot.spread);
 
-/** A move that replays a logged turn. */
-const moveOf = (t: HeroState['log'][number]): Move =>
-  t.detail.skill === 'stopwatch'
-    ? { skill: 'stopwatch', ms: t.detail.ms }
-    : t.detail.skill === 'roulette'
-      ? { skill: 'roulette', pick: t.detail.pick }
-      : t.detail.skill === 'attack'
-        ? { skill: 'attack', id: t.detail.id }
-        : { skill: 'poker', pick: t.detail.pick };
+/** The moves that replay a logged turn: Poker is two, the attacker's card and the defender's. */
+const movesOf = (t: HeroState['log'][number], ids: readonly [string, string]): { by: string; move: Move }[] => {
+  const d = t.detail;
+  const by = ids[t.by];
+  if (d.skill === 'stopwatch') return [{ by, move: { skill: 'stopwatch', ms: d.ms } }];
+  if (d.skill === 'roulette') return [{ by, move: { skill: 'roulette', pick: d.pick } }];
+  if (d.skill === 'attack') return [{ by, move: { skill: 'attack', id: d.id } }];
+  return [
+    { by, move: { skill: 'poker', pick: d.pick } },
+    { by: ids[t.by === 0 ? 1 : 0], move: { skill: 'card', pick: d.theirPick } },
+  ];
+};
 
 describe('a fight', () => {
   it('takes turns and refuses moves out of turn or with a locked skill', () => {
@@ -149,10 +152,34 @@ describe('a fight', () => {
     expect(next.log).toHaveLength(1);
   });
 
+  it('waits after Poker for the defender to pick their own card', () => {
+    let s = start('cards', fighters(tree({ stopwatch: 2, roulette: 2, poker: 1 }), tree({ stopwatch: 2, roulette: 2, poker: 1 })));
+    const attacker = s.turn;
+    const defender = (attacker === 0 ? 1 : 0) as Side;
+    s = apply(s, { skill: 'poker', pick: 4 }, attacker)!;
+    expect(s.pending).toEqual({ by: attacker, pick: 4 });
+    expect(s.turn).toBe(defender);
+    expect(s.log).toHaveLength(0);
+    // Only the defender, only a card, and not the attacker's.
+    expect(apply(s, { skill: 'card', pick: 7 }, attacker)).toBeNull();
+    expect(apply(s, { skill: 'stopwatch', ms: 1000 }, defender)).toBeNull();
+    expect(apply(s, { skill: 'card', pick: 4 }, defender)).toBeNull();
+    expect(apply(s, { skill: 'card', pick: 13 }, defender)).toBeNull();
+    const done = apply(s, { skill: 'card', pick: 7 }, defender)!;
+    const t = done.log[0];
+    if (t.detail.skill !== 'poker') throw new Error();
+    expect([t.by, t.detail.pick, t.detail.theirPick]).toEqual([attacker, 4, 7]);
+    expect(done.pending).toBeNull();
+    expect(done.turn).toBe(defender);
+    // A card with nothing to answer is refused.
+    expect(apply(done, { skill: 'card', pick: 1 }, defender)).toBeNull();
+  });
+
   it('replays the same from the same moves, skipping refused ones', () => {
     const played = botFight('replay', tree({ stopwatch: 3, roulette: 2, poker: 1 }), BOT_LEVELS[9]);
     const ids = ['a', 'b'] as const;
-    const moves = played.log.map((t) => ({ by: ids[t.by], move: moveOf(t) }));
+    const moves = played.log.flatMap((t) => movesOf(t, ids));
+    expect(played.log.some((t) => t.skill === 'poker')).toBe(true);
     // A move out of turn and one by a stranger are skipped.
     const noisy = [{ by: ids[played.log[0].by === 0 ? 1 : 0], move: moves[0].move }, { by: 'eve', move: moves[0].move }, ...moves];
     const again = replay('replay', played.fighters, ids, noisy);
@@ -165,7 +192,7 @@ describe('a fight', () => {
       const s = botFight(`golden${i}`, tree({ stopwatch: 2, roulette: 2, poker: 1, hp: 1 }), BOT_LEVELS[i % BOT_COUNT]);
       return `${s.winner}:${s.hp.join(',')}:${s.log.length}`;
     });
-    expect(hashSeed(results.join('|'))).toBe(2434099166);
+    expect(hashSeed(results.join('|'))).toBe(3907017884);
   });
 
   it('plays hero against hero with no effects, the same every time', () => {
@@ -174,7 +201,7 @@ describe('a fight', () => {
       expect(s.effects).toEqual([[], []]);
       return `${s.winner}:${s.hp.join(',')}:${s.log.length}`;
     });
-    expect(hashSeed(results.join('|'))).toBe(795185690);
+    expect(hashSeed(results.join('|'))).toBe(1961592054);
   });
 });
 

@@ -24,7 +24,7 @@ import { SKILLS, statsOf, type SkillId, type Stats, type Tree } from './stats';
 // buffs and hindrances are effects that last a few turns.
 
 /** Bump when a change would make old fights replay differently. */
-export const HERO_VERSION = 4;
+export const HERO_VERSION = 5;
 
 export type Side = 0 | 1;
 
@@ -54,6 +54,8 @@ export interface HeroState {
   effects: [Effect[], Effect[]];
   /** Whose move it is. */
   turn: Side;
+  /** A Poker played and waiting for the defender to pick their card (it's their move). */
+  pending: { by: Side; pick: number } | null;
   /** Turns played so far, oldest first. */
   log: Turn[];
   winner: Side | null;
@@ -66,7 +68,7 @@ export interface Recorded {
 
 export function start(seed: string, fighters: [Fighter, Fighter]): HeroState {
   const stats: [Stats, Stats] = [statsOf(fighters[0].tree, bonusOf(fighters[0])), statsOf(fighters[1].tree, bonusOf(fighters[1]))];
-  return { seed, fighters, stats, hp: [stats[0].hp, stats[1].hp], effects: [[], []], turn: stream(`${seed}:first`)(2) as Side, log: [], winner: null };
+  return { seed, fighters, stats, hp: [stats[0].hp, stats[1].hp], effects: [[], []], turn: stream(`${seed}:first`)(2) as Side, pending: null, log: [], winner: null };
 }
 
 const bonusOf = (f: Fighter) => costumeOf(f.costume)?.bonus;
@@ -81,6 +83,9 @@ export const enraged = (state: HeroState, side: Side) => !!state.fighters[side].
 
 export function isLegal(state: HeroState, move: Move, by: Side): boolean {
   if (state.winner !== null || by !== state.turn || !move) return false;
+  // Waiting on the defender's card: that's the only move, and not the attacker's card.
+  if (state.pending) return move.skill === 'card' && Number.isInteger(move.pick) && move.pick >= 0 && move.pick < RANKS && move.pick !== state.pending.pick;
+  if (move.skill === 'card') return false;
   if (move.skill === 'attack') return isAttack(move.id) && !!state.fighters[by].kit?.attacks.includes(move.id);
   if (!isSkill(move.skill) || state.fighters[by].tree[move.skill] < 1) return false;
   if (move.skill === 'stopwatch') return Number.isInteger(move.ms) && move.ms >= 0 && move.ms <= 60_000;
@@ -91,6 +96,13 @@ export function isLegal(state: HeroState, move: Move, by: Side): boolean {
 
 export function apply(state: HeroState, move: Move, by: Side): HeroState | null {
   if (!isLegal(state, move, by)) return null;
+  // Poker waits for the other side to pick a card, then plays out as the attacker's turn.
+  if (move.skill === 'poker') return { ...state, pending: { by, pick: move.pick }, turn: other(by) };
+  if (move.skill === 'card') return play({ ...state, pending: null, turn: state.pending!.by }, { skill: 'poker', pick: state.pending!.pick }, state.pending!.by, move.pick);
+  return play(state, move, by);
+}
+
+function play(state: HeroState, move: Exclude<Move, { skill: 'card' }>, by: Side, theirPick?: number): HeroState {
   const them = other(by);
   const mine = state.effects[by];
   const theirs = state.effects[them];
@@ -106,7 +118,7 @@ export function apply(state: HeroState, move: Move, by: Side): HeroState | null 
   const hit: Hit =
     move.skill === 'attack'
       ? resolveAttack(move.id, state.fighters[by].kit!, state.stats[by], defender, state.seed, turn, boost)
-      : resolve(move, state.fighters[by].tree, state.stats[by], defender, state.seed, turn, boost);
+      : resolve(move, state.fighters[by].tree, state.stats[by], defender, state.seed, turn, boost, theirPick);
 
   const hp: [number, number] = [...state.hp];
   hp[them] = hit.kill ? 0 : Math.max(0, hp[them] - hit.damage);
