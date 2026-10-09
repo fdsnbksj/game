@@ -18,8 +18,11 @@ export const stopwatchPower = (level: number) => 20 + 4 * level;
 export const punchPower = (level: number) => 12 + 2 * level;
 export const pokerPower = (level: number) => 100 + 10 * (level - 1);
 
-/** The turn's target, in whole seconds from 1 to 10, shown before Start. */
-export const stopwatchTarget = (seed: string, turn: number) => (stream(`${seed}:turn:${turn}:target`)(10) + 1) * 1000;
+/** The turn's target, from 1.00 to 10.00 seconds in hundredths (1.23 s is 1230), shown before Start. */
+export const stopwatchTarget = (seed: string, turn: number) => (stream(`${seed}:turn:${turn}:target`)(901) + 100) * 10;
+
+/** A time in ms as seconds to the hundredth: 1230 → "1.23". */
+export const seconds = (ms: number) => `${Math.floor(ms / 1000)}.${String(Math.floor((ms % 1000) / 10)).padStart(2, '0')}`;
 
 /** Percent of power for a stop `error` ms off: 100 at 0, down 5 a tenth of a second, never under 10. */
 export const accuracyPct = (error: number) => Math.max(10, 100 - Math.floor(error / 20));

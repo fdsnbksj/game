@@ -97,7 +97,7 @@ export function HeroHome() {
           <div className="how-to">
             <p>Take turns using one skill each. Bring the other side's HP to 0 to win.</p>
             <p>
-              <strong>Stopwatch:</strong> you're shown a time from 1 to 10 seconds. Press Start, count, press Stop. The closer you are, the harder the hit. Within 0.05 s is Perfect: a sure crit.
+              <strong>Stopwatch:</strong> you're shown a time between 1.00 and 10.00 seconds, like 4.37. Press Start, count, press Stop. The closer you are, the harder the hit. Within 0.05 s is Perfect: a sure crit.
             </p>
             <p>
               <strong>Roulette:</strong> pick a number from 0 to 36. Each level adds a ball. If any ball lands on your number, it's an instant kill; if not, you punch.

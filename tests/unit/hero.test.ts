@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { DEFENDER_SPREAD, MAX_DELTA, pickOpponent, ratingChange, tierOf } from '../../src/games/hero/arena';
 import { BOT_LEVELS, botFighter, botMove, sparringTree } from '../../src/games/hero/bots';
 import { ATTACKS, BURN_PCT, isAttack, resolveAttack, type Kit } from '../../src/games/hero/monsters';
-import { accuracyPct, afterDef, resolve, stopwatchTarget, WHEEL, type Move } from '../../src/games/hero/skills';
+import { accuracyPct, afterDef, resolve, seconds, stopwatchTarget, WHEEL, type Move } from '../../src/games/hero/skills';
 import { apply, replay, start, type Fighter, type HeroState, type Side } from '../../src/games/hero/state';
 import { BOT_COUNT, buy, canBuy, FRESH_TREE, pointsFor, spent, statsOf, validTree, type NodeId, type Tree } from '../../src/games/hero/stats';
 import { hashSeed } from '../../src/shared/random';
@@ -39,9 +39,17 @@ describe('the tree', () => {
 });
 
 describe('the skills', () => {
-  it('picks a whole-second stopwatch target from 1 to 10', () => {
-    const seen = new Set(Array.from({ length: 300 }, (_, i) => stopwatchTarget(`s${i}`, 0)));
-    expect([...seen].sort((a, b) => a - b)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((s) => s * 1000));
+  it('picks a stopwatch target from 1.00 to 10.00 s, to the hundredth', () => {
+    const seen = Array.from({ length: 3000 }, (_, i) => stopwatchTarget(`s${i}`, 0));
+    for (const t of seen) {
+      expect(t % 10).toBe(0);
+      expect(t).toBeGreaterThanOrEqual(1000);
+      expect(t).toBeLessThanOrEqual(10_000);
+    }
+    expect(seen.filter((t) => t % 1000 !== 0).length).toBeGreaterThan(2900);
+    expect(Math.min(...seen)).toBeLessThan(1100);
+    expect(Math.max(...seen)).toBeGreaterThan(9900);
+    expect([1230, 1000, 10_000, 4050].map(seconds)).toEqual(['1.23', '1.00', '10.00', '4.05']);
   });
 
   it('scales stopwatch damage with how close the stop was', () => {
@@ -156,13 +164,12 @@ describe('a fight', () => {
     expect(hashSeed(results.join('|'))).toBe(883076672);
   });
 
-  it('plays hero against hero as it did before creatures came (friend fights replay the same)', () => {
+  it('plays hero against hero with no effects, the same every time', () => {
     const results = Array.from({ length: 30 }, (_, i) => {
       const s = fightOut(`pvp${i}`, tree({ stopwatch: 2, roulette: 2, poker: 1, hp: 1 }), { name: 'B', tree: sparringTree(1 + (i % BOT_COUNT)) }, 900);
       expect(s.effects).toEqual([[], []]);
       return `${s.winner}:${s.hp.join(',')}:${s.log.length}`;
     });
-    // The same as HERO_VERSION 1 gave.
     expect(hashSeed(results.join('|'))).toBe(141452461);
   });
 });

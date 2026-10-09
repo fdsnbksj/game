@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Sheet } from '../../components/Sheet';
 import { botMove } from '../../games/hero/bots';
 import { ATTACK_NAMES, ATTACKS, hasEffect, type EffectId } from '../../games/hero/monsters';
-import { rankName, stopwatchTarget, VISIBLE_MS, WHEEL, type Move } from '../../games/hero/skills';
+import { rankName, seconds, stopwatchTarget, VISIBLE_MS, WHEEL, type Move } from '../../games/hero/skills';
 import { enraged, type HeroState, type Side, type Turn } from '../../games/hero/state';
 import { SKILLS, type SkillId } from '../../games/hero/stats';
 import { BossFx, bossImpactMs, quakes } from './BossFx';
@@ -115,7 +115,7 @@ export function Fight({
           <div className="battle-show light">
             <p className="battle-stop">
               {secs(turn.detail.ms)}
-              <small>target {turn.detail.target / 1000} s</small>
+              <small>target {seconds(turn.detail.target)} s</small>
             </p>
           </div>
         )}
@@ -266,7 +266,7 @@ function plan(state: HeroState, names: [string, string], me: Side, before: [numb
     if (d.effect === 'charged') result.push(`${is(by)} winding up a big hit!`);
   } else if (d.skill === 'stopwatch') {
     opening.push(`${who(by)} used Stopwatch!`);
-    opening.push(`Stop at ${d.target / 1000} s…`);
+    opening.push(`Stop at ${seconds(d.target)} s…`);
     delay = 1500;
     result.push(d.perfect ? `${secs(d.ms)}. Perfect!` : `${secs(d.ms)}: ${secs(Math.abs(d.ms - d.target))} off, ${d.pct}% power.`);
     hurt();
@@ -414,7 +414,7 @@ function Stopwatch({ target, fog, onStart, onStop }: { target: number; fog: bool
       <div className="hero-stopwatch">
         <span>
           <small className="micro">Stop at</small>
-          <strong className="hero-target">{target / 1000} s</strong>
+          <strong className="hero-target">{seconds(target)} s</strong>
         </span>
         <span className={`hero-clock${hidden ? ' hidden' : ''}`}>{hidden ? '?.??' : (shown / 1000).toFixed(2)}</span>
       </div>
