@@ -13,7 +13,7 @@ import {
   type Kit,
 } from './monsters';
 import { costumeOf, type CostumeId } from './costumes';
-import { isSkill, resolve, WHEEL, type Hit, type Move } from './skills';
+import { isSkill, RANKS, resolve, WHEEL, type Hit, type Move } from './skills';
 import { SKILLS, statsOf, type SkillId, type Stats, type Tree } from './stats';
 
 // A fight as a reducer: apply(state, move, by) gives the next state, or null when the move
@@ -24,7 +24,7 @@ import { SKILLS, statsOf, type SkillId, type Stats, type Tree } from './stats';
 // buffs and hindrances are effects that last a few turns.
 
 /** Bump when a change would make old fights replay differently. */
-export const HERO_VERSION = 3;
+export const HERO_VERSION = 4;
 
 export type Side = 0 | 1;
 
@@ -85,6 +85,7 @@ export function isLegal(state: HeroState, move: Move, by: Side): boolean {
   if (!isSkill(move.skill) || state.fighters[by].tree[move.skill] < 1) return false;
   if (move.skill === 'stopwatch') return Number.isInteger(move.ms) && move.ms >= 0 && move.ms <= 60_000;
   if (move.skill === 'roulette') return Number.isInteger(move.pick) && move.pick >= 0 && move.pick < WHEEL;
+  if (move.skill === 'poker') return Number.isInteger(move.pick) && move.pick >= 0 && move.pick < RANKS;
   return true;
 }
 

@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { Sheet } from '../../components/Sheet';
 import { botMove } from '../../games/hero/bots';
 import { ATTACK_NAMES, ATTACKS, hasEffect, type EffectId } from '../../games/hero/monsters';
-import { rankName, seconds, stopwatchTarget, VISIBLE_MS, WHEEL, type Move } from '../../games/hero/skills';
+import { RANKS, rankName, seconds, stopwatchTarget, VISIBLE_MS, WHEEL, type Move } from '../../games/hero/skills';
 import { enraged, type HeroState, type Side, type Turn } from '../../games/hero/state';
 import { SKILLS, type SkillId } from '../../games/hero/stats';
 import { AttackFx, attackImpactMs, quakes } from './AttackFx';
@@ -109,12 +109,12 @@ export function Fight({
         )}
         {playing && turn?.detail.skill === 'roulette' && <RouletteSpin key={`spin${state.log.length}`} pick={turn.detail.pick} balls={turn.detail.balls} />}
         {playing && turn?.detail.skill === 'poker' && (
-          <div className="battle-show">
-            <div className="hero-cards">
-              <Card rank={turn.detail.mine} won={turn.detail.won} label={turn.by === me ? 'You' : names[turn.by]} />
-              <Card rank={turn.detail.theirs} won={!turn.detail.won} label={turn.by === me ? names[them] : 'You'} delay={350} />
-            </div>
-          </div>
+          <PokerReveal
+            key={`poker${state.log.length}`}
+            detail={turn.detail}
+            mine={turn.by === me ? 'You' : names[turn.by]}
+            theirs={turn.by === me ? names[them] : 'You'}
+          />
         )}
         {playing && turn?.detail.skill === 'stopwatch' && show.line >= 1 && (
           <div className="battle-show light">
@@ -285,7 +285,8 @@ function plan(state: HeroState, names: [string, string], me: Side, before: [numb
     }
   } else {
     opening.push(`${who(by)} used Poker!`);
-    delay = 1300;
+    opening.push(`${target === me ? 'You take' : `${who(target)} takes`} a card…`);
+    delay = POKER_FLIP_MS + 500;
     result.push(`${rankName(d.mine)} against ${rankName(d.theirs)}.`);
     if (d.won) hurt();
     else result.push('Lower card. No damage.');
@@ -386,12 +387,107 @@ function SkillPlay({ skill, state, me, onMove, onCommit }: { skill: SkillId; sta
       />
     );
   if (skill === 'roulette') return <RoulettePick balls={state.fighters[me].tree.roulette} onPick={(pick) => onMove({ skill, pick })} />;
+  return <PokerPick onPick={(pick) => onMove({ skill, pick })} onCommit={onCommit} />;
+}
+
+// ---------- Poker: thirteen cards, shuffled, then a pick ----------
+
+/** How long the deck shows face up, then how long the shuffle takes. */
+const POKER_SHOW_MS = 1300;
+const POKER_SHUFFLE_MS = 1300;
+/** In the reveal: when the two picked cards turn over. */
+const POKER_FLIP_MS = 1500;
+
+const ORDERED = Array.from({ length: RANKS }, (_, i) => i + 2);
+
+/** Where card `i` lies: seven on top, six under, as offsets from the middle in card widths. */
+const slot = (i: number) => (i < 7 ? { col: i - 3, row: -0.5 } : { col: i - 7 - 2.5, row: 0.5 });
+
+/** The deck shows 2 to A face up, turns over and shuffles; then you pick one. */
+function PokerPick({ onPick, onCommit }: { onPick: (pick: number) => void; onCommit: () => void }) {
+  const [phase, setPhase] = useState<'show' | 'shuffle' | 'pick'>('show');
+  useEffect(() => {
+    const a = setTimeout(() => setPhase('shuffle'), POKER_SHOW_MS);
+    const b = setTimeout(() => setPhase('pick'), POKER_SHOW_MS + POKER_SHUFFLE_MS);
+    return () => {
+      clearTimeout(a);
+      clearTimeout(b);
+    };
+  }, []);
   return (
     <div className="hero-play">
-      <p className="note center-note">You each draw a card from 2 to A. Higher wins a big crit; lower does nothing.</p>
-      <button className="button primary hero-go" onClick={() => onMove({ skill: 'poker' })}>
-        Draw a card
-      </button>
+      <p className="note center-note">
+        {phase === 'show' ? 'Thirteen cards, 2 to A…' : phase === 'shuffle' ? 'Shuffling…' : 'Pick a card. They take another; the higher card wins a big crit.'}
+      </p>
+      <div className={`pk-table pk-${phase}`}>
+        {ORDERED.map((rank, i) => {
+          const { col, row } = slot(i);
+          // Each card's own path into the pile and back.
+          const style = { '--col': col, '--row': row, '--spin': `${((i * 47) % 40) - 20}deg`, '--wait': `${(i * 37) % 300}ms` } as CSSProperties;
+          return (
+            <button
+              key={i}
+              className="pk-card"
+              style={style}
+              disabled={phase !== 'pick'}
+              onClick={() => {
+                onCommit();
+                onPick(i);
+              }}
+              aria-label={phase === 'pick' ? `Card ${i + 1}` : rankName(rank)}
+            >
+              <span className={`pk-inner${phase === 'show' ? '' : ' down'}`}>
+                <span className="pk-face">{rankName(rank)}</span>
+                <span className="pk-back" />
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/** Over the field: the face-down deck, the attacker's pick, the defender's choosing, then both turn over. */
+function PokerReveal({ detail, mine, theirs }: { detail: Extract<Turn['detail'], { skill: 'poker' }>; mine: string; theirs: string }) {
+  const [hover, setHover] = useState<number | null>(null);
+  const [flipped, setFlipped] = useState(false);
+  const [all, setAll] = useState(false);
+  useEffect(() => {
+    // The defender's eye wanders over the other cards, then settles.
+    const others = ORDERED.map((_, i) => i).filter((i) => i !== detail.pick);
+    const hops = [3, 9, 1, 6, 11].map((k) => others[(k + detail.theirPick) % others.length]);
+    const timers = hops.map((h, k) => setTimeout(() => setHover(h), 250 + k * 180));
+    timers.push(setTimeout(() => setHover(detail.theirPick), 250 + hops.length * 180));
+    timers.push(setTimeout(() => setFlipped(true), POKER_FLIP_MS));
+    timers.push(setTimeout(() => setAll(true), POKER_FLIP_MS + 700));
+    return () => timers.forEach(clearTimeout);
+  }, [detail]);
+  return (
+    <div className="battle-show">
+      <div className="pk-table reveal">
+        {detail.deck.map((rank, i) => {
+          const { col, row } = slot(i);
+          const isMine = i === detail.pick;
+          const isTheirs = i === detail.theirPick && hover === detail.theirPick;
+          const up = (flipped && (i === detail.pick || i === detail.theirPick)) || all;
+          const won = flipped && ((isMine && detail.won) || (i === detail.theirPick && !detail.won));
+          return (
+            <span
+              key={i}
+              className={`pk-card${isMine ? ' picked' : ''}${isTheirs ? ' theirs' : ''}${hover === i && !isTheirs ? ' hover' : ''}${won ? ' won' : ''}${all && !isMine && i !== detail.theirPick ? ' dim' : ''}`}
+              style={{ '--col': col, '--row': row } as CSSProperties}
+            >
+              <span className={`pk-inner${up ? '' : ' down'}`}>
+                <span className="pk-face">{rankName(rank)}</span>
+                <span className="pk-back" />
+              </span>
+              {isMine && <small className="pk-who">{mine}</small>}
+              {i === detail.theirPick && hover === detail.theirPick && <small className="pk-who">{theirs}</small>}
+            </span>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -547,17 +643,6 @@ function RouletteSpin({ pick, balls }: { pick: number; balls: number[] }) {
         ))}
       </svg>
     </div>
-  );
-}
-
-function Card({ rank, won, delay = 0, label }: { rank: number; won?: boolean; delay?: number; label: string }) {
-  return (
-    <span className="hero-pcard-wrap">
-      <span className={`hero-pcard face${won ? ' won' : ''}`} style={{ animationDelay: `${delay}ms` }}>
-        {rankName(rank)}
-      </span>
-      <small>{label}</small>
-    </span>
   );
 }
 

@@ -1,6 +1,6 @@
 import { stream } from '../../nonogram/rng';
 import { monsterChoice, type AttackId, type Family, type Kit } from './monsters';
-import { stopwatchTarget, WHEEL, type Move } from './skills';
+import { RANKS, stopwatchTarget, WHEEL, type Move } from './skills';
 import { BOT_COUNT, FRESH_TREE, isBoss, NODES, type NodeId, type StatId, type Tree } from './stats';
 import { usable, type Fighter, type HeroState, type Side } from './state';
 
@@ -133,7 +133,7 @@ export function botMove(state: HeroState, side: Side, bot: Pick<BotLevel, 'sprea
   let roll = rng(weights.reduce((sum, x) => sum + x.w, 0));
   const skill = weights.find((x) => (roll -= x.w) < 0)!.skill;
   if (skill === 'roulette') return { skill, pick: rng(WHEEL) };
-  if (skill === 'poker') return { skill };
+  if (skill === 'poker') return { skill, pick: rng(RANKS) };
   const off = rng(2 * bot.spread + 1) - bot.spread;
   return { skill, ms: Math.max(0, stopwatchTarget(state.seed, turn) + off) };
 }

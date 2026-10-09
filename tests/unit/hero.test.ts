@@ -80,12 +80,16 @@ describe('the skills', () => {
     expect(Math.abs(hits / games - expected)).toBeLessThan(0.03);
   });
 
-  it('plays poker ace high, a win doing 100 as a crit and a loss nothing', () => {
+  it('lays out a shuffled deck, you pick and they take another, ace high, a win doing 100 as a crit and a loss nothing', () => {
     let wins = 0;
     for (let i = 0; i < 500; i++) {
-      const hit = resolve({ skill: 'poker' }, tree({ poker: 1 }), plain, plain, `k${i}`, 0);
+      const hit = resolve({ skill: 'poker', pick: i % 13 }, tree({ poker: 1 }), plain, plain, `k${i}`, 0);
       if (hit.detail.skill !== 'poker') throw new Error();
-      const { mine, theirs, won } = hit.detail;
+      const { mine, theirs, won, deck, pick, theirPick } = hit.detail;
+      expect([...deck].sort((a, b) => a - b)).toEqual([2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]);
+      expect(pick).toBe(i % 13);
+      expect(theirPick).not.toBe(pick);
+      expect([mine, theirs]).toEqual([deck[pick], deck[theirPick]]);
       expect(mine).not.toBe(theirs);
       expect(Math.min(mine, theirs)).toBeGreaterThanOrEqual(2);
       expect(Math.max(mine, theirs)).toBeLessThanOrEqual(14);
@@ -131,14 +135,14 @@ const moveOf = (t: HeroState['log'][number]): Move =>
       ? { skill: 'roulette', pick: t.detail.pick }
       : t.detail.skill === 'attack'
         ? { skill: 'attack', id: t.detail.id }
-        : { skill: 'poker' };
+        : { skill: 'poker', pick: t.detail.pick };
 
 describe('a fight', () => {
   it('takes turns and refuses moves out of turn or with a locked skill', () => {
     const s = start('turns', fighters(FRESH_TREE, FRESH_TREE));
     const other = (s.turn === 0 ? 1 : 0) as Side;
     expect(apply(s, { skill: 'stopwatch', ms: 1000 }, other)).toBeNull();
-    expect(apply(s, { skill: 'poker' }, s.turn)).toBeNull();
+    expect(apply(s, { skill: 'poker', pick: 0 }, s.turn)).toBeNull();
     expect(apply(s, { skill: 'stopwatch', ms: -5 }, s.turn)).toBeNull();
     const next = apply(s, { skill: 'stopwatch', ms: 1000 }, s.turn)!;
     expect(next.turn).toBe(other);
@@ -161,7 +165,7 @@ describe('a fight', () => {
       const s = botFight(`golden${i}`, tree({ stopwatch: 2, roulette: 2, poker: 1, hp: 1 }), BOT_LEVELS[i % BOT_COUNT]);
       return `${s.winner}:${s.hp.join(',')}:${s.log.length}`;
     });
-    expect(hashSeed(results.join('|'))).toBe(883076672);
+    expect(hashSeed(results.join('|'))).toBe(2434099166);
   });
 
   it('plays hero against hero with no effects, the same every time', () => {
@@ -170,7 +174,7 @@ describe('a fight', () => {
       expect(s.effects).toEqual([[], []]);
       return `${s.winner}:${s.hp.join(',')}:${s.log.length}`;
     });
-    expect(hashSeed(results.join('|'))).toBe(141452461);
+    expect(hashSeed(results.join('|'))).toBe(795185690);
   });
 });
 

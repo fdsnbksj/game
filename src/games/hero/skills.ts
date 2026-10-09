@@ -28,14 +28,24 @@ export const seconds = (ms: number) => `${Math.floor(ms / 1000)}.${String(Math.f
 export const accuracyPct = (error: number) => Math.max(10, 100 - Math.floor(error / 20));
 
 /** A hero's skill, or a bot creature's attack (monsters.ts). */
-export type Move = { skill: 'stopwatch'; ms: number } | { skill: 'roulette'; pick: number } | { skill: 'poker' } | { skill: 'attack'; id: AttackId };
+export type Move = { skill: 'stopwatch'; ms: number } | { skill: 'roulette'; pick: number } | { skill: 'poker'; pick: number } | { skill: 'attack'; id: AttackId };
 
 export type SkillMove = Exclude<Move, { skill: 'attack' }>;
 
 export type Detail =
   | { skill: 'stopwatch'; target: number; ms: number; pct: number; perfect: boolean }
   | { skill: 'roulette'; pick: number; balls: number[]; hit: boolean }
-  | { skill: 'poker'; mine: number; theirs: number; won: boolean }
+  | {
+      skill: 'poker';
+      /** The thirteen cards as they lay face down after the shuffle, 2 to 14 (ace). */
+      deck: number[];
+      /** Where the attacker and the defender picked. */
+      pick: number;
+      theirPick: number;
+      mine: number;
+      theirs: number;
+      won: boolean;
+    }
   | { skill: 'attack'; id: AttackId; missed: boolean; healed: number; effect: EffectId | null };
 
 export interface Hit {
@@ -79,14 +89,20 @@ export function resolve(move: SkillMove, tree: Tree, attacker: Stats, defender: 
       return { damage: out(rolledCrit ? critOf(base, attacker) : base), crit: rolledCrit, kill: false, detail };
     }
     case 'poker': {
-      // Two different cards from one deck, so there's never a tie.
-      const draw = stream(`${name}:cards`);
-      const a = draw(RANKS);
-      const b = (a + 1 + draw(RANKS - 1)) % RANKS;
-      const mine = a + 2;
-      const theirs = b + 2;
+      // One shuffled deck of 2 to A laid face down. The attacker picks a card; the defender
+      // takes another (seeded), so there's never a tie.
+      const shuffle = stream(`${name}:deck`);
+      const deck = Array.from({ length: RANKS }, (_, i) => i + 2);
+      for (let i = RANKS - 1; i > 0; i--) {
+        const j = shuffle(i + 1);
+        [deck[i], deck[j]] = [deck[j], deck[i]];
+      }
+      const pick = move.pick;
+      const theirPick = (pick + 1 + stream(`${name}:theirs`)(RANKS - 1)) % RANKS;
+      const mine = deck[pick];
+      const theirs = deck[theirPick];
       const won = mine > theirs;
-      const detail: Detail = { skill: 'poker', mine, theirs, won };
+      const detail: Detail = { skill: 'poker', deck, pick, theirPick, mine, theirs, won };
       if (!won) return { damage: 0, crit: false, kill: false, detail };
       return { damage: out(critOf(pokerPower(tree.poker), attacker)), crit: true, kill: false, detail };
     }
