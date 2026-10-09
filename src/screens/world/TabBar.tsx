@@ -36,19 +36,9 @@ const TABS = [
       />
     ),
   },
-  {
-    to: '/account',
-    label: 'Me',
-    icon: (
-      <>
-        <circle cx="12" cy="8.5" r="3.8" fill="none" stroke="currentColor" strokeWidth="1.7" />
-        <path d="M4.5 20.5c1.2-3.6 4-5.3 7.5-5.3s6.3 1.7 7.5 5.3" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
-      </>
-    ),
-  },
 ];
 
-/** The tabs along the bottom, game-style: home (your hero), the wardrobe, Summon, the rankings, and you. */
+/** The tabs along the bottom, game-style: home (your hero), Drip, Gacha and the rankings. You are top right. */
 export function TabBar() {
   return (
     <nav className="tabbar" aria-label="Sections">

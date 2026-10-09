@@ -42,8 +42,8 @@
   --bar-bg: #ffffff;
 
   --label: #1b1b1f;
-  --label-2: #5d5662;
-  --label-3: #9b94a2;
+  --label-2: #4c4552;
+  --label-3: #7f7786;
 
   --separator: #eadfc6;
   --border-strong: #1b1b1f;
@@ -363,6 +363,7 @@
   --knob: #ecedef;
 
   --ink: #1b1b1f;
+  --on-dark: #ffffff;
   --sticker: 4px 4px 0 #1b1b1f;
   --sticker-sm: 2px 2px 0 #1b1b1f;
   --doodle: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120'%3E%3Cg fill='none' stroke='%23f0e2bd' stroke-width='3' stroke-linecap='round'%3E%3Cpath d='M14 20l6 6m0-6l-6 6'/%3E%3Ccircle cx='86' cy='26' r='6'/%3E%3Cpath d='M40 84q8-10 16 0t16 0'/%3E%3Cpath d='M98 92l4 8 8 2-6 6 2 8-8-4-8 4 2-8-6-6 8-2z'/%3E%3C/g%3E%3C/svg%3E");
@@ -4154,8 +4155,9 @@ button.seat:disabled {
 
 .spin-num {
   fill: var(--spin-num);
-  font-size: 8px;
-  font-weight: 700;
+  font-family: var(--font-display);
+  font-size: 10.5px;
+  font-weight: 400;
   text-anchor: middle;
   dominant-baseline: central;
 }
@@ -5473,7 +5475,7 @@ button.seat:disabled {
 }
 
 .tabbar {
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(4, 1fr);
 }
 
 .arena-figure {
@@ -6841,4 +6843,155 @@ button.icon-button {
   border: 2px solid var(--ink);
   border-radius: 50%;
   background: var(--surface);
+}
+
+/* ---------- Review pass: profile top right, readable numbers ---------- */
+.player-bar {
+  justify-content: space-between;
+}
+
+.player-chips {
+  align-items: center;
+  gap: 8px;
+}
+
+.player-chip {
+  padding: 3px 10px;
+  font-family: var(--font-display);
+  font-size: var(--fs-sm);
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  text-decoration: none;
+  text-transform: none;
+}
+
+.player-chip.hero {
+  background: var(--game-hero-soft);
+  color: var(--ink);
+}
+
+.player-chip.gems {
+  background: var(--rarity-rare-soft);
+  color: var(--ink);
+}
+
+.player-chip .gem-icon {
+  width: 14px;
+  height: 14px;
+}
+
+.player-me {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.player-me strong {
+  overflow: hidden;
+  max-width: 130px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.player-me:active .player-avatar {
+  transform: translate(2px, 2px);
+  box-shadow: none;
+}
+
+.player-avatar {
+  display: block;
+  flex: none;
+  overflow: hidden;
+  border-radius: 50%;
+}
+
+/* The profile: your hero big, then your numbers. */
+.profile-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 12px;
+  border: 3px solid var(--ink);
+  border-radius: 24px;
+  background: var(--battle-sky);
+  box-shadow: var(--sticker);
+}
+
+.profile-figure .sprite {
+  width: 150px;
+  height: 150px;
+}
+
+.profile-name {
+  padding: 2px 14px;
+  border: 3px solid var(--ink);
+  border-radius: 999px;
+  background: var(--surface);
+  font-family: var(--font-display);
+  font-size: var(--fs-lg);
+  font-weight: 400;
+}
+
+.profile-stats {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+  width: 100%;
+}
+
+.profile-stats span {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 6px 2px;
+  border: 2px solid var(--ink);
+  border-radius: 12px;
+  background: var(--surface);
+}
+
+.profile-stats b {
+  font-family: var(--font-display);
+  font-size: var(--fs-md);
+  font-weight: 400;
+}
+
+.profile-stats small {
+  color: var(--label-2);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+/* Roulette's number grid: white numbers on the red, black and green pockets. */
+.hero-slot {
+  min-height: 34px;
+  border: 2px solid var(--ink);
+  color: var(--on-dark);
+  font-family: var(--font-display);
+  font-size: var(--fs-base);
+  font-weight: 400;
+  text-shadow: 1px 1px 0 var(--ink);
+}
+
+.hero-slot.picked {
+  border-color: var(--ink);
+  box-shadow: 0 0 0 3px var(--accent-grad);
+  transform: scale(1.12);
+}
+
+.spin-wheel {
+  filter: drop-shadow(4px 4px 0 var(--ink));
+}
+
+.spin-rim {
+  stroke: var(--ink);
+  stroke-width: 3;
+}
+
+/* A stamp sits high, clear of the cards and the wheel's middle. */
+.battle-meme {
+  top: 16%;
 }

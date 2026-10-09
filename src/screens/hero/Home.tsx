@@ -4,9 +4,8 @@ import { SummaryRow } from '../../components/SummaryRow';
 import { ARENA_UNLOCK, START_RATING, tierOf } from '../../games/hero/arena';
 import { BOT_LEVELS } from '../../games/hero/bots';
 import { costumeOf } from '../../games/hero/costumes';
-import { BOT_COUNT, heroLevel, rewardFor, statsOf } from '../../games/hero/stats';
+import { BOT_COUNT, rewardFor, statsOf } from '../../games/hero/stats';
 import { useHeroStore } from '../../heroStore';
-import { useGameStore } from '../../store';
 import { useWardrobeStore } from '../../wardrobeStore';
 import { HeroFigure } from './Avatar';
 import { HOME_LINES, pick } from './memes';
@@ -18,7 +17,6 @@ import { CreatureThumb } from './Sprites';
 
 export function Home() {
   const navigate = useNavigate();
-  const name = useGameStore((s) => s.player?.displayName ?? 'Traveller');
   const tree = useHeroStore((s) => s.tree);
   const cleared = useHeroStore((s) => s.cleared);
   const fight = useHeroStore((s) => s.fight);
@@ -60,9 +58,7 @@ export function Home() {
       </section>
 
       <div className="home-plate">
-        <strong>{name}</strong>
         <span className="home-chips">
-          <span className="player-chip hero">Lv {heroLevel(tree)}</span>
           {arenaOpen && <span className="player-chip">{tierOf(rating)} {rating}</span>}
           {costume && <span className={`player-chip rarity-${costume.rarity}`}>{costume.name}</span>}
         </span>
