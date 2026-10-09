@@ -54,7 +54,7 @@ function Gone({ text }: { text: string }) {
 function NotIn({ room }: { room: Room }) {
   const [error, setError] = useState<string | null>(null);
   if (room.status !== 'lobby' || room.playerIds.length >= 2) return <Gone text="This fight is already under way." />;
-  const join = () => joinHeroRoom(room.code, () => useHeroStore.getState().tree, () => useWardrobeStore.getState().appearance(), heroReady);
+  const join = () => joinHeroRoom(room.code, () => useHeroStore.getState().tree, () => useHeroStore.getState().loadout, () => useWardrobeStore.getState().appearance(), heroReady);
   return (
     <>
       <button className="button primary" onClick={() => void join().then(setError, (e) => setError(String(e)))}>
@@ -67,7 +67,7 @@ function NotIn({ room }: { room: Room }) {
 
 const fighterOf = (room: Room, uid: string): Fighter | null => {
   const tree = validTree(room.fighters?.[uid]);
-  return tree ? { name: room.names[uid] ?? 'Hero', tree, costume: room.looks[uid]?.costume ?? null } : null;
+  return tree ? { name: room.names[uid] ?? 'Hero', tree, costume: room.looks[uid]?.costume ?? null, loadout: room.loadouts[uid] } : null;
 };
 
 function Lobby({ room, uid }: { room: Room; uid: string }) {

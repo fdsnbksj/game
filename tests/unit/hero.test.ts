@@ -1,10 +1,33 @@
 import { describe, expect, it } from 'vitest';
 import { DEFENDER_SPREAD, MAX_DELTA, pickOpponent, ratingChange, tierOf } from '../../src/games/hero/arena';
-import { BOT_LEVELS, botFighter, botMove, sparringTree } from '../../src/games/hero/bots';
+import { BOT_LEVELS, botFighter, botMove, sparringTree, spendPoints } from '../../src/games/hero/bots';
 import { ATTACKS, BURN_PCT, isAttack, resolveAttack, type Kit } from '../../src/games/hero/monsters';
-import { accuracyPct, afterDef, punchPower, resolve, rouletteBalls, seconds, stopwatchTarget, WHEEL, type Move } from '../../src/games/hero/skills';
+import { accuracyPct, afterDef, punchPower, resolve, rouletteBalls, seconds, speedDelay, speedPct, speedPower, stopwatchTarget, WHEEL, type Move } from '../../src/games/hero/skills';
 import { apply, replay, start, type Fighter, type HeroState, type Side } from '../../src/games/hero/state';
-import { BOT_COUNT, buy, canBuy, FRESH_TREE, GROUPS, isUpgrade, NODES, pointsFor, spent, statsOf, validTree, type NodeId, type Tree } from '../../src/games/hero/stats';
+import {
+  available,
+  BOT_COUNT,
+  burned,
+  buy,
+  canBuy,
+  canReset,
+  cooldownOf,
+  defaultLoadout,
+  FRESH_TREE,
+  GROUPS,
+  isUpgrade,
+  levelCost,
+  NODES,
+  nodeCost,
+  pointsFor,
+  resetCost,
+  SKILLS,
+  spent,
+  statsOf,
+  validLoadout,
+  validTree,
+  type Tree,
+} from '../../src/games/hero/stats';
 import { hashSeed } from '../../src/shared/random';
 
 const tree = (change: Partial<Tree> = {}): Tree => ({ ...FRESH_TREE, ...change });
@@ -17,43 +40,101 @@ describe('the tree', () => {
     expect(spent(FRESH_TREE)).toBe(0);
   });
 
-  it('gives a point a level and three for a boss', () => {
-    expect([1, 4, 5, 10, 20].map(pointsFor)).toEqual([1, 4, 7, 14, 28]);
+  it('gives a point a level and two for a boss', () => {
+    expect([1, 4, 5, 10, 20].map(pointsFor)).toEqual([1, 4, 6, 12, 24]);
+  });
+
+  it('prices a skill 5 to unlock then 1, 2, 3…, a stat N for level N, the first stopwatch level free', () => {
+    expect([1, 2, 3, 10].map((l) => levelCost('poker', l))).toEqual([5, 1, 2, 9]);
+    expect([1, 2, 3].map((l) => levelCost('stopwatch', l))).toEqual([0, 1, 2]);
+    expect([1, 2, 3].map((l) => levelCost('hp', l))).toEqual([1, 2, 3]);
+    // The closed forms (and the rules' copy) match the sum of the steps.
+    for (const n of NODES)
+      for (let level = 0; level <= n.max; level++) {
+        let sum = 0;
+        for (let l = 1; l <= level; l++) sum += levelCost(n.id, l);
+        expect(nodeCost(n.id, level), `${n.id} ${level}`).toBe(sum);
+      }
+    expect(spent(tree({ stopwatch: 5, speed: 1, hp: 2 }))).toBe(10 + 5 + 3);
   });
 
   it('opens skills in order and spends only what has been earned', () => {
-    expect(canBuy(FRESH_TREE, 'roulette', 5)).toBe(false);
+    expect(canBuy(FRESH_TREE, 'poker', 20)).toBe(false); // Stopwatch 2 first
     const two = buy(FRESH_TREE, 'stopwatch');
-    expect(canBuy(two, 'roulette', 5)).toBe(true);
-    expect(canBuy(two, 'poker', 5)).toBe(false);
-    expect(canBuy(two, 'hp', 1)).toBe(false);
+    expect(canBuy(two, 'poker', 4)).toBe(false); // 1 spent + 5 > 4
+    expect(canBuy(two, 'poker', 5)).toBe(true);
+    expect(canBuy(two, 'speed', 20)).toBe(false); // Stopwatch 5 first
+    expect(canBuy(tree({ stopwatch: 5 }), 'speed', 15)).toBe(true);
+    expect(canBuy(tree({ stopwatch: 2, poker: 4 }), 'roulette', 20)).toBe(false); // Poker 5 first
+    expect(canBuy(tree({ stopwatch: 2, poker: 5 }), 'roulette', 20)).toBe(true);
+    expect(canBuy(FRESH_TREE, 'hp', 0)).toBe(false);
     expect(canBuy(tree({ hp: 10 }), 'hp', 20)).toBe(false);
   });
 
-  it('sorts every node into a branch: Stopwatch for all, Roulette and Poker for gamblers, stats for the body', () => {
+  it('sorts every node into a branch: Stopwatch and I’m Speed for all, Poker then Roulette for gamblers, stats for the body', () => {
     expect(GROUPS.map((g) => g.id)).toEqual(['all', 'gambler', 'body']);
-    expect(NODES.filter((n) => n.group === 'gambler').map((n) => n.id)).toEqual(['roulette', 'poker']);
-    expect(NODES.find((n) => n.id === 'stopwatch')!.group).toBe('all');
+    expect(NODES.filter((n) => n.group === 'all').map((n) => n.id)).toEqual(['stopwatch', 'speed']);
+    expect(NODES.filter((n) => n.group === 'gambler').map((n) => n.id)).toEqual(['poker', 'roulette']);
     for (const n of NODES) if (n.needs) expect(['all', n.group]).toContain(NODES.find((m) => m.id === n.needs!.node)!.group);
+    expect(SKILLS.map(cooldownOf)).toEqual([0, 1, 2, 3]);
   });
 
   it('confirms a draft only when it adds earned points', () => {
     const now = tree({ stopwatch: 2 });
-    expect(isUpgrade(now, tree({ stopwatch: 2, roulette: 1, hp: 1 }), 3)).toBe(true);
-    expect(isUpgrade(now, tree({ stopwatch: 2, roulette: 1, hp: 2 }), 3)).toBe(false); // 4 points, 3 earned
-    expect(isUpgrade(now, tree({ stopwatch: 1, hp: 1 }), 3)).toBe(false); // takes a point back
-    expect(isUpgrade(tree(), tree({ poker: 1 }), 5)).toBe(false); // Poker before Roulette 2
+    expect(isUpgrade(now, tree({ stopwatch: 2, poker: 1, hp: 1 }), 7)).toBe(true);
+    expect(isUpgrade(now, tree({ stopwatch: 2, poker: 1, hp: 2 }), 7)).toBe(false); // 9 points, 8 earned
+    expect(isUpgrade(now, tree({ stopwatch: 1, hp: 1 }), 7)).toBe(false); // takes a point back
+    expect(isUpgrade(tree(), tree({ roulette: 1 }), 20)).toBe(false); // Roulette before Poker 5
   });
 
-  it('refuses trees no hero could have', () => {
-    expect(validTree(tree({ hp: 3 }), 2)).toBeNull();
+  it('charges more for each reset, out of the points earned', () => {
+    expect([1, 2, 3].map(resetCost)).toEqual([1, 2, 3]);
+    expect([0, 1, 2, 3].map(burned)).toEqual([0, 1, 3, 6]);
+    expect(available(FRESH_TREE, 5, 2)).toBe(6 - 3);
+    expect(canReset(0, 0)).toBe(false);
+    expect(canReset(1, 0)).toBe(true);
+    expect(canReset(2, 1)).toBe(false); // 2 points, 1 + 2 to reset twice
+    expect(validTree(tree({ hp: 1 }), 1, 1)).toBeNull();
+  });
+
+  it('refuses trees no hero could have, and reads one from before I’m Speed', () => {
+    expect(validTree(tree({ hp: 2 }), 2)).toBeNull();
     expect(validTree(tree({ stopwatch: 0 }))).toBeNull();
     expect(validTree({ ...tree(), hp: 1.5 })).toBeNull();
-    expect(validTree(tree({ hp: 3 }), 3)).toEqual(tree({ hp: 3 }));
+    expect(validTree(tree({ hp: 2 }), 3)).toEqual(tree({ hp: 2 }));
+    const { speed: _, ...old } = tree({ hp: 1 });
+    expect(validTree(old, 1)).toEqual(tree({ hp: 1 }));
+  });
+
+  it('keeps a loadout of 1 to 4 different skills the tree has', () => {
+    const t = tree({ stopwatch: 5, speed: 1, poker: 1 });
+    expect(validLoadout(['speed', 'stopwatch'], t)).toEqual(['speed', 'stopwatch']);
+    expect(validLoadout([], t)).toBeNull();
+    expect(validLoadout(['stopwatch', 'stopwatch'], t)).toBeNull();
+    expect(validLoadout(['roulette'], t)).toBeNull();
+    expect(validLoadout(['hp'], t)).toBeNull();
+    expect(defaultLoadout(t)).toEqual(['stopwatch', 'speed', 'poker']);
   });
 });
 
 describe('the skills', () => {
+  it('waits 1.50 to 4.50 s for I’m Speed’s light, and pays for a quick tap', () => {
+    const waits = Array.from({ length: 2000 }, (_, i) => speedDelay(`w${i}`, 0));
+    expect(Math.min(...waits)).toBeGreaterThanOrEqual(1500);
+    expect(Math.max(...waits)).toBeLessThanOrEqual(4500);
+    expect(new Set(waits).size).toBeGreaterThan(200);
+    expect([-1, 0, 150, 155, 250, 600, 5000].map(speedPct)).toEqual([0, 100, 100, 99, 80, 10, 10]);
+    const t = tree({ stopwatch: 5, speed: 3 });
+    const fast = resolve({ skill: 'speed', ms: 140 }, t, plain, plain, 'sp', 0);
+    expect(fast.crit).toBe(true);
+    expect(fast.damage).toBe(Math.floor((speedPower(3) * 150) / 100));
+    expect(fast.detail).toMatchObject({ skill: 'speed', flash: true, pct: 100 });
+    const early = resolve({ skill: 'speed', ms: -1 }, t, plain, plain, 'sp', 0);
+    expect([early.damage, early.crit]).toEqual([0, false]);
+    const slow = resolve({ skill: 'speed', ms: 400 }, t, { ...plain, crit: 0 }, plain, 'sp', 0);
+    expect(slow.damage).toBe(Math.floor((speedPower(3) * 50) / 100));
+  });
+
   it('picks a stopwatch target from 1.00 to 10.00 s, to the hundredth', () => {
     const seen = Array.from({ length: 3000 }, (_, i) => stopwatchTarget(`s${i}`, 0));
     for (const t of seen) {
@@ -152,6 +233,8 @@ const movesOf = (t: HeroState['log'][number], ids: readonly [string, string]): {
   const d = t.detail;
   const by = ids[t.by];
   if (d.skill === 'stopwatch') return [{ by, move: { skill: 'stopwatch', ms: d.ms } }];
+  if (d.skill === 'speed') return [{ by, move: { skill: 'speed', ms: d.ms } }];
+  if (d.skill === 'rest') return [{ by, move: { skill: 'rest' } }];
   if (d.skill === 'roulette') return [{ by, move: { skill: 'roulette', pick: d.pick } }];
   if (d.skill === 'attack') return [{ by, move: { skill: 'attack', id: d.id } }];
   return [
@@ -159,6 +242,9 @@ const movesOf = (t: HeroState['log'][number], ids: readonly [string, string]): {
     { by: ids[t.by === 0 ? 1 : 0], move: { skill: 'card', pick: d.theirPick } },
   ];
 };
+
+/** A hero with every skill, for the golden hashes. */
+const GOLDEN_TREE = tree({ stopwatch: 5, speed: 2, poker: 5, roulette: 2, hp: 1 });
 
 describe('a fight', () => {
   it('takes turns and refuses moves out of turn or with a locked skill', () => {
@@ -195,6 +281,45 @@ describe('a fight', () => {
     expect(apply(done, { skill: 'card', pick: 1 }, defender)).toBeNull();
   });
 
+  it('rests each skill for its cooldown in your own turns', () => {
+    const all = tree({ stopwatch: 5, speed: 1, poker: 5, roulette: 1 });
+    // Side 0 moves first, with a pick the seed's ball misses.
+    let s: HeroState = { ...start('cool', fighters(all, all)), turn: 0 };
+    s = apply(s, { skill: 'roulette', pick: 36 }, 0)!;
+    expect(s.winner).toBeNull();
+    expect(s.cooldowns[0]).toEqual({ roulette: 3 });
+    for (const left of [2, 1, 0]) {
+      s = apply(s, { skill: 'stopwatch', ms: 0 }, 1)!;
+      expect(apply(s, { skill: 'roulette', pick: 1 }, 0)).toBeNull();
+      s = apply(s, { skill: 'stopwatch', ms: 0 }, 0)!;
+      expect(s.cooldowns[0].roulette).toBe(left || undefined);
+    }
+    s = apply(s, { skill: 'stopwatch', ms: 0 }, 1)!;
+    expect(apply(s, { skill: 'roulette', pick: 1 }, 0)).not.toBeNull();
+    // Poker rests once its card is answered; the defender's card isn't a turn of theirs.
+    s = apply(s, { skill: 'speed', ms: 300 }, 0)!;
+    s = apply(s, { skill: 'poker', pick: 0 }, 1)!;
+    s = apply(s, { skill: 'card', pick: 1 }, 0)!;
+    expect(s.cooldowns[1]).toEqual({ poker: 2 });
+    expect(s.cooldowns[0]).toEqual({ speed: 1 });
+  });
+
+  it('fights only with the loadout, and rests only when all of it is cooling', () => {
+    const t = tree({ stopwatch: 5, speed: 1 });
+    let s: HeroState = { ...start('kit', [{ name: 'A', tree: t, loadout: ['speed'] }, { name: 'B', tree: t }]), turn: 0 };
+    expect(apply(s, { skill: 'stopwatch', ms: 0 }, 0)).toBeNull(); // not brought
+    expect(apply(s, { skill: 'rest' }, 0)).toBeNull(); // Speed is ready
+    s = apply(s, { skill: 'speed', ms: 300 }, 0)!;
+    s = apply(s, { skill: 'stopwatch', ms: 0 }, 1)!;
+    expect(apply(s, { skill: 'speed', ms: 300 }, 0)).toBeNull();
+    s = apply(s, { skill: 'rest' }, 0)!;
+    expect(s.log.at(-1)).toMatchObject({ skill: 'rest', damage: 0 });
+    expect(s.cooldowns[0]).toEqual({});
+    // A creature never rests.
+    const c: HeroState = { ...start('kit', [{ name: 'A', tree: t }, creature(kit())]), turn: 1 };
+    expect(apply(c, { skill: 'rest' }, 1)).toBeNull();
+  });
+
   it('replays the same from the same moves, skipping refused ones', () => {
     const played = botFight('replay', tree({ stopwatch: 3, roulette: 2, poker: 1 }), BOT_LEVELS[9]);
     const ids = ['a', 'b'] as const;
@@ -209,19 +334,19 @@ describe('a fight', () => {
 
   it('comes out the same as when it was written (golden hash)', () => {
     const results = Array.from({ length: 30 }, (_, i) => {
-      const s = botFight(`golden${i}`, tree({ stopwatch: 2, roulette: 2, poker: 1, hp: 1 }), BOT_LEVELS[i % BOT_COUNT]);
+      const s = botFight(`golden${i}`, GOLDEN_TREE, BOT_LEVELS[i % BOT_COUNT]);
       return `${s.winner}:${s.hp.join(',')}:${s.log.length}`;
     });
-    expect(hashSeed(results.join('|'))).toBe(2961552066);
+    expect(hashSeed(results.join('|'))).toBe(3047989030);
   });
 
   it('plays hero against hero with no effects, the same every time', () => {
     const results = Array.from({ length: 30 }, (_, i) => {
-      const s = fightOut(`pvp${i}`, tree({ stopwatch: 2, roulette: 2, poker: 1, hp: 1 }), { name: 'B', tree: sparringTree(1 + (i % BOT_COUNT)) }, 900);
+      const s = fightOut(`pvp${i}`, GOLDEN_TREE, { name: 'B', tree: sparringTree(1 + (i % BOT_COUNT)) }, 900);
       expect(s.effects).toEqual([[], []]);
       return `${s.winner}:${s.hp.join(',')}:${s.log.length}`;
     });
-    expect(hashSeed(results.join('|'))).toBe(2535742092);
+    expect(hashSeed(results.join('|'))).toBe(2398330793);
   });
 });
 
@@ -329,10 +454,9 @@ describe('the bot ladder', () => {
   });
 
   it('can be beaten at every level by a hero with the points from the levels before', () => {
-    const order: NodeId[] = ['stopwatch', 'roulette', 'roulette', 'poker', 'hp', 'stopwatch', 'def', 'crit', 'hp', 'poker', 'critDmg'];
     for (const bot of BOT_LEVELS) {
-      let mine = FRESH_TREE;
-      for (let i = 0; i < 200; i++) if (canBuy(mine, order[i % order.length], bot.level - 1)) mine = buy(mine, order[i % order.length]);
+      const mine = spendPoints(pointsFor(bot.level - 1));
+      expect(validTree(mine, bot.level - 1), `level ${bot.level}`).not.toBeNull();
       let wins = 0;
       for (let g = 0; g < 150; g++) if (botFight(`ladder${bot.level}:${g}`, mine, bot).winner === 0) wins++;
       expect(wins / 150, `level ${bot.level}`).toBeGreaterThan(0.3);

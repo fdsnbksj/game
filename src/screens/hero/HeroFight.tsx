@@ -46,7 +46,7 @@ function BotFightView({
   const lookNow = useWardrobeStore((s) => s.look);
   const look = useMemo(() => ({ look: lookNow, costume: fight.costume ?? null }), [lookNow, fight.costume]);
   const state: HeroState = useMemo(
-    () => replay(fight.seed, [{ name, tree: fight.tree, costume: fight.costume }, botFighter(bot)], BOT_PLAYERS, fight.moves),
+    () => replay(fight.seed, [{ name, tree: fight.tree, loadout: fight.loadout, costume: fight.costume }, botFighter(bot)], BOT_PLAYERS, fight.moves),
     [fight, bot, name],
   );
 

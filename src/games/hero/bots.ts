@@ -1,8 +1,8 @@
 import { stream } from '../../nonogram/rng';
 import { monsterChoice, type AttackId, type Family, type Kit } from './monsters';
 import { RANKS, stopwatchTarget, WHEEL, type Move } from './skills';
-import { BOT_COUNT, FRESH_TREE, isBoss, NODES, type NodeId, type StatId, type Tree } from './stats';
-import { usable, type Fighter, type HeroState, type Side } from './state';
+import { buy, BOT_COUNT, canBuy, FRESH_TREE, isBoss, pointsFor, spent, type NodeId, type StatId, type Tree } from './stats';
+import { ready, type Fighter, type HeroState, type Side } from './state';
 
 // The bot ladder: twenty levels, a boss every fifth. Each one is a creature with a kit of
 // attacks (monsters.ts) and stats from a fixed number of points. The bot brain here also
@@ -58,35 +58,38 @@ const NAMES = [
   'Hourglass', 'Double Zero', 'Royal Flush', 'Loaded Die', 'The Clockmaker',
 ];
 
-/** The order a hero stand-in spends its points: skills as they open, then stats round and round. */
-const ORDER: NodeId[] = ['stopwatch', 'hp', 'stopwatch', 'def', 'hp', 'crit', 'stopwatch', 'critDmg', 'hp', 'def', 'stopwatch', 'crit', 'hp', 'critDmg'];
+/**
+ * The order a hero spends its points, as a player might: the stopwatch and some HP, Poker
+ * once it opens, I'm Speed, then stats round and round. A node it can't afford yet is
+ * skipped for now. The arena's stand-in hero and the ladder's test both spend this way.
+ */
+export const BUY_ORDER: NodeId[] = [
+  'stopwatch', 'hp', 'stopwatch', 'poker', 'def', 'stopwatch', 'hp', 'crit', 'stopwatch', 'speed',
+  'poker', 'hp', 'def', 'crit', 'critDmg', 'poker', 'hp', 'speed', 'def', 'crit', 'critDmg', 'stopwatch',
+];
 
-/** About what the player has by a level, a little more at a boss. */
-const pointsAt = (level: number) => Math.floor((level - 1) * 1.3) + (isBoss(level) ? 3 : 0);
-
-/** A hero with a level's points, skills and all: the arena's sparring partner while it's empty. */
-export function sparringTree(level: number): Tree {
-  let points = pointsAt(level);
-  const tree = { ...FRESH_TREE };
-  const add = (node: NodeId) => {
-    const max = NODES.find((n) => n.id === node)!.max;
-    if (points > 0 && tree[node] < max) {
-      tree[node]++;
-      points--;
-    }
-  };
-  if (level >= 6) for (let i = 0; i < Math.min(5, 1 + Math.floor((level - 6) / 3)); i++) add('roulette');
-  if (level >= 11) for (let i = 0; i < Math.min(5, 1 + Math.floor((level - 11) / 3)); i++) add('poker');
-  for (let i = 0; points > 0 && i < 200; i++) add(ORDER[i % ORDER.length]);
+/** A tree with `points` spent in BUY_ORDER, then whatever's left on the cheapest stats. */
+export function spendPoints(points: number): Tree {
+  let tree = { ...FRESH_TREE };
+  const afford = (node: NodeId) => canBuy(tree, node, BOT_COUNT) && spent(buy(tree, node)) <= points;
+  for (let round = 0; round < 4; round++) for (const node of BUY_ORDER) if (afford(node)) tree = buy(tree, node);
+  for (let i = 0; i < 40; i++) {
+    const cheapest = (['hp', 'def', 'crit', 'critDmg'] as NodeId[]).filter(afford).sort((a, b) => tree[a] - tree[b])[0];
+    if (!cheapest) break;
+    tree = buy(tree, cheapest);
+  }
   return tree;
 }
+
+/** A hero with what a player has by a level: the arena's sparring partner while it's empty. */
+export const sparringTree = (level: number): Tree => spendPoints(pointsFor(level - 1) + (isBoss(level) ? 2 : 0));
 
 /** The order a creature spends its points: stats only. */
 const STAT_ORDER: StatId[] = ['hp', 'def', 'hp', 'crit', 'hp', 'critDmg'];
 
 function creatureTree(level: number): Tree {
   const tree: Tree = { ...FRESH_TREE, stopwatch: 0 };
-  for (let i = 0, points = Math.floor((level - 1) * 1.3); points > 0 && i < 200; i++) {
+  for (let i = 0, points = Math.floor(((level - 1) * 3) / 4); points > 0 && i < 200; i++) {
     const node = STAT_ORDER[i % STAT_ORDER.length];
     if (tree[node] < 10) {
       tree[node]++;
@@ -97,7 +100,7 @@ function creatureTree(level: number): Tree {
 }
 
 /** A 100% attack's damage at a level. */
-const powerAt = (level: number) => 10 + 2 * level - (isBoss(level) ? 2 + Math.floor(level / 5) : 0);
+const powerAt = (level: number) => 11 + Math.floor((level * 3) / 2) - (isBoss(level) ? 2 + Math.floor(level / 5) : 0);
 
 export const BOT_LEVELS: readonly BotLevel[] = Array.from({ length: BOT_COUNT }, (_, i) => {
   const level = i + 1;
@@ -131,11 +134,15 @@ export function botMove(state: HeroState, side: Side, bot: Pick<BotLevel, 'sprea
   }
   const rng = stream(`${state.seed}:bot:${turn}`);
   const tree = state.fighters[side].tree;
-  const weights = usable(tree).map((skill) => ({ skill, w: skill === 'stopwatch' ? 4 : skill === 'roulette' ? 1 + tree.roulette : 2 + tree.poker }));
+  const choices = ready(state, side);
+  if (!choices.length) return { skill: 'rest' };
+  const weight = { stopwatch: 4, speed: 4 + tree.speed, roulette: 1 + tree.roulette, poker: 2 + tree.poker };
+  const weights = choices.map((skill) => ({ skill, w: weight[skill] }));
   let roll = rng(weights.reduce((sum, x) => sum + x.w, 0));
   const skill = weights.find((x) => (roll -= x.w) < 0)!.skill;
   if (skill === 'roulette') return { skill, pick: rng(WHEEL) };
   if (skill === 'poker') return { skill, pick: rng(RANKS) };
+  if (skill === 'speed') return { skill, ms: 150 + rng(Math.floor(bot.spread / 5) + 1) };
   const off = rng(2 * bot.spread + 1) - bot.spread;
   return { skill, ms: Math.max(0, stopwatchTarget(state.seed, turn) + off) };
 }

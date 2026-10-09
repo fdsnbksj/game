@@ -426,7 +426,7 @@ service cloud.firestore {
     // The rules can't watch a fight, so a tampered phone could still claim a win.
 
     function heroPoints(cleared) {
-      return cleared + 2 * math.floor(cleared / 5);
+      return cleared + math.floor(cleared / 5);
     }
     function heroBotCount() { return 20; }
 
@@ -434,13 +434,43 @@ service cloud.firestore {
       return v is int && v >= 0 && v <= 10;
     }
 
-    function isHeroTree(t, cleared) {
+    // Twice what a tree cost (a copy of spent/nodeCost in src/games/hero/stats.ts, doubled to
+    // stay in whole numbers): a skill 5 to unlock, then 1, 2, 3… a level (the Stopwatch's
+    // first level free); a stat's level N costs N.
+    function heroTreeCost2(t) {
+      return t.stopwatch * (t.stopwatch - 1)
+        + 10 * math.ceil(t.speed / 10.0) + t.speed * (t.speed - 1)
+        + 10 * math.ceil(t.poker / 10.0) + t.poker * (t.poker - 1)
+        + 10 * math.ceil(t.roulette / 10.0) + t.roulette * (t.roulette - 1)
+        + t.hp * (t.hp + 1) + t.def * (t.def + 1) + t.crit * (t.crit + 1) + t.critDmg * (t.critDmg + 1);
+    }
+
+    // A tree, with its price and the resets' (1, then 2, … : r(r+1)/2, doubled) within the points earned.
+    function isHeroTree(t, cleared, resets) {
       return t is map
-        && hasExactly(t, ['stopwatch', 'roulette', 'poker', 'hp', 'def', 'crit', 'critDmg'])
+        && hasExactly(t, ['stopwatch', 'speed', 'poker', 'roulette', 'hp', 'def', 'crit', 'critDmg'])
         && isHeroNode(t.stopwatch) && t.stopwatch >= 1
-        && isHeroNode(t.roulette) && isHeroNode(t.poker)
+        && isHeroNode(t.speed) && isHeroNode(t.poker) && isHeroNode(t.roulette)
         && isHeroNode(t.hp) && isHeroNode(t.def) && isHeroNode(t.crit) && isHeroNode(t.critDmg)
-        && t.stopwatch + t.roulette + t.poker + t.hp + t.def + t.crit + t.critDmg - 1 <= heroPoints(cleared);
+        && heroTreeCost2(t) + resets * (resets + 1) <= 2 * heroPoints(cleared);
+    }
+
+    // The skills a hero fights with: 1 to 4 different ones, each with a level in the tree.
+    function isHeroLoadout(l, t) {
+      return l is list && l.size() >= 1 && l.size() <= 4
+        && l.hasOnly(['stopwatch', 'speed', 'poker', 'roulette'])
+        && l.toSet().size() == l.size()
+        && (!('speed' in l) || t.speed >= 1)
+        && (!('poker' in l) || t.poker >= 1)
+        && (!('roulette' in l) || t.roulette >= 1);
+    }
+
+    // No node loses a level.
+    function heroTreeGrows(before, after) {
+      return after.stopwatch >= before.stopwatch && after.speed >= before.speed
+        && after.poker >= before.poker && after.roulette >= before.roulette
+        && after.hp >= before.hp && after.def >= before.def
+        && after.crit >= before.crit && after.critDmg >= before.critDmg;
     }
 
     // A hero's look: indexes into the catalogues in src/games/hero/look.ts (their sizes are
@@ -494,10 +524,12 @@ service cloud.firestore {
 
     // The hero doc may carry the look and the costume worn, which must be one summoned.
     function isHeroDoc(data, uid) {
-      return data.keys().hasAll(['cleared', 'tree', 'updatedAt'])
-        && data.keys().hasOnly(['cleared', 'tree', 'updatedAt', 'look', 'costume'])
+      return data.keys().hasAll(['cleared', 'tree', 'resets', 'loadout', 'updatedAt'])
+        && data.keys().hasOnly(['cleared', 'tree', 'resets', 'loadout', 'updatedAt', 'look', 'costume'])
         && data.cleared is int && data.cleared >= 0 && data.cleared <= heroBotCount()
-        && isHeroTree(data.tree, data.cleared)
+        && data.resets is int && data.resets >= 0 && data.resets <= 20
+        && isHeroTree(data.tree, data.cleared, data.resets)
+        && isHeroLoadout(data.loadout, data.tree)
         && (!('look' in data) || isLook(data.look))
         && (!('costume' in data) || data.costume == null
           || (data.costume is string && ('costume:' + data.costume) in wardrobe(uid).owned))
@@ -509,7 +541,16 @@ service cloud.firestore {
       allow create: if isOwner(uid) && isHeroDoc(request.resource.data, uid) && request.resource.data.cleared <= 1;
       allow update: if isOwner(uid) && isHeroDoc(request.resource.data, uid)
         && request.resource.data.cleared >= resource.data.cleared
-        && request.resource.data.cleared <= resource.data.cleared + 1;
+        && request.resource.data.cleared <= resource.data.cleared + 1
+        && isHeroRegrowth(resource.data, request.resource.data);
+    }
+
+    // The tree only grows, except through a paid reset (resets up by one). A hero from
+    // before the prices (no `resets`) is refunded once, for free.
+    function isHeroRegrowth(before, after) {
+      return !('resets' in before)
+        || (after.resets == before.resets && heroTreeGrows(before.tree, after.tree))
+        || after.resets == before.resets + 1;
     }
 
     // A fight between two phones, built like Rival Wonders' rooms. Each player brings the
@@ -539,8 +580,10 @@ service cloud.firestore {
       allow read: if request.auth != null;
       allow create: if request.auth != null
         && code.matches('[A-Z]{4}')
-        && request.resource.data.keys().hasAll(['host', 'playerIds', 'names', 'fighters', 'status', 'createdAt'])
-        && request.resource.data.keys().hasOnly(['host', 'playerIds', 'names', 'fighters', 'looks', 'status', 'createdAt'])
+        && request.resource.data.keys().hasAll(['host', 'playerIds', 'names', 'fighters', 'loadouts', 'status', 'createdAt'])
+        && request.resource.data.keys().hasOnly(['host', 'playerIds', 'names', 'fighters', 'looks', 'loadouts', 'status', 'createdAt'])
+        && request.resource.data.loadouts.keys().hasOnly([request.auth.uid])
+        && request.resource.data.loadouts[request.auth.uid] == hero(request.auth.uid).loadout
         && (!('looks' in request.resource.data)
           || (request.resource.data.looks.keys().hasOnly([request.auth.uid])
             && request.resource.data.looks[request.auth.uid] == heroAppearance(request.auth.uid)))
@@ -574,7 +617,9 @@ service cloud.firestore {
       return before.status == 'lobby'
         && before.playerIds.size() == 1
         && !(request.auth.uid in before.playerIds)
-        && after.diff(before).affectedKeys().hasOnly(['playerIds', 'names', 'fighters', 'looks'])
+        && after.diff(before).affectedKeys().hasOnly(['playerIds', 'names', 'fighters', 'looks', 'loadouts'])
+        && after.loadouts.diff(before.loadouts).affectedKeys().hasOnly([request.auth.uid])
+        && after.loadouts[request.auth.uid] == hero(request.auth.uid).loadout
         && (!('looks' in after)
           || (after.looks.diff(before.get('looks', {})).affectedKeys().hasOnly([request.auth.uid])
             && after.looks.get(request.auth.uid, null) == heroAppearance(request.auth.uid)))
@@ -619,8 +664,9 @@ service cloud.firestore {
 
     function isArenaJoin(uid) {
       let a = request.resource.data;
-      return a.keys().hasAll(['name', 'tree', 'rating', 'wins', 'losses', 'lastFightAt'])
-        && a.keys().hasOnly(['name', 'tree', 'look', 'costume', 'rating', 'wins', 'losses', 'lastFightAt'])
+      return a.keys().hasAll(['name', 'tree', 'loadout', 'rating', 'wins', 'losses', 'lastFightAt'])
+        && a.keys().hasOnly(['name', 'tree', 'loadout', 'look', 'costume', 'rating', 'wins', 'losses', 'lastFightAt'])
+        && a.loadout == hero(uid).loadout
         && hero(uid).cleared >= arenaUnlock()
         && a.get('look', null) == hero(uid).get('look', null)
         && a.get('costume', null) == hero(uid).get('costume', null)
@@ -632,8 +678,9 @@ service cloud.firestore {
 
     function isArenaRefresh(uid) {
       let after = request.resource.data;
-      return after.diff(resource.data).affectedKeys().hasOnly(['tree', 'name', 'look', 'costume'])
+      return after.diff(resource.data).affectedKeys().hasOnly(['tree', 'loadout', 'name', 'look', 'costume'])
         && after.tree == heroTree(uid)
+        && after.loadout == hero(uid).loadout
         && after.get('look', null) == hero(uid).get('look', null)
         && after.get('costume', null) == hero(uid).get('costume', null)
         && after.name == playerName(uid);

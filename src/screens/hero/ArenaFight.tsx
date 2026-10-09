@@ -37,7 +37,7 @@ function ArenaFightView({ fight, ended, onEnd }: { fight: Saved; ended: Ended | 
   const lookNow = useWardrobeStore((s) => s.look);
   const look = useMemo(() => ({ look: lookNow, costume: fight.costume ?? null }), [lookNow, fight.costume]);
   const state: HeroState = useMemo(
-    () => replay(fight.seed, [{ name, tree: fight.tree, costume: fight.costume }, { name: foe.name, tree: foe.tree, costume: foe.appearance?.costume }], BOT_PLAYERS, fight.moves),
+    () => replay(fight.seed, [{ name, tree: fight.tree, loadout: fight.loadout, costume: fight.costume }, { name: foe.name, tree: foe.tree, loadout: foe.loadout, costume: foe.appearance?.costume }], BOT_PLAYERS, fight.moves),
     [fight, foe, name],
   );
 

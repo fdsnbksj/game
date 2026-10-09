@@ -13,8 +13,8 @@ import {
   type Kit,
 } from './monsters';
 import { costumeOf, type CostumeId } from './costumes';
-import { isSkill, RANKS, resolve, WHEEL, type Hit, type Move } from './skills';
-import { SKILLS, statsOf, type SkillId, type Stats, type Tree } from './stats';
+import { isSkill, RANKS, resolve, SPEED_MAX_MS, WHEEL, type Hit, type Move } from './skills';
+import { cooldownOf, defaultLoadout, statsOf, validLoadout, type SkillId, type Stats, type Tree } from './stats';
 
 // A fight as a reducer: apply(state, move, by) gives the next state, or null when the move
 // isn't allowed. Turns alternate from a seeded coin flip; the fight ends at 0 HP. replay()
@@ -24,7 +24,7 @@ import { SKILLS, statsOf, type SkillId, type Stats, type Tree } from './stats';
 // buffs and hindrances are effects that last a few turns.
 
 /** Bump when a change would make old fights replay differently. */
-export const HERO_VERSION = 6;
+export const HERO_VERSION = 7;
 
 export type Side = 0 | 1;
 
@@ -36,11 +36,13 @@ export interface Fighter {
   kit?: Kit;
   /** The costume a hero wears, for its bonus. */
   costume?: CostumeId | null;
+  /** The skills a hero brings (up to four); without one, its first four. */
+  loadout?: SkillId[];
 }
 
 export interface Turn extends Hit {
   by: Side;
-  skill: SkillId | 'attack';
+  skill: SkillId | 'attack' | 'rest';
   /** What a burn took from the mover after its move. */
   burn: number;
 }
@@ -52,6 +54,8 @@ export interface HeroState {
   hp: [number, number];
   /** Effects on each fighter. */
   effects: [Effect[], Effect[]];
+  /** Each fighter's skills cooling down: own turns left before they're ready again. */
+  cooldowns: [Cooldowns, Cooldowns];
   /** Whose move it is. */
   turn: Side;
   /** A Poker played and waiting for the defender to pick their card (it's their move). */
@@ -61,6 +65,8 @@ export interface HeroState {
   winner: Side | null;
 }
 
+export type Cooldowns = Partial<Record<SkillId, number>>;
+
 export interface Recorded {
   by: string;
   move: Move;
@@ -68,15 +74,18 @@ export interface Recorded {
 
 export function start(seed: string, fighters: [Fighter, Fighter]): HeroState {
   const stats: [Stats, Stats] = [statsOf(fighters[0].tree, bonusOf(fighters[0])), statsOf(fighters[1].tree, bonusOf(fighters[1]))];
-  return { seed, fighters, stats, hp: [stats[0].hp, stats[1].hp], effects: [[], []], turn: stream(`${seed}:first`)(2) as Side, pending: null, log: [], winner: null };
+  return { seed, fighters, stats, hp: [stats[0].hp, stats[1].hp], effects: [[], []], cooldowns: [{}, {}], turn: stream(`${seed}:first`)(2) as Side, pending: null, log: [], winner: null };
 }
 
 const bonusOf = (f: Fighter) => costumeOf(f.costume)?.bonus;
 
 export const other = (side: Side): Side => (side === 0 ? 1 : 0);
 
-/** Skills this fighter can use: any at level 1 or more. */
-export const usable = (tree: Tree) => SKILLS.filter((s) => tree[s] > 0);
+/** Skills this fighter brings: its loadout, or its first four. */
+export const usable = (f: Pick<Fighter, 'tree' | 'loadout'>): SkillId[] => validLoadout(f.loadout, f.tree) ?? defaultLoadout(f.tree);
+
+/** Skills this side can use this turn: brought and not cooling down. */
+export const ready = (state: HeroState, side: Side): SkillId[] => usable(state.fighters[side]).filter((s) => !state.cooldowns[side][s]);
 
 /** A boss below half its HP. */
 export const enraged = (state: HeroState, side: Side) => !!state.fighters[side].kit?.enrage && state.hp[side] * 2 < state.stats[side].hp;
@@ -87,8 +96,11 @@ export function isLegal(state: HeroState, move: Move, by: Side): boolean {
   if (state.pending) return move.skill === 'card' && Number.isInteger(move.pick) && move.pick >= 0 && move.pick < RANKS && move.pick !== state.pending.pick;
   if (move.skill === 'card') return false;
   if (move.skill === 'attack') return isAttack(move.id) && !!state.fighters[by].kit?.attacks.includes(move.id);
-  if (!isSkill(move.skill) || state.fighters[by].tree[move.skill] < 1) return false;
+  if (state.fighters[by].kit) return false;
+  if (move.skill === 'rest') return ready(state, by).length === 0;
+  if (!isSkill(move.skill) || !ready(state, by).includes(move.skill)) return false;
   if (move.skill === 'stopwatch') return Number.isInteger(move.ms) && move.ms >= 0 && move.ms <= 60_000;
+  if (move.skill === 'speed') return Number.isInteger(move.ms) && move.ms >= -1 && move.ms <= SPEED_MAX_MS;
   if (move.skill === 'roulette') return Number.isInteger(move.pick) && move.pick >= 0 && move.pick < WHEEL;
   if (move.skill === 'poker') return Number.isInteger(move.pick) && move.pick >= 0 && move.pick < RANKS;
   return true;
@@ -107,7 +119,7 @@ function play(state: HeroState, move: Exclude<Move, { skill: 'card' }>, by: Side
   const mine = state.effects[by];
   const theirs = state.effects[them];
   // Effects on the damage, before DEF.
-  const hurts = move.skill !== 'attack' || ATTACKS[move.id].power > 0;
+  const hurts = move.skill !== 'rest' && (move.skill !== 'attack' || ATTACKS[move.id].power > 0);
   const charged = hurts && hasEffect(mine, 'charged');
   let boost = 100;
   if (charged) boost = (boost * CHARGED_PCT) / 100;
@@ -116,9 +128,17 @@ function play(state: HeroState, move: Exclude<Move, { skill: 'card' }>, by: Side
   const defender = hasEffect(theirs, 'guard') ? { ...state.stats[them], def: state.stats[them].def + GUARD_DEF } : state.stats[them];
   const turn = state.log.length;
   const hit: Hit =
-    move.skill === 'attack'
-      ? resolveAttack(move.id, state.fighters[by].kit!, state.stats[by], defender, state.seed, turn, boost)
-      : resolve(move, state.fighters[by].tree, state.stats[by], defender, state.seed, turn, boost, theirPick);
+    move.skill === 'rest'
+      ? { damage: 0, crit: false, kill: false, detail: { skill: 'rest' } }
+      : move.skill === 'attack'
+        ? resolveAttack(move.id, state.fighters[by].kit!, state.stats[by], defender, state.seed, turn, boost)
+        : resolve(move, state.fighters[by].tree, state.stats[by], defender, state.seed, turn, boost, theirPick);
+
+  // The mover's cooldowns count down a turn, then the skill just used starts its own.
+  const cooled: Cooldowns = {};
+  for (const [skill, left] of Object.entries(state.cooldowns[by]) as [SkillId, number][]) if (left > 1) cooled[skill] = left - 1;
+  if (isSkill(move.skill) && cooldownOf(move.skill) > 0) cooled[move.skill] = cooldownOf(move.skill);
+  const cooldowns: [Cooldowns, Cooldowns] = by === 0 ? [cooled, state.cooldowns[1]] : [state.cooldowns[0], cooled];
 
   const hp: [number, number] = [...state.hp];
   hp[them] = hit.kill ? 0 : Math.max(0, hp[them] - hit.damage);
@@ -145,6 +165,7 @@ function play(state: HeroState, move: Exclude<Move, { skill: 'card' }>, by: Side
     ...state,
     hp,
     effects,
+    cooldowns,
     turn: them,
     log: [...state.log, { ...hit, by, skill: move.skill, burn }],
     winner: hp[them] === 0 ? by : hp[by] === 0 ? them : null,

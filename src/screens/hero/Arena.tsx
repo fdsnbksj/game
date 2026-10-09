@@ -146,7 +146,7 @@ function OpponentCard({ hero, mine }: { hero: ArenaHero; mine: number }) {
         <span className="hero-stat">
           <small className="micro">Skills</small>
           <strong>
-            {hero.tree.stopwatch}/{hero.tree.roulette}/{hero.tree.poker}
+            {hero.tree.stopwatch}/{hero.tree.speed}/{hero.tree.poker}/{hero.tree.roulette}
           </strong>
         </span>
       </div>

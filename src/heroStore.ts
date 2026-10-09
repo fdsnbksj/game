@@ -6,7 +6,25 @@ import { gemsFor } from './games/hero/gacha';
 import type { Appearance } from './games/hero/look';
 import type { Move } from './games/hero/skills';
 import { HERO_VERSION, type Recorded } from './games/hero/state';
-import { BOT_COUNT, buy, canBuy, FRESH_TREE, isUpgrade, NODES, pointsFor, rewardFor, spent, validTree, type NodeId, type Tree } from './games/hero/stats';
+import {
+  available,
+  BOT_COUNT,
+  buy,
+  canBuy,
+  canReset,
+  defaultLoadout,
+  FRESH_TREE,
+  isUpgrade,
+  LOADOUT_SIZE,
+  NODES,
+  rewardFor,
+  SKILLS,
+  validLoadout,
+  validTree,
+  type NodeId,
+  type SkillId,
+  type Tree,
+} from './games/hero/stats';
 import { fetchOwnArena, joinArena, refreshArenaHero, writeArenaResult, type ArenaRecord } from './services/arena';
 import { fetchHero, writeHero } from './services/hero';
 import { isRetryable } from './services/solves';
@@ -30,6 +48,7 @@ export interface BotFight {
   seed: string;
   /** Your tree when the fight began, so buying a node mid-fight can't change it. */
   tree: Tree;
+  loadout?: SkillId[];
   /** Your costume when it began, for its bonus. */
   costume?: CostumeId | null;
   moves: Recorded[];
@@ -40,6 +59,7 @@ export interface ArenaFight {
   v: number;
   seed: string;
   tree: Tree;
+  loadout?: SkillId[];
   costume?: CostumeId | null;
   opponent: ArenaHero;
   moves: Recorded[];
@@ -62,6 +82,10 @@ interface Saved {
   /** The highest bot level beaten (0 to 20). */
   cleared: number;
   tree: Tree;
+  /** Paid resets so far: the next costs one more point. */
+  resets: number;
+  /** The skills you fight with (up to four). */
+  loadout: SkillId[];
   fight: BotFight | null;
   /** Something changed that the server doesn't have yet. */
   dirty: boolean;
@@ -73,26 +97,30 @@ interface Saved {
   lastResultAt: number;
 }
 
-const fresh = (): Saved => ({ owner: null, cleared: 0, tree: FRESH_TREE, fight: null, dirty: false, arena: null, arenaFight: null, arenaPending: [], lastResultAt: 0 });
+const fresh = (): Saved => ({ owner: null, cleared: 0, tree: FRESH_TREE, resets: 0, loadout: ['stopwatch'], fight: null, dirty: false, arena: null, arenaFight: null, arenaPending: [], lastResultAt: 0 });
 
 function load(): Saved {
   try {
     const saved = { ...fresh(), ...(JSON.parse(localStorage.getItem(KEY) ?? 'null') as Partial<Saved> | null) };
     const cleared = Number.isInteger(saved.cleared) ? Math.max(0, Math.min(BOT_COUNT, saved.cleared)) : 0;
-    const tree = validTree(saved.tree, cleared) ?? FRESH_TREE;
+    const resets = Number.isInteger(saved.resets) && saved.resets >= 0 ? saved.resets : 0;
+    // A tree that doesn't fit the prices (one from before them) is refunded, for free.
+    const kept = validTree(saved.tree, cleared, resets);
+    const tree = kept ?? FRESH_TREE;
+    const loadout = validLoadout(saved.loadout, tree) ?? defaultLoadout(tree);
     const fight = saved.fight && saved.fight.v === HERO_VERSION && validTree(saved.fight.tree) ? saved.fight : null;
     const arenaFight =
       saved.arenaFight && saved.arenaFight.v === HERO_VERSION && validTree(saved.arenaFight.tree) && validTree(saved.arenaFight.opponent?.tree) ? saved.arenaFight : null;
     const arenaPending = Array.isArray(saved.arenaPending) ? saved.arenaPending : [];
-    return { owner: saved.owner ?? null, cleared, tree, fight, dirty: !!saved.dirty, arena: saved.arena ?? null, arenaFight, arenaPending, lastResultAt: saved.lastResultAt ?? 0 };
+    return { owner: saved.owner ?? null, cleared, tree, resets, loadout, fight, dirty: !!saved.dirty || !kept, arena: saved.arena ?? null, arenaFight, arenaPending, lastResultAt: saved.lastResultAt ?? 0 };
   } catch {
     return fresh();
   }
 }
 
-function save({ owner, cleared, tree, fight, dirty, arena, arenaFight, arenaPending, lastResultAt }: Saved) {
+function save({ owner, cleared, tree, resets, loadout, fight, dirty, arena, arenaFight, arenaPending, lastResultAt }: Saved) {
   try {
-    localStorage.setItem(KEY, JSON.stringify({ owner, cleared, tree, fight, dirty, arena, arenaFight, arenaPending, lastResultAt }));
+    localStorage.setItem(KEY, JSON.stringify({ owner, cleared, tree, resets, loadout, fight, dirty, arena, arenaFight, arenaPending, lastResultAt }));
   } catch {
     // Private mode or full storage: the hero lasts this visit.
   }
@@ -104,8 +132,10 @@ interface HeroStore extends Saved {
   buy: (node: NodeId) => void;
   /** Applies a drafted tree (the skill tree's Confirm): only points added, none beyond those earned. */
   commit: (tree: Tree) => boolean;
-  /** Every point back, for free. */
-  reset: () => void;
+  /** Every point back, less the reset's price (one more each time). False if it's not affordable. */
+  reset: () => boolean;
+  /** The skills to fight with: 1 to 4 you have. */
+  setLoadout: (loadout: SkillId[]) => boolean;
   /** A new fight against a bot level you've reached. */
   startFight: (level: number) => void;
   /** Your move or the bot's, in a bot fight. */
@@ -129,7 +159,13 @@ let syncing: Promise<void> | null = null;
 let arenaRead = false;
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, Math.max(0, Math.min(ms, 60_000))));
-const sameTree = (a: Tree, b: Tree) => NODES.every((n) => a[n.id] === b[n.id]);
+const sameTree = (a: Tree | null, b: Tree) => !!a && NODES.every((n) => a[n.id] === b[n.id]);
+const sameLoadout = (a: readonly SkillId[] | null, b: readonly SkillId[]) => !!a && a.join() === b.join();
+/** A tree's new skills join the loadout while there's room. */
+const withNewSkills = (loadout: SkillId[], before: Tree, after: Tree) => {
+  const added = SKILLS.filter((s) => before[s] < 1 && after[s] >= 1 && !loadout.includes(s));
+  return [...loadout, ...added].slice(0, LOADOUT_SIZE);
+};
 const standingOf = (r: ArenaRecord): ArenaStanding => ({ rating: r.rating, wins: r.wins, losses: r.losses });
 const sameAppearance = (a: Appearance, b: Appearance) => a.costume === b.costume && JSON.stringify(a.look) === JSON.stringify(b.look);
 const wardrobe = () => useWardrobeStore.getState();
@@ -149,13 +185,21 @@ export const useHeroStore = create<HeroStore>()((set, get) => {
     if (!uid) return;
     try {
       const server = await fetchHero(uid);
-      const local = get();
-      // Another phone (or cleared storage here) is further along: take its hero.
-      if (server && server.cleared > local.cleared) {
-        update({ cleared: server.cleared, tree: server.tree, dirty: false });
-        return;
+      // Another phone (or cleared storage here) is further along, or reset: take its hero.
+      // (One from before the prices comes back refunded, and is written so at once.)
+      if (server && (server.cleared > get().cleared || server.resets > get().resets)) {
+        update({ cleared: server.cleared, tree: server.tree, resets: server.resets, loadout: server.loadout, dirty: server.legacy });
+        if (!server.legacy) return;
       }
-      if (!local.dirty && server && sameAppearance(server.appearance, wardrobe().appearance())) return await syncArena(uid);
+      const local = get();
+      const same =
+        server &&
+        !server.legacy &&
+        sameTree(server.tree, local.tree) &&
+        sameLoadout(server.loadout, local.loadout) &&
+        server.resets === local.resets &&
+        sameAppearance(server.appearance, wardrobe().appearance());
+      if (!local.dirty && same) return await syncArena(uid);
       // A costume must be on the wardrobe doc before the hero doc can wear it.
       if (wardrobe().costume) {
         await wardrobe().sync();
@@ -163,12 +207,14 @@ export const useHeroStore = create<HeroStore>()((set, get) => {
       }
       // The rules let `cleared` rise by one a write; levels beaten offline go up step by step
       // with the server's tree (or a fresh one), and the last write carries this phone's tree.
-      const base = server ?? { cleared: 0, tree: FRESH_TREE };
+      // A hero from before the prices takes its free refund on the first of these writes.
+      const base = server ?? { cleared: 0, tree: FRESH_TREE, resets: 0, loadout: ['stopwatch'] as SkillId[] };
       const appearance = wardrobe().appearance();
-      for (let c = base.cleared + 1; c < local.cleared; c++) await writeHero(uid, { cleared: c, tree: base.tree, appearance });
-      const { cleared, tree } = get();
-      await writeHero(uid, { cleared, tree, appearance });
-      if (get().cleared === cleared && get().tree === tree && sameAppearance(appearance, wardrobe().appearance())) update({ dirty: false });
+      for (let c = base.cleared + 1; c < local.cleared; c++) await writeHero(uid, { cleared: c, tree: base.tree, resets: base.resets, loadout: base.loadout, appearance });
+      const { cleared, tree, resets, loadout } = get();
+      await writeHero(uid, { cleared, tree, resets, loadout, appearance });
+      const now = get();
+      if (now.cleared === cleared && now.tree === tree && now.resets === resets && now.loadout === loadout && sameAppearance(appearance, wardrobe().appearance())) update({ dirty: false });
       await syncArena(uid);
     } catch (error) {
       if (isRetryable(error)) return; // Still dirty: the next change or connection tries again.
@@ -183,9 +229,11 @@ export const useHeroStore = create<HeroStore>()((set, get) => {
     if (!name || get().cleared < ARENA_UNLOCK || get().dirty) return;
     const found = await fetchOwnArena(uid);
     const appearance = wardrobe().appearance();
-    if (!found) await joinArena(uid, name, get().tree, appearance);
-    else if (!sameTree(found.tree, get().tree) || found.name !== name || !sameAppearance(found.appearance, appearance)) await refreshArenaHero(uid, name, get().tree, appearance);
-    let server: ArenaRecord = found ?? { name, tree: get().tree, appearance, rating: START_RATING, wins: 0, losses: 0 };
+    const { tree, loadout } = get();
+    if (!found) await joinArena(uid, name, tree, loadout, appearance);
+    else if (!sameTree(found.tree, tree) || !sameLoadout(found.loadout, loadout) || found.name !== name || !sameAppearance(found.appearance, appearance))
+      await refreshArenaHero(uid, name, tree, loadout, appearance);
+    let server: ArenaRecord = found ?? { name, tree, loadout, appearance, rating: START_RATING, wins: 0, losses: 0 };
     // Nothing queued: the server's standing is the true one (another phone may have fought).
     if (!arenaRead && !get().arenaPending.length) update({ arena: standingOf(server) });
     arenaRead = true;
@@ -214,27 +262,42 @@ export const useHeroStore = create<HeroStore>()((set, get) => {
     ...load(),
 
     unspent: () => {
-      const { cleared, tree } = get();
-      return pointsFor(cleared) - spent(tree);
+      const { cleared, tree, resets } = get();
+      return available(tree, cleared, resets);
     },
 
     buy: (node) => {
-      const { tree, cleared } = get();
-      if (canBuy(tree, node, cleared)) changed({ tree: buy(tree, node) });
+      const { tree, cleared, resets, loadout } = get();
+      if (!canBuy(tree, node, cleared, resets)) return;
+      const next = buy(tree, node);
+      changed({ tree: next, loadout: withNewSkills(loadout, tree, next) });
     },
 
     commit: (next) => {
-      if (!isUpgrade(get().tree, next, get().cleared)) return false;
-      changed({ tree: next });
+      const { tree, cleared, resets, loadout } = get();
+      if (!isUpgrade(tree, next, cleared, resets)) return false;
+      changed({ tree: next, loadout: withNewSkills(loadout, tree, next) });
       return true;
     },
 
-    reset: () => changed({ tree: FRESH_TREE }),
+    reset: () => {
+      const { cleared, resets } = get();
+      if (!canReset(cleared, resets)) return false;
+      changed({ tree: FRESH_TREE, resets: resets + 1, loadout: ['stopwatch'] });
+      return true;
+    },
+
+    setLoadout: (next) => {
+      const loadout = validLoadout(next, get().tree);
+      if (!loadout) return false;
+      changed({ loadout: [...loadout] });
+      return true;
+    },
 
     startFight: (level) => {
       if (level < 1 || level > Math.min(BOT_COUNT, get().cleared + 1)) return;
       const seed = Array.from(crypto.getRandomValues(new Uint32Array(3)), (n) => n.toString(36)).join('');
-      update({ fight: { v: HERO_VERSION, level, seed, tree: get().tree, costume: wardrobe().costume, moves: [] } });
+      update({ fight: { v: HERO_VERSION, level, seed, tree: get().tree, loadout: get().loadout, costume: wardrobe().costume, moves: [] } });
     },
 
     play: (by, move) => {
@@ -265,7 +328,7 @@ export const useHeroStore = create<HeroStore>()((set, get) => {
       const seed = Array.from(crypto.getRandomValues(new Uint32Array(3)), (n) => n.toString(36)).join('');
       update({
         arena: get().arena ?? { rating: START_RATING, wins: 0, losses: 0 },
-        arenaFight: { v: HERO_VERSION, seed, tree: get().tree, costume: wardrobe().costume, opponent, moves: [] },
+        arenaFight: { v: HERO_VERSION, seed, tree: get().tree, loadout: get().loadout, costume: wardrobe().costume, opponent, moves: [] },
       });
     },
 

@@ -2,14 +2,30 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Page } from '../../components/Page';
 import { Sheet } from '../../components/Sheet';
-import { buy, canBuy, GROUPS, NODES, pointsFor, spent, type NodeId, type NodeInfo, type Tree } from '../../games/hero/stats';
+import {
+  available,
+  buy,
+  canBuy,
+  canReset,
+  GROUPS,
+  levelCost,
+  LOADOUT_SIZE,
+  NODES,
+  resetCost,
+  SKILLS,
+  type NodeId,
+  type NodeInfo,
+  type SkillId,
+  type Tree,
+} from '../../games/hero/stats';
 import { BALL_LEVELS } from '../../games/hero/skills';
 import { useHeroStore } from '../../heroStore';
-import { SkillIcon } from './Fight';
+import { SKILL_NAME, SkillIcon } from './Fight';
 
 // The skill tree, laid out like a game's: a branch per group (All skills, Gambler, Body),
 // each skill a row of ten level slots, chained until they open, with lines from the slot
-// that opens the next row. Spending is a draft: Undo steps back, Confirm keeps it.
+// that opens the next row; the next slot shows its price. Spending is a draft: Undo steps
+// back, Confirm keeps it. Above it, the loadout: the skills you take into a fight.
 
 export function SkillTree() {
   const navigate = useNavigate();
@@ -17,6 +33,9 @@ export function SkillTree() {
   const cleared = useHeroStore((s) => s.cleared);
   const commit = useHeroStore((s) => s.commit);
   const reset = useHeroStore((s) => s.reset);
+  const resets = useHeroStore((s) => s.resets);
+  const loadout = useHeroStore((s) => s.loadout);
+  const setLoadout = useHeroStore((s) => s.setLoadout);
   const fight = useHeroStore((s) => s.fight);
   // Each step of the draft, newest last; the first is the saved tree.
   const [steps, setSteps] = useState<Tree[]>([saved]);
@@ -24,10 +43,15 @@ export function SkillTree() {
   const [resetting, setResetting] = useState(false);
   const [info, setInfo] = useState<NodeInfo | null>(null);
   const draft = steps.at(-1)!;
-  const left = pointsFor(cleared) - spent(draft);
+  const left = available(draft, cleared, resets);
+  const price = resetCost(resets + 1);
   const changed = steps.length > 1;
 
-  const spend = (node: NodeId) => canBuy(draft, node, cleared) && setSteps([...steps, buy(draft, node)]);
+  const spend = (node: NodeId) => canBuy(draft, node, cleared, resets) && setSteps([...steps, buy(draft, node)]);
+  const toggle = (skill: SkillId) => {
+    if (loadout.includes(skill)) setLoadout(loadout.filter((s) => s !== skill));
+    else setLoadout([...loadout, skill]);
+  };
   const confirm = () => {
     if (commit(draft)) setSteps([draft]);
   };
@@ -35,6 +59,33 @@ export function SkillTree() {
 
   return (
     <Page title="Skill tree" onBack={back}>
+      <section className="st-loadout" aria-label="Loadout">
+        <header className="st-head">
+          <strong className="tree-title">Loadout</strong>
+          <small>
+            {loadout.length}/{LOADOUT_SIZE} · tap to bring or bench
+          </small>
+        </header>
+        <div className="st-loadout-row">
+          {SKILLS.map((skill) => {
+            const have = saved[skill] >= 1;
+            const on = loadout.includes(skill);
+            return (
+              <button
+                key={skill}
+                className={`st-pick${on ? ' on' : ''}${have ? '' : ' locked'}`}
+                disabled={!have || (on ? loadout.length <= 1 : loadout.length >= LOADOUT_SIZE)}
+                aria-pressed={on}
+                onClick={() => toggle(skill)}
+              >
+                <SkillIcon skill={skill} />
+                <small>{have ? SKILL_NAME[skill] : 'Locked'}</small>
+              </button>
+            );
+          })}
+        </div>
+      </section>
+
       <div className="st-board">
         {GROUPS.map((g) => {
           const nodes = NODES.filter((n) => n.group === g.id);
@@ -63,17 +114,20 @@ export function SkillTree() {
                         {Array.from({ length: n.max }, (_, k) => {
                           const owned = k < level;
                           const fresh = owned && k >= saved[n.id];
-                          const next = k === level && canBuy(draft, n.id, cleared);
+                          const next = k === level && canBuy(draft, n.id, cleared, resets);
+                          // The next level, open but more than you have: its price, greyed.
+                          const pricey = k === level && !next && !locked;
+                          const cost = levelCost(n.id, k + 1);
                           return (
                             <button
                               key={k}
-                              className={`st-slot${owned ? ' owned' : ''}${fresh ? ' fresh' : ''}${next ? ' next' : ''}${!owned && !next ? ' chained' : ''}${n.id === 'roulette' && BALL_LEVELS.includes(k + 1) ? ' ball' : ''}`}
+                              className={`st-slot${owned ? ' owned' : ''}${fresh ? ' fresh' : ''}${next ? ' next' : ''}${pricey ? ' pricey' : ''}${!owned && !next && !pricey ? ' chained' : ''}${n.id === 'roulette' && BALL_LEVELS.includes(k + 1) ? ' ball' : ''}`}
                               disabled={!next}
                               onClick={() => spend(n.id)}
-                              aria-label={`${n.name} level ${k + 1}`}
+                              aria-label={`${n.name} level ${k + 1}${next || pricey ? `, ${cost} ${cost === 1 ? 'point' : 'points'}` : ''}`}
                             >
-                              {!owned && !next && <Chain />}
-                              {next && '+'}
+                              {!owned && !next && !pricey && <Chain />}
+                              {(next || pricey) && cost}
                             </button>
                           );
                         })}
@@ -88,8 +142,8 @@ export function SkillTree() {
       </div>
 
       {fight && <p className="note center-note">Changes count from your next fight.</p>}
-      <button className="button ghost" onClick={() => setResetting(true)}>
-        Reset all (free)
+      <button className="button ghost" disabled={!canReset(cleared, resets)} onClick={() => setResetting(true)}>
+        Reset all · costs {price} {price === 1 ? 'point' : 'points'}
       </button>
 
       <div className="st-bar">
@@ -109,6 +163,7 @@ export function SkillTree() {
           <p className="note">
             Each level: {info.per}. Up to {info.max}.{info.needs ? ` Opens at ${name(info.needs.node)} ${info.needs.level}.` : ''}
           </p>
+          <p className="note">{priceLine(info)}</p>
           <button className="button" onClick={() => setInfo(null)}>
             Got it
           </button>
@@ -132,7 +187,9 @@ export function SkillTree() {
       )}
       {resetting && (
         <Sheet title="Reset the tree?" onClose={() => setResetting(false)}>
-          <p className="note">Every point comes back to spend again. It's free.</p>
+          <p className="note">
+            Every point comes back to spend again, less {price} for the reset. The one after costs {resetCost(resets + 2)}.
+          </p>
           <button
             className="button primary"
             onClick={() => {
@@ -141,7 +198,7 @@ export function SkillTree() {
               setResetting(false);
             }}
           >
-            Reset
+            Reset · −{price}
           </button>
           <button className="button ghost" onClick={() => setResetting(false)}>
             Keep it
@@ -154,6 +211,14 @@ export function SkillTree() {
 
 const name = (id: NodeId) => NODES.find((n) => n.id === id)!.name;
 
+function priceLine(info: NodeInfo): string {
+  const skill = (SKILLS as readonly NodeId[]).includes(info.id);
+  const rest = info.cooldown ? ` After you use it, it rests ${info.cooldown} ${info.cooldown === 1 ? 'turn' : 'turns'}.` : skill ? ' It never rests.' : '';
+  if (!skill) return `Level N costs N points.${rest}`;
+  if (info.id === 'stopwatch') return `Level 2 costs 1 point, level 3 costs 2, and so on.${rest}`;
+  return `Unlocking costs 5 points, then level 2 costs 1, level 3 costs 2, and so on.${rest}`;
+}
+
 const Chain = () => (
   <svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true">
     <rect x="5" y="10" width="14" height="10" rx="2" fill="currentColor" />
@@ -162,7 +227,7 @@ const Chain = () => (
 );
 
 function NodeIcon({ id }: { id: NodeId }) {
-  if (id === 'stopwatch' || id === 'roulette' || id === 'poker') return <SkillIcon skill={id} />;
+  if ((SKILLS as readonly NodeId[]).includes(id)) return <SkillIcon skill={id as SkillId} />;
   const path =
     id === 'hp'
       ? 'M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z'

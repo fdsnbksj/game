@@ -1,6 +1,6 @@
 import { stream } from '../../nonogram/rng';
 import type { Appearance } from './look';
-import type { Tree } from './stats';
+import type { SkillId, Tree } from './stats';
 
 // The arena: fights against other players' heroes, played by the bot brain while their
 // owners are away. Only the attacker's rating moves. firestore.rules keeps copies of
@@ -22,6 +22,8 @@ export interface ArenaHero {
   uid: string;
   name: string;
   tree: Tree;
+  /** The skills it fights with. */
+  loadout?: SkillId[];
   rating: number;
   /** How it looks, and the costume whose bonus it fights with. */
   appearance?: Appearance;

@@ -2,7 +2,7 @@ import { stream } from '../../nonogram/rng';
 import type { AttackId, EffectId } from './monsters';
 import type { SkillId, Stats, Tree } from './stats';
 
-// The three skills. Each turn's luck comes from streams named after the fight's seed and
+// The four skills. Each turn's luck comes from streams named after the fight's seed and
 // the turn number, so both phones (or a replay) roll the same balls, cards and crits.
 // Whole numbers only.
 
@@ -15,6 +15,12 @@ export const PERFECT_MS = 50;
 export const VISIBLE_MS = 1000;
 
 export const stopwatchPower = (level: number) => 20 + 4 * level;
+/** I'm Speed's power: a reaction test, so a little stronger than the stopwatch it unlocks from. */
+export const speedPower = (level: number) => 30 + 5 * (level - 1);
+/** A reaction this fast or faster is I'M SPEED: full power and a sure crit. */
+export const FLASH_MS = 150;
+/** The slowest reaction a move may claim. */
+export const SPEED_MAX_MS = 5000;
 /** Roulette's levels that add a ball (the user's design); the rest add punch damage. */
 export const BALL_LEVELS: readonly number[] = [5, 10];
 /** Balls on the wheel: one, plus one at each ball level reached (three at most). */
@@ -26,6 +32,12 @@ export const pokerPower = (level: number) => 100 + 10 * (level - 1);
 /** The turn's target, from 1.00 to 10.00 seconds in hundredths (1.23 s is 1230), shown before Start. */
 export const stopwatchTarget = (seed: string, turn: number) => (stream(`${seed}:turn:${turn}:target`)(901) + 100) * 10;
 
+/** How long I'm Speed's light stays red before it turns green: 1.50 to 4.50 s, from the seed. */
+export const speedDelay = (seed: string, turn: number) => 1500 + stream(`${seed}:turn:${turn}:delay`)(301) * 10;
+
+/** Percent of power for a reaction of `ms`: 100 up to FLASH_MS, then down 1 every 5 ms, never under 10; a jump the gun (-1) does nothing. */
+export const speedPct = (ms: number) => (ms < 0 ? 0 : Math.max(10, 100 - Math.floor(Math.max(0, ms - FLASH_MS) / 5)));
+
 /** A time in ms as seconds to the hundredth: 1230 → "1.23". */
 export const seconds = (ms: number) => `${Math.floor(ms / 1000)}.${String(Math.floor((ms % 1000) / 10)).padStart(2, '0')}`;
 
@@ -33,13 +45,24 @@ export const seconds = (ms: number) => `${Math.floor(ms / 1000)}.${String(Math.f
 export const accuracyPct = (error: number) => Math.max(10, 100 - Math.floor(error / 20));
 
 /** A hero's skill, or a bot creature's attack (monsters.ts). */
-export type Move = { skill: 'stopwatch'; ms: number } | { skill: 'roulette'; pick: number } | { skill: 'poker'; pick: number } | { skill: 'card'; pick: number } | { skill: 'attack'; id: AttackId };
+export type Move =
+  | { skill: 'stopwatch'; ms: number }
+  /** A reaction time in ms, or -1 for a tap before the light turned green. */
+  | { skill: 'speed'; ms: number }
+  | { skill: 'roulette'; pick: number }
+  | { skill: 'poker'; pick: number }
+  | { skill: 'card'; pick: number }
+  | { skill: 'attack'; id: AttackId }
+  /** Every skill in the loadout is cooling down: the turn passes. */
+  | { skill: 'rest' };
 
-/** A skill's move. `card` isn't one: it's the defender's answer to Poker. */
-export type SkillMove = Exclude<Move, { skill: 'attack' } | { skill: 'card' }>;
+/** A skill's move. `card` isn't one (the defender's answer to Poker), nor `rest`. */
+export type SkillMove = Exclude<Move, { skill: 'attack' } | { skill: 'card' } | { skill: 'rest' }>;
 
 export type Detail =
   | { skill: 'stopwatch'; target: number; ms: number; pct: number; perfect: boolean }
+  | { skill: 'speed'; delay: number; ms: number; pct: number; flash: boolean }
+  | { skill: 'rest' }
   | { skill: 'roulette'; pick: number; balls: number[]; hit: boolean }
   | {
       skill: 'poker';
@@ -85,6 +108,14 @@ export function resolve(move: SkillMove, tree: Tree, attacker: Stats, defender: 
       const crit = perfect || rolledCrit;
       return { damage: out(crit ? critOf(base, attacker) : base), crit, kill: false, detail: { skill: 'stopwatch', target, ms: move.ms, pct, perfect } };
     }
+    case 'speed': {
+      const delay = speedDelay(seed, turn);
+      const pct = speedPct(move.ms);
+      const flash = move.ms >= 0 && move.ms <= FLASH_MS;
+      const base = Math.floor((speedPower(tree.speed) * pct) / 100);
+      const crit = base > 0 && (flash || rolledCrit);
+      return { damage: out(crit ? critOf(base, attacker) : base), crit, kill: false, detail: { skill: 'speed', delay, ms: move.ms, pct, flash } };
+    }
     case 'roulette': {
       const roll = stream(`${name}:balls`);
       const balls = Array.from({ length: rouletteBalls(tree.roulette) }, () => roll(WHEEL));
@@ -115,6 +146,6 @@ export function resolve(move: SkillMove, tree: Tree, attacker: Stats, defender: 
   }
 }
 
-export const isSkill = (s: unknown): s is SkillId => s === 'stopwatch' || s === 'roulette' || s === 'poker';
+export const isSkill = (s: unknown): s is SkillId => s === 'stopwatch' || s === 'speed' || s === 'roulette' || s === 'poker';
 
 export const rankName = (rank: number) => (rank <= 10 ? String(rank) : ['J', 'Q', 'K', 'A'][rank - 11]);
