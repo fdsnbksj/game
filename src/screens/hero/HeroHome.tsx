@@ -3,6 +3,7 @@ import { Page } from '../../components/Page';
 import { SummaryRow } from '../../components/SummaryRow';
 import { ARENA_UNLOCK, START_RATING, tierOf } from '../../games/hero/arena';
 import { BOT_LEVELS } from '../../games/hero/bots';
+import { CreatureThumb } from './Sprites';
 import { BOT_COUNT, heroLevel, rewardFor, SKILLS, statsOf } from '../../games/hero/stats';
 import { useHeroStore } from '../../heroStore';
 import { useGameStore } from '../../store';
@@ -80,7 +81,8 @@ export function HeroHome() {
               return (
                 <li key={bot.level}>
                   <button className={`row${bot.level <= cleared ? ' done' : ''}`} disabled={!open || !!fight} onClick={() => fightLevel(bot.level)}>
-                    <span>
+                    <span className="hero-ladder-name">
+                      <CreatureThumb family={bot.kit.family} level={bot.level} boss={bot.boss} />
                       {bot.level}. {bot.name}
                       {bot.boss && <span className="hero-boss">Boss</span>}
                     </span>
@@ -102,6 +104,9 @@ export function HeroHome() {
             </p>
             <p>
               <strong>Poker:</strong> you each draw a card, 2 low to A high. Higher card hits for 100 as a crit; lower does nothing.
+            </p>
+            <p>
+              <strong>The bot ladder</strong> is twenty creatures. They don't use skills: they hit, drain, burn you, weaken your hits, hide your stopwatch clock in smoke, raise their guard or wind up a big one. Bosses have a finisher and get enraged below half HP.
             </p>
             <p>Beat a bot level for the first time to earn skill points, then spend them in the skill tree on skills, HP, DEF, Crit and Crit damage.</p>
           </div>

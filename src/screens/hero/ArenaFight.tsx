@@ -3,9 +3,10 @@ import { Link, Navigate, useNavigate } from 'react-router';
 import { Page } from '../../components/Page';
 import { DEFENDER_SPREAD, tierOf } from '../../games/hero/arena';
 import { replay, type HeroState } from '../../games/hero/state';
+import { heroLevel } from '../../games/hero/stats';
 import { BOT_PLAYERS, useHeroStore, type ArenaFight as Saved } from '../../heroStore';
 import { useGameStore } from '../../store';
-import { Fight, useBotTurn } from './Fight';
+import { Fight, turnShowMs, useBotTurn } from './Fight';
 
 interface Ended {
   fight: Saved;
@@ -44,14 +45,20 @@ function ArenaFightView({ fight, ended, onEnd }: { fight: Saved; ended: Ended | 
   // Over: count it once, after the last hit has shown.
   useEffect(() => {
     if (state.winner === null || ended) return;
-    const t = setTimeout(() => finish(state.winner === 0), 1200);
+    const t = setTimeout(() => finish(state.winner === 0), turnShowMs(state) + 400);
     return () => clearTimeout(t);
     // finish is remade each render; the winner is what matters.
   }, [state.winner, ended]);
 
   return (
     <Page title={`Arena · ${foe.name}`} back="/hero/arena">
-      <Fight state={state} me={0} names={[name, foe.name]} onMove={(move) => playArena('me', move)} waiting={`${foe.name} is choosing…`}>
+      <Fight
+        state={state}
+        me={0}
+        names={[name, foe.name]}
+        levels={[heroLevel(fight.tree), heroLevel(foe.tree)]}
+        foe={{ kind: 'hero' }}
+        onMove={(move) => playArena('me', move)} waiting={`${foe.name} is choosing…`}>
         {ended && (
           <div className="overlay">
             <div className="panel" role="dialog" aria-label="Fight over">

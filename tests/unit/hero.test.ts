@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { DEFENDER_SPREAD, MAX_DELTA, pickOpponent, ratingChange, tierOf } from '../../src/games/hero/arena';
-import { BOT_LEVELS, botMove } from '../../src/games/hero/bots';
-import { accuracyPct, afterDef, resolve, stopwatchTarget, WHEEL } from '../../src/games/hero/skills';
+import { BOT_LEVELS, botFighter, botMove, sparringTree } from '../../src/games/hero/bots';
+import { ATTACKS, BURN_PCT, isAttack, resolveAttack, type Kit } from '../../src/games/hero/monsters';
+import { accuracyPct, afterDef, resolve, stopwatchTarget, WHEEL, type Move } from '../../src/games/hero/skills';
 import { apply, replay, start, type Fighter, type HeroState, type Side } from '../../src/games/hero/state';
 import { BOT_COUNT, buy, canBuy, FRESH_TREE, pointsFor, spent, statsOf, validTree, type NodeId, type Tree } from '../../src/games/hero/stats';
 import { hashSeed } from '../../src/shared/random';
@@ -101,15 +102,28 @@ const fighters = (a: Tree, b: Tree): [Fighter, Fighter] => [
   { name: 'B', tree: b },
 ];
 
-function botFight(seed: string, a: Tree, bot = BOT_LEVELS[0], me = { ...bot, spread: 500 }): HeroState {
-  let state = start(seed, fighters(a, bot.tree));
+/** A hero with `a`, played by the bot brain, against `foe` to the end. */
+function fightOut(seed: string, a: Tree, foe: Fighter, foeSpread = 500): HeroState {
+  let state = start(seed, [{ name: 'A', tree: a }, foe]);
   while (state.winner === null) {
-    const next = apply(state, botMove(state, state.turn, state.turn === 0 ? me : bot), state.turn);
+    const next = apply(state, botMove(state, state.turn, { spread: state.turn === 0 ? 500 : foeSpread }), state.turn);
     if (!next) throw new Error('a bot made an illegal move');
     state = next;
   }
   return state;
 }
+
+const botFight = (seed: string, a: Tree, bot = BOT_LEVELS[0]) => fightOut(seed, a, botFighter(bot), bot.spread);
+
+/** A move that replays a logged turn. */
+const moveOf = (t: HeroState['log'][number]): Move =>
+  t.detail.skill === 'stopwatch'
+    ? { skill: 'stopwatch', ms: t.detail.ms }
+    : t.detail.skill === 'roulette'
+      ? { skill: 'roulette', pick: t.detail.pick }
+      : t.detail.skill === 'attack'
+        ? { skill: 'attack', id: t.detail.id }
+        : { skill: 'poker' };
 
 describe('a fight', () => {
   it('takes turns and refuses moves out of turn or with a locked skill', () => {
@@ -126,15 +140,7 @@ describe('a fight', () => {
   it('replays the same from the same moves, skipping refused ones', () => {
     const played = botFight('replay', tree({ stopwatch: 3, roulette: 2, poker: 1 }), BOT_LEVELS[9]);
     const ids = ['a', 'b'] as const;
-    const moves = played.log.map((t) => ({
-      by: ids[t.by],
-      move:
-        t.detail.skill === 'stopwatch'
-          ? { skill: 'stopwatch' as const, ms: t.detail.ms }
-          : t.detail.skill === 'roulette'
-            ? { skill: 'roulette' as const, pick: t.detail.pick }
-            : { skill: 'poker' as const },
-    }));
+    const moves = played.log.map((t) => ({ by: ids[t.by], move: moveOf(t) }));
     // A move out of turn and one by a stranger are skipped.
     const noisy = [{ by: ids[played.log[0].by === 0 ? 1 : 0], move: moves[0].move }, { by: 'eve', move: moves[0].move }, ...moves];
     const again = replay('replay', played.fighters, ids, noisy);
@@ -147,15 +153,121 @@ describe('a fight', () => {
       const s = botFight(`golden${i}`, tree({ stopwatch: 2, roulette: 2, poker: 1, hp: 1 }), BOT_LEVELS[i % BOT_COUNT]);
       return `${s.winner}:${s.hp.join(',')}:${s.log.length}`;
     });
-    expect(hashSeed(results.join('|'))).toBe(1879808493);
+    expect(hashSeed(results.join('|'))).toBe(883076672);
+  });
+
+  it('plays hero against hero as it did before creatures came (friend fights replay the same)', () => {
+    const results = Array.from({ length: 30 }, (_, i) => {
+      const s = fightOut(`pvp${i}`, tree({ stopwatch: 2, roulette: 2, poker: 1, hp: 1 }), { name: 'B', tree: sparringTree(1 + (i % BOT_COUNT)) }, 900);
+      expect(s.effects).toEqual([[], []]);
+      return `${s.winner}:${s.hp.join(',')}:${s.log.length}`;
+    });
+    // The same as HERO_VERSION 1 gave.
+    expect(hashSeed(results.join('|'))).toBe(141452461);
+  });
+});
+
+const kit = (change: Partial<Kit> = {}): Kit => ({ family: 'clock', attacks: ['strike'], power: 20, enrage: false, ...change });
+const creature = (k: Kit, t: Tree = tree({ stopwatch: 0 })): Fighter => ({ name: 'C', tree: t, kit: k });
+
+/** A fight where side 1 (the creature) is to move. */
+function creatureTurn(seed: string, k: Kit, hero = FRESH_TREE): HeroState {
+  for (let i = 0; ; i++) {
+    const s = start(`${seed}:${i}`, [{ name: 'A', tree: hero }, creature(k)]);
+    if (s.turn === 1) return s;
+  }
+}
+
+describe('the creatures', () => {
+  it('hit for their power, miss as often as their accuracy says, and crit', () => {
+    let missed = 0;
+    for (let i = 0; i < 2000; i++) {
+      const hit = resolveAttack('slam', kit(), plain, plain, `a${i}`, 0, 100);
+      if (hit.detail.skill !== 'attack') throw new Error();
+      if (hit.detail.missed) {
+        missed++;
+        expect(hit.damage).toBe(0);
+      } else expect(hit.damage).toBe(hit.crit ? 51 : 34); // 170% of 20, ×1.5 on a crit
+    }
+    expect(Math.abs(missed / 2000 - 0.3)).toBeLessThan(0.04);
+  });
+
+  it('drain heals half the damage, never past full', () => {
+    let s = creatureTurn('drain', kit({ attacks: ['drain'] }));
+    s = { ...s, hp: [s.hp[0], 50] };
+    const next = apply(s, { skill: 'attack', id: 'drain' }, 1)!;
+    const t = next.log[0];
+    if (t.detail.skill !== 'attack') throw new Error();
+    if (!t.detail.missed) {
+      expect(t.detail.healed).toBe(Math.floor(t.damage / 2));
+      expect(next.hp[1]).toBe(50 + t.detail.healed);
+    }
+  });
+
+  it('refuses attacks outside the kit, and skills from a creature', () => {
+    const s = creatureTurn('kit', kit());
+    expect(apply(s, { skill: 'attack', id: 'finisher' }, 1)).toBeNull();
+    expect(apply(s, { skill: 'stopwatch', ms: 1000 }, 1)).toBeNull();
+    expect(apply(s, { skill: 'attack', id: 'nope' as never }, 1)).toBeNull();
+    expect(isAttack('strike')).toBe(true);
+    expect(isAttack('toString')).toBe(false);
+  });
+
+  it('burns for three of the hero’s turns', () => {
+    let s = creatureTurn('burn', kit({ attacks: ['scorch'] }), tree({ hp: 10 }));
+    let seed = 0;
+    while (true) {
+      const next = apply(s, { skill: 'attack', id: 'scorch' }, 1)!;
+      const d = next.log.at(-1)!.detail;
+      if (d.skill === 'attack' && d.effect === 'burn') {
+        s = next;
+        break;
+      }
+      s = creatureTurn(`burn${++seed}`, kit({ attacks: ['scorch'] }), tree({ hp: 10 }));
+    }
+    const tick = Math.floor((250 * BURN_PCT) / 100);
+    const burns: number[] = [];
+    for (let i = 0; i < 4; i++) {
+      s = apply(s, { skill: 'stopwatch', ms: 1 }, 0)!;
+      burns.push(s.log.at(-1)!.burn);
+      s = { ...s, turn: 0 };
+    }
+    expect(burns).toEqual([tick, tick, tick, 0]);
+  });
+
+  it('weakens and guards against the hero’s skills, and a wind-up powers up one hit', () => {
+    const base = start('fx', [{ name: 'A', tree: FRESH_TREE }, creature(kit())]);
+    const stop = (s: HeroState) => apply({ ...s, turn: 0 }, { skill: 'stopwatch', ms: stopwatchTarget('fx', 0) }, 0)!.log[0].damage;
+    const plainHit = stop(base);
+    expect(stop({ ...base, effects: [[{ id: 'weak', turns: 2 }], []] })).toBe(Math.floor((plainHit * 70) / 100));
+    expect(stop({ ...base, effects: [[], [{ id: 'guard', turns: 2 }]] })).toBeLessThan(plainHit);
+    const charged = { ...base, turn: 1 as Side, effects: [[], [{ id: 'charged' as const, turns: 1 }]] as HeroState['effects'] };
+    const once = apply(charged, { skill: 'attack', id: 'strike' }, 1)!;
+    expect(once.effects[1]).toEqual([]);
+  });
+
+  it('enrages a boss below half its HP', () => {
+    const boss = start('rage', [{ name: 'A', tree: FRESH_TREE }, creature(kit({ attacks: ['jab'], enrage: true }))]);
+    const hitAt = (hp: number) => apply({ ...boss, turn: 1, hp: [boss.hp[0], hp] }, { skill: 'attack', id: 'jab' }, 1)!.log[0].damage;
+    expect(hitAt(40)).toBe(Math.floor((hitAt(100) * 150) / 100));
+  });
+
+  it('only ever makes legal moves, and every attack it knows is one', () => {
+    for (const bot of BOT_LEVELS) for (const id of bot.kit.attacks) expect(ATTACKS[id]).toBeDefined();
+    for (let i = 0; i < 40; i++) botFight(`legal${i}`, tree({ stopwatch: 4, roulette: 3, poker: 2, hp: 3 }), BOT_LEVELS[i % BOT_COUNT]);
   });
 });
 
 describe('the bot ladder', () => {
-  it('has twenty levels, a boss every fifth, and legal trees', () => {
+  it('has twenty creatures, a boss every fifth with a finisher, and no skills', () => {
     expect(BOT_LEVELS).toHaveLength(20);
     expect(BOT_LEVELS.filter((b) => b.boss).map((b) => b.level)).toEqual([5, 10, 15, 20]);
-    for (const bot of BOT_LEVELS) expect(validTree(bot.tree), bot.name).not.toBeNull();
+    for (const bot of BOT_LEVELS) {
+      expect([bot.tree.stopwatch, bot.tree.roulette, bot.tree.poker], bot.name).toEqual([0, 0, 0]);
+      expect(bot.kit.attacks.includes('finisher')).toBe(bot.boss);
+      expect(bot.kit.enrage).toBe(bot.boss);
+      expect(validTree(sparringTree(bot.level)), bot.name).not.toBeNull();
+    }
   });
 
   it('can be beaten at every level by a hero with the points from the levels before', () => {
@@ -166,6 +278,7 @@ describe('the bot ladder', () => {
       let wins = 0;
       for (let g = 0; g < 150; g++) if (botFight(`ladder${bot.level}:${g}`, mine, bot).winner === 0) wins++;
       expect(wins / 150, `level ${bot.level}`).toBeGreaterThan(0.3);
+      if (bot.boss) expect(wins / 150, `boss ${bot.level}`).toBeLessThan(0.95);
     }
   });
 });
@@ -207,7 +320,7 @@ describe('the arena', () => {
 
   it('plays a defender with the arena accuracy to the end', () => {
     const defender = tree({ stopwatch: 4, roulette: 2, poker: 2, hp: 3 });
-    const fight = botFight('arena', tree({ stopwatch: 3, roulette: 2, poker: 1 }), { ...BOT_LEVELS[0], tree: defender, spread: DEFENDER_SPREAD });
+    const fight = fightOut('arena', tree({ stopwatch: 3, roulette: 2, poker: 1 }), { name: 'D', tree: defender }, DEFENDER_SPREAD);
     expect(fight.winner).not.toBeNull();
   });
 });

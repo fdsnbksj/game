@@ -8,7 +8,7 @@ import { heroReady, useHeroStore } from '../../heroStore';
 import { forgetRoom } from '../../lastPage';
 import { finishHeroRoom, joinHeroRoom, sendHeroMove, startHeroRoom, watchHeroRoom, type HeroRoom as Room, type HeroRoomData } from '../../services/hero';
 import { useGameStore } from '../../store';
-import { Fight } from './Fight';
+import { Fight, turnShowMs } from './Fight';
 
 /** A fight between two phones: each move is written to the room, and both replay them. */
 export function HeroRoom() {
@@ -124,7 +124,7 @@ function Game({ room, moves, uid }: { room: Room; moves: HeroRoomData['moves']; 
   const [over, setOver] = useState(false);
   useEffect(() => {
     if (state?.winner === null || state?.winner === undefined) return;
-    const t = setTimeout(() => setOver(true), 1200);
+    const t = setTimeout(() => setOver(true), turnShowMs(state!) + 400);
     return () => clearTimeout(t);
   }, [state?.winner]);
 
@@ -143,6 +143,8 @@ function Game({ room, moves, uid }: { room: Room; moves: HeroRoomData['moves']; 
         state={state}
         me={me}
         names={names}
+        levels={[heroLevel(a.tree), heroLevel(b.tree)]}
+        foe={{ kind: 'hero' }}
         waiting={sending !== null ? 'Sending your move…' : `${names[them]} is choosing…`}
         locked={sending !== null}
         onMove={(move) => {

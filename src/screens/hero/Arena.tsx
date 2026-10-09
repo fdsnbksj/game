@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router';
 import { Page } from '../../components/Page';
 import { SummaryRow } from '../../components/SummaryRow';
 import { ARENA_UNLOCK, pickOpponent, START_RATING, tierOf, type ArenaHero } from '../../games/hero/arena';
-import { BOT_LEVELS } from '../../games/hero/bots';
+import { BOT_LEVELS, sparringTree } from '../../games/hero/bots';
 import { heroLevel, statsOf } from '../../games/hero/stats';
 import { useHeroStore } from '../../heroStore';
 import { findOpponents } from '../../services/arena';
@@ -17,7 +17,7 @@ const newSeed = () => Array.from(crypto.getRandomValues(new Uint32Array(2)), (n)
 /** While the arena is empty (or offline), a bot-ladder hero near your level stands in. */
 function sparring(cleared: number, seed: string): ArenaHero {
   const bot = BOT_LEVELS[Math.min(BOT_LEVELS.length - 1, Math.max(0, cleared - 1))];
-  return { uid: `bot:${bot.level}:${seed}`, name: bot.name, tree: bot.tree, rating: START_RATING, sparring: true };
+  return { uid: `bot:${bot.level}:${seed}`, name: bot.name, tree: sparringTree(bot.level), rating: START_RATING, sparring: true };
 }
 
 /** The arena's front door: your standing, then an opponent to take on. */

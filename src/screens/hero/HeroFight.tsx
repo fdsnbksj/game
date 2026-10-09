@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router';
 import { Page } from '../../components/Page';
+import { botFighter } from '../../games/hero/bots';
 import { replay, type HeroState } from '../../games/hero/state';
-import { BOT_COUNT } from '../../games/hero/stats';
+import { BOT_COUNT, heroLevel } from '../../games/hero/stats';
 import { BOT_PLAYERS, botLevel, useHeroStore, type BotFight } from '../../heroStore';
 import { useGameStore } from '../../store';
-import { Fight, useBotTurn } from './Fight';
+import { Fight, turnShowMs, useBotTurn } from './Fight';
 
 /** A fight against one bot level, saved move by move, so it reopens where it was left. */
 export function HeroFight() {
@@ -35,7 +36,7 @@ function BotFightView({
   const name = useGameStore((s) => s.player?.displayName ?? 'You');
   const bot = botLevel(fight.level);
   const state: HeroState = useMemo(
-    () => replay(fight.seed, [{ name, tree: fight.tree }, { name: bot.name, tree: bot.tree }], BOT_PLAYERS, fight.moves),
+    () => replay(fight.seed, [{ name, tree: fight.tree }, botFighter(bot)], BOT_PLAYERS, fight.moves),
     [fight, bot, name],
   );
 
@@ -44,7 +45,7 @@ function BotFightView({
   // Over: count it once, after the last hit has shown.
   useEffect(() => {
     if (state.winner === null || ended) return;
-    const t = setTimeout(() => onEnd({ fight, points: endFight(state.winner === 0) }), 1200);
+    const t = setTimeout(() => onEnd({ fight, points: endFight(state.winner === 0) }), turnShowMs(state) + 400);
     return () => clearTimeout(t);
   }, [state.winner, ended, fight, endFight, onEnd]);
 
@@ -56,7 +57,13 @@ function BotFightView({
   const won = state.winner === 0;
   return (
     <Page title={`Level ${fight.level}${bot.boss ? ' · Boss' : ''}`} back="/hero">
-      <Fight state={state} me={0} names={[name, bot.name]} onMove={(move) => play('me', move)} waiting={`${bot.name} is thinking…`}>
+      <Fight
+        state={state}
+        me={0}
+        names={[name, bot.name]}
+        levels={[heroLevel(fight.tree), bot.level]}
+        foe={{ kind: 'creature', family: bot.kit.family, level: bot.level, boss: bot.boss }}
+        onMove={(move) => play('me', move)} waiting={`${bot.name} is thinking…`}>
         {ended && (
           <div className="overlay">
             <div className="panel" role="dialog" aria-label="Fight over">

@@ -155,6 +155,40 @@
   --hero-card-face: #f4efe3;
   --hero-card-ink: #1a1406;
   --hero-card-back: linear-gradient(135deg, #3a2a63, #22183d);
+  /* The battlefield: sky, platforms, boxes, the spinning wheel. */
+  --battle-sky: radial-gradient(120% 70% at 75% 30%, #2a2346 0%, transparent 60%), linear-gradient(180deg, #17152a 0%, #141a28 55%, #121816 100%);
+  --battle-platform: radial-gradient(closest-side, #3c4636, #262d24 70%, transparent 100%);
+  --battle-info: rgb(21 23 29 / 0.92);
+  --battle-scrim: rgb(8 9 12 / 0.55);
+  --hero-hp-mid: linear-gradient(90deg, #e0a62c, #f6cc63);
+  --spin-rim: #4b2f1c;
+  --spin-track: #2a1b11;
+  --spin-cone: #6a4529;
+  --spin-hub: #d9b45a;
+  --spin-num: #f4efe3;
+  --spin-ball: #f8f5ec;
+  /* The sprites: outlines, faces, eyes, metal, and the creatures' eight body colours. */
+  --mon-ink: #14151b;
+  --mon-face: #f3ead6;
+  --mon-eye: #ffffff;
+  --mon-metal: #b9c2cf;
+  --mon-gold: #eebb45;
+  --mon-shade: rgb(0 0 0 / 0.22);
+  --mon-shine: rgb(255 255 255 / 0.35);
+  --mon-boss-glow: drop-shadow(0 0 10px rgb(238 187 69 / 0.55));
+  --mon-1: #4fb3a9;
+  --mon-2: #8e6bd8;
+  --mon-3: #e2725b;
+  --mon-4: #5b9be2;
+  --mon-5: #9cc94f;
+  --mon-6: #e0a03a;
+  --mon-7: #d8638f;
+  --mon-8: #7d8aa3;
+  --hero-skin: #f0c9a0;
+  --hero-hair: #3b2a22;
+  --hero-cape: #b8323f;
+  --hero-armor: #4c5668;
+  --hero-boots: #2a2f3a;
   /* The arena's tiers. */
   --tier-bronze: #c98a5a;
   --tier-silver: #b9c2cf;
@@ -3628,90 +3662,578 @@ button.seat:disabled {
   text-transform: uppercase;
 }
 
-/* The fight: both HP bars on top, what happened in the middle, your skills under the thumb. */
-.hero-fight {
+/* The fight, laid out like a handheld creature battle: the foe's box and the foe up top,
+   your hero from behind and your box below, the text box (and menu) under the thumb. */
+.battle {
   display: flex;
   flex: 1;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
 }
 
-.hero-hp {
+.battle-field {
+  position: relative;
+  flex: 1;
+  min-height: 270px;
+  overflow: hidden;
+  border: 1px solid var(--separator);
+  border-radius: var(--r-lg);
+  background: var(--battle-sky);
+  box-shadow: var(--highlight), var(--shadow-1);
+}
+
+.battle-info {
+  position: absolute;
+  z-index: 2;
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 10px 12px;
-  border: 1px solid var(--separator);
-  border-radius: var(--r-md);
-  background: var(--surface);
-  transition: border-color var(--dur) var(--ease);
+  gap: 5px;
+  width: 54%;
+  max-width: 220px;
+  padding: 8px 10px 7px;
+  border: 1px solid var(--accent-line);
+  border-radius: 12px;
+  background: var(--battle-info);
+  box-shadow: var(--shadow-1);
 }
 
-.hero-hp.active {
-  border-color: var(--accent-line);
+.battle-info.foe {
+  top: 10px;
+  left: 10px;
+  border-bottom-right-radius: 3px;
 }
 
-.hero-hp-top {
+.battle-info.mine {
+  right: 10px;
+  bottom: 12px;
+  border-top-left-radius: 3px;
+}
+
+.battle-info-top {
   display: flex;
   justify-content: space-between;
+  gap: 8px;
   font-size: var(--fs-sm);
 }
 
-.hero-hp-top span {
+.battle-info-top strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.battle-info-top span {
   color: var(--label-2);
+  font-weight: 650;
   font-variant-numeric: tabular-nums;
 }
 
-.hero-hp-track {
-  height: 10px;
+.battle-hp {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.battle-hp small {
+  color: var(--accent);
+  font-size: var(--fs-label);
+  font-weight: 750;
+}
+
+.battle-hp-track {
+  flex: 1;
+  height: 7px;
   overflow: hidden;
   border-radius: 999px;
   background: var(--fill-2);
 }
 
-.hero-hp-fill {
+.battle-hp-fill {
   height: 100%;
   border-radius: 999px;
   background: var(--hero-hp);
-  transition: width 600ms var(--ease);
+  transition: width 700ms var(--ease);
 }
 
-.hero-hp.foe .hero-hp-fill {
+.battle-hp-fill.mid {
+  background: var(--hero-hp-mid);
+}
+
+.battle-hp-fill.low {
   background: var(--hero-hp-foe);
 }
 
-.hero-stage {
+.battle-info-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  min-height: 16px;
+}
+
+.battle-fx {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+
+.battle-fx i {
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--fill-3);
+  color: var(--label-2);
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.battle-hp-num {
+  margin-left: auto;
+  font-size: var(--fs-sm);
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+.battle-spot {
+  position: absolute;
+  display: grid;
+  place-items: end center;
+}
+
+.battle-spot.foe {
+  top: 30px;
+  right: 3%;
+  width: 42%;
+  height: 128px;
+}
+
+.battle-spot.mine {
+  bottom: 0;
+  left: 2%;
+  width: 46%;
+  height: 150px;
+}
+
+.battle-platform {
+  position: absolute;
+  bottom: -4px;
+  left: 50%;
+  width: 100%;
+  height: 34px;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: var(--battle-platform);
+}
+
+.battle-spot.mine .battle-platform {
+  bottom: -12px;
+}
+
+.sprite {
+  position: relative;
+  width: 108px;
+  height: 108px;
+  stroke-width: 2.5;
+  stroke-linejoin: round;
+}
+
+.battle-spot.foe .sprite {
+  animation: battle-bob 2.6s ease-in-out infinite;
+}
+
+.battle-spot.mine .sprite {
+  width: 150px;
+  height: 150px;
+  margin-bottom: -26px;
+}
+
+.creature-sprite.boss {
+  filter: var(--mon-boss-glow);
+}
+
+.battle-spot.foe .creature-sprite.boss {
+  width: 124px;
+  height: 124px;
+}
+
+.battle-spot.foe.lunge .sprite {
+  animation: battle-lunge-foe 520ms var(--ease);
+}
+
+.battle-spot.mine.lunge .sprite {
+  animation: battle-lunge-mine 520ms var(--ease);
+}
+
+.battle-spot.struck .sprite {
+  animation: battle-struck 560ms linear;
+}
+
+.battle-spot.down .sprite {
+  animation: battle-down 800ms var(--ease) forwards;
+}
+
+@keyframes battle-bob {
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+@keyframes battle-lunge-foe {
+  40% {
+    transform: translate(-22px, 14px);
+  }
+}
+
+@keyframes battle-lunge-mine {
+  40% {
+    transform: translate(22px, -14px);
+  }
+}
+
+@keyframes battle-struck {
+  0%,
+  40%,
+  80% {
+    opacity: 0.25;
+    transform: translateX(-6px);
+  }
+  20%,
+  60%,
+  100% {
+    opacity: 1;
+    transform: translateX(6px);
+  }
+}
+
+@keyframes battle-down {
+  to {
+    opacity: 0;
+    transform: translateY(46px);
+  }
+}
+
+.battle-pop {
+  position: absolute;
+  z-index: 4;
+  color: var(--danger);
+  font-size: var(--fs-xl);
+  font-weight: 800;
+  text-shadow: 0 2px 8px var(--bg);
+  pointer-events: none;
+  animation: battle-pop 1100ms var(--ease) forwards;
+}
+
+.battle-pop.at-foe {
+  top: 46px;
+  right: 16%;
+}
+
+.battle-pop.at-mine {
+  bottom: 70px;
+  left: 18%;
+}
+
+.battle-pop.crit {
+  color: var(--accent);
+}
+
+@keyframes battle-pop {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.7);
+  }
+  20% {
+    opacity: 1;
+    transform: translateY(0) scale(1.1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-26px);
+  }
+}
+
+/* A skill's show over the field: the roulette spin, the two cards, the stop. */
+.battle-show {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  background: var(--battle-scrim);
+  animation: fade-in var(--dur) var(--ease) both;
+}
+
+.battle-show.light {
+  background: none;
+}
+
+.battle-stop {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin: 0;
+  padding: 10px 18px;
+  border: 1px solid var(--accent-line);
+  border-radius: var(--r-md);
+  background: var(--battle-info);
+  font-size: var(--fs-xl);
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+  animation: pop-in 300ms var(--ease) both;
+}
+
+.battle-stop small {
+  color: var(--label-2);
+  font-size: var(--fs-label);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.spin-wheel {
+  width: min(82%, 250px);
+  height: auto;
+  overflow: visible;
+}
+
+.spin-wheel.hit {
+  filter: drop-shadow(0 0 18px var(--accent));
+}
+
+.spin-rim {
+  fill: var(--spin-rim);
+}
+
+.spin-track {
+  fill: var(--spin-track);
+}
+
+.spin-turn,
+.spin-run {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.spin-pocket {
+  stroke: var(--spin-rim);
+  stroke-width: 0.6;
+}
+
+.spin-pocket.red {
+  fill: var(--hero-wheel-red);
+}
+
+.spin-pocket.black {
+  fill: var(--hero-wheel-black);
+}
+
+.spin-pocket.green {
+  fill: var(--hero-wheel-green);
+}
+
+.spin-pocket.picked {
+  stroke: var(--accent);
+  stroke-width: 2.5;
+}
+
+.spin-pocket.ball {
+  fill: var(--accent);
+}
+
+.spin-num {
+  fill: var(--spin-num);
+  font-size: 8px;
+  font-weight: 700;
+  text-anchor: middle;
+  dominant-baseline: central;
+}
+
+.spin-cone {
+  fill: var(--spin-cone);
+}
+
+.spin-spoke {
+  stroke: var(--spin-hub);
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+
+.spin-hub {
+  fill: var(--spin-hub);
+}
+
+.spin-ball {
+  fill: var(--spin-ball);
+  filter: drop-shadow(0 0 3px var(--spin-ball));
+}
+
+/* The text box: the turn told line by line, then your menu or a skill. */
+.battle-box {
+  display: flex;
+  flex-direction: column;
+  min-height: 190px;
+  padding: 12px;
+  border: 2px solid var(--accent-line);
+  border-radius: var(--r-lg);
+  background: var(--surface-grad);
+  box-shadow: var(--highlight), var(--shadow-1);
+}
+
+.battle-text {
   display: flex;
   flex: 1;
   flex-direction: column;
-  justify-content: center;
-  min-height: 260px;
+  gap: 6px;
+  width: 100%;
+  margin: 0;
+  padding: 4px 2px;
+  border: 0;
+  background: none;
+  color: var(--label-2);
+  font: inherit;
+  font-size: var(--fs-md);
+  font-weight: 600;
+  line-height: 1.35;
+  text-align: left;
+  cursor: pointer;
+}
+
+.battle-text .new {
+  color: var(--label);
+  animation: battle-type 320ms var(--ease) both;
+}
+
+.battle-text.static {
+  cursor: default;
+}
+
+@keyframes battle-type {
+  from {
+    clip-path: inset(0 100% 0 0);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+.battle-prompt {
+  margin: 0 0 10px;
+  font-size: var(--fs-md);
+  font-weight: 650;
+}
+
+.battle-menu {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.battle-cmd {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: auto auto;
+  column-gap: 8px;
+  align-items: center;
+  min-height: 58px;
+  padding: 9px 12px;
+  border: 1px solid var(--accent-line);
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  color: var(--accent);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: transform var(--dur-fast) var(--ease);
+}
+
+.battle-cmd svg {
+  grid-row: span 2;
+}
+
+.battle-cmd:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+.battle-cmd strong {
+  color: var(--label);
+  font-size: var(--fs-base);
+}
+
+.battle-cmd small {
+  color: var(--label-2);
+  font-size: var(--fs-label);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.battle-cmd.log {
+  border-color: var(--separator);
+  color: var(--label-2);
+}
+
+.battle-cmd:disabled {
+  border-color: var(--separator);
+  color: var(--label-3);
+  opacity: 0.55;
+  cursor: default;
+}
+
+.battle-play {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.battle-back {
+  align-self: center;
+  padding: 4px 10px;
+  border: 0;
+  background: none;
+  color: var(--label-2);
+  font: inherit;
+  font-size: var(--fs-sm);
+  cursor: pointer;
+}
+
+.battle-back:disabled {
+  visibility: hidden;
 }
 
 .hero-play {
   display: flex;
   flex: 1;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
   gap: 10px;
   animation: pop-in var(--dur) var(--ease) both;
 }
 
-.hero-play .micro {
-  text-align: center;
+.hero-play .note {
+  margin: 0;
+}
+
+.hero-stopwatch {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.hero-stopwatch > span:first-child {
+  display: flex;
+  flex-direction: column;
 }
 
 .hero-target {
-  margin: 0;
-  font-size: 3rem;
+  font-size: 2.4rem;
   font-weight: 750;
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.02em;
+  line-height: 1.1;
 }
 
 .hero-clock {
-  margin: 0;
   color: var(--label-2);
   font-size: var(--fs-xl);
   font-variant-numeric: tabular-nums;
@@ -3733,17 +4255,16 @@ button.seat:disabled {
 
 .hero-wheel {
   display: grid;
-  grid-template-columns: repeat(8, 1fr);
+  grid-template-columns: repeat(10, 1fr);
   gap: 4px;
   width: 100%;
 }
 
 .hero-slot {
-  aspect-ratio: 1;
-  min-height: 34px;
+  min-height: 32px;
   padding: 0;
   border: 2px solid transparent;
-  border-radius: 8px;
+  border-radius: 7px;
   color: var(--label);
   font: inherit;
   font-size: var(--fs-sm);
@@ -3754,7 +4275,6 @@ button.seat:disabled {
 
 .hero-slot:first-child {
   grid-column: span 2;
-  aspect-ratio: auto;
 }
 
 .hero-slot.red {
@@ -3769,61 +4289,52 @@ button.seat:disabled {
   background: var(--hero-wheel-green);
 }
 
-.hero-slot:disabled {
-  cursor: default;
-}
-
 .hero-slot.picked {
   border-color: var(--accent);
   box-shadow: 0 0 0 2px var(--accent-soft);
-}
-
-/* A ball: a white dot that drops in, one after another. */
-.hero-slot.ball {
-  position: relative;
-}
-
-.hero-slot.ball::after {
-  content: '';
-  position: absolute;
-  top: 3px;
-  right: 3px;
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  background: var(--label);
-  box-shadow: 0 0 6px var(--label);
-  animation: pop-in 260ms var(--ease) both;
-  animation-delay: inherit;
 }
 
 .hero-cards {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 16px;
+  gap: 20px;
+}
+
+.hero-pcard-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.hero-pcard-wrap small {
+  max-width: 96px;
+  overflow: hidden;
+  color: var(--label-2);
+  font-size: var(--fs-label);
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
 }
 
 .hero-pcard {
   display: grid;
   place-items: center;
-  width: 84px;
-  height: 118px;
+  width: 78px;
+  height: 110px;
   border-radius: 10px;
-  font-size: 2.4rem;
+  font-size: 2.3rem;
   font-weight: 750;
   box-shadow: var(--shadow-1);
-}
-
-.hero-pcard.back {
-  border: 3px solid var(--hero-card-face);
-  background: var(--hero-card-back);
 }
 
 .hero-pcard.face {
   background: var(--hero-card-face);
   color: var(--hero-card-ink);
-  animation: hero-flip 420ms var(--ease) both;
+  animation: hero-flip 480ms var(--ease) both;
 }
 
 .hero-pcard.won {
@@ -3837,81 +4348,95 @@ button.seat:disabled {
   }
 }
 
-.hero-hit-wrap {
-  animation: pop-in 300ms var(--ease) both;
+/* The sprites' parts (src/screens/hero/Sprites.tsx). */
+.s-ink {
+  stroke: var(--mon-ink);
 }
 
-.hero-hit {
-  margin: 0;
-  color: var(--danger);
-  font-size: var(--fs-xl);
-  font-weight: 750;
+.s-ink-fill {
+  fill: var(--mon-ink);
 }
 
-.hero-hit.crit {
-  color: var(--accent);
+.s-body {
+  fill: var(--mon-body);
 }
 
-.hero-hit.kill {
-  color: var(--accent);
-  text-shadow: 0 0 18px var(--accent-line);
+.s-body-line {
+  stroke: var(--mon-shade);
 }
 
-.hero-hit.miss {
-  color: var(--label-3);
-  font-size: var(--fs-md);
+.s-face {
+  fill: var(--mon-face);
 }
 
-.hero-controls {
+.s-eye,
+.s-teeth {
+  fill: var(--mon-eye);
+}
+
+.s-pupil,
+.s-pip {
+  fill: var(--mon-ink);
+}
+
+.s-metal {
+  fill: var(--mon-metal);
+}
+
+.s-gold {
+  fill: var(--mon-gold);
+}
+
+.s-shade {
+  fill: var(--mon-shade);
+}
+
+.s-shine {
+  stroke: var(--mon-shine);
+}
+
+.s-tick,
+.s-hand,
+.s-brow,
+.s-mouth {
+  stroke: var(--mon-ink);
+}
+
+.s-blade {
+  stroke: var(--mon-metal);
+}
+
+.s-skin {
+  fill: var(--hero-skin);
+}
+
+.s-hair {
+  fill: var(--hero-hair);
+}
+
+.s-cape {
+  fill: var(--hero-cape);
+}
+
+.s-armor {
+  fill: var(--hero-armor);
+}
+
+.s-boots {
+  fill: var(--hero-boots);
+}
+
+.sprite.thumb {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  stroke-width: 4;
+}
+
+.hero-ladder-name {
   display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.hero-skills {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
-}
-
-.hero-skill {
-  display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 4px;
-  min-height: 92px;
-  padding: 12px 6px;
-  border: 1px solid var(--accent-line);
-  border-radius: var(--r-lg);
-  background: var(--surface-grad);
-  box-shadow: var(--highlight), var(--shadow-1);
-  color: var(--accent);
-  font: inherit;
-  cursor: pointer;
-  transition: transform var(--dur-fast) var(--ease);
-}
-
-.hero-skill:active:not(:disabled) {
-  transform: scale(0.96);
-}
-
-.hero-skill strong {
-  color: var(--label);
-  font-size: var(--fs-sm);
-}
-
-.hero-skill small {
-  color: var(--label-2);
-  font-size: var(--fs-label);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
-.hero-skill:disabled {
-  border-color: var(--separator);
-  color: var(--label-3);
-  opacity: 0.55;
-  cursor: default;
+  gap: 8px;
 }
 
 .hero-log {
