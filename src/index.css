@@ -189,6 +189,19 @@
   --hero-cape: #b8323f;
   --hero-armor: #4c5668;
   --hero-boots: #2a2f3a;
+  /* Bosses' attacks drawn over the battlefield (BossFx.tsx). */
+  --fx-slash: #fff6dc;
+  --fx-fire: radial-gradient(circle at 50% 70%, #ffe27a, #ff8a3d 55%, rgb(240 70 60 / 0) 75%);
+  --fx-burst: #ffd25e;
+  --fx-wave: rgb(255 255 255 / 0.65);
+  --fx-smoke: rgb(150 156 170 / 0.6);
+  --fx-shield: rgb(120 190 255 / 0.85);
+  --fx-shield-soft: rgb(120 190 255 / 0.14);
+  --fx-drain: #7cf2b0;
+  --fx-aura: radial-gradient(closest-side, rgb(238 187 69 / 0.55), rgb(238 187 69 / 0));
+  --fx-flash: #fff7e6;
+  --fx-rage-glow: drop-shadow(0 0 12px rgb(240 70 80 / 0.8));
+  --fx-rage-platform: radial-gradient(closest-side, rgb(240 80 90 / 0.6), rgb(240 80 90 / 0) 100%);
   /* The arena's tiers. */
   --tier-bronze: #c98a5a;
   --tier-silver: #b9c2cf;
@@ -4066,6 +4079,597 @@ button.seat:disabled {
 .spin-ball {
   fill: var(--spin-ball);
   filter: drop-shadow(0 0 3px var(--spin-ball));
+}
+
+/* A boss's attacks (BossFx.tsx): your hero is at about (25%, 70%), the boss at (76%, 28%). */
+.fx-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.fx-layer .at-hero,
+.fx-layer .at-boss {
+  position: absolute;
+  left: 25%;
+  top: 70%;
+}
+
+.fx-layer .at-boss {
+  left: 76%;
+  top: 28%;
+}
+
+.fx-slash {
+  width: 120px;
+  height: 120px;
+  margin: -60px 0 0 -60px;
+  overflow: visible;
+  filter: drop-shadow(0 0 6px var(--fx-slash));
+}
+
+.fx-slash line {
+  stroke: var(--fx-slash);
+  stroke-width: 6;
+  stroke-linecap: round;
+  stroke-dasharray: 1;
+  animation: fx-draw 460ms ease-out both;
+  animation-delay: calc(480ms + var(--i) * 110ms);
+}
+
+@keyframes fx-draw {
+  from {
+    stroke-dashoffset: 1;
+  }
+  70% {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+    opacity: 0;
+  }
+}
+
+.fx-burst {
+  width: 110px;
+  height: 110px;
+  margin: -55px 0 0 -55px;
+  fill: var(--fx-burst);
+  animation: fx-pop 520ms var(--ease) 600ms both;
+}
+
+@keyframes fx-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.2);
+  }
+  40% {
+    opacity: 1;
+    transform: scale(1.15) rotate(12deg);
+  }
+  to {
+    opacity: 0;
+    transform: scale(1.3) rotate(20deg);
+  }
+}
+
+.fx-drop {
+  width: 70px;
+  height: 70px;
+  margin: -35px 0 0 -35px;
+  border: 3px solid var(--mon-ink);
+  border-radius: 14px;
+  background: var(--mon-metal);
+  animation: fx-fall 950ms ease-in both;
+}
+
+@keyframes fx-fall {
+  from {
+    opacity: 0;
+    transform: translateY(-280px) rotate(-30deg);
+  }
+  20% {
+    opacity: 1;
+  }
+  90% {
+    opacity: 1;
+    transform: translateY(0) rotate(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(6px) scale(1.15, 0.8);
+  }
+}
+
+.fx-ring,
+.fx-wave {
+  width: 44px;
+  height: 44px;
+  margin: -22px 0 0 -22px;
+  border: 4px solid var(--fx-wave);
+  border-radius: 50%;
+  animation: fx-ring 620ms ease-out both;
+  animation-delay: calc(860ms + var(--i) * 120ms);
+}
+
+.fx-wave {
+  animation-duration: 760ms;
+  animation-delay: calc(150ms + var(--i) * 200ms);
+}
+
+@keyframes fx-ring {
+  from {
+    opacity: 1;
+    transform: scale(0.3);
+  }
+  to {
+    opacity: 0;
+    transform: scale(4);
+  }
+}
+
+.fx-orb {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  margin: -7px 0 0 -7px;
+  border-radius: 50%;
+  background: var(--fx-drain);
+  box-shadow: 0 0 12px var(--fx-drain);
+  animation: fx-drain 760ms ease-in-out both;
+  animation-delay: calc(820ms + var(--i) * 90ms);
+}
+
+@keyframes fx-drain {
+  from {
+    left: 25%;
+    top: 70%;
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  15% {
+    opacity: 1;
+  }
+  to {
+    left: 76%;
+    top: 28%;
+    opacity: 0;
+    transform: scale(1.3);
+  }
+}
+
+.fx-flame {
+  position: absolute;
+  top: 60%;
+  width: 38px;
+  height: 58px;
+  margin-left: -19px;
+  border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+  background: var(--fx-fire);
+  animation: fx-flame 820ms ease-out both;
+  animation-delay: calc(500ms + var(--i) * 70ms);
+}
+
+@keyframes fx-flame {
+  from {
+    opacity: 0;
+    transform: translateY(24px) scale(0.3);
+  }
+  40% {
+    opacity: 1;
+    transform: translateY(-8px) scale(1.15);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-56px) scale(0.6);
+  }
+}
+
+.fx-puff {
+  position: absolute;
+  width: 54px;
+  height: 54px;
+  margin: -27px 0 0 -27px;
+  border-radius: 50%;
+  background: var(--fx-smoke);
+  filter: blur(6px);
+  animation: fx-puff 1200ms ease-out both;
+  animation-delay: calc(250ms + var(--i) * 70ms);
+}
+
+@keyframes fx-puff {
+  from {
+    opacity: 0;
+    transform: scale(0.2);
+  }
+  40% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(-24px) scale(1.7);
+  }
+}
+
+.fx-shield {
+  width: 132px;
+  height: 132px;
+  margin: -66px 0 0 -66px;
+  border: 3px solid var(--fx-shield);
+  border-radius: 50%;
+  background: var(--fx-shield-soft);
+  box-shadow: 0 0 24px var(--fx-shield), inset 0 0 18px var(--fx-shield);
+  animation: fx-shield 1000ms var(--ease) 150ms both;
+}
+
+@keyframes fx-shield {
+  from {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  45% {
+    opacity: 1;
+    transform: scale(1.06);
+  }
+  80% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+.fx-aura {
+  width: 150px;
+  height: 150px;
+  margin: -75px 0 0 -75px;
+  border-radius: 50%;
+  background: var(--fx-aura);
+  animation: fx-aura 950ms ease-in-out both;
+}
+
+@keyframes fx-aura {
+  from {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  30%,
+  70% {
+    opacity: 1;
+    transform: scale(1.1);
+  }
+  50% {
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 0;
+    transform: scale(1.3);
+  }
+}
+
+.fx-spark {
+  position: absolute;
+  top: 36%;
+  width: 6px;
+  height: 16px;
+  border-radius: 3px;
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--accent);
+  animation: fx-spark 700ms ease-out both;
+  animation-delay: calc(120ms + var(--i) * 80ms);
+}
+
+@keyframes fx-spark {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  30% {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-56px);
+  }
+}
+
+/* The finishers: each family its own, then a flash as it lands. */
+.fx-bigclock {
+  position: absolute;
+  left: 50%;
+  top: 46%;
+  width: 156px;
+  height: 156px;
+  margin: -78px 0 0 -78px;
+  animation: fx-bigclock 1750ms var(--ease) both;
+}
+
+.fx-clock-face {
+  fill: var(--mon-face);
+  stroke: var(--accent);
+  stroke-width: 4;
+}
+
+.fx-clock-tick,
+.fx-clock-hour line,
+.fx-clock-minute line {
+  stroke: var(--mon-ink);
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+
+.fx-clock-hour line {
+  stroke-width: 6;
+}
+
+.fx-clock-hour,
+.fx-clock-minute {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.fx-clock-minute {
+  animation: fx-turn 1150ms ease-in 250ms both;
+}
+
+.fx-clock-hour {
+  animation: fx-turn-hour 1150ms ease-in 250ms both;
+}
+
+.fx-clock-pin {
+  fill: var(--accent);
+}
+
+@keyframes fx-turn {
+  from {
+    transform: rotate(90deg);
+  }
+  to {
+    transform: rotate(720deg);
+  }
+}
+
+@keyframes fx-turn-hour {
+  from {
+    transform: rotate(300deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes fx-bigclock {
+  from {
+    opacity: 0;
+    transform: scale(0.2);
+  }
+  15%,
+  82% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(1.6);
+  }
+}
+
+.fx-card {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 60px;
+  margin: -30px 0 0 -21px;
+  border-radius: 6px;
+  background: var(--hero-card-face);
+  box-shadow: 0 0 10px var(--accent);
+  color: var(--hero-card-ink);
+  font-size: var(--fs-md);
+  font-weight: 800;
+  animation: fx-card 820ms ease-in both;
+  animation-delay: calc(560ms + var(--i) * 100ms);
+}
+
+@keyframes fx-card {
+  from {
+    left: 76%;
+    top: 28%;
+    opacity: 0;
+    transform: rotate(0) scale(0.5);
+  }
+  12% {
+    opacity: 1;
+  }
+  85% {
+    left: 25%;
+    top: 70%;
+    opacity: 1;
+    transform: rotate(-540deg) scale(1);
+  }
+  to {
+    left: 25%;
+    top: 70%;
+    opacity: 0;
+    transform: rotate(-600deg) scale(1.2);
+  }
+}
+
+.fx-blade {
+  position: absolute;
+  width: 110px;
+  height: 110px;
+  margin: -55px 0 0 -55px;
+  animation: fx-blade 1350ms ease-in 400ms both;
+}
+
+.fx-blade-rim {
+  fill: var(--spin-rim);
+}
+
+.fx-blade-red {
+  fill: var(--hero-wheel-red);
+}
+
+.fx-blade-dark {
+  fill: var(--hero-wheel-black);
+}
+
+.fx-blade-hub {
+  fill: var(--spin-hub);
+}
+
+@keyframes fx-blade {
+  from {
+    left: 76%;
+    top: 28%;
+    opacity: 0;
+    transform: rotate(0) scale(0.4);
+  }
+  20% {
+    left: 76%;
+    top: 28%;
+    opacity: 1;
+    transform: rotate(540deg) scale(1);
+  }
+  88% {
+    left: 25%;
+    top: 70%;
+    opacity: 1;
+    transform: rotate(1800deg) scale(1.1);
+  }
+  to {
+    left: 25%;
+    top: 70%;
+    opacity: 0;
+    transform: rotate(2000deg) scale(1.5);
+  }
+}
+
+.fx-coin {
+  position: absolute;
+  width: 26px;
+  height: 26px;
+  margin-left: -13px;
+  border: 3px solid var(--mon-ink);
+  border-radius: 50%;
+  background: var(--mon-gold);
+  animation: fx-coin 720ms ease-in both;
+  animation-delay: calc(560ms + var(--i) * 60ms);
+}
+
+@keyframes fx-coin {
+  from {
+    top: -12%;
+    opacity: 1;
+    transform: rotateY(0);
+  }
+  85% {
+    top: 68%;
+    opacity: 1;
+  }
+  to {
+    top: 72%;
+    opacity: 0;
+    transform: rotateY(900deg);
+  }
+}
+
+.fx-die {
+  position: absolute;
+  left: 25%;
+  width: 84px;
+  height: 84px;
+  margin: -42px 0 0 -42px;
+  border: 4px solid var(--mon-ink);
+  border-radius: 16px;
+  background:
+    radial-gradient(circle at 25% 25%, var(--mon-ink) 7px, transparent 8px),
+    radial-gradient(circle at 75% 25%, var(--mon-ink) 7px, transparent 8px),
+    radial-gradient(circle at 50% 50%, var(--mon-ink) 7px, transparent 8px),
+    radial-gradient(circle at 25% 75%, var(--mon-ink) 7px, transparent 8px),
+    radial-gradient(circle at 75% 75%, var(--mon-ink) 7px, transparent 8px),
+    var(--mon-face);
+  animation: fx-die 1350ms ease-in 450ms both;
+}
+
+@keyframes fx-die {
+  from {
+    top: -30%;
+    transform: rotate(-220deg) scale(1.3);
+  }
+  70% {
+    top: 70%;
+    transform: rotate(8deg) scale(1);
+  }
+  80% {
+    top: 60%;
+  }
+  90% {
+    top: 70%;
+    opacity: 1;
+  }
+  to {
+    top: 70%;
+    opacity: 0;
+    transform: rotate(0) scale(1.2, 0.85);
+  }
+}
+
+.fx-flash {
+  position: absolute;
+  inset: 0;
+  background: var(--fx-flash);
+  animation: fx-flash 520ms ease-out 1600ms both;
+}
+
+@keyframes fx-flash {
+  from {
+    opacity: 0;
+  }
+  35% {
+    opacity: 0.85;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+.battle-field.quake {
+  animation: fx-quake 460ms linear;
+}
+
+@keyframes fx-quake {
+  15%,
+  55% {
+    transform: translate(-6px, 3px);
+  }
+  35%,
+  75% {
+    transform: translate(6px, -3px);
+  }
+}
+
+/* An enraged boss glows red over a pulsing platform. */
+.battle-spot.enraged .creature-sprite {
+  filter: var(--fx-rage-glow);
+}
+
+.battle-spot.enraged .battle-platform {
+  background: var(--fx-rage-platform);
+  animation: fx-rage 1.2s ease-in-out infinite;
+}
+
+@keyframes fx-rage {
+  50% {
+    opacity: 0.6;
+    transform: translateX(-50%) scale(1.1);
+  }
 }
 
 /* The text box: the turn told line by line, then your menu or a skill. */
