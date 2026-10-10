@@ -148,7 +148,7 @@ export function Home() {
               <strong>The bot ladder</strong> is twenty creatures. They don't use skills: they hit, drain, burn you, weaken your hits, hide your stopwatch clock in smoke, raise their guard or wind up a big one. Bosses have a finisher and get enraged below half HP.
             </p>
             <p>
-              Beat a bot level for the first time for a skill point (2 for a boss), then spend them in the skill tree. A skill costs 5 to unlock, then 1 for level 2, 2 for level 3 and so on; a stat's level N costs N. Poker opens at Stopwatch 2, Roulette at Poker 5. A reset costs 1 point, then a point more each time.
+              Beat a bot level for the first time for a skill point (2 for a boss), then spend them in the skill tree. A skill costs 5 to unlock, then 1 for level 2, 2 for level 3 and so on; a stat's level N costs N. I'm Speed opens at Stopwatch 5, Roulette at Poker 5. A reset costs 1 point, then a point more each time.
             </p>
             <p>
               <strong>Gems</strong> come from every win. Spend them in Summon on meme costumes (each with a small stat bonus) and rare parts for your look; there's a free pull every day.

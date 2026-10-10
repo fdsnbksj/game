@@ -36,7 +36,7 @@ export interface NodeInfo {
 export const NODES: readonly NodeInfo[] = [
   { id: 'stopwatch', name: 'Stopwatch', group: 'all', per: '+4 power', max: 10, cooldown: 0 },
   { id: 'speed', name: "I'm Speed", group: 'all', per: '+5 power', max: 10, needs: { node: 'stopwatch', level: 5 }, cooldown: 1 },
-  { id: 'poker', name: 'Poker', group: 'gambler', per: '+10 damage', max: 10, needs: { node: 'stopwatch', level: 2 }, cooldown: 2 },
+  { id: 'poker', name: 'Poker', group: 'gambler', per: '+10 damage', max: 10, cooldown: 2 },
   { id: 'roulette', name: 'Roulette', group: 'gambler', per: '+1 ball at Lv 5 and 10, else +5 punch damage', max: 10, needs: { node: 'poker', level: 5 }, cooldown: 3 },
   { id: 'hp', name: 'HP', group: 'body', per: '+15 HP', max: 10 },
   { id: 'def', name: 'DEF', group: 'body', per: '+2 DEF', max: 10 },

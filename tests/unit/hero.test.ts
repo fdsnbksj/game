@@ -59,10 +59,9 @@ describe('the tree', () => {
   });
 
   it('opens skills in order and spends only what has been earned', () => {
-    expect(canBuy(FRESH_TREE, 'poker', 20)).toBe(false); // Stopwatch 2 first
+    expect(canBuy(FRESH_TREE, 'poker', 4)).toBe(false); // 5 to unlock
+    expect(canBuy(FRESH_TREE, 'poker', 5)).toBe(true); // open from the start
     const two = buy(FRESH_TREE, 'stopwatch');
-    expect(canBuy(two, 'poker', 4)).toBe(false); // 1 spent + 5 > 4
-    expect(canBuy(two, 'poker', 5)).toBe(true);
     expect(canBuy(two, 'speed', 20)).toBe(false); // Stopwatch 5 first
     expect(canBuy(tree({ stopwatch: 5 }), 'speed', 15)).toBe(true);
     expect(canBuy(tree({ stopwatch: 2, poker: 4 }), 'roulette', 20)).toBe(false); // Poker 5 first

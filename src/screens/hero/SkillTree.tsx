@@ -236,8 +236,8 @@ interface Road {
 /**
  * The roads between skills, drawn over the board. Each leaves the bottom of the slot that
  * opens a skill. When that skill's row is just below, the road crosses the gap between the
- * rows and drops onto its badge; otherwise (another branch) it runs down the left margin
- * and turns into the badge from the side, so it never crosses a slot.
+ * rows and drops onto its badge; otherwise (another branch, should a skill ever need one) it
+ * runs down the left margin and turns into the badge from the side, so it never crosses a slot.
  */
 function Roads({ draft }: { draft: Tree }) {
   const svg = useRef<SVGSVGElement>(null);
