@@ -1,12 +1,14 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="a game">
-  <rect width="512" height="512" rx="114" fill="#38b6ff"/>
-  <!-- A hot-pink blob with two googly eyes and a toothy grin, outlined in ink. -->
-  <path d="M256 92c96 0 168 52 172 150 4 104-64 182-176 182S80 352 86 252c6-104 74-160 170-160z" fill="#16121f" transform="translate(16 16)"/>
-  <path d="M256 92c96 0 168 52 172 150 4 104-64 182-176 182S80 352 86 252c6-104 74-160 170-160z" fill="#ff3fa4" stroke="#16121f" stroke-width="18" stroke-linejoin="round"/>
-  <circle cx="194" cy="222" r="58" fill="#fff" stroke="#16121f" stroke-width="14"/>
-  <circle cx="324" cy="214" r="48" fill="#fff" stroke="#16121f" stroke-width="14"/>
-  <circle cx="204" cy="244" r="26" fill="#16121f"/>
-  <circle cx="312" cy="232" r="22" fill="#16121f"/>
-  <path d="M176 314h160q-14 64-80 64t-80-64z" fill="#16121f"/>
-  <path d="M184 314h144v22H184z" fill="#fff" stroke="#16121f" stroke-width="6"/>
+  <clipPath id="tile"><rect width="512" height="512" rx="114"/></clipPath>
+  <rect width="512" height="512" rx="114" fill="#5fae34"/>
+  <!-- A checkered lawn, then a sprout in a terracotta pot, outlined in brown. -->
+  <path d="M0 0h128v128H0zM256 0h128v128H256zM128 128h128v128H128zM384 128h128v128H384zM0 256h128v128H0zM256 256h128v128H256zM128 384h128v128H128zM384 384h128v128H384z" fill="#6cbc3c" clip-path="url(#tile)"/>
+  <path d="M256 300c-6-60 4-110 30-150" fill="none" stroke="#3f8f1a" stroke-width="22" stroke-linecap="round"/>
+  <path d="M262 190c-70-40-130-20-150 30 60 30 120 20 150-30z" fill="#6fbf3a" stroke="#2e1d0f" stroke-width="14" stroke-linejoin="round"/>
+  <path d="M276 160c50-70 120-80 150-30-50 50-110 60-150 30z" fill="#6fbf3a" stroke="#2e1d0f" stroke-width="14" stroke-linejoin="round"/>
+  <path d="M150 300h212l-26 150H176z" fill="#d06a3a" stroke="#2e1d0f" stroke-width="16" stroke-linejoin="round"/>
+  <path d="M136 280h240v44H136z" fill="#e07d4a" stroke="#2e1d0f" stroke-width="16" stroke-linejoin="round"/>
+  <circle cx="226" cy="380" r="10" fill="#2e1d0f"/>
+  <circle cx="290" cy="380" r="10" fill="#2e1d0f"/>
+  <path d="M232 408q24 18 48 0" fill="none" stroke="#2e1d0f" stroke-width="10" stroke-linecap="round"/>
 </svg>

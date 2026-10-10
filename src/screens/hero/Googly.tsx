@@ -1,6 +1,6 @@
-// A googly eye, the wacky look's signature: a white ball with an ink ring and a fat pupil that
-// rolls about (the CSS `googly` animation, stilled for reduced motion). `beat` puts each eye on
-// its own timing so a pair never quite agrees. Shared by the hero, the creatures and costumes.
+// A big round cartoon eye: a white ball with an ink ring, a fat pupil sitting low and a glint.
+// (It rolled about in the wacky look; `beat` is kept for that, unused now.) Shared by the hero,
+// the creatures and costumes.
 
 export function Googly({ x, y, r, beat = 0, ring = 2.5 }: { x: number; y: number; r: number; beat?: number; ring?: number }) {
   return (

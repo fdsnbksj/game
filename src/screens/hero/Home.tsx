@@ -111,18 +111,25 @@ export function Home() {
 
       <div className="home-more">
         <SummaryRow label="Bot ladder" figures={`${cleared} / ${BOT_COUNT}`} title="Bot ladder">
-          <ol className="group hero-ladder">
+          {/* An almanac: a page of portrait tiles, locked ones a silhouette behind a padlock. */}
+          <ol className="almanac">
             {BOT_LEVELS.map((bot) => {
               const open = bot.level <= cleared + 1;
+              const done = bot.level <= cleared;
               return (
                 <li key={bot.level}>
-                  <button className={`row${bot.level <= cleared ? ' done' : ''}`} disabled={!open || !!fight} onClick={() => fightLevel(bot.level)}>
-                    <span className="hero-ladder-name">
+                  <button
+                    className={`almanac-tile${done ? ' done' : ''}${open ? '' : ' locked'}${bot.boss ? ' boss' : ''}`}
+                    disabled={!open || !!fight}
+                    aria-label={`${bot.level}. ${open ? bot.name : 'Locked'}${bot.boss ? ', boss' : ''}${done ? ', cleared' : open ? `, +${rewardFor(bot.level)} points` : ''}`}
+                    onClick={() => fightLevel(bot.level)}
+                  >
+                    <span className="almanac-pic">
                       <CreatureThumb family={bot.kit.family} level={bot.level} boss={bot.boss} />
-                      {bot.level}. {bot.name}
-                      {bot.boss && <span className="hero-boss">Boss</span>}
                     </span>
-                    <span className="row-detail">{bot.level <= cleared ? 'Cleared' : `+${rewardFor(bot.level)} pts`}</span>
+                    <span className="almanac-num">{bot.level}</span>
+                    <span className="almanac-name">{open ? bot.name : '???'}</span>
+                    {done ? <span className="almanac-mark">✓</span> : !open && <span className="almanac-mark lock">🔒</span>}
                   </button>
                 </li>
               );

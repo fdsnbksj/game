@@ -1,9 +1,10 @@
 import type { CSSProperties } from 'react';
 import type { AttackId, Family } from '../../games/hero/monsters';
 
-// A creature's attacks, drawn over the battlefield like a comic: slashes, shockwaves, cartoon
-// flames, puffs of smoke, a bubble shield, a charge-up, a rainbow drain, each boss family's own
-// finisher, and a starburst with a sound word (BONK!, WHAM!) where a hit lands. Creatures are always
+// A garden pest's attacks, drawn over the battlefield: leaf slashes, a seed burst, dirt clods
+// and shockwaves, scorching sun, pollen clouds, a leafy shield, a charge-up, nectar drops for
+// the drain, each boss family's own finisher, and a burst with a sound word (THWACK!, SPLAT!)
+// where a hit lands. Creatures are always
 // the foe, so everything flies from the top right to your hero at the bottom left. Normal
 // creatures play a smaller version (`small`); bosses the full one, and only bosses shake
 // the field. The hit lands at `attackImpactMs` (Fight.tsx waits for it).
@@ -19,19 +20,19 @@ const at = (i: number, style: CSSProperties = {}) => ({ '--i': i, ...style }) as
 
 /** The comic sound word each attack shows where it lands; the self-buffs show none. */
 const WORDS: Partial<Record<AttackId, string>> = {
-  strike: 'WHAM!',
-  jab: 'POW!',
+  strike: 'THWACK!',
+  jab: 'SPLAT!',
   slam: 'BONK!',
   drain: 'SLURP!',
-  scorch: 'FWOOSH!',
+  scorch: 'CHOMP!',
   rattle: 'ZAP!',
   smoke: 'POOF!',
 };
 
-/** A spiky starburst, the comic book's bang. */
-const BURST = 'M0 -48 L11 -20 L40 -34 L25 -6 L50 4 L22 14 L34 42 L6 24 L-6 50 L-12 22 L-40 38 L-26 10 L-50 0 L-24 -10 L-38 -36 L-10 -20 Z';
+/** A splat: a round burst with stubby petals. */
+const BURST = 'M0 -46 Q14 -46 16 -32 Q30 -42 38 -28 Q50 -18 38 -6 Q52 6 40 18 Q42 36 24 34 Q16 50 0 40 Q-16 50 -24 34 Q-42 36 -40 18 Q-52 6 -38 -6 Q-50 -18 -38 -28 Q-30 -42 -16 -32 Q-14 -46 0 -46 Z';
 
-/** A starburst with a word in it, popping up over your hero as the hit lands. */
+/** A splat with a word in it, popping up over your hero as the hit lands. */
 function Pow({ word, big = false }: { word: string; big?: boolean }) {
   return (
     <svg className={`fx-pow${big ? ' big' : ''}`} viewBox="-56 -56 112 112">
@@ -139,8 +140,8 @@ function Finisher({ family }: { family: Family }) {
           <span key={i} className="fx-coin" style={at(i, { left: `${8 + ((i * 41) % 40)}%` })} />
         ))}
       {family === 'dice' && <span className="fx-die" />}
-      {/* Every finisher lands with a giant spinning starburst over your hero, then the flash. */}
-      <Pow word="KA-BLAM!" big />
+      {/* Every finisher lands with a giant spinning splat over your hero, then the flash. */}
+      <Pow word="UPROOTED!" big />
       <span className="fx-flash" />
     </>
   );

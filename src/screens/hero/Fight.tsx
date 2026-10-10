@@ -190,13 +190,29 @@ export function Fight({
               <div className="battle-menu">
                 {Array.from({ length: LOADOUT_SIZE }, (_, i) => {
                   const s = loadout[i];
-                  if (!s) return <span key={`empty${i}`} className="battle-cmd empty" aria-hidden="true" />;
+                  if (!s) return <span key={`empty${i}`} className="battle-cmd packet empty" aria-hidden="true" />;
                   const left = state.cooldowns[me][s] ?? 0;
+                  const rest = cooldownOf(s);
+                  // A seed packet: a resting skill is shaded from the top by the share of its rest still to go.
                   return (
-                    <button key={s} className={`battle-cmd ${s}${left ? ' cooling' : ''}`} disabled={left > 0} onClick={() => setSkill(s)}>
-                      <SkillIcon skill={s} />
+                    <button
+                      key={s}
+                      className={`battle-cmd packet ${s}${left ? ' cooling' : ''}`}
+                      style={{ '--recharge': rest ? left / rest : 0 } as CSSProperties}
+                      disabled={left > 0}
+                      aria-label={`${SKILL_NAME[s]}, level ${state.fighters[me].tree[s]}${left ? `, rests ${left} more turn${left === 1 ? '' : 's'}` : rest ? `, then rests ${rest}` : ''}`}
+                      onClick={() => setSkill(s)}
+                    >
+                      <span className="packet-window">
+                        <SkillIcon skill={s} />
+                      </span>
                       <strong>{SKILL_NAME[s]}</strong>
-                      <small>{left ? `⏳ ${left} turn${left === 1 ? '' : 's'}` : `Lv ${state.fighters[me].tree[s]}${cooldownOf(s) ? ` · rests ${cooldownOf(s)}` : ''}`}</small>
+                      <small className="packet-price">Lv {state.fighters[me].tree[s]}</small>
+                      {left > 0 && (
+                        <span className="packet-shade" aria-hidden="true">
+                          <b>{left}</b>
+                        </span>
+                      )}
                     </button>
                   );
                 })}
@@ -397,12 +413,12 @@ function useShow(state: HeroState, names: [string, string], me: Side) {
 /** A big moment gets a stamp across the field. */
 function stampOf(t: Turn): string | null {
   const d = t.detail;
-  if (t.kill) return '💫 K.O.!!';
-  if (d.skill === 'stopwatch' && d.perfect) return 'NAILED IT!!';
-  if (d.skill === 'speed') return d.ms < 0 ? 'TOO EARLY LOL' : d.flash ? 'I’M SPEED!!' : t.crit ? 'BONK!! CRIT' : null;
-  if (d.skill === 'poker') return d.won ? 'HIGH CARD HERO' : 'FOLDED LOL';
+  if (t.kill) return '🌱 UPROOTED!!';
+  if (d.skill === 'stopwatch' && d.perfect) return 'FULL BLOOM!!';
+  if (d.skill === 'speed') return d.ms < 0 ? 'TOO EARLY LOL' : d.flash ? 'I’M SPEED!!' : t.crit ? 'CRIT-TER!!' : null;
+  if (d.skill === 'poker') return d.won ? 'HIGH CARD HARVEST' : 'FOLDED LOL';
   if (d.skill === 'attack' && d.missed) return 'WHIFF!';
-  if (t.crit) return 'BONK!! CRIT';
+  if (t.crit) return 'CRIT-TER!!';
   return null;
 }
 

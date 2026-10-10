@@ -1,6 +1,5 @@
 import { useEffect } from 'react';
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router';
-import { Wobble } from './components/Wobble';
 import { rememberPage } from './lastPage';
 import { Account } from './screens/Account';
 import { AvalonHome } from './screens/avalon/AvalonHome';
@@ -38,7 +37,6 @@ export function App() {
   return (
     <BrowserRouter>
       <RememberPage />
-      <Wobble />
       <Routes>
         <Route
           path="/"

@@ -3,8 +3,8 @@ import { EXTRAS, FACES, HAIRS, HATS, PANTS, SHIRTS, type Appearance, type Look }
 import { Costume } from './Costumes';
 import { Googly } from './Googly';
 
-// Your hero as drawn everywhere: a round, bouncy bean of a cartoon with googly eyes and short
-// rubbery limbs, built from the parts in
+// Your hero as drawn everywhere: a round little gardener with big eyes, short rubbery limbs,
+// green gardening gloves and, with no hat on, a sprout growing from the head, built from the parts in
 // src/games/hero/look.ts, from the front or (in a fight, where you stand with your back to
 // us) from behind. A costume, if worn, is drawn instead (Costumes.tsx). Our own art;
 // colours are the --av-* tokens in src/index.css.
@@ -15,12 +15,12 @@ const cloth = (n: number): CSSProperties => ({ fill: `var(--av-c-${n + 1})` });
 export function HeroFigure({ appearance, back = false, className = '' }: { appearance: Appearance; back?: boolean; className?: string }) {
   return (
     <svg className={`sprite hero-sprite ${className}`} viewBox="0 0 120 120" aria-hidden="true">
-      {appearance.costume ? <Costume id={appearance.costume} back={back} /> : <Bean look={appearance.look} back={back} />}
+      {appearance.costume ? <Costume id={appearance.costume} back={back} /> : <Gardener look={appearance.look} back={back} />}
     </svg>
   );
 }
 
-function Bean({ look, back }: { look: Look; back: boolean }) {
+function Gardener({ look, back }: { look: Look; back: boolean }) {
   const hat = HATS[look.hat].id;
   const hair = HAIRS[look.hair].id;
   const extra = EXTRAS[look.extra].id;
@@ -64,8 +64,9 @@ function Bean({ look, back }: { look: Look; back: boolean }) {
           <Noodle d="M75 60 q5 2 7 6" line={shirtLine} wide />
         </>
       )}
-      <circle style={s} cx="31" cy="80" r="5.5" />
-      <circle style={s} cx="89" cy="80" r="5.5" />
+      {/* Gardening gloves. */}
+      <circle className="s-glove s-ink" cx="31" cy="80" r="6" strokeWidth="2.5" />
+      <circle className="s-glove s-ink" cx="89" cy="80" r="6" strokeWidth="2.5" />
 
       {/* A round bean of a body, no neck to speak of. */}
       <path style={shirtFill} d="M45 52 q15 -6 30 0 q9 4 9 20 q0 19 -24 19 q-24 0 -24 -19 q0 -16 9 -20z" />
@@ -81,7 +82,9 @@ function Bean({ look, back }: { look: Look; back: boolean }) {
         </>
       )}
 
-      {/* The head: a big round one, little ears, googly eyes. */}
+      {/* A sprout on top when there's no hat, its stem tucked behind the head and hair. */}
+      {hat === 'none' && <Sprout />}
+      {/* The head: a big round one, little ears, big round eyes. */}
       <circle style={s} cx="38.5" cy="36" r="4" />
       <circle style={s} cx="81.5" cy="36" r="4" />
       <ellipse style={s} cx="60" cy="33" rx="22" ry="20" />
@@ -277,6 +280,14 @@ function Hat({ id }: { id: string }) {
       return null;
   }
 }
+
+const Sprout = () => (
+  <g>
+    <path className="s-stem" d="M60 20 q-2 -8 1 -16" fill="none" strokeWidth="3.5" strokeLinecap="round" />
+    <path className="s-leaf s-ink" d="M61 6 q-14 -8 -20 2 q10 6 20 -2z" strokeWidth="2.2" strokeLinejoin="round" />
+    <path className="s-leaf s-ink" d="M61 5 q12 -12 21 -4 q-8 9 -21 4z" strokeWidth="2.2" strokeLinejoin="round" />
+  </g>
+);
 
 const Wings = () => (
   <g style={{ fill: 'var(--av-wings)' }}>
