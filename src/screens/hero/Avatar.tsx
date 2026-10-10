@@ -2,7 +2,7 @@ import type { CSSProperties, ReactNode } from 'react';
 import { EXTRAS, FACES, HAIRS, HATS, PANTS, SHIRTS, type Appearance, type Look } from '../../games/hero/look';
 import { Costume } from './Costumes';
 
-// Your hero as drawn everywhere: a blocky figure built from the parts in
+// Your hero as drawn everywhere: a lanky, bug-eyed cartoon figure built from the parts in
 // src/games/hero/look.ts, from the front or (in a fight, where you stand with your back to
 // us) from behind. A costume, if worn, is drawn instead (Costumes.tsx). Our own art;
 // colours are the --av-* tokens in src/index.css.
@@ -13,12 +13,12 @@ const cloth = (n: number): CSSProperties => ({ fill: `var(--av-c-${n + 1})` });
 export function HeroFigure({ appearance, back = false, className = '' }: { appearance: Appearance; back?: boolean; className?: string }) {
   return (
     <svg className={`sprite hero-sprite ${className}`} viewBox="0 0 120 120" aria-hidden="true">
-      {appearance.costume ? <Costume id={appearance.costume} back={back} /> : <Blocky look={appearance.look} back={back} />}
+      {appearance.costume ? <Costume id={appearance.costume} back={back} /> : <Lanky look={appearance.look} back={back} />}
     </svg>
   );
 }
 
-function Blocky({ look, back }: { look: Look; back: boolean }) {
+function Lanky({ look, back }: { look: Look; back: boolean }) {
   const hat = HATS[look.hat].id;
   const hair = HAIRS[look.hair].id;
   const extra = EXTRAS[look.extra].id;
@@ -27,48 +27,52 @@ function Blocky({ look, back }: { look: Look; back: boolean }) {
   const s = skin(look.skin);
   const shirtFill = shirt === 'armour' ? { fill: 'var(--mon-metal)' } : cloth(look.shirtColour);
   const hairFill = cloth(look.hairColour);
+  const shirtLine = { stroke: shirtFill.fill };
+  const skinLine = { stroke: s.fill };
+  const pantsLine = { stroke: shorts ? s.fill : cloth(look.pantsColour).fill };
 
   return (
     <g className="s-ink-lines">
       {/* Behind the body: wings and a cape (in front of it from behind). */}
       {extra === 'wings' && <Wings />}
-      {extra === 'cape' && !back && <path style={{ fill: 'var(--av-cape)' }} d="M36 54 L84 54 L94 108 L26 108 Z" />}
+      {extra === 'cape' && !back && <path style={{ fill: 'var(--av-cape)' }} d="M40 56 L80 56 L92 108 L28 108 Z" />}
       {extra === 'sword' && !back && <path className="s-blade" d="M88 22 L74 50" strokeWidth="4" strokeLinecap="round" />}
-      {hair === 'long' && <rect style={hairFill} x="38" y="26" width="44" height="34" rx="6" />}
-      {hair === 'ponytail' && <rect style={hairFill} x={back ? 54 : 74} y="30" width="12" height="28" rx="6" />}
-      {shirt === 'hoodie' && <rect style={shirtFill} x="38" y="22" width="44" height="34" rx="12" />}
+      {hair === 'long' && <path style={hairFill} d="M40 30 q0 -14 20 -14 q20 0 20 14 v28 q-20 6 -40 0z" />}
+      {hair === 'ponytail' && <path style={hairFill} d={back ? 'M56 30 h8 q6 14 0 30 h-8 q-6 -16 0 -30z' : 'M76 28 q10 10 4 30 q-6 -4 -8 -12z'} />}
+      {shirt === 'hoodie' && <path style={shirtFill} d="M36 40 q0 -26 24 -26 q24 0 24 26 v8 q-4 8 -12 8 h-24 q-8 0 -12 -8z" />}
 
-      {/* Legs and shoes. */}
-      <rect style={shorts ? s : cloth(look.pantsColour)} x="44" y="84" width="14" height="22" />
-      <rect style={shorts ? s : cloth(look.pantsColour)} x="62" y="84" width="14" height="22" />
+      {/* Legs: two noodles, then floppy shoes. */}
+      <Noodle d="M54 82 q-3 11 -2 22" line={pantsLine} />
+      <Noodle d="M66 82 q3 11 2 22" line={pantsLine} />
       {shorts && (
         <>
-          <rect style={cloth(look.pantsColour)} x="43" y="82" width="16" height="10" />
-          <rect style={cloth(look.pantsColour)} x="61" y="82" width="16" height="10" />
+          <Noodle d="M54 82 q-1 5 -1.5 8" line={{ stroke: cloth(look.pantsColour).fill }} wide />
+          <Noodle d="M66 82 q1 5 1.5 8" line={{ stroke: cloth(look.pantsColour).fill }} wide />
         </>
       )}
-      <rect className="s-ink-fill" x="42" y="104" width="17" height="7" rx="2" />
-      <rect className="s-ink-fill" x="61" y="104" width="17" height="7" rx="2" />
+      <ellipse className="s-ink-fill" cx="49" cy="107" rx="8" ry="4.5" />
+      <ellipse className="s-ink-fill" cx="71" cy="107" rx="8" ry="4.5" />
 
-      {/* Arms: sleeves, then hands. */}
-      <rect style={shirt === 'tee' ? s : shirtFill} x="26" y="54" width="12" height="30" rx="2" />
-      <rect style={shirt === 'tee' ? s : shirtFill} x="82" y="54" width="12" height="30" rx="2" />
+      {/* Arms: noodles from the shoulders, sleeves, then little round hands. */}
+      <Noodle d="M47 58 q-10 6 -10 26" line={shirt === 'tee' ? skinLine : shirtLine} />
+      <Noodle d="M73 58 q10 6 10 26" line={shirt === 'tee' ? skinLine : shirtLine} />
       {shirt === 'tee' && (
         <>
-          <rect style={shirtFill} x="26" y="54" width="12" height="12" rx="2" />
-          <rect style={shirtFill} x="82" y="54" width="12" height="12" rx="2" />
+          <Noodle d="M47 58 q-6 3 -8 9" line={shirtLine} wide />
+          <Noodle d="M73 58 q6 3 8 9" line={shirtLine} wide />
         </>
       )}
-      <rect style={s} x="27" y="80" width="10" height="8" rx="2" />
-      <rect style={s} x="83" y="80" width="10" height="8" rx="2" />
+      <circle style={s} cx="37" cy="86" r="4.5" />
+      <circle style={s} cx="83" cy="86" r="4.5" />
 
-      {/* The torso. */}
-      <rect style={shirtFill} x="38" y="52" width="44" height="34" rx="3" />
-      {shirt === 'jacket' && !back && <path style={{ fill: 'var(--av-inner)' }} d="M54 52 L66 52 L64 86 L56 86 Z" />}
-      {shirt === 'hoodie' && !back && <rect className="s-shade" x="48" y="72" width="24" height="9" rx="3" />}
-      {shirt === 'armour' && <path className="s-shade" d="M38 66 h44 M38 76 h44 M60 52 v34" fill="none" strokeWidth="2" style={{ stroke: 'var(--mon-ink)' }} />}
-      {extra === 'scarf' && <rect style={{ fill: 'var(--av-scarf)' }} x="36" y="48" width="48" height="9" rx="4" />}
-      {extra === 'cape' && back && <path style={{ fill: 'var(--av-cape)' }} d="M36 52 L84 52 L94 110 L26 110 Z" />}
+      {/* A thin neck and a soft, saggy torso. */}
+      <rect style={s} x="56" y="46" width="8" height="10" />
+      <path style={shirtFill} d="M51 54 h18 q5 0 6 6 l3 21 q0 5 -5 5 h-26 q-5 0 -5 -5 l3 -21 q1 -6 6 -6z" />
+      {shirt === 'jacket' && !back && <path style={{ fill: 'var(--av-inner)' }} d="M56 54 L64 54 L62 86 L58 86 Z" />}
+      {shirt === 'hoodie' && !back && <rect className="s-shade" x="51" y="72" width="18" height="9" rx="4" />}
+      {shirt === 'armour' && <path className="s-shade" d="M44 66 h32 M43 76 h34 M60 54 v32" fill="none" strokeWidth="2" style={{ stroke: 'var(--mon-ink)' }} />}
+      {extra === 'scarf' && <rect style={{ fill: 'var(--av-scarf)' }} x="42" y="48" width="36" height="9" rx="4" />}
+      {extra === 'cape' && back && <path style={{ fill: 'var(--av-cape)' }} d="M40 52 L80 52 L92 110 L28 110 Z" />}
       {extra === 'sword' && back && (
         <>
           <path className="s-blade" d="M84 26 L40 92" strokeWidth="5" strokeLinecap="round" />
@@ -76,9 +80,11 @@ function Blocky({ look, back }: { look: Look; back: boolean }) {
         </>
       )}
 
-      {/* The head. */}
-      <rect style={s} x="42" y="16" width="36" height="36" rx="7" />
-      {back ? <rect style={hairFill} x="42" y="16" width="36" height={hair === 'none' ? 0 : 30} rx="7" /> : <Face face={FACES[look.face].id} />}
+      {/* The head: a big round one, ears out, eyes bulging. */}
+      <circle style={s} cx="40.5" cy="36" r="4" />
+      <circle style={s} cx="79.5" cy="36" r="4" />
+      <ellipse style={s} cx="60" cy="33" rx="20" ry="19" />
+      {back ? hair !== 'none' && <path style={hairFill} d="M40 34 a20 19 0 0 1 40 0 v8 q-20 7 -40 0z" /> : <Face face={FACES[look.face].id} skin={s} />}
       {!back && <Hair id={hair} fill={hairFill} />}
       {back && hair === 'bun' && <circle style={hairFill} cx="60" cy="12" r="8" />}
       {back && hair === 'mohawk' && <rect style={hairFill} x="56" y="4" width="8" height="40" rx="3" />}
@@ -86,53 +92,87 @@ function Blocky({ look, back }: { look: Look; back: boolean }) {
       {extra === 'headphones' && (
         <>
           <path d="M40 30 Q60 4 80 30" fill="none" strokeWidth="4" style={{ stroke: 'var(--av-phones)' }} />
-          <rect style={{ fill: 'var(--av-phones)' }} x="36" y="26" width="9" height="14" rx="3" />
-          <rect style={{ fill: 'var(--av-phones)' }} x="75" y="26" width="9" height="14" rx="3" />
+          <rect style={{ fill: 'var(--av-phones)' }} x="35" y="27" width="9" height="15" rx="3" />
+          <rect style={{ fill: 'var(--av-phones)' }} x="76" y="27" width="9" height="15" rx="3" />
         </>
       )}
-      {extra === 'sunglasses' && !back && <path className="s-ink-fill" d="M45 28 h13 v7 q-6 4 -13 0z M62 28 h13 v7 q-7 4 -13 0z M58 30 h4 v2 h-4z" />}
+      {extra === 'sunglasses' && !back && <path className="s-ink-fill" d="M43 26 h15 v7 q-7 6 -15 0z M62 26 h15 v7 q-8 6 -15 0z M58 28 h4 v2 h-4z" />}
       <Hat id={hat} />
     </g>
   );
 }
 
-function Face({ face }: { face: string }) {
-  const eye = (x: number) => <rect className="s-ink-fill" x={x} y="28" width="5" height="7" rx="1.5" />;
+/** A limb: a round-capped stroke in its colour over a wider one in ink, so it's outlined. */
+function Noodle({ d, line, wide = false }: { d: string; line: CSSProperties; wide?: boolean }) {
+  return (
+    <>
+      <path className="s-limb-ink" d={d} strokeWidth={wide ? 15 : 12} />
+      <path className="s-limb" d={d} style={line} strokeWidth={wide ? 10 : 7} />
+    </>
+  );
+}
+
+function Face({ face, skin: lid }: { face: string; skin: CSSProperties }) {
+  // Big white eyes with tiny pupils that never quite agree on where to look.
+  const eye = (cx: number, px: number, py: number, big = false) => (
+    <>
+      <ellipse className="s-eye s-ink" cx={cx} cy="30" rx={big ? 7 : 6} ry={big ? 8 : 6.8} strokeWidth="2" />
+      <circle className="s-pupil" cx={px} cy={py} r={big ? 1.3 : 1.7} />
+    </>
+  );
   const eyes: ReactNode =
     face === 'cool' ? (
-      <path className="s-ink-fill" d="M46 29 h11 v5 h-11z M63 29 h11 v5 h-11z" />
+      <path className="s-ink-fill" d="M44 26 h14 v6 q-7 5 -14 0z M62 26 h14 v6 q-7 5 -14 0z M58 27 h4 v2 h-4z" />
     ) : face === 'wink' ? (
       <>
-        {eye(50)}
-        <path className="s-mouth" d="M65 32 h7" strokeWidth="2.5" strokeLinecap="round" />
+        {eye(52, 53.5, 31)}
+        <path className="s-mouth" d="M63 31 q5 -4 10 0" fill="none" strokeWidth="2.5" strokeLinecap="round" />
       </>
     ) : face === 'sleepy' ? (
-      <path className="s-mouth" d="M49 32 h7 M64 32 h7" strokeWidth="2.5" strokeLinecap="round" />
+      <>
+        {eye(52, 53, 33)}
+        {eye(68, 67, 33.5)}
+        {/* Heavy lids and the bags under them. */}
+        <path style={lid} d="M46 30 a6 6.8 0 0 1 12 0z M62 30 a6 6.8 0 0 1 12 0z" />
+        <path className="s-mouth" d="M47 40 q5 2 9 0 M64 40 q5 2 9 0" fill="none" strokeWidth="1.5" strokeLinecap="round" />
+      </>
     ) : face === 'angry' ? (
       <>
-        {eye(50)}
-        {eye(65)}
-        <path className="s-mouth" d="M47 24 l10 4 M73 24 l-10 4" strokeWidth="2.5" strokeLinecap="round" />
+        {eye(52, 54, 31)}
+        {eye(68, 66, 31)}
+        <path className="s-mouth" d="M45 21 l12 5 M75 21 l-12 5" strokeWidth="3" strokeLinecap="round" />
+      </>
+    ) : face === 'surprised' ? (
+      <>
+        {eye(52, 52, 30, true)}
+        {eye(68, 68, 30, true)}
       </>
     ) : (
       <>
-        {eye(50)}
-        {eye(65)}
+        {eye(52, 53.5, 31)}
+        {eye(68, 66, 29.5)}
       </>
     );
   const mouth =
     face === 'grin' ? (
-      <path className="s-teeth" d="M50 40 h20 q-2 8 -10 8 q-8 0 -10 -8z" style={{ stroke: 'var(--mon-ink)' }} strokeWidth="1.5" />
+      <>
+        <path className="s-teeth" d="M48 41 h24 q-2 9 -12 9 q-10 0 -12 -9z" style={{ stroke: 'var(--mon-ink)' }} strokeWidth="2" />
+        <path className="s-mouth" d="M54 41 v7 M60 41 v9 M66 41 v7" strokeWidth="1.2" />
+      </>
     ) : face === 'surprised' ? (
-      <ellipse className="s-ink-fill" cx="60" cy="43" rx="4" ry="5" />
+      <ellipse className="s-ink-fill" cx="60" cy="45" rx="3.5" ry="4.5" />
     ) : face === 'smirk' ? (
-      <path className="s-mouth" d="M53 43 q8 3 13 -3" fill="none" strokeWidth="2.5" strokeLinecap="round" />
+      <path className="s-mouth" d="M53 46 q8 2 13 -4" fill="none" strokeWidth="2.5" strokeLinecap="round" />
     ) : face === 'angry' ? (
-      <path className="s-mouth" d="M53 45 q7 -5 14 0" fill="none" strokeWidth="2.5" strokeLinecap="round" />
+      <path className="s-mouth" d="M52 47 q8 -6 16 0" fill="none" strokeWidth="2.5" strokeLinecap="round" />
     ) : face === 'sleepy' ? (
-      <ellipse className="s-ink-fill" cx="60" cy="43" rx="3" ry="2" />
+      <>
+        <ellipse className="s-ink-fill" cx="58" cy="45" rx="4" ry="2.5" />
+        {/* A string of drool. */}
+        <path className="s-drool" d="M61 46 q1.5 5 0.5 8 q-1.5 1.5 -2.5 0 q0 -3 2 -8z" />
+      </>
     ) : (
-      <path className="s-mouth" d="M52 41 q8 7 16 0" fill="none" strokeWidth="2.5" strokeLinecap="round" />
+      <path className="s-mouth" d="M51 43 q9 6 17 -1 M66 40 l3 2.5" fill="none" strokeWidth="2.5" strokeLinecap="round" />
     );
   return (
     <>

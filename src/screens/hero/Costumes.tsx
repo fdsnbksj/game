@@ -7,13 +7,15 @@ import type { CostumeId } from '../../games/hero/costumes';
 
 const c = (token: string): CSSProperties => ({ fill: `var(--meme-${token})` });
 
+// Bulgy, mismatched eyes, the same as the creatures': the left one bigger, tiny pupils
+// looking two ways at once, an ink ring round each.
 const Eyes = ({ x1, x2, y, r = 5, back }: { x1: number; x2: number; y: number; r?: number; back: boolean }) =>
   back ? null : (
     <>
-      <circle className="s-eye" cx={x1} cy={y} r={r} />
-      <circle className="s-eye" cx={x2} cy={y} r={r} />
-      <circle className="s-pupil" cx={x1 + 1} cy={y + 1} r={r * 0.45} />
-      <circle className="s-pupil" cx={x2 + 1} cy={y + 1} r={r * 0.45} />
+      <circle className="s-eye s-ink" cx={x1} cy={y} r={r * 1.25} strokeWidth="1.8" />
+      <circle className="s-eye s-ink" cx={x2} cy={y} r={r * 1.05} strokeWidth="1.8" />
+      <circle className="s-pupil" cx={x1 - r * 0.35} cy={y + r * 0.3} r={Math.max(1, r * 0.3)} />
+      <circle className="s-pupil" cx={x2 + r * 0.3} cy={y - r * 0.25} r={Math.max(1, r * 0.3)} />
     </>
   );
 

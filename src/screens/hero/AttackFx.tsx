@@ -1,8 +1,8 @@
 import type { CSSProperties } from 'react';
 import type { AttackId, Family } from '../../games/hero/monsters';
 
-// A creature's attacks, drawn over the battlefield: slashes, shockwaves, flames, smoke, a
-// shield, a charge-up, a drain, and each boss family's own finisher. Creatures are always
+// A creature's attacks, drawn over the battlefield: laser slashes, shockwaves, acid, gas, a
+// force field, a charge-up, a goo drain, and each boss family's own finisher. Creatures are always
 // the foe, so everything flies from the top right to your hero at the bottom left. Normal
 // creatures play a smaller version (`small`); bosses the full one, and only bosses shake
 // the field. The hit lands at `attackImpactMs` (Fight.tsx waits for it).
@@ -110,6 +110,11 @@ function Finisher({ family }: { family: Family }) {
           <span key={i} className="fx-coin" style={at(i, { left: `${8 + ((i * 41) % 40)}%` })} />
         ))}
       {family === 'dice' && <span className="fx-die" />}
+      {/* Every finisher tears the air open over your hero: a green swirl, then the flash. */}
+      <svg className="fx-swirl" viewBox="-50 -50 100 100">
+        <circle r="46" className="fx-swirl-rim" />
+        <path d="M0 0 a4 4 0 0 1 8 0 a8 8 0 0 1 -16 0 a12 12 0 0 1 24 0 a16 16 0 0 1 -32 0 a20 20 0 0 1 40 0 a24 24 0 0 1 -48 0" />
+      </svg>
       <span className="fx-flash" />
     </>
   );

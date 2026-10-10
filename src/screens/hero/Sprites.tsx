@@ -5,7 +5,8 @@ import { HeroFigure } from './Avatar';
 
 // The fighters as drawn on the battlefield: your hero from behind, an opponent hero from
 // the front (both Avatar.tsx), and the bot ladder's creatures in five families (clocks, coins, cards, dice
-// and wheels), each level its own colour, bosses crowned. Our own art; colours are tokens.
+// and wheels): gross sci-fi critters with bulgy eyes, drool and goo, each level its own colour,
+// bosses wearing a brain under a glass dome. Our own art; colours are tokens.
 
 export type SpriteSpec = { kind: 'hero'; appearance: Appearance } | { kind: 'creature'; family: Family; level: number; boss: boolean };
 
@@ -16,22 +17,56 @@ export function Sprite({ spec, back = false, className = '' }: { spec: SpriteSpe
   return <CreatureSprite family={spec.family} level={spec.level} boss={spec.boss} className={className} />;
 }
 
+/** Bulgy eyes that don't match: the left one bigger, tiny pupils looking two ways at once. */
 function Eyes({ y, gap = 12, cx = 60, size = 7, angry }: { y: number; gap?: number; cx?: number; size?: number; angry: boolean }) {
   return (
     <g>
-      {[-1, 1].map((side) => (
-        <g key={side}>
-          <ellipse className="s-eye s-ink" cx={cx + side * gap} cy={y} rx={size * 0.8} ry={size} />
-          <ellipse className="s-pupil" cx={cx + side * gap - side * 1.5} cy={y + 1.5} rx={size * 0.38} ry={size * 0.5} />
-          {angry && <path className="s-brow" d={`M${cx + side * (gap + size)} ${y - size - 5} L${cx + side * (gap - size + 2)} ${y - size + 1}`} strokeWidth="3" strokeLinecap="round" />}
-        </g>
-      ))}
+      {[-1, 1].map((side) => {
+        const r = side < 0 ? size * 1.2 : size * 0.9;
+        const x = cx + side * gap;
+        return (
+          <g key={side}>
+            <circle className="s-eye s-ink" cx={x} cy={y} r={r} strokeWidth="2" />
+            <circle className="s-pupil" cx={x + side * r * 0.35} cy={y + (side < 0 ? r * 0.2 : -r * 0.25)} r={Math.max(1.4, size * 0.22)} />
+            {angry && <path className="s-brow" d={`M${x + side * (r + 3)} ${y - r - 6} L${x - side * (r - 2)} ${y - r + 1}`} strokeWidth="3" strokeLinecap="round" />}
+          </g>
+        );
+      })}
     </g>
   );
 }
 
-const Crown = ({ y = 6 }: { y?: number }) => (
-  <path className="s-gold s-ink" d={`M42 ${y + 16} L44 ${y} L52 ${y + 9} L60 ${y - 3} L68 ${y + 9} L76 ${y} L78 ${y + 16} Z`} />
+/** One big eye, for the cyclops families. */
+function BigEye({ cx = 60, cy, r }: { cx?: number; cy: number; r: number }) {
+  return (
+    <g>
+      <circle className="s-eye s-ink" cx={cx} cy={cy} r={r} strokeWidth="2.5" />
+      <path className="s-vein" d={`M${cx - r * 0.9} ${cy + 2} q${r * 0.3} -2 ${r * 0.45} 1 M${cx + r * 0.9} ${cy - 3} q${-r * 0.3} 1 ${-r * 0.4} 3`} fill="none" strokeWidth="1" />
+      <circle className="s-pupil" cx={cx + r * 0.2} cy={cy + r * 0.1} r={r * 0.22} />
+    </g>
+  );
+}
+
+/** A string of drool from a mouth corner. */
+const Drool = ({ x, y }: { x: number; y: number }) => <path className="s-drool" d={`M${x} ${y} q2 7 0.5 11 q-2 2 -3.5 0 q-0.5 -4 3 -11z`} />;
+
+/** Goo dripping off a body's bottom edge, in the body's colour. */
+const Drips = ({ y, xs }: { y: number; xs: number[] }) => (
+  <>
+    {xs.map((x, i) => (
+      <path key={x} className="s-body s-ink" d={`M${x - 4} ${y} q0 ${8 + (i % 2) * 6} 4 ${8 + (i % 2) * 6} q4 0 4 ${-8 - (i % 2) * 6}`} strokeWidth="2" />
+    ))}
+  </>
+);
+
+/** A boss's mark: a big brain under a glass dome, floating above it. */
+const Dome = ({ y = 6 }: { y?: number }) => (
+  <g>
+    <path className="s-brain s-ink" d={`M44 ${y + 16} q-4 -10 6 -13 q2 -6 10 -4 q8 -4 12 3 q10 1 6 14z`} strokeWidth="2" />
+    <path className="s-mouth" d={`M50 ${y + 9} q3 3 6 0 M60 ${y + 5} q2 4 6 2 M66 ${y + 12} q3 -2 5 1`} fill="none" strokeWidth="1.5" strokeLinecap="round" />
+    <path className="s-dome s-ink" d={`M38 ${y + 17} a22 20 0 0 1 44 0z`} strokeWidth="2" />
+    <path className="s-shine" d={`M46 ${y + 4} q4 -5 10 -6`} fill="none" strokeWidth="2.5" strokeLinecap="round" />
+  </g>
 );
 
 function CreatureSprite({ family, level, boss, className }: { family: Family; level: number; boss: boolean; className: string }) {
@@ -63,6 +98,7 @@ function Clock({ boss }: { boss: boolean }) {
           <circle className="s-metal s-ink" cx="86" cy="26" r="10" />
         </>
       )}
+      <Drips y={96} xs={[42, 58, 76]} />
       <circle className="s-body s-ink" cx="60" cy="62" r="40" />
       <circle className="s-face s-ink" cx="60" cy="62" r="30" />
       {Array.from({ length: 12 }, (_, i) => {
@@ -71,10 +107,13 @@ function Clock({ boss }: { boss: boolean }) {
         return <line key={i} className="s-tick" x1={x1} y1={y1} x2={x2} y2={y2} strokeWidth={i % 3 ? 1.5 : 3} />;
       })}
       <Eyes y={55} gap={11} size={6} angry={boss} />
-      <path className="s-hand" d="M60 74 L60 66 M60 74 L70 80" strokeWidth="3" strokeLinecap="round" />
-      <circle className="s-ink-fill" cx="60" cy="74" r="2.5" />
+      <path className="s-hand" d="M60 68 L60 62 M60 68 L67 72" strokeWidth="3" strokeLinecap="round" />
+      <circle className="s-ink-fill" cx="60" cy="68" r="2.5" />
+      {/* A slack mouth, tongue out. */}
+      <path className="s-ink-fill" d="M48 78 q12 8 24 0 q-12 4 -24 0z" />
+      <path className="s-tongue s-ink" d="M60 81 q0 9 5 9 q5 0 4 -10z" strokeWidth="2" />
       <path className="s-shine" d="M32 44 q8 -14 22 -18" fill="none" strokeWidth="4" strokeLinecap="round" />
-      {boss && <Crown y={4} />}
+      {boss && <Dome y={-6} />}
     </>
   );
 }
@@ -91,13 +130,15 @@ function Coin({ boss }: { boss: boolean }) {
       <rect className="s-ink-fill" x="46" y="98" width="8" height="12" rx="3" />
       <rect className="s-ink-fill" x="66" y="98" width="8" height="12" rx="3" />
       <ellipse className="s-shade" cx="64" cy="62" rx="38" ry="42" />
+      <Drips y={92} xs={[40, 80]} />
       <ellipse className="s-gold s-ink" cx="60" cy="60" rx="38" ry="42" />
       <ellipse className="s-body-line" cx="60" cy="60" rx="30" ry="34" fill="none" strokeWidth="3" />
       <Star cx={60} cy={86} r={8} />
       <Eyes y={52} gap={12} size={7} angry={boss} />
-      <path className="s-mouth" d="M50 68 q10 7 20 0" fill="none" strokeWidth="3" strokeLinecap="round" />
+      <path className="s-mouth" d="M48 68 q5 6 10 1 t12 1" fill="none" strokeWidth="3" strokeLinecap="round" />
+      <Drool x={68} y={70} />
       <path className="s-shine" d="M34 40 q6 -14 18 -20" fill="none" strokeWidth="4" strokeLinecap="round" />
-      {boss && <Crown y={2} />}
+      {boss && <Dome y={-8} />}
     </>
   );
 }
@@ -110,9 +151,13 @@ function Card({ boss }: { boss: boolean }) {
       <rect className="s-face s-ink" x="28" y="18" width="64" height="86" rx="9" />
       <path className="s-body" d="M40 28 q-6 7 0 11 q4 2 6 -1 l-2 5 h4 l-2 -5 q2 3 6 1 q6 -4 0 -11 l-6 -5z" />
       <path className="s-body" d="M80 94 q-6 -7 0 -11 q4 -2 6 1 l-2 -5 h4 l-2 5 q2 -3 6 -1 q6 4 0 11 l-6 5z" />
-      <Eyes y={54} gap={12} size={7} angry={boss} />
+      <path className="s-ink" d="M92 60 q16 -2 18 12 q2 12 -8 12 q-6 0 -6 -6 q0 -4 4 -4 q3 0 3 3" fill="none" strokeWidth="8" strokeLinecap="round" />
+      <path className="s-tentacle" d="M92 60 q16 -2 18 12 q2 12 -8 12 q-6 0 -6 -6 q0 -4 4 -4 q3 0 3 3" fill="none" strokeWidth="4" strokeLinecap="round" />
+      <BigEye cy={52} r={13} />
+      {boss && <path className="s-brow" d="M44 34 L76 40" strokeWidth="4" strokeLinecap="round" />}
       <path className="s-teeth s-ink" d="M42 72 h36 l-4 8 -4 -6 -4 6 -4 -6 -4 6 -4 -6 -4 6 -4 -6z" strokeWidth="2" />
-      {boss && <Crown y={0} />}
+      <Drool x={72} y={77} />
+      {boss && <Dome y={-10} />}
     </>
   );
 }
@@ -140,11 +185,15 @@ function Dice({ boss }: { boss: boolean }) {
         [74, 80],
         [86, 74],
       ].map(([x, y]) => (
-        <circle key={x * 100 + y} className="s-pip" cx={x} cy={y} r="3" />
+        <g key={x * 100 + y}>
+          <circle className="s-eye s-ink" cx={x} cy={y} r="4.2" strokeWidth="1.5" />
+          <circle className="s-pupil" cx={x + ((x + y) % 3) - 1} cy={y + 1} r="1.4" />
+        </g>
       ))}
       <Eyes cx={43} y={62} gap={9} size={6} angry={boss} />
-      <path className="s-mouth" d="M34 80 q9 7 18 4" fill="none" strokeWidth="3" strokeLinecap="round" />
-      {boss && <Crown y={0} />}
+      <path className="s-mouth" d="M33 79 q9 8 19 3" fill="none" strokeWidth="3" strokeLinecap="round" />
+      <Drool x={48} y={82} />
+      {boss && <Dome y={-10} />}
     </>
   );
 }
@@ -156,6 +205,12 @@ function Wheel({ boss }: { boss: boolean }) {
       <path className="s-ink" d="M22 64 l-12 10 M98 64 l12 10" strokeWidth="4" strokeLinecap="round" />
       <rect className="s-ink-fill" x="44" y="98" width="9" height="12" rx="3" />
       <rect className="s-ink-fill" x="67" y="98" width="9" height="12" rx="3" />
+      {Array.from({ length: 16 }, (_, i) => {
+        const [x1, y1] = polar(60, 60, 41, i * 22.5 - 6);
+        const [x2, y2] = polar(60, 60, 50, i * 22.5);
+        const [x3, y3] = polar(60, 60, 41, i * 22.5 + 6);
+        return <path key={i} className="s-teeth s-ink" d={`M${x1} ${y1} L${x2} ${y2} L${x3} ${y3}Z`} strokeWidth="1.5" />;
+      })}
       <circle className="s-metal s-ink" cx="60" cy="60" r="42" />
       {Array.from({ length: wedges }, (_, i) => {
         const [x1, y1] = polar(60, 60, 35, (i * 360) / wedges);
@@ -164,12 +219,11 @@ function Wheel({ boss }: { boss: boolean }) {
       })}
       <circle className="s-face s-ink" cx="60" cy="60" r="18" />
       {/* One big eye in the hub. */}
-      <ellipse className="s-eye s-ink" cx="60" cy="60" rx="11" ry="12" />
-      <ellipse className="s-pupil" cx="60" cy="62" rx="5" ry="6" />
+      <BigEye cy={60} r={12} />
       {boss && <path className="s-brow" d="M47 44 L73 50" strokeWidth="4" strokeLinecap="round" />}
       <circle className="s-pip" cx="60" cy="22" r="4" />
       <path className="s-shine" d="M30 40 q8 -14 22 -18" fill="none" strokeWidth="4" strokeLinecap="round" />
-      {boss && <Crown y={0} />}
+      {boss && <Dome y={-10} />}
     </>
   );
 }
