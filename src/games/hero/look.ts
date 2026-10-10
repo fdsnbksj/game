@@ -1,6 +1,6 @@
 import { costumeOf, type CostumeId } from './costumes';
 
-// Your hero's look: a lanky cartoon figure built from parts, every field an index into one of the
+// Your hero's look: a round, bouncy bean of a cartoon built from parts, every field an index into one of the
 // catalogues below. Most parts are free; the ones marked `free: false` come from Summon
 // (gacha.ts) and must be owned to wear. firestore.rules keeps a copy of each catalogue's
 // size (tests/unit/rulesSync.test.ts compares them). Colours live in src/index.css.

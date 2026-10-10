@@ -1,6 +1,12 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="a game">
-  <rect width="512" height="512" rx="114" fill="#0a0b0d"/>
-  <!-- A geometric lowercase a: a ring and a stem, drawn as shapes so it looks the same everywhere. -->
-  <circle cx="256" cy="256" r="112" fill="none" stroke="#e8b339" stroke-width="72"/>
-  <rect x="332" y="108" width="72" height="296" fill="#e8b339"/>
+  <rect width="512" height="512" rx="114" fill="#38b6ff"/>
+  <!-- A hot-pink blob with two googly eyes and a toothy grin, outlined in ink. -->
+  <path d="M256 92c96 0 168 52 172 150 4 104-64 182-176 182S80 352 86 252c6-104 74-160 170-160z" fill="#16121f" transform="translate(16 16)"/>
+  <path d="M256 92c96 0 168 52 172 150 4 104-64 182-176 182S80 352 86 252c6-104 74-160 170-160z" fill="#ff3fa4" stroke="#16121f" stroke-width="18" stroke-linejoin="round"/>
+  <circle cx="194" cy="222" r="58" fill="#fff" stroke="#16121f" stroke-width="14"/>
+  <circle cx="324" cy="214" r="48" fill="#fff" stroke="#16121f" stroke-width="14"/>
+  <circle cx="204" cy="244" r="26" fill="#16121f"/>
+  <circle cx="312" cy="232" r="22" fill="#16121f"/>
+  <path d="M176 314h160q-14 64-80 64t-80-64z" fill="#16121f"/>
+  <path d="M184 314h144v22H184z" fill="#fff" stroke="#16121f" stroke-width="6"/>
 </svg>

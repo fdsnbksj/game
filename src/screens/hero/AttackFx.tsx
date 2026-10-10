@@ -1,8 +1,9 @@
 import type { CSSProperties } from 'react';
 import type { AttackId, Family } from '../../games/hero/monsters';
 
-// A creature's attacks, drawn over the battlefield: laser slashes, shockwaves, acid, gas, a
-// force field, a charge-up, a goo drain, and each boss family's own finisher. Creatures are always
+// A creature's attacks, drawn over the battlefield like a comic: slashes, shockwaves, cartoon
+// flames, puffs of smoke, a bubble shield, a charge-up, a rainbow drain, each boss family's own
+// finisher, and a starburst with a sound word (BONK!, WHAM!) where a hit lands. Creatures are always
 // the foe, so everything flies from the top right to your hero at the bottom left. Normal
 // creatures play a smaller version (`small`); bosses the full one, and only bosses shake
 // the field. The hit lands at `attackImpactMs` (Fight.tsx waits for it).
@@ -15,6 +16,33 @@ export const quakes = (id: AttackId, boss: boolean) => boss && (id === 'slam' ||
 
 const n = (count: number) => Array.from({ length: count }, (_, i) => i);
 const at = (i: number, style: CSSProperties = {}) => ({ '--i': i, ...style }) as CSSProperties;
+
+/** The comic sound word each attack shows where it lands; the self-buffs show none. */
+const WORDS: Partial<Record<AttackId, string>> = {
+  strike: 'WHAM!',
+  jab: 'POW!',
+  slam: 'BONK!',
+  drain: 'SLURP!',
+  scorch: 'FWOOSH!',
+  rattle: 'ZAP!',
+  smoke: 'POOF!',
+};
+
+/** A spiky starburst, the comic book's bang. */
+const BURST = 'M0 -48 L11 -20 L40 -34 L25 -6 L50 4 L22 14 L34 42 L6 24 L-6 50 L-12 22 L-40 38 L-26 10 L-50 0 L-24 -10 L-38 -36 L-10 -20 Z';
+
+/** A starburst with a word in it, popping up over your hero as the hit lands. */
+function Pow({ word, big = false }: { word: string; big?: boolean }) {
+  return (
+    <svg className={`fx-pow${big ? ' big' : ''}`} viewBox="-56 -56 112 112">
+      <path className="fx-pow-back" d={BURST} transform="translate(5 5)" />
+      <path className="fx-pow-star" d={BURST} />
+      <text className="fx-pow-word" y="7" textLength={word.length > 5 ? 84 : undefined} lengthAdjust="spacingAndGlyphs">
+        {word}
+      </text>
+    </svg>
+  );
+}
 
 export function AttackFx({ id, family, boss }: { id: AttackId; family: Family; boss: boolean }) {
   return (
@@ -65,6 +93,7 @@ export function AttackFx({ id, family, boss }: { id: AttackId; family: Family; b
         </>
       )}
       {id === 'finisher' && <Finisher family={family} />}
+      {WORDS[id] && <Pow word={WORDS[id]} />}
     </div>
   );
 }
@@ -110,11 +139,8 @@ function Finisher({ family }: { family: Family }) {
           <span key={i} className="fx-coin" style={at(i, { left: `${8 + ((i * 41) % 40)}%` })} />
         ))}
       {family === 'dice' && <span className="fx-die" />}
-      {/* Every finisher tears the air open over your hero: a green swirl, then the flash. */}
-      <svg className="fx-swirl" viewBox="-50 -50 100 100">
-        <circle r="46" className="fx-swirl-rim" />
-        <path d="M0 0 a4 4 0 0 1 8 0 a8 8 0 0 1 -16 0 a12 12 0 0 1 24 0 a16 16 0 0 1 -32 0 a20 20 0 0 1 40 0 a24 24 0 0 1 -48 0" />
-      </svg>
+      {/* Every finisher lands with a giant spinning starburst over your hero, then the flash. */}
+      <Pow word="KA-BLAM!" big />
       <span className="fx-flash" />
     </>
   );

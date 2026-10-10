@@ -1,5 +1,6 @@
 import type { CSSProperties, ReactNode } from 'react';
 import type { CostumeId } from '../../games/hero/costumes';
+import { Googly } from './Googly';
 
 // The meme costumes, each our own drawing of an Italian brainrot character (memes nobody
 // owns; never copy anyone's picture). Front and back: from behind the same shape with no
@@ -7,15 +8,12 @@ import type { CostumeId } from '../../games/hero/costumes';
 
 const c = (token: string): CSSProperties => ({ fill: `var(--meme-${token})` });
 
-// Bulgy, mismatched eyes, the same as the creatures': the left one bigger, tiny pupils
-// looking two ways at once, an ink ring round each.
+// Googly eyes, the same as the creatures': the left one bigger, each rolling on its own beat.
 const Eyes = ({ x1, x2, y, r = 5, back }: { x1: number; x2: number; y: number; r?: number; back: boolean }) =>
   back ? null : (
     <>
-      <circle className="s-eye s-ink" cx={x1} cy={y} r={r * 1.25} strokeWidth="1.8" />
-      <circle className="s-eye s-ink" cx={x2} cy={y} r={r * 1.05} strokeWidth="1.8" />
-      <circle className="s-pupil" cx={x1 - r * 0.35} cy={y + r * 0.3} r={Math.max(1, r * 0.3)} />
-      <circle className="s-pupil" cx={x2 + r * 0.3} cy={y - r * 0.25} r={Math.max(1, r * 0.3)} />
+      <Googly x={x1} y={y} r={r * 1.3} beat={0} ring={1.8} />
+      <Googly x={x2} y={y} r={r * 1.1} beat={1} ring={1.8} />
     </>
   );
 

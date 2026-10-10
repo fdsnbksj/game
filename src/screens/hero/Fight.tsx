@@ -397,12 +397,12 @@ function useShow(state: HeroState, names: [string, string], me: Side) {
 /** A big moment gets a stamp across the field. */
 function stampOf(t: Turn): string | null {
   const d = t.detail;
-  if (t.kill) return '💀 OBLITERATED';
-  if (d.skill === 'stopwatch' && d.perfect) return 'SCIENCE!!';
-  if (d.skill === 'speed') return d.ms < 0 ? 'TOO EARLY LOL' : d.flash ? 'I’M SPEED!!' : t.crit ? '*BURP* CRIT!!' : null;
-  if (d.skill === 'poker') return d.won ? 'HIGH CARD, BABY' : 'FOLDED. SAD.';
-  if (d.skill === 'attack' && d.missed) return 'MISSED. EW.';
-  if (t.crit) return '*BURP* CRIT!!';
+  if (t.kill) return '💫 K.O.!!';
+  if (d.skill === 'stopwatch' && d.perfect) return 'NAILED IT!!';
+  if (d.skill === 'speed') return d.ms < 0 ? 'TOO EARLY LOL' : d.flash ? 'I’M SPEED!!' : t.crit ? 'BONK!! CRIT' : null;
+  if (d.skill === 'poker') return d.won ? 'HIGH CARD HERO' : 'FOLDED LOL';
+  if (d.skill === 'attack' && d.missed) return 'WHIFF!';
+  if (t.crit) return 'BONK!! CRIT';
   return null;
 }
 
