@@ -3439,7 +3439,8 @@ button.seat:disabled {
   margin-top: 8px;
 }
 
-/* The fight: names and HP along the top, then you, the skill's show and the other side. */
+/* The fight, laid out like a handheld creature battle: their box top left and their
+   figure top right, your figure bottom left and your box bottom right. */
 .battle {
   display: flex;
   flex-direction: column;
@@ -3447,21 +3448,33 @@ button.seat:disabled {
 }
 
 .battle-field {
-  display: grid;
-  grid-template-areas:
-    'info-mine . info-foe'
-    'fig-mine show fig-foe';
-  grid-template-columns: 1fr 1.4fr 1fr;
-  align-items: end;
-  gap: 8px 4px;
-  padding: 12px;
+  position: relative;
+  aspect-ratio: 4 / 3.2;
+  overflow: hidden;
   border: 1px solid var(--separator);
   border-radius: var(--r-lg);
   background: var(--surface);
 }
 
 .battle-info {
+  position: absolute;
+  width: 46%;
+  padding: 8px 10px;
+  border: 1px solid var(--separator);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  box-shadow: var(--shadow-2);
   font-size: var(--fs-sm);
+}
+
+.battle-info.foe {
+  top: 6%;
+  left: 4%;
+}
+
+.battle-info.mine {
+  right: 4%;
+  bottom: 6%;
 }
 
 .battle-info small {
@@ -3480,33 +3493,56 @@ button.seat:disabled {
 .battle-hp-fill {
   height: 100%;
   background: var(--hero-hp);
-  transition: width 400ms ease-out;
+  transition: width 500ms ease-out;
 }
 
 .battle-hp-fill.low {
   background: var(--hero-hp-low);
 }
 
+/* Where each figure stands: on a flat ellipse of ground. */
+.battle-spot {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.battle-spot.foe {
+  top: 8%;
+  right: 8%;
+}
+
+.battle-spot.mine {
+  bottom: 6%;
+  left: 6%;
+}
+
+.battle-platform {
+  position: absolute;
+  bottom: -6px;
+  width: 130%;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--fill-2);
+}
+
+.battle-spot.mine .stickman {
+  width: 84px;
+  height: 140px;
+}
+
 .battle-figure {
   position: relative;
-  justify-self: center;
   transition: transform 200ms ease-out, opacity 250ms ease-out;
 }
 
-.battle-figure.mine {
-  grid-area: fig-mine;
+.battle-spot.mine .battle-figure.lunge {
+  transform: translate(40px, -24px);
 }
 
-.battle-figure.foe {
-  grid-area: fig-foe;
-}
-
-.battle-figure.mine.lunge {
-  transform: translateX(28px);
-}
-
-.battle-figure.foe.lunge {
-  transform: translateX(-28px);
+.battle-spot.foe .battle-figure.lunge {
+  transform: translate(-40px, 24px);
 }
 
 /* The swing: the front arm thrown straight out. */
@@ -3518,12 +3554,12 @@ button.seat:disabled {
   animation: battle-struck 350ms ease-out;
 }
 
-.battle-figure.foe.struck {
-  --knock: 14px;
+.battle-spot.foe .battle-figure.struck {
+  --knock: 16px;
 }
 
-.battle-figure.mine.struck {
-  --knock: -14px;
+.battle-spot.mine .battle-figure.struck {
+  --knock: -16px;
 }
 
 .battle-figure.down {
@@ -3539,9 +3575,10 @@ button.seat:disabled {
 
 .battle-pop {
   position: absolute;
-  top: -8px;
+  top: -12px;
   left: 50%;
   translate: -50% 0;
+  font-size: var(--fs-md);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   animation: battle-pop 900ms ease-out forwards;
@@ -3549,28 +3586,42 @@ button.seat:disabled {
 
 .battle-pop.crit {
   color: var(--danger);
-  font-size: var(--fs-lg);
+  font-size: var(--fs-xl);
 }
 
 @keyframes battle-pop {
   to {
     opacity: 0;
-    transform: translateY(-24px);
+    transform: translateY(-28px);
   }
 }
 
-/* Each skill's show, between the two figures. */
-.battle-show {
+/* A skill's show, big in the middle of the screen; taps go through to the text box. */
+.battle-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
   display: grid;
-  grid-area: show;
   place-items: center;
-  min-height: 110px;
+  background: rgb(0 0 0 / 0.18);
+  pointer-events: none;
+  animation: overlay-in 200ms ease-out;
+}
+
+@keyframes overlay-in {
+  from {
+    opacity: 0;
+  }
 }
 
 .show-readout {
-  margin-top: 4px;
-  color: var(--label-2);
-  font-size: var(--fs-cap);
+  margin-top: 12px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--label);
+  font-size: var(--fs-lg);
+  font-weight: 650;
   font-variant-numeric: tabular-nums;
   text-align: center;
   opacity: 0;
@@ -3589,8 +3640,8 @@ button.seat:disabled {
 }
 
 .show-clock svg {
-  width: 88px;
-  height: 88px;
+  width: min(70vw, 280px);
+  height: min(70vw, 280px);
 }
 
 .clock-face {
@@ -3636,9 +3687,11 @@ button.seat:disabled {
 }
 
 .light-bulb {
-  width: 64px;
-  height: 64px;
+  width: 180px;
+  height: 180px;
+  border: 6px solid var(--surface);
   border-radius: 50%;
+  box-shadow: var(--shadow-2);
   transition: background-color 80ms;
 }
 
@@ -3656,13 +3709,13 @@ button.seat:disabled {
 
 @keyframes bulb-flash {
   50% {
-    transform: scale(1.25);
+    transform: scale(1.15);
   }
 }
 
 .spin-wheel {
-  width: 116px;
-  height: 116px;
+  width: min(75vw, 300px);
+  height: min(75vw, 300px);
 }
 
 .spin-rim {
@@ -3709,15 +3762,18 @@ button.seat:disabled {
 
 .show-cards {
   display: flex;
-  gap: 8px;
+  gap: 20px;
 }
 
 .show-card-wrap {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
-  font-size: var(--fs-cap);
+  gap: 8px;
+  padding: 4px 10px;
+  border-radius: var(--r-md);
+  background: var(--surface);
+  font-weight: 600;
 }
 
 /* A playing card: its back and face stacked, turned over with a 3D flip. */
@@ -3740,7 +3796,8 @@ button.seat:disabled {
 }
 
 .pk-card.big {
-  width: 44px;
+  width: 96px;
+  font-size: var(--fs-xl);
   transition: transform 300ms ease-out;
 }
 
@@ -3824,9 +3881,14 @@ button.seat:disabled {
   gap: 8px;
 }
 
-.battle-menu .button {
+.battle-menu .skill-button {
   flex-direction: column;
   gap: 2px;
+  min-height: 64px;
+}
+
+.skill-button strong {
+  font-size: var(--fs-base);
 }
 
 .battle-menu small {
@@ -3916,12 +3978,6 @@ button.seat:disabled {
   outline: 3px solid var(--accent);
 }
 
-.hero-log .row {
-  min-height: 0;
-  padding: 8px 14px;
-  font-size: var(--fs-sm);
-}
-
 .hero-result {
   margin: 0;
   text-align: center;
@@ -3933,6 +3989,7 @@ button.seat:disabled {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .battle-overlay,
   .battle-figure,
   .battle-figure.struck,
   .battle-pop,

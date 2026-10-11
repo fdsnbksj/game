@@ -1,28 +1,34 @@
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
-import { Sheet } from '../../components/Sheet';
 import { pokerDeck, RANKS, rankName, seconds, SPEED_MAX_MS, speedDelay, stopwatchTarget, VISIBLE_MS, WHEEL, type Move } from '../../games/hero/skills';
 import { ready, type HeroState, type Side, type Turn } from '../../games/hero/state';
-import { cooldownOf, SKILLS, type SkillId } from '../../games/hero/stats';
+import { SKILLS, type SkillId } from '../../games/hero/stats';
 import { Stickman } from './Stickman';
 
-// One fight on screen between two friends: two stick figures, you on the left, each under
-// its name and HP, and between them each skill's show (the stopwatch's clock, the reaction
-// light, the roulette wheel, the two cards turning over). Then a text box that tells each
-// turn line by line and becomes your skills. The screen only collects a move; the game
-// (src/games/hero) decides what it does.
+// One fight on screen between two friends, laid out like a handheld creature battle: the
+// other side's box top left and their stick figure top right, yours bottom left with your
+// box bottom right. While a turn plays, its skill's show (the stopwatch's clock, the
+// reaction light, the roulette wheel, the two cards) fills the middle of the screen, then
+// the hit lands on the field. Under it a text box tells the turn and becomes your four
+// skills. The screen only collects a move; the game (src/games/hero) decides what it does.
 
 export const SKILL_NAME: Record<SkillId, string> = { stopwatch: 'Stopwatch', speed: 'I’m Speed', roulette: 'Roulette', poker: 'Poker' };
+
+/** One plain line under each skill's button. */
+const SKILL_HINT: Record<SkillId, string> = { stopwatch: 'Stop near the time', speed: 'Tap on green', roulette: 'Pick a number', poker: 'Pick a card' };
 
 /** How long each line of the text box stays before the next. */
 const LINE_MS = 1000;
 /** How long the attacker's swing takes before the hit lands. */
 const SWING_MS = 350;
-/** Each skill's show over the field, until the hit lands. */
-const SHOW_MS: Record<Turn['skill'], number> = { stopwatch: 1900, speed: 1500, roulette: 2900, poker: 1600, rest: 900 };
+/** Each turn's length until the hit lands; the skill's show fills the screen until the swing just before it. */
+const SHOW_MS: Record<Turn['skill'], number> = { stopwatch: 2400, speed: 2100, roulette: 3400, poker: 2500, rest: 900 };
 /** The roulette wheel's spin. */
 const SPIN_MS = 2400;
 /** A picked card turns over, then the move goes. */
 const FLIP_MS = 700;
+/** A tap on the text box skips the turn only after this long, so the click that follows a
+ * Stop or a Tap (those act on pointerdown) can't skip the turn it just sent. */
+const SKIP_AFTER_MS = 600;
 
 export function Fight({
   state,
@@ -52,7 +58,6 @@ export function Fight({
   const [skill, setSkill] = useState<SkillId | null>(null);
   // Once a skill has started (the stopwatch running, a card picked) there's no going back.
   const [committed, setCommitted] = useState(false);
-  const [log, setLog] = useState(false);
   // A new turn: back to the menu.
   useEffect(() => {
     setSkill(null);
@@ -74,14 +79,17 @@ export function Fight({
   const pop = playing && show.hit && turn && (turn.damage > 0 || turn.kill) ? (turn.kill ? 'KO!' : `−${turn.damage}`) : null;
   const fighter = (side: Side) => (
     <>
-      <InfoBox area={side === me ? 'info-mine' : 'info-foe'} name={side === me ? 'You' : names[side]} hp={hp[side]} max={state.stats[side].hp} />
-      <div className={`battle-figure ${side === me ? 'mine' : 'foe'}${pose(side)}`}>
-        {pop && turn!.by !== side && (
-          <span key={`pop${state.log.length}`} className={`battle-pop${turn!.crit || turn!.kill ? ' crit' : ''}`}>
-            {pop}
-          </span>
-        )}
-        <Stickman flip={side !== me} />
+      <InfoBox mine={side === me} name={side === me ? 'You' : names[side]} hp={hp[side]} max={state.stats[side].hp} />
+      <div className={`battle-spot ${side === me ? 'mine' : 'foe'}`}>
+        <span className="battle-platform" />
+        <div className={`battle-figure${pose(side)}`}>
+          {pop && turn!.by !== side && (
+            <span key={`pop${state.log.length}`} className={`battle-pop${turn!.crit || turn!.kill ? ' crit' : ''}`}>
+              {pop}
+            </span>
+          )}
+          <Stickman flip={side !== me} />
+        </div>
       </div>
     </>
   );
@@ -90,10 +98,15 @@ export function Fight({
   return (
     <div className="battle">
       <div className="battle-field">
-        {fighter(me)}
-        <div className="battle-show">{playing && turn && <SkillShow key={state.log.length} turn={turn} who={turn.by === me ? 'You' : names[turn.by]} other={turn.by === me ? names[them] : 'You'} />}</div>
         {fighter(them)}
+        {fighter(me)}
       </div>
+      {/* The skill's show, big in the middle of the screen, until the attacker swings. */}
+      {playing && turn && turn.skill !== 'rest' && show.t < show.current!.impact - SWING_MS && (
+        <div className="battle-overlay" aria-hidden="true">
+          <SkillShow key={state.log.length} turn={turn} who={turn.by === me ? 'You' : names[turn.by]} other={turn.by === me ? names[them] : 'You'} />
+        </div>
+      )}
 
       <div className="battle-box">
         {playing ? (
@@ -122,13 +135,15 @@ export function Fight({
         ) : skill ? (
           <>
             <SkillPlay key={`${state.log.length}:${skill}`} skill={skill} state={state} onMove={onMove} onCommit={() => setCommitted(true)} />
-            <button className="button ghost" disabled={committed} onClick={() => setSkill(null)}>
-              ‹ Another skill
-            </button>
+            {!committed && (
+              <button className="button ghost" onClick={() => setSkill(null)}>
+                ‹ Back
+              </button>
+            )}
           </>
         ) : (
           <>
-            <p className="battle-prompt">{canUse.length === 0 ? 'Every skill is resting.' : state.log.length ? 'Your turn.' : 'You go first.'}</p>
+            <p className="battle-prompt">{canUse.length === 0 ? 'Every skill is resting.' : state.log.length ? 'Your turn' : 'You go first'}</p>
             {canUse.length === 0 ? (
               <button className="button primary" onClick={() => onMove({ skill: 'rest' })}>
                 Catch your breath
@@ -137,10 +152,10 @@ export function Fight({
               <div className="battle-menu">
                 {SKILLS.map((s) => {
                   const left = state.cooldowns[me][s] ?? 0;
-                  const rest = cooldownOf(s);
                   return (
-                    <button key={s} className="button" disabled={left > 0} onClick={() => setSkill(s)}>
-                      {SKILL_NAME[s]} <small>{left ? `rests ${left} more` : rest ? `then rests ${rest}` : 'never rests'}</small>
+                    <button key={s} className="button skill-button" disabled={left > 0} onClick={() => setSkill(s)}>
+                      <strong>{SKILL_NAME[s]}</strong>
+                      <small>{left ? `Rests ${left} more` : SKILL_HINT[s]}</small>
                     </button>
                   );
                 })}
@@ -148,40 +163,25 @@ export function Fight({
             )}
           </>
         )}
-        <button className="button ghost battle-log" disabled={!state.log.length} onClick={() => setLog(true)}>
-          Fight log ({state.log.length})
-        </button>
       </div>
-      {log && (
-        <Sheet title="Fight log" onClose={() => setLog(false)}>
-          <ol className="group hero-log">
-            {[...state.log].reverse().map((t, i) => (
-              <li key={i} className="row">
-                <span>{describe(t, t.by === me ? 'You' : names[t.by])}</span>
-              </li>
-            ))}
-          </ol>
-          <button className="button" onClick={() => setLog(false)}>
-            Close
-          </button>
-        </Sheet>
-      )}
       {children}
     </div>
   );
 }
 
-function InfoBox({ area, name, hp, max }: { area: string; name: string; hp: number; max: number }) {
+function InfoBox({ mine, name, hp, max }: { mine: boolean; name: string; hp: number; max: number }) {
   const pct = Math.max(0, Math.round((hp * 100) / max));
   return (
-    <div className="battle-info" style={{ gridArea: area }}>
+    <div className={`battle-info ${mine ? 'mine' : 'foe'}`}>
       <strong>{name}</strong>
       <div className="battle-hp" role="meter" aria-label="HP" aria-valuemin={0} aria-valuemax={max} aria-valuenow={hp}>
         <div className={`battle-hp-fill${pct <= 20 ? ' low' : ''}`} style={{ width: `${pct}%` }} />
       </div>
-      <small>
-        {hp}/{max}
-      </small>
+      {mine && (
+        <small>
+          {hp}/{max}
+        </small>
+      )}
     </div>
   );
 }
@@ -286,7 +286,7 @@ function useShow(state: HeroState, names: [string, string], me: Side) {
 
   useEffect(() => {
     if (!current || t >= current.end) return;
-    const marks = [...current.lines.map((l) => l.at), current.impact - SWING_MS, current.impact, current.impact + 300, current.end];
+    const marks = [...current.lines.map((l) => l.at), SKIP_AFTER_MS, current.impact - SWING_MS, current.impact, current.impact + 300, current.end];
     const next = marks.filter((x) => x > t).sort((a, b) => a - b)[0];
     const timer = setTimeout(() => setT(next), next - t);
     return () => clearTimeout(timer);
@@ -299,19 +299,8 @@ function useShow(state: HeroState, names: [string, string], me: Side) {
     line: Math.max(0, line),
     hit: !!current && t >= current.impact,
     done: !current || t >= current.end,
-    skip: () => current && setT(current.end),
+    skip: () => current && t >= SKIP_AFTER_MS && setT(current.end),
   };
-}
-
-/** One line for the log. */
-function describe(t: Turn, who: string): string {
-  const d = t.detail;
-  const hit = t.kill ? 'instant kill!' : t.damage ? `${t.damage} damage${t.crit ? ' (crit)' : ''}` : 'no damage';
-  if (d.skill === 'stopwatch') return `${who}: Stopwatch ${secs(d.ms)} for ${secs(d.target)}, ${hit}`;
-  if (d.skill === 'speed') return d.ms < 0 ? `${who}: I’m Speed, too early, no damage` : `${who}: I’m Speed in ${secs(d.ms)}, ${hit}`;
-  if (d.skill === 'rest') return `${who}: caught their breath`;
-  if (d.skill === 'roulette') return `${who}: Roulette on ${d.pick}, ball on ${d.balls.join(', ')}, ${hit}`;
-  return `${who}: Poker ${rankName(d.mine)} vs ${rankName(d.theirs)}, ${hit}`;
 }
 
 const secs = (ms: number) => `${(ms / 1000).toFixed(2)} s`;
