@@ -72,9 +72,6 @@ export function Zone() {
               )}
               {game.id === 'hero' && (
                 <div className="stage-extra">
-                  <Link className="button ghost" to="/hero/arena">
-                    Arena
-                  </Link>
                   <Link className="button ghost" to="/hero/online">
                     Play a friend
                   </Link>

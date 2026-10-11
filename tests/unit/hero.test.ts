@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import { DEFENDER_SPREAD, MAX_DELTA, pickOpponent, ratingChange, tierOf } from '../../src/games/hero/arena';
 import { BOT_LEVELS, botFighter, botMove, sparringTree, spendPoints } from '../../src/games/hero/bots';
 import { ATTACKS, BURN_PCT, isAttack, resolveAttack, type Kit } from '../../src/games/hero/monsters';
 import { accuracyPct, afterDef, punchPower, resolve, rouletteBalls, seconds, speedDelay, speedPct, speedPower, stopwatchTarget, WHEEL, type Move } from '../../src/games/hero/skills';
@@ -461,47 +460,5 @@ describe('the bot ladder', () => {
       expect(wins / 150, `level ${bot.level}`).toBeGreaterThan(0.3);
       if (bot.boss) expect(wins / 150, `boss ${bot.level}`).toBeLessThan(0.95);
     }
-  });
-});
-
-describe('the arena', () => {
-  it('moves a rating by 5 to 35, 20 between equals, more for an upset', () => {
-    expect(ratingChange(1000, 1000, true)).toBe(20);
-    expect(ratingChange(1000, 1000, false)).toBe(-20);
-    expect(ratingChange(1000, 1200, true)).toBe(28);
-    expect(ratingChange(1200, 1000, false)).toBe(-28);
-    expect(ratingChange(1000, 3000, true)).toBe(MAX_DELTA);
-    expect(ratingChange(3000, 1000, true)).toBe(5);
-    for (let mine = 600; mine <= 2400; mine += 37)
-      for (let theirs = 600; theirs <= 2400; theirs += 53)
-        for (const won of [true, false]) {
-          const d = ratingChange(mine, theirs, won);
-          expect(Math.abs(d)).toBeGreaterThanOrEqual(5);
-          expect(Math.abs(d)).toBeLessThanOrEqual(MAX_DELTA);
-          expect(d > 0).toBe(won);
-          expect(Number.isInteger(d)).toBe(true);
-        }
-  });
-
-  it('names tiers by rating', () => {
-    expect([0, 1099, 1100, 1249, 1250, 1400, 1599, 1600, 2500].map(tierOf)).toEqual([
-      'Bronze', 'Bronze', 'Silver', 'Silver', 'Gold', 'Platinum', 'Platinum', 'Diamond', 'Diamond',
-    ]);
-  });
-
-  it('never picks you, and the same seed picks the same opponent', () => {
-    const heroes = ['me', 'a', 'b', 'c'].map((uid) => ({ uid, name: uid, tree: FRESH_TREE, rating: 1000 }));
-    for (let i = 0; i < 50; i++) {
-      const picked = pickOpponent(heroes, 'me', `s${i}`);
-      expect(picked?.uid).not.toBe('me');
-      expect(pickOpponent(heroes, 'me', `s${i}`)).toBe(picked);
-    }
-    expect(pickOpponent(heroes.slice(0, 1), 'me', 'x')).toBeNull();
-  });
-
-  it('plays a defender with the arena accuracy to the end', () => {
-    const defender = tree({ stopwatch: 4, roulette: 2, poker: 2, hp: 3 });
-    const fight = fightOut('arena', tree({ stopwatch: 3, roulette: 2, poker: 1 }), { name: 'D', tree: defender }, DEFENDER_SPREAD);
-    expect(fight.winner).not.toBeNull();
   });
 });

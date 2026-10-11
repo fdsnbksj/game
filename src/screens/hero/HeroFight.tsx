@@ -6,14 +6,11 @@ import { replay, type HeroState } from '../../games/hero/state';
 import { BOT_COUNT, heroLevel } from '../../games/hero/stats';
 import { BOT_PLAYERS, botLevel, useHeroStore, type BotFight } from '../../heroStore';
 import { useGameStore } from '../../store';
-import { useWardrobeStore } from '../../wardrobeStore';
-import { ResultTitle } from './ResultTitle';
 import { Fight, turnShowMs, useBotTurn } from './Fight';
 
 interface Ended {
   fight: BotFight;
   points: number;
-  gems: number;
 }
 
 /** A fight against one bot level, saved move by move, so it reopens where it was left. */
@@ -43,10 +40,8 @@ function BotFightView({
   const cleared = useHeroStore((s) => s.cleared);
   const name = useGameStore((s) => s.player?.displayName ?? 'You');
   const bot = botLevel(fight.level);
-  const lookNow = useWardrobeStore((s) => s.look);
-  const look = useMemo(() => ({ look: lookNow, costume: fight.costume ?? null }), [lookNow, fight.costume]);
   const state: HeroState = useMemo(
-    () => replay(fight.seed, [{ name, tree: fight.tree, loadout: fight.loadout, costume: fight.costume }, botFighter(bot)], BOT_PLAYERS, fight.moves),
+    () => replay(fight.seed, [{ name, tree: fight.tree, loadout: fight.loadout }, botFighter(bot)], BOT_PLAYERS, fight.moves),
     [fight, bot, name],
   );
 
@@ -55,7 +50,7 @@ function BotFightView({
   // Over: count it once, after the last hit has shown.
   useEffect(() => {
     if (state.winner === null || ended) return;
-    const t = setTimeout(() => onEnd({ fight, ...endFight(state.winner === 0) }), turnShowMs(state) + 400);
+    const t = setTimeout(() => onEnd({ fight, points: endFight(state.winner === 0) }), turnShowMs(state) + 400);
     return () => clearTimeout(t);
   }, [state.winner, ended, fight, endFight, onEnd]);
 
@@ -72,19 +67,16 @@ function BotFightView({
         me={0}
         names={[name, bot.name]}
         levels={[heroLevel(fight.tree), bot.level]}
-        foe={{ kind: 'creature', family: bot.kit.family, level: bot.level, boss: bot.boss }}
-        look={look}
-        onMove={(move) => play('me', move)} waiting={`${bot.name} is thinking…`}>
+        boss={bot.boss}
+        onMove={(move) => play('me', move)}
+        waiting={`${bot.name} is thinking…`}
+      >
         {ended && (
           <div className="overlay">
             <div className="panel" role="dialog" aria-label="Fight over">
-              <ResultTitle won={won} n={fight.moves.length} />
-              <p className="hero-result">{won ? `You beat ${bot.name}` : `${bot.name} wins this time`}</p>
-              {(ended.points > 0 || ended.gems > 0) && (
-                <p className="hero-reward">
-                  {[ended.points > 0 && `+${ended.points} skill ${ended.points === 1 ? 'point' : 'points'}`, ended.gems > 0 && `+${ended.gems} gems`].filter(Boolean).join(' · ')}
-                </p>
-              )}
+              <h2>{won ? 'You win' : 'You lose'}</h2>
+              <p className="hero-result">{won ? `You beat ${bot.name}.` : `${bot.name} wins this time.`}</p>
+              {ended.points > 0 && <p className="hero-reward">+{ended.points} skill {ended.points === 1 ? 'point' : 'points'}</p>}
               {won && ended.points > 0 ? (
                 <Link className="button primary" to="/hero/tree">
                   Spend in the skill tree
@@ -104,7 +96,7 @@ function BotFightView({
                 </button>
               )}
               <Link className="button ghost" to="/">
-                Back to your hero
+                Home
               </Link>
             </div>
           </div>

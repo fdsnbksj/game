@@ -1,16 +1,12 @@
 import { useState, type FormEvent } from 'react';
-import { Link } from 'react-router';
 import { Page } from '../components/Page';
 import { reloadFresh } from '../reload';
 import { accountError, createAccount, resetPassword, signIn, signOut } from '../services/account';
 import { renamePlayer } from '../services/players';
 import { useGameStore } from '../store';
-import { tierOf } from '../games/hero/arena';
-import { COSTUMES } from '../games/hero/costumes';
 import { BOT_COUNT, heroLevel } from '../games/hero/stats';
 import { useHeroStore } from '../heroStore';
-import { useWardrobeStore } from '../wardrobeStore';
-import { HeroFigure } from './hero/Avatar';
+import { Stickman } from './hero/Stickman';
 
 export function Account() {
   const uid = useGameStore((s) => s.uid);
@@ -63,49 +59,18 @@ export function Account() {
   );
 }
 
-/** You at a glance: your hero, its level, the arena, gems and the costumes you've got. */
+/** You at a glance: your hero, its level and how far up the bot ladder it is. */
 function ProfileCard() {
   const name = useGameStore((s) => s.player?.displayName ?? 'Traveller');
   const tree = useHeroStore((s) => s.tree);
   const cleared = useHeroStore((s) => s.cleared);
-  const arena = useHeroStore((s) => s.arena);
-  const look = useWardrobeStore((s) => s.look);
-  const costume = useWardrobeStore((s) => s.costume);
-  const gems = useWardrobeStore((s) => s.gems);
-  const owned = useWardrobeStore((s) => s.owned);
-  const costumes = owned.filter((o) => o.startsWith('costume:')).length;
   return (
     <section className="profile-card">
-      <Link to="/hero/wardrobe" className="profile-figure" aria-label="Change your look">
-        <HeroFigure appearance={{ look, costume }} />
-      </Link>
+      <Stickman />
       <strong className="profile-name">{name}</strong>
-      <div className="profile-stats">
-        <span>
-          <b>{heroLevel(tree)}</b>
-          <small>Level</small>
-        </span>
-        <span>
-          <b>
-            {cleared}/{BOT_COUNT}
-          </b>
-          <small>Ladder</small>
-        </span>
-        <span>
-          <b>{arena ? arena.rating : '—'}</b>
-          <small>{arena ? tierOf(arena.rating) : 'Arena'}</small>
-        </span>
-        <span>
-          <b>{gems}</b>
-          <small>Gems</small>
-        </span>
-        <span>
-          <b>
-            {costumes}/{COSTUMES.length}
-          </b>
-          <small>Costumes</small>
-        </span>
-      </div>
+      <p className="note">
+        Hero Lv {heroLevel(tree)} · Bot ladder {cleared}/{BOT_COUNT}
+      </p>
     </section>
   );
 }

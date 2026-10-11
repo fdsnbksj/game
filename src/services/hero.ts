@@ -1,6 +1,5 @@
 import { FirebaseError } from 'firebase/app';
 import type { Unsubscribe } from 'firebase/firestore';
-import { appearanceOf, type Appearance } from '../games/hero/look';
 import type { Move } from '../games/hero/skills';
 import type { Recorded } from '../games/hero/state';
 import { defaultLoadout, FRESH_TREE, validLoadout, validTree, type SkillId, type Tree } from '../games/hero/stats';
@@ -24,8 +23,6 @@ export interface HeroDoc {
   resets: number;
   /** The skills the hero fights with. */
   loadout: SkillId[];
-  /** What the hero wears, shown to opponents. */
-  appearance: Appearance;
 }
 
 /** A hero doc as read: `legacy` when it's from before the prices and gets its one free refund. */
@@ -45,7 +42,7 @@ export async function fetchHero(uid: string): Promise<ServerHero | null> {
   // A tree that doesn't fit the prices (one from before them) comes back as a fresh one.
   const tree = validTree(d.tree, d.cleared, resets) ?? FRESH_TREE;
   const loadout = validLoadout(d.loadout, tree) ?? defaultLoadout(tree);
-  return { cleared: d.cleared, tree, resets, loadout, appearance: appearanceOf(d.look, d.costume), legacy };
+  return { cleared: d.cleared, tree, resets, loadout, legacy };
 }
 
 /** One write: the rules let `cleared` go up by at most one at a time. */
@@ -55,8 +52,6 @@ export async function writeHero(uid: string, hero: HeroDoc) {
     tree: hero.tree,
     resets: hero.resets,
     loadout: hero.loadout,
-    look: hero.appearance.look,
-    costume: hero.appearance.costume,
     updatedAt: rest.serverTimestamp(),
   });
 }
@@ -70,8 +65,6 @@ export interface HeroRoom {
   names: Record<string, string>;
   /** Each player's tree, as it was on their hero when they came in. */
   fighters: Record<string, Tree>;
-  /** Each player's look and costume, from their hero doc too. */
-  looks: Record<string, Appearance>;
   /** Each player's loadout, from their hero doc too. */
   loadouts: Record<string, SkillId[]>;
   status: 'lobby' | 'playing' | 'done';
@@ -88,16 +81,15 @@ function me() {
 }
 
 /** `ready` puts your hero doc up to date first, since the rules check the tree (read after it) against it. */
-export async function createHeroRoom(heroTree: () => Tree, loadout: () => SkillId[], appearance: () => Appearance, ready: () => Promise<void>): Promise<string> {
+export async function createHeroRoom(heroTree: () => Tree, loadout: () => SkillId[], ready: () => Promise<void>): Promise<string> {
   const { uid, name } = me();
   await ready();
   const tree = heroTree();
   const loadouts = { [uid]: loadout() };
-  const looks = { [uid]: appearance() };
   for (let tries = 0; tries < 5; tries++) {
     const code = newCode();
     try {
-      await rest.setDoc(roomRest(code), { host: uid, playerIds: [uid], names: { [uid]: name }, fighters: { [uid]: tree }, looks, loadouts, status: 'lobby', createdAt: rest.serverTimestamp() });
+      await rest.setDoc(roomRest(code), { host: uid, playerIds: [uid], names: { [uid]: name }, fighters: { [uid]: tree }, loadouts, status: 'lobby', createdAt: rest.serverTimestamp() });
       return code;
     } catch (error) {
       if (!(error instanceof FirebaseError && error.code === 'permission-denied')) throw error;
@@ -107,7 +99,7 @@ export async function createHeroRoom(heroTree: () => Tree, loadout: () => SkillI
 }
 
 /** Joins as the second player. Returns why not, if you can't. */
-export async function joinHeroRoom(code: string, heroTree: () => Tree, loadout: () => SkillId[], appearance: () => Appearance, ready: () => Promise<void>): Promise<string | null> {
+export async function joinHeroRoom(code: string, heroTree: () => Tree, loadout: () => SkillId[], ready: () => Promise<void>): Promise<string | null> {
   const { uid, name } = me();
   const snap = await rest.getDoc(roomRest(code));
   if (!snap.exists()) return 'No room with that code.';
@@ -120,7 +112,6 @@ export async function joinHeroRoom(code: string, heroTree: () => Tree, loadout: 
     playerIds: [...room.playerIds, uid],
     names: { ...room.names, [uid]: name },
     fighters: { ...room.fighters, [uid]: tree },
-    looks: { ...(room.looks ?? {}), [uid]: appearance() },
     loadouts: { ...(room.loadouts ?? {}), [uid]: loadout() },
   });
   poke(`heroDuels/${code}`);
@@ -164,7 +155,6 @@ export function watchHeroRoom(code: string, uid: string, onChange: (data: HeroRo
       playerIds: d.playerIds as string[],
       names: d.names as Record<string, string>,
       fighters: d.fighters as Record<string, Tree>,
-      looks: Object.fromEntries(Object.entries((d.looks as Record<string, { look?: unknown; costume?: unknown }> | undefined) ?? {}).map(([k, v]) => [k, appearanceOf(v?.look, v?.costume)])),
       loadouts: (d.loadouts as Record<string, SkillId[]> | undefined) ?? {},
       status: d.status as HeroRoom['status'],
       seed: (d.seed as string | undefined) ?? null,

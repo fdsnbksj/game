@@ -12,7 +12,6 @@ import {
   type Effect,
   type Kit,
 } from './monsters';
-import { costumeOf, type CostumeId } from './costumes';
 import { isSkill, RANKS, resolve, SPEED_MAX_MS, WHEEL, type Hit, type Move } from './skills';
 import { cooldownOf, defaultLoadout, statsOf, validLoadout, type SkillId, type Stats, type Tree } from './stats';
 
@@ -34,8 +33,6 @@ export interface Fighter {
   tree: Tree;
   /** A bot creature's attacks, instead of skills. */
   kit?: Kit;
-  /** The costume a hero wears, for its bonus. */
-  costume?: CostumeId | null;
   /** The skills a hero brings (up to four); without one, its first four. */
   loadout?: SkillId[];
 }
@@ -73,11 +70,9 @@ export interface Recorded {
 }
 
 export function start(seed: string, fighters: [Fighter, Fighter]): HeroState {
-  const stats: [Stats, Stats] = [statsOf(fighters[0].tree, bonusOf(fighters[0])), statsOf(fighters[1].tree, bonusOf(fighters[1]))];
+  const stats: [Stats, Stats] = [statsOf(fighters[0].tree), statsOf(fighters[1].tree)];
   return { seed, fighters, stats, hp: [stats[0].hp, stats[1].hp], effects: [[], []], cooldowns: [{}, {}], turn: stream(`${seed}:first`)(2) as Side, pending: null, log: [], winner: null };
 }
-
-const bonusOf = (f: Fighter) => costumeOf(f.costume)?.bonus;
 
 export const other = (side: Side): Side => (side === 0 ? 1 : 0);
 

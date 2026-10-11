@@ -63,3 +63,22 @@ describe('retired Neon Flap data', () => {
     await assertFails(setDoc(doc(db, 'items', 'hat_cap'), { slot: 'hat', unlockScore: 0 }));
   });
 });
+
+// Hero Gambit's Summon (wardrobes) and arena were removed; their data stays, closed.
+describe('retired Hero Gambit wardrobes and arena', () => {
+  beforeEach(async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      const db = asModular(ctx.firestore());
+      await setDoc(doc(db, 'wardrobes', 'alice'), { gems: 900, owned: [], pity: 0 });
+      await setDoc(doc(db, 'arena', 'alice'), { name: 'Alice', rating: 1000, wins: 0, losses: 0 });
+    });
+  });
+
+  it('closes them to their owner too', async () => {
+    const db = dbFor('alice');
+    await assertFails(getDoc(doc(db, 'wardrobes', 'alice')));
+    await assertFails(setDoc(doc(db, 'wardrobes', 'alice'), { gems: 99999, owned: [], pity: 0 }));
+    await assertFails(getDoc(doc(db, 'arena', 'alice')));
+    await assertFails(updateDoc(doc(db, 'arena', 'alice'), { rating: 1035, wins: 1 }));
+  });
+});

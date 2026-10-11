@@ -1,18 +1,16 @@
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Sheet } from '../../components/Sheet';
 import { botMove } from '../../games/hero/bots';
 import { ATTACK_NAMES, ATTACKS, hasEffect, type EffectId } from '../../games/hero/monsters';
 import { RANKS, rankName, rouletteBalls, seconds, SPEED_MAX_MS, speedDelay, stopwatchTarget, VISIBLE_MS, WHEEL, type Move } from '../../games/hero/skills';
 import { enraged, ready, usable, type HeroState, type Side, type Turn } from '../../games/hero/state';
-import { cooldownOf, LOADOUT_SIZE, type SkillId } from '../../games/hero/stats';
-import { AttackFx, attackImpactMs, quakes } from './AttackFx';
-import type { Appearance } from '../../games/hero/look';
-import { Sprite, type SpriteSpec } from './Sprites';
+import type { SkillId } from '../../games/hero/stats';
+import { Stickman } from './Stickman';
 
-// One fight on screen, a bot's, an arena hero's or a friend's, laid out like a handheld
-// creature battle: the foe's box and the foe up top, your hero (from behind) and your box
-// below, and a text box under the thumb that tells each turn line by line, then becomes
-// your menu. The screen only collects a move; the game (src/games/hero) decides what it does.
+// One fight on screen, a bot's or a friend's: two stick figures side by side, you on the
+// left, each under its name, level and HP; then a text box that tells each turn line by
+// line and becomes your skills. The screen only collects a move; the game
+// (src/games/hero) decides what it does.
 
 export const SKILL_NAME: Record<SkillId, string> = { stopwatch: 'Stopwatch', speed: 'I’m Speed', roulette: 'Roulette', poker: 'Poker' };
 
@@ -20,17 +18,13 @@ const EFFECT_NAME: Record<EffectId, string> = { burn: 'Burn', weak: 'Weak', fog:
 
 /** How long each line of the text box stays before the next. */
 const LINE_MS = 1000;
-/** The roulette wheel's spin, and the gap between one ball and the next. */
-const SPIN_MS = 2400;
-const BALL_GAP = 140;
 
 export function Fight({
   state,
   me,
   names,
   levels,
-  foe,
-  look,
+  boss = false,
   onMove,
   waiting,
   locked = false,
@@ -42,10 +36,8 @@ export function Fight({
   names: [string, string];
   /** Fighter levels, in fighter order. */
   levels: [number, number];
-  /** How the other side is drawn. */
-  foe: SpriteSpec;
-  /** How you look. */
-  look: Appearance;
+  /** The other side is a boss: drawn bigger. */
+  boss?: boolean;
   /** Sends your move; only called on your turn. */
   onMove: (move: Move) => void;
   /** What the other side is doing while it's their turn. */
@@ -59,7 +51,7 @@ export function Fight({
   const show = useShow(state, names, me);
   const mine = state.turn === me && state.winner === null && !locked;
   const [skill, setSkill] = useState<SkillId | null>(null);
-  // Once the stopwatch is running there's no going back for another try at the same target.
+  // Once a skill has started (the stopwatch running, a card picked) there's no going back.
   const [committed, setCommitted] = useState(false);
   const [log, setLog] = useState(false);
   // A new turn: back to the menu.
@@ -83,143 +75,83 @@ export function Fight({
     if (turn.by !== side && show.hit && (turn.damage > 0 || turn.kill)) return ' struck';
     return '';
   };
-  // A creature's attack is drawn over the field, and a boss's heaviest shake it.
-  const attack = playing && turn?.detail.skill === 'attack' && !turn.detail.missed ? turn.detail : null;
-  const attacker = turn ? state.fighters[turn.by].kit : undefined;
-  const spot = (side: Side) => `${pose(side)}${enraged(state, side) ? ' enraged' : ''}`;
+  const pop = playing && show.hit && turn && (turn.damage > 0 || turn.kill) ? (turn.kill ? 'KO' : `−${turn.damage}`) : null;
+  const fighter = (side: Side) => (
+    <div className={`battle-side ${side === me ? 'mine' : 'foe'}`}>
+      <InfoBox name={side === me ? 'You' : names[side]} level={levels[side]} hp={hp[side]} max={state.stats[side].hp} effects={fx(side)} />
+      <div className={`battle-figure${pose(side)}${side !== me && boss ? ' boss' : ''}`}>
+        {pop && turn!.by !== side && (
+          <span key={`pop${state.log.length}`} className={`battle-pop${turn!.crit || turn!.kill ? ' crit' : ''}`}>
+            {pop}
+          </span>
+        )}
+        <Stickman flip={side !== me} />
+      </div>
+    </div>
+  );
   // Your loadout, in its order, each with the turns it still sits out.
   const loadout = usable(state.fighters[me]);
   const canUse = ready(state, me);
 
   return (
     <div className="battle">
-      <div className={`battle-field${attack && show.hit && quakes(attack.id, !!attacker?.enrage) ? ' quake' : ''}`}>
-        <InfoBox name={names[them]} level={levels[them]} hp={hp[them]} max={state.stats[them].hp} effects={fx(them)} foe />
-        <div className={`battle-spot foe${spot(them)}`}>
-          <span className="battle-platform" />
-          <Sprite spec={foe} />
-        </div>
-        <div className={`battle-spot mine${spot(me)}`}>
-          <span className="battle-platform" />
-          <Sprite spec={{ kind: 'hero', appearance: look }} back />
-        </div>
-        <InfoBox name="You" level={levels[me]} hp={hp[me]} max={state.stats[me].hp} effects={fx(me)} numbers />
-        <button className="battle-log-btn" disabled={!state.log.length} onClick={() => setLog(true)} aria-label={`Fight log, ${state.log.length} turns`}>
-          <LogIcon />
-          {state.log.length > 0 && <small>{state.log.length}</small>}
-        </button>
-        {attack && attacker && <AttackFx key={`fx${state.log.length}`} id={attack.id} family={attacker.family} boss={attacker.enrage} />}
-        {playing && show.hit && turn && (turn.damage > 0 || turn.kill) && (
-          <span key={`pop${state.log.length}`} className={`battle-pop ${turn.by === me ? 'at-foe' : 'at-mine'}${turn.crit || turn.kill ? ' crit' : ''}`}>
-            {turn.kill ? 'KO!' : `−${turn.damage}`}
-          </span>
-        )}
-        {playing && show.hit && turn && stampOf(turn) && (
-          <span key={`meme${state.log.length}`} className="battle-meme">
-            {stampOf(turn)}
-          </span>
-        )}
-        {playing && turn?.detail.skill === 'roulette' && <RouletteSpin key={`spin${state.log.length}`} pick={turn.detail.pick} balls={turn.detail.balls} />}
-        {playing && turn?.detail.skill === 'poker' && (
-          <PokerReveal
-            key={`poker${state.log.length}`}
-            detail={turn.detail}
-            mine={turn.by === me ? 'You' : names[turn.by]}
-            chose={turn.by !== me}
-            theirs={turn.by === me ? names[them] : 'You'}
-          />
-        )}
-        {playing && turn?.detail.skill === 'speed' && show.line >= 1 && (
-          <div className="battle-show light">
-            <p className={`battle-stop${turn.detail.flash ? ' flash' : ''}`}>
-              {turn.detail.ms < 0 ? 'Too early!' : secs(turn.detail.ms)}
-              <small>reaction</small>
-            </p>
-          </div>
-        )}
-        {playing && turn?.detail.skill === 'stopwatch' && show.line >= 1 && (
-          <div className="battle-show light">
-            <p className="battle-stop">
-              {secs(turn.detail.ms)}
-              <small>target {seconds(turn.detail.target)} s</small>
-            </p>
-          </div>
-        )}
+      <div className="battle-field">
+        {fighter(me)}
+        {fighter(them)}
       </div>
 
       <div className="battle-box">
         {playing ? (
           <button className="battle-text" onClick={show.skip} aria-label="Skip ahead">
             {show.current!.lines.slice(0, show.line + 1).slice(-2).map((l, i, shown) => (
-              <span key={show.line - shown.length + 1 + i} className={i === shown.length - 1 ? 'new' : ''}>
-                {l.text}
-              </span>
+              <span key={show.line - shown.length + 1 + i}>{l.text}</span>
             ))}
           </button>
         ) : state.winner !== null ? (
-          <p className="battle-text static">{state.winner === me ? 'You win!' : `${names[them]} wins.`}</p>
+          <p className="battle-text">{state.winner === me ? 'You win!' : `${names[them]} wins.`}</p>
         ) : !mine ? (
-          <p className="battle-text static">{state.pending?.by === me && !locked ? `${names[them]} is picking a card…` : waiting}</p>
+          <p className="battle-text">{state.pending?.by === me && !locked ? `${names[them]} is picking a card…` : waiting}</p>
         ) : state.pending ? (
-          <div className="battle-play">
-            <PokerPick
-              key={`answer${state.log.length}`}
-              taken={state.pending.pick}
-              takenBy={names[them]}
-              onPick={(pick) => onMove({ skill: 'card', pick })}
-              onCommit={() => setCommitted(true)}
-            />
-          </div>
+          <PokerPick
+            key={`answer${state.log.length}`}
+            taken={state.pending.pick}
+            takenBy={names[them]}
+            onPick={(pick) => onMove({ skill: 'card', pick })}
+            onCommit={() => setCommitted(true)}
+          />
         ) : skill ? (
-          <div className="battle-play">
+          <>
             <SkillPlay key={`${state.log.length}:${skill}`} skill={skill} state={state} me={me} onMove={onMove} onCommit={() => setCommitted(true)} />
-            <button className="battle-back" disabled={committed} onClick={() => setSkill(null)}>
+            <button className="button ghost" disabled={committed} onClick={() => setSkill(null)}>
               ‹ Another skill
             </button>
-          </div>
+          </>
         ) : (
-          <div className="battle-menu-wrap">
+          <>
             <p className="battle-prompt">
-              {canUse.length === 0 ? 'Every skill is cooling down.' : state.log.length ? 'What will you do?' : 'You go first. What will you do?'}
+              {canUse.length === 0 ? 'Every skill is resting.' : state.log.length ? 'Your turn.' : 'You go first.'}
             </p>
             {canUse.length === 0 ? (
-              <button className="button primary hero-go" onClick={() => onMove({ skill: 'rest' })}>
+              <button className="button primary" onClick={() => onMove({ skill: 'rest' })}>
                 Catch your breath
               </button>
             ) : (
               <div className="battle-menu">
-                {Array.from({ length: LOADOUT_SIZE }, (_, i) => {
-                  const s = loadout[i];
-                  if (!s) return <span key={`empty${i}`} className="battle-cmd packet empty" aria-hidden="true" />;
+                {loadout.map((s) => {
                   const left = state.cooldowns[me][s] ?? 0;
-                  const rest = cooldownOf(s);
-                  // A seed packet: a resting skill is shaded from the top by the share of its rest still to go.
                   return (
-                    <button
-                      key={s}
-                      className={`battle-cmd packet ${s}${left ? ' cooling' : ''}`}
-                      style={{ '--recharge': rest ? left / rest : 0 } as CSSProperties}
-                      disabled={left > 0}
-                      aria-label={`${SKILL_NAME[s]}, level ${state.fighters[me].tree[s]}${left ? `, rests ${left} more turn${left === 1 ? '' : 's'}` : rest ? `, then rests ${rest}` : ''}`}
-                      onClick={() => setSkill(s)}
-                    >
-                      <span className="packet-window">
-                        <SkillIcon skill={s} />
-                      </span>
-                      <strong>{SKILL_NAME[s]}</strong>
-                      <small className="packet-price">Lv {state.fighters[me].tree[s]}</small>
-                      {left > 0 && (
-                        <span className="packet-shade" aria-hidden="true">
-                          <b>{left}</b>
-                        </span>
-                      )}
+                    <button key={s} className="button" disabled={left > 0} onClick={() => setSkill(s)}>
+                      {SKILL_NAME[s]} <small>{left ? `rests ${left}` : `Lv ${state.fighters[me].tree[s]}`}</small>
                     </button>
                   );
                 })}
               </div>
             )}
-          </div>
+          </>
         )}
+        <button className="button ghost battle-log" disabled={!state.log.length} onClick={() => setLog(true)}>
+          Fight log ({state.log.length})
+        </button>
       </div>
       {log && (
         <Sheet title="Fight log" onClose={() => setLog(false)}>
@@ -240,34 +172,18 @@ export function Fight({
   );
 }
 
-function InfoBox({ name, level, hp, max, effects, foe, numbers }: { name: string; level: number; hp: number; max: number; effects: string[]; foe?: boolean; numbers?: boolean }) {
+function InfoBox({ name, level, hp, max, effects }: { name: string; level: number; hp: number; max: number; effects: string[] }) {
   const pct = Math.max(0, Math.round((hp * 100) / max));
   return (
-    <div className={`battle-info ${foe ? 'foe' : 'mine'}`}>
-      <div className="battle-info-top">
-        <strong>{name}</strong>
-        <span>Lv{level}</span>
+    <div className="battle-info">
+      <strong>{name}</strong> <small>Lv {level}</small>
+      <div className="battle-hp" role="meter" aria-label="HP" aria-valuemin={0} aria-valuemax={max} aria-valuenow={hp}>
+        <div className={`battle-hp-fill${pct <= 20 ? ' low' : ''}`} style={{ width: `${pct}%` }} />
       </div>
-      <div className="battle-hp">
-        <small>HP</small>
-        <div className="battle-hp-track">
-          <div className={`battle-hp-fill${pct <= 20 ? ' low' : pct <= 50 ? ' mid' : ''}`} style={{ width: `${pct}%` }} />
-        </div>
-      </div>
-      {(numbers || effects.length > 0) && (
-        <div className="battle-info-foot">
-          <span className="battle-fx">
-            {effects.map((e) => (
-              <i key={e}>{e}</i>
-            ))}
-          </span>
-          {numbers && (
-            <span className="battle-hp-num">
-              {hp}/{max}
-            </span>
-          )}
-        </div>
-      )}
+      <small>
+        {hp}/{max}
+        {effects.length > 0 && ` · ${effects.join(', ')}`}
+      </small>
     </div>
   );
 }
@@ -312,7 +228,7 @@ function plan(state: HeroState, names: [string, string], me: Side, before: [numb
     const kit = state.fighters[by].kit;
     opening.push(`${who(by)} used ${kit ? ATTACK_NAMES[kit.family][d.id] : d.id}!`);
     const attack = ATTACKS[d.id];
-    delay = d.missed ? 650 : attackImpactMs(d.id, !!kit?.enrage);
+    delay = d.missed ? 650 : d.id === 'finisher' ? 1100 : 800;
     if (d.missed) result.push(attack.power > 0 ? 'But it missed!' : 'But it didn’t work!');
     else if (attack.power > 0) hurt();
     if (d.healed > 0) result.push(`${who(by)} drained ${d.healed} HP.`);
@@ -329,7 +245,8 @@ function plan(state: HeroState, names: [string, string], me: Side, before: [numb
     hurt();
   } else if (d.skill === 'roulette') {
     opening.push(`${who(by)} used Roulette on ${d.pick}!`);
-    delay = SPIN_MS + Math.max(0, d.balls.length - 1) * BALL_GAP + 300;
+    opening.push(`The ${d.balls.length === 1 ? 'ball lands' : 'balls land'} on ${d.balls.join(', ')}…`);
+    delay = 1600;
     if (d.hit) result.push(`A ball landed on ${d.pick}! Instant kill!`);
     else {
       result.push(`No ball on ${d.pick}. A punch instead!`);
@@ -350,7 +267,7 @@ function plan(state: HeroState, names: [string, string], me: Side, before: [numb
   } else {
     opening.push(`${who(by)} used Poker!`);
     opening.push(`${target === me ? 'You take' : `${who(target)} takes`} a card…`);
-    delay = POKER_FLIP_MS + 500;
+    delay = 1400;
     result.push(`${rankName(d.mine)} against ${rankName(d.theirs)}.`);
     if (d.won) hurt();
     else result.push('Lower card. No damage.');
@@ -410,18 +327,6 @@ function useShow(state: HeroState, names: [string, string], me: Side) {
   };
 }
 
-/** A big moment gets a stamp across the field. */
-function stampOf(t: Turn): string | null {
-  const d = t.detail;
-  if (t.kill) return '🌱 UPROOTED!!';
-  if (d.skill === 'stopwatch' && d.perfect) return 'FULL BLOOM!!';
-  if (d.skill === 'speed') return d.ms < 0 ? 'TOO EARLY LOL' : d.flash ? 'I’M SPEED!!' : t.crit ? 'CRIT-TER!!' : null;
-  if (d.skill === 'poker') return d.won ? 'HIGH CARD HARVEST' : 'FOLDED LOL';
-  if (d.skill === 'attack' && d.missed) return 'WHIFF!';
-  if (t.crit) return 'CRIT-TER!!';
-  return null;
-}
-
 /** One line for the log. */
 function describe(state: HeroState, t: Turn, who: string): string {
   const d = t.detail;
@@ -440,7 +345,7 @@ function describe(state: HeroState, t: Turn, who: string): string {
 
 const secs = (ms: number) => `${(ms / 1000).toFixed(2)} s`;
 
-/** Side 1 is played by the bot brain (a bot creature, or another player's hero in the arena). */
+/** Side 1 is played by the bot brain. */
 export function useBotTurn(state: HeroState, spread: number, play: (move: Move) => void) {
   const latest = useRef(play);
   latest.current = play;
@@ -471,118 +376,33 @@ function SkillPlay({ skill, state, me, onMove, onCommit }: { skill: SkillId; sta
   return <PokerPick onPick={(pick) => onMove({ skill, pick })} onCommit={onCommit} />;
 }
 
-// ---------- Poker: thirteen cards, shuffled, then a pick ----------
-
-/** How long the deck shows face up, then how long the shuffle takes. */
-const POKER_SHOW_MS = 1300;
-const POKER_SHUFFLE_MS = 1300;
-/** In the reveal: when the two picked cards turn over. */
-const POKER_FLIP_MS = 1500;
-
-const ORDERED = Array.from({ length: RANKS }, (_, i) => i + 2);
-
-/** Where card `i` lies: seven on top, six under, as offsets from the middle in card widths. */
-const slot = (i: number) => (i < 7 ? { col: i - 3, row: -0.5 } : { col: i - 7 - 2.5, row: 0.5 });
+// ---------- Poker: thirteen face-down cards, pick one ----------
 
 /**
- * The deck shows 2 to A face up, turns over and shuffles; then you pick one. Answering the
- * other side's Poker, their card (`taken`, with its owner's name) is already out.
+ * Thirteen cards, 2 to A, face down in a seeded order; pick one. Answering the other side's
+ * Poker, their card (`taken`, with its owner's name) is already out.
  */
 function PokerPick({ onPick, onCommit, taken, takenBy }: { onPick: (pick: number) => void; onCommit: () => void; taken?: number; takenBy?: string }) {
-  const [phase, setPhase] = useState<'show' | 'shuffle' | 'pick'>('show');
-  useEffect(() => {
-    const a = setTimeout(() => setPhase('shuffle'), POKER_SHOW_MS);
-    const b = setTimeout(() => setPhase('pick'), POKER_SHOW_MS + POKER_SHUFFLE_MS);
-    return () => {
-      clearTimeout(a);
-      clearTimeout(b);
-    };
-  }, []);
   return (
     <div className="hero-play">
       <p className="note center-note">
-        {phase === 'show'
-          ? 'Thirteen cards, 2 to A…'
-          : phase === 'shuffle'
-            ? 'Shuffling…'
-            : taken !== undefined
-              ? `${takenBy} took a card. Pick yours: beat it and their hit misses.`
-              : 'Pick a card. They pick another; the higher card wins a big crit.'}
+        {taken !== undefined ? `${takenBy} took a card. Pick yours: beat it and their hit misses.` : 'Pick a card, 2 low to A high. They pick another; the higher card wins a big crit.'}
       </p>
-      <div className={`pk-table pk-${phase}`}>
-        {ORDERED.map((rank, i) => {
-          const { col, row } = slot(i);
-          // Each card's own path into the pile and back.
-          const style = { '--col': col, '--row': row, '--spin': `${((i * 47) % 40) - 20}deg`, '--wait': `${(i * 37) % 300}ms` } as CSSProperties;
-          const out = phase === 'pick' && i === taken;
-          return (
-            <button
-              key={i}
-              className={`pk-card${out ? ' theirs' : ''}`}
-              style={style}
-              disabled={phase !== 'pick' || out}
-              onClick={() => {
-                onCommit();
-                onPick(i);
-              }}
-              aria-label={phase === 'pick' ? `Card ${i + 1}` : rankName(rank)}
-            >
-              <span className={`pk-inner${phase === 'show' ? '' : ' down'}`}>
-                <span className="pk-face">{rankName(rank)}</span>
-                <span className="pk-back" />
-              </span>
-              {out && <small className="pk-who">{takenBy}</small>}
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-/** Over the field: the face-down deck, the attacker's pick, the defender's choosing, then both turn over. */
-function PokerReveal({ detail, mine, theirs, chose }: { detail: Extract<Turn['detail'], { skill: 'poker' }>; mine: string; theirs: string; chose: boolean }) {
-  const [hover, setHover] = useState<number | null>(null);
-  const [flipped, setFlipped] = useState(false);
-  const [all, setAll] = useState(false);
-  useEffect(() => {
-    // The defender's eye wanders over the other cards, then settles.
-    const others = ORDERED.map((_, i) => i).filter((i) => i !== detail.pick);
-    // You picked it yourself: no need to watch yourself choose.
-    const hops = chose ? [] : [3, 9, 1, 6, 11].map((k) => others[(k + detail.theirPick) % others.length]);
-    const timers = hops.map((h, k) => setTimeout(() => setHover(h), 250 + k * 180));
-    timers.push(setTimeout(() => setHover(detail.theirPick), 250 + hops.length * 180));
-    timers.push(setTimeout(() => setFlipped(true), POKER_FLIP_MS));
-    timers.push(setTimeout(() => setAll(true), POKER_FLIP_MS + 700));
-    return () => timers.forEach(clearTimeout);
-  }, [detail]);
-  return (
-    <div className="battle-show">
-      <div className="pk-table reveal">
-        {detail.deck.map((rank, i) => {
-          const { col, row } = slot(i);
-          const isAttacker = i === detail.pick;
-          const isDefender = i === detail.theirPick && hover === detail.theirPick;
-          const up = (flipped && (i === detail.pick || i === detail.theirPick)) || all;
-          const won = flipped && ((isAttacker && detail.won) || (i === detail.theirPick && !detail.won));
-          // Your card is ringed in gold, theirs in red, whoever attacked.
-          const yours = chose ? isDefender : isAttacker;
-          const foes = chose ? isAttacker : isDefender;
-          return (
-            <span
-              key={i}
-              className={`pk-card${yours ? ' picked' : ''}${foes ? ' theirs' : ''}${hover === i && !isDefender ? ' hover' : ''}${won ? ' won' : ''}${all && !isAttacker && i !== detail.theirPick ? ' dim' : ''}${row < 0 ? ' top' : ''}`}
-              style={{ '--col': col, '--row': row } as CSSProperties}
-            >
-              <span className={`pk-inner${up ? '' : ' down'}`}>
-                <span className="pk-face">{rankName(rank)}</span>
-                <span className="pk-back" />
-              </span>
-              {isAttacker && <small className="pk-who">{mine}</small>}
-              {i === detail.theirPick && hover === detail.theirPick && <small className="pk-who">{theirs}</small>}
-            </span>
-          );
-        })}
+      <div className="pk-table">
+        {Array.from({ length: RANKS }, (_, i) => (
+          <button
+            key={i}
+            className="pk-card"
+            disabled={i === taken}
+            onClick={() => {
+              onCommit();
+              onPick(i);
+            }}
+            aria-label={i === taken ? `Card ${i + 1}, taken` : `Card ${i + 1}`}
+          >
+            {i === taken ? '✕' : '?'}
+          </button>
+        ))}
       </div>
     </div>
   );
@@ -620,7 +440,7 @@ function Stopwatch({ target, fog, onStart, onStop }: { target: number; fog: bool
       </p>
       {startedAt === null ? (
         <button
-          className="button primary hero-go"
+          className="button primary"
           onPointerDown={() => {
             setStartedAt(performance.now());
             onStart();
@@ -629,7 +449,7 @@ function Stopwatch({ target, fog, onStart, onStop }: { target: number; fog: bool
           Start
         </button>
       ) : (
-        <button className="button primary hero-go stop" onPointerDown={() => onStop(Math.round(performance.now() - startedAt))}>
+        <button className="button primary" onPointerDown={() => onStop(Math.round(performance.now() - startedAt))}>
           Stop
         </button>
       )}
@@ -671,7 +491,7 @@ function SpeedPlay({ delay, onStart, onTap }: { delay: number; onStart: () => vo
       <div className="hero-play">
         <p className="note center-note">Tap Ready, then tap the light the moment it turns green. Faster hits harder; tap on red and you miss.</p>
         <button
-          className="button primary hero-go"
+          className="button primary"
           onClick={() => {
             onStart();
             setPhase('red');
@@ -689,7 +509,7 @@ function SpeedPlay({ delay, onStart, onTap }: { delay: number; onStart: () => vo
         else if (phase === 'green') send(Math.min(SPEED_MAX_MS, Math.max(0, Math.round(performance.now() - greenAt.current))));
       }}
     >
-      <strong>{phase === 'red' ? 'Wait for green…' : phase === 'green' ? 'TAP!!' : 'Sent'}</strong>
+      <strong>{phase === 'red' ? 'Wait for green…' : phase === 'green' ? 'Tap!' : 'Sent'}</strong>
     </button>
   );
 }
@@ -708,130 +528,9 @@ function RoulettePick({ balls, onPick }: { balls: number; onPick: (pick: number)
           </button>
         ))}
       </div>
-      <button className="button primary hero-go" disabled={pick === null} onClick={() => pick !== null && onPick(pick)}>
+      <button className="button primary" disabled={pick === null} onClick={() => pick !== null && onPick(pick)}>
         {pick === null ? `Pick a number · ${balls} ${balls === 1 ? 'ball' : 'balls'}` : `Spin on ${pick}`}
       </button>
     </div>
-  );
-}
-
-/** The pockets of a single-zero wheel, clockwise. */
-const POCKETS = [0, 32, 15, 19, 4, 21, 2, 25, 17, 34, 6, 27, 13, 36, 11, 30, 8, 23, 10, 5, 24, 16, 33, 1, 20, 14, 31, 9, 22, 18, 29, 7, 28, 12, 35, 3, 26];
-const STEP = 360 / POCKETS.length;
-
-const polar = (r: number, deg: number) => {
-  const a = ((deg - 90) * Math.PI) / 180;
-  return `${(r * Math.cos(a)).toFixed(2)} ${(r * Math.sin(a)).toFixed(2)}`;
-};
-
-/** The wheel spins one way, the balls the other, and each drops into its pocket. */
-function RouletteSpin({ pick, balls }: { pick: number; balls: number[] }) {
-  const wheel = useRef<SVGGElement>(null);
-  const runs = useRef<(SVGGElement | null)[]>([]);
-  const [landed, setLanded] = useState(false);
-  // Where the wheel stops: fixed for the turn, so a redraw never moves it.
-  const spin = 720 + ((pick * 47 + balls.length * 13) % 360);
-
-  useEffect(() => {
-    const timing = { duration: SPIN_MS, easing: 'cubic-bezier(0.12, 0.6, 0.2, 1)', fill: 'forwards' as const };
-    wheel.current?.animate([{ transform: 'rotate(0deg)' }, { transform: `rotate(${spin}deg)` }], timing);
-    balls.forEach((ball, i) => {
-      const run = runs.current[i];
-      if (!run) return;
-      const stop = spin + POCKETS.indexOf(ball) * STEP;
-      // Round the other way, at least two laps.
-      const end = stop - 360 * (Math.ceil(stop / 360) + 2);
-      const start = i * 33;
-      run.animate([{ transform: `rotate(${start}deg)` }, { transform: `rotate(${end}deg)` }], { ...timing, delay: i * BALL_GAP });
-      run.querySelector('.spin-ball')?.animate(
-        [{ transform: 'translateY(0)' }, { transform: 'translateY(0)', offset: 0.72 }, { transform: 'translateY(13px)' }],
-        { duration: SPIN_MS, delay: i * BALL_GAP, easing: 'ease-in', fill: 'forwards' },
-      );
-    });
-    const t = setTimeout(() => setLanded(true), SPIN_MS + Math.max(0, balls.length - 1) * BALL_GAP);
-    return () => clearTimeout(t);
-    // One spin per turn: the component is keyed by it.
-  }, []);
-
-  const hit = balls.includes(pick);
-  return (
-    <div className="battle-show">
-      <svg className={`spin-wheel${landed ? (hit ? ' hit' : ' landed') : ''}`} viewBox="-112 -112 224 224" aria-label={`Roulette on ${pick}`}>
-        <circle className="spin-rim" r="111" />
-        <circle className="spin-track" r="104" />
-        <g ref={wheel} className="spin-turn">
-          {POCKETS.map((n, i) => {
-            const a0 = i * STEP - STEP / 2;
-            const a1 = i * STEP + STEP / 2;
-            const ballHere = landed && balls.includes(n);
-            return (
-              <g key={n}>
-                <path
-                  className={`spin-pocket ${colourOf(n)}${n === pick ? ' picked' : ''}${ballHere ? ' ball' : ''}`}
-                  d={`M${polar(94, a0)} A94 94 0 0 1 ${polar(94, a1)} L${polar(70, a1)} A70 70 0 0 0 ${polar(70, a0)} Z`}
-                />
-                <text className="spin-num" transform={`rotate(${i * STEP}) translate(0 -82)`}>
-                  {n}
-                </text>
-              </g>
-            );
-          })}
-          <circle className="spin-cone" r="70" />
-          {[0, 90, 180, 270].map((a) => (
-            <path key={a} className="spin-spoke" d={`M0 0 L${polar(46, a)}`} />
-          ))}
-          <circle className="spin-hub" r="14" />
-        </g>
-        {balls.map((_, i) => (
-          <g
-            key={i}
-            ref={(el) => {
-              runs.current[i] = el;
-            }}
-            className="spin-run"
-          >
-            <circle r="111" fill="none" />
-            <circle className="spin-ball" cy="-99" r="5" />
-          </g>
-        ))}
-      </svg>
-    </div>
-  );
-}
-
-const LogIcon = () => (
-  <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">
-    <path d="M5 6h14M5 12h14M5 18h9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-  </svg>
-);
-
-export function SkillIcon({ skill }: { skill: SkillId }) {
-  if (skill === 'stopwatch')
-    return (
-      <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">
-        <circle cx="12" cy="13.5" r="7.5" fill="none" stroke="currentColor" strokeWidth="2" />
-        <path d="M12 13.5V9.5M10 2.5h4M12 2.5V6M18.5 6.5l1.5-1.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-      </svg>
-    );
-  if (skill === 'speed')
-    return (
-      <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">
-        <path d="M13.5 2 5 13.5h6L9.5 22 19 9.5h-6.5z" fill="currentColor" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round" />
-      </svg>
-    );
-  if (skill === 'roulette')
-    return (
-      <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">
-        <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" strokeWidth="2" />
-        <circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" strokeWidth="1.5" />
-        <path d="M12 3v5M12 16v5M3 12h5M16 12h5" stroke="currentColor" strokeWidth="1.5" />
-        <circle cx="17" cy="7" r="1.8" fill="currentColor" />
-      </svg>
-    );
-  return (
-    <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">
-      <rect x="4" y="4" width="11" height="16" rx="2" fill="none" stroke="currentColor" strokeWidth="2" transform="rotate(-10 9.5 12)" />
-      <rect x="9" y="4" width="11" height="16" rx="2" fill="currentColor" opacity="0.85" transform="rotate(8 14.5 12)" />
-    </svg>
   );
 }

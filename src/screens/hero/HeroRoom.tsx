@@ -8,9 +8,6 @@ import { heroReady, useHeroStore } from '../../heroStore';
 import { forgetRoom } from '../../lastPage';
 import { finishHeroRoom, joinHeroRoom, sendHeroMove, startHeroRoom, watchHeroRoom, type HeroRoom as Room, type HeroRoomData } from '../../services/hero';
 import { useGameStore } from '../../store';
-import { useWardrobeStore } from '../../wardrobeStore';
-import { PLAIN } from '../../games/hero/look';
-import { ResultTitle } from './ResultTitle';
 import { Fight, turnShowMs } from './Fight';
 
 /** A fight between two phones: each move is written to the room, and both replay them. */
@@ -45,7 +42,7 @@ function Gone({ text }: { text: string }) {
     <>
       <p className="note">{text}</p>
       <Link className="button" to="/">
-        Back to your hero
+        Home
       </Link>
     </>
   );
@@ -54,7 +51,7 @@ function Gone({ text }: { text: string }) {
 function NotIn({ room }: { room: Room }) {
   const [error, setError] = useState<string | null>(null);
   if (room.status !== 'lobby' || room.playerIds.length >= 2) return <Gone text="This fight is already under way." />;
-  const join = () => joinHeroRoom(room.code, () => useHeroStore.getState().tree, () => useHeroStore.getState().loadout, () => useWardrobeStore.getState().appearance(), heroReady);
+  const join = () => joinHeroRoom(room.code, () => useHeroStore.getState().tree, () => useHeroStore.getState().loadout, heroReady);
   return (
     <>
       <button className="button primary" onClick={() => void join().then(setError, (e) => setError(String(e)))}>
@@ -67,7 +64,7 @@ function NotIn({ room }: { room: Room }) {
 
 const fighterOf = (room: Room, uid: string): Fighter | null => {
   const tree = validTree(room.fighters?.[uid]);
-  return tree ? { name: room.names[uid] ?? 'Hero', tree, costume: room.looks[uid]?.costume ?? null, loadout: room.loadouts[uid] } : null;
+  return tree ? { name: room.names[uid] ?? 'Hero', tree, loadout: room.loadouts[uid] } : null;
 };
 
 function Lobby({ room, uid }: { room: Room; uid: string }) {
@@ -147,8 +144,6 @@ function Game({ room, moves, uid }: { room: Room; moves: HeroRoomData['moves']; 
         me={me}
         names={names}
         levels={[heroLevel(a.tree), heroLevel(b.tree)]}
-        foe={{ kind: 'hero', appearance: room.looks[players[them]] ?? PLAIN }}
-        look={room.looks[uid] ?? PLAIN}
         waiting={sending !== null ? 'Sending your move…' : `${names[them]} is choosing…`}
         locked={sending !== null}
         onMove={(move) => {
@@ -164,13 +159,13 @@ function Game({ room, moves, uid }: { room: Room; moves: HeroRoomData['moves']; 
         {state.winner !== null && over && (
           <div className="overlay">
             <div className="panel" role="dialog" aria-label="Fight over">
-              <ResultTitle won={state.winner === me} n={moves.length} />
-              <p className="hero-result">{state.winner === me ? `You beat ${names[them]}` : `${names[them]} wins`}</p>
+              <h2>{state.winner === me ? 'You win' : 'You lose'}</h2>
+              <p className="hero-result">{state.winner === me ? `You beat ${names[them]}.` : `${names[them]} wins.`}</p>
               <Link className="button primary" to="/hero/online">
                 New fight
               </Link>
               <Link className="button ghost" to="/">
-                Back to your hero
+                Home
               </Link>
             </div>
           </div>

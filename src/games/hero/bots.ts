@@ -5,9 +5,9 @@ import { buy, BOT_COUNT, canBuy, FRESH_TREE, isBoss, pointsFor, spent, type Node
 import { ready, type Fighter, type HeroState, type Side } from './state';
 
 // The bot ladder: twenty levels, a boss every fifth. Each one is a creature with a kit of
-// attacks (monsters.ts) and stats from a fixed number of points. The bot brain here also
-// plays arena defenders, which are heroes with skills; `spread` is how far off their
-// stopwatch stops can be.
+// attacks (monsters.ts) and stats from a fixed number of points. The bot brain here can
+// also play a hero with skills (the tests do); `spread` is how far off its stopwatch stops
+// can be.
 
 export interface BotLevel {
   level: number;
@@ -61,7 +61,7 @@ const NAMES = [
 /**
  * The order a hero spends its points, as a player might: the stopwatch and some HP, Poker
  * once it opens, I'm Speed, then stats round and round. A node it can't afford yet is
- * skipped for now. The arena's stand-in hero and the ladder's test both spend this way.
+ * skipped for now. The ladder's test spends this way.
  */
 export const BUY_ORDER: NodeId[] = [
   'stopwatch', 'hp', 'stopwatch', 'poker', 'def', 'stopwatch', 'hp', 'crit', 'stopwatch', 'speed',
@@ -81,7 +81,7 @@ export function spendPoints(points: number): Tree {
   return tree;
 }
 
-/** A hero with what a player has by a level: the arena's sparring partner while it's empty. */
+/** A hero with what a player has by a level. */
 export const sparringTree = (level: number): Tree => spendPoints(pointsFor(level - 1) + (isBoss(level) ? 2 : 0));
 
 /** The order a creature spends its points: stats only. */
@@ -119,7 +119,7 @@ export const BOT_LEVELS: readonly BotLevel[] = Array.from({ length: BOT_COUNT },
 export const botFighter = (bot: BotLevel): Fighter => ({ name: bot.name, tree: bot.tree, kit: bot.kit });
 
 /**
- * The bot's move on its turn. A creature picks from its kit; a hero (an arena defender)
+ * The bot's move on its turn. A creature picks from its kit; a hero
  * picks a skill weighted toward its strongest, and its stop or pick.
  */
 export function botMove(state: HeroState, side: Side, bot: Pick<BotLevel, 'spread'>): Move {

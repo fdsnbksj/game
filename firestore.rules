@@ -473,73 +473,20 @@ service cloud.firestore {
         && after.crit >= before.crit && after.critDmg >= before.critDmg;
     }
 
-    // A hero's look: indexes into the catalogues in src/games/hero/look.ts (their sizes are
-    // copied here; tests/unit/rulesSync.test.ts compares them).
-    function isLookPart(v, size) {
-      return v is int && v >= 0 && v < size;
-    }
-
-    function isLook(l) {
-      return l is map
-        && hasExactly(l, ['skin', 'face', 'hair', 'hairColour', 'hat', 'shirt', 'shirtColour', 'pants', 'pantsColour', 'extra'])
-        && isLookPart(l.skin, 6) && isLookPart(l.face, 8) && isLookPart(l.hair, 9) && isLookPart(l.hairColour, 12)
-        && isLookPart(l.hat, 12) && isLookPart(l.shirt, 4) && isLookPart(l.shirtColour, 12)
-        && isLookPart(l.pants, 2) && isLookPart(l.pantsColour, 12) && isLookPart(l.extra, 7);
-    }
-
-    // Everything Summon can give (a copy of ALL_ITEMS in src/games/hero/gacha.ts).
-    function summonItems() {
-      return [
-        'hat:crown', 'hat:tophat', 'hat:viking', 'hat:halo', 'hat:catears', 'hat:propeller', 'hat:wizard', 'hat:chef',
-        'shirt:armour',
-        'extra:sunglasses', 'extra:scarf', 'extra:cape', 'extra:wings', 'extra:headphones', 'extra:sword',
-        'costume:trippi', 'costume:ambalabu', 'costume:frigo', 'costume:glorbo', 'costume:burbaloni', 'costume:capybara',
-        'costume:cappuccina', 'costume:patapim', 'costume:bananini', 'costume:larila', 'costume:assassino', 'costume:saturnita',
-        'costume:tungtung', 'costume:tralalero', 'costume:bombardiro'
-      ];
-    }
-
-    function wardrobe(uid) {
-      return get(/databases/$(database)/documents/wardrobes/$(uid)).data;
-    }
-
-    // wardrobes/{uid}: what you've summoned, your gems and what you wear. Summon runs on
-    // the phone (no Cloud Functions on Spark), so the rules only check the shape: a
-    // tampered phone could give itself gems or costumes, whose bonus is small and capped.
-    function isWardrobe(w) {
-      return hasExactly(w, ['look', 'costume', 'owned', 'gems', 'pity', 'lastFree', 'updatedAt'])
-        && isLook(w.look)
-        && w.owned is list && w.owned.size() <= 60 && w.owned.hasOnly(summonItems())
-        && w.gems is int && w.gems >= 0 && w.gems <= 10000000
-        && w.pity is int && w.pity >= 0 && w.pity < 50
-        && w.lastFree is string && w.lastFree.size() <= 10
-        && (w.costume == null || (w.costume is string && ('costume:' + w.costume) in w.owned))
-        && w.updatedAt == request.time;
-    }
-
-    match /wardrobes/{uid} {
-      allow read: if isOwner(uid);
-      allow create, update: if isOwner(uid) && isWardrobe(request.resource.data);
-    }
-
-    // The hero doc may carry the look and the costume worn, which must be one summoned.
-    function isHeroDoc(data, uid) {
-      return data.keys().hasAll(['cleared', 'tree', 'resets', 'loadout', 'updatedAt'])
-        && data.keys().hasOnly(['cleared', 'tree', 'resets', 'loadout', 'updatedAt', 'look', 'costume'])
+    // The hero doc. (Its old look and costume, from the removed Summon, are dropped by the next write.)
+    function isHeroDoc(data) {
+      return hasExactly(data, ['cleared', 'tree', 'resets', 'loadout', 'updatedAt'])
         && data.cleared is int && data.cleared >= 0 && data.cleared <= heroBotCount()
         && data.resets is int && data.resets >= 0 && data.resets <= 20
         && isHeroTree(data.tree, data.cleared, data.resets)
         && isHeroLoadout(data.loadout, data.tree)
-        && (!('look' in data) || isLook(data.look))
-        && (!('costume' in data) || data.costume == null
-          || (data.costume is string && ('costume:' + data.costume) in wardrobe(uid).owned))
         && data.updatedAt == request.time;
     }
 
     match /heroes/{uid} {
       allow read: if isOwner(uid);
-      allow create: if isOwner(uid) && isHeroDoc(request.resource.data, uid) && request.resource.data.cleared <= 1;
-      allow update: if isOwner(uid) && isHeroDoc(request.resource.data, uid)
+      allow create: if isOwner(uid) && isHeroDoc(request.resource.data) && request.resource.data.cleared <= 1;
+      allow update: if isOwner(uid) && isHeroDoc(request.resource.data)
         && request.resource.data.cleared >= resource.data.cleared
         && request.resource.data.cleared <= resource.data.cleared + 1
         && isHeroRegrowth(resource.data, request.resource.data);
@@ -563,11 +510,6 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/heroes/$(uid)).data;
     }
 
-    // What a player wears into a fight: the same as their hero doc.
-    function heroAppearance(uid) {
-      return { 'look': hero(uid).get('look', null), 'costume': hero(uid).get('costume', null) };
-    }
-
     function heroRoom(code) {
       return get(/databases/$(database)/documents/heroDuels/$(code)).data;
     }
@@ -581,12 +523,9 @@ service cloud.firestore {
       allow create: if request.auth != null
         && code.matches('[A-Z]{4}')
         && request.resource.data.keys().hasAll(['host', 'playerIds', 'names', 'fighters', 'loadouts', 'status', 'createdAt'])
-        && request.resource.data.keys().hasOnly(['host', 'playerIds', 'names', 'fighters', 'looks', 'loadouts', 'status', 'createdAt'])
+        && request.resource.data.keys().hasOnly(['host', 'playerIds', 'names', 'fighters', 'loadouts', 'status', 'createdAt'])
         && request.resource.data.loadouts.keys().hasOnly([request.auth.uid])
         && request.resource.data.loadouts[request.auth.uid] == hero(request.auth.uid).loadout
-        && (!('looks' in request.resource.data)
-          || (request.resource.data.looks.keys().hasOnly([request.auth.uid])
-            && request.resource.data.looks[request.auth.uid] == heroAppearance(request.auth.uid)))
         && request.resource.data.host == request.auth.uid
         && request.resource.data.playerIds == [request.auth.uid]
         && request.resource.data.names.keys().hasOnly([request.auth.uid])
@@ -617,12 +556,9 @@ service cloud.firestore {
       return before.status == 'lobby'
         && before.playerIds.size() == 1
         && !(request.auth.uid in before.playerIds)
-        && after.diff(before).affectedKeys().hasOnly(['playerIds', 'names', 'fighters', 'looks', 'loadouts'])
+        && after.diff(before).affectedKeys().hasOnly(['playerIds', 'names', 'fighters', 'loadouts'])
         && after.loadouts.diff(before.loadouts).affectedKeys().hasOnly([request.auth.uid])
         && after.loadouts[request.auth.uid] == hero(request.auth.uid).loadout
-        && (!('looks' in after)
-          || (after.looks.diff(before.get('looks', {})).affectedKeys().hasOnly([request.auth.uid])
-            && after.looks.get(request.auth.uid, null) == heroAppearance(request.auth.uid)))
         && after.playerIds == before.playerIds.concat([request.auth.uid])
         && after.names.diff(before.names).affectedKeys().hasOnly([request.auth.uid])
         && isValidName(after.names[request.auth.uid])
@@ -648,70 +584,6 @@ service cloud.firestore {
         && after.diff(before).affectedKeys().hasOnly(['status', 'endedAt'])
         && after.status == 'done'
         && after.endedAt == request.time;
-    }
-
-    // ---------- Hero Gambit arena ----------
-    // Async PvP: arena/{uid} is a hero others fight (played by the bot brain on the
-    // attacker's phone), so anyone signed in may read it. Only its owner writes it: to join
-    // once past the first boss, to keep its tree and name in step with their hero and
-    // player, or to record one result at a time. Copies of src/games/hero/arena.ts;
-    // tests/unit/rulesSync.test.ts compares them. A tampered phone could still claim a
-    // win it didn't earn, but only up to arenaMaxDelta() points, once every 10 s.
-
-    function arenaUnlock() { return 5; }
-    function arenaMaxDelta() { return 35; }
-    function arenaMinGain() { return 5; }
-
-    function isArenaJoin(uid) {
-      let a = request.resource.data;
-      return a.keys().hasAll(['name', 'tree', 'loadout', 'rating', 'wins', 'losses', 'lastFightAt'])
-        && a.keys().hasOnly(['name', 'tree', 'loadout', 'look', 'costume', 'rating', 'wins', 'losses', 'lastFightAt'])
-        && a.loadout == hero(uid).loadout
-        && hero(uid).cleared >= arenaUnlock()
-        && a.get('look', null) == hero(uid).get('look', null)
-        && a.get('costume', null) == hero(uid).get('costume', null)
-        && a.tree == heroTree(uid)
-        && a.name == playerName(uid)
-        && a.rating == 1000 && a.wins == 0 && a.losses == 0
-        && a.lastFightAt == request.time;
-    }
-
-    function isArenaRefresh(uid) {
-      let after = request.resource.data;
-      return after.diff(resource.data).affectedKeys().hasOnly(['tree', 'loadout', 'name', 'look', 'costume'])
-        && after.tree == heroTree(uid)
-        && after.loadout == hero(uid).loadout
-        && after.get('look', null) == hero(uid).get('look', null)
-        && after.get('costume', null) == hero(uid).get('costume', null)
-        && after.name == playerName(uid);
-    }
-
-    function isArenaWin(before, after) {
-      return after.wins == before.wins + 1 && after.losses == before.losses
-        && after.rating - before.rating >= arenaMinGain()
-        && after.rating - before.rating <= arenaMaxDelta();
-    }
-
-    function isArenaLoss(before, after) {
-      return after.losses == before.losses + 1 && after.wins == before.wins
-        && before.rating - after.rating >= arenaMinGain()
-        && before.rating - after.rating <= arenaMaxDelta();
-    }
-
-    function isArenaResult() {
-      let before = resource.data;
-      let after = request.resource.data;
-      return after.diff(before).affectedKeys().hasOnly(['rating', 'wins', 'losses', 'lastFightAt'])
-        && after.rating is int
-        && after.lastFightAt == request.time
-        && request.time >= before.lastFightAt + duration.value(10, 's')
-        && (isArenaWin(before, after) || isArenaLoss(before, after));
-    }
-
-    match /arena/{uid} {
-      allow read: if request.auth != null;
-      allow create: if isOwner(uid) && isArenaJoin(uid);
-      allow update: if isOwner(uid) && (isArenaRefresh(uid) || isArenaResult());
     }
 
     // ---------- Ancient Wonders ----------
