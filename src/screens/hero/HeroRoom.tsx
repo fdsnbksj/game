@@ -3,8 +3,6 @@ import { Link, useParams } from 'react-router';
 import { Page } from '../../components/Page';
 import { Lobby as LobbyFrame } from '../../components/RoomSetup';
 import { replay, type Fighter, type Side } from '../../games/hero/state';
-import { heroLevel, validTree } from '../../games/hero/stats';
-import { heroReady, useHeroStore } from '../../heroStore';
 import { forgetRoom } from '../../lastPage';
 import { finishHeroRoom, joinHeroRoom, sendHeroMove, startHeroRoom, watchHeroRoom, type HeroRoom as Room, type HeroRoomData } from '../../services/hero';
 import { useGameStore } from '../../store';
@@ -51,7 +49,7 @@ function Gone({ text }: { text: string }) {
 function NotIn({ room }: { room: Room }) {
   const [error, setError] = useState<string | null>(null);
   if (room.status !== 'lobby' || room.playerIds.length >= 2) return <Gone text="This fight is already under way." />;
-  const join = () => joinHeroRoom(room.code, () => useHeroStore.getState().tree, () => useHeroStore.getState().loadout, heroReady);
+  const join = () => joinHeroRoom(room.code);
   return (
     <>
       <button className="button primary" onClick={() => void join().then(setError, (e) => setError(String(e)))}>
@@ -62,10 +60,7 @@ function NotIn({ room }: { room: Room }) {
   );
 }
 
-const fighterOf = (room: Room, uid: string): Fighter | null => {
-  const tree = validTree(room.fighters?.[uid]);
-  return tree ? { name: room.names[uid] ?? 'Hero', tree, loadout: room.loadouts[uid] } : null;
-};
+const fighterOf = (room: Room, uid: string): Fighter => ({ name: room.names[uid] ?? 'Hero' });
 
 function Lobby({ room, uid }: { room: Room; uid: string }) {
   const [error, setError] = useState<string | null>(null);
@@ -75,18 +70,12 @@ function Lobby({ room, uid }: { room: Room; uid: string }) {
       code={room.code}
       players={
         <ol className="group players">
-          {room.playerIds.map((p) => {
-            const f = fighterOf(room, p);
-            return (
-              <li key={p} className="row">
-                <span>{p === uid ? 'You' : room.names[p]}</span>
-                <span className="row-detail">
-                  {f ? `Hero Lv ${heroLevel(f.tree)}` : ''}
-                  {p === room.host ? ' · Host' : ''}
-                </span>
-              </li>
-            );
-          })}
+          {room.playerIds.map((p) => (
+            <li key={p} className="row">
+              <span>{p === uid ? 'You' : room.names[p]}</span>
+              <span className="row-detail">{p === room.host ? 'Host' : ''}</span>
+            </li>
+          ))}
           {!ready && (
             <li className="row">
               <span className="note">Waiting for a rival…</span>
@@ -113,7 +102,7 @@ function Lobby({ room, uid }: { room: Room; uid: string }) {
 function Game({ room, moves, uid }: { room: Room; moves: HeroRoomData['moves']; uid: string }) {
   const players = room.playerIds as [string, string];
   const [a, b] = useMemo(() => [fighterOf(room, players[0]), fighterOf(room, players[1])], [room, players]);
-  const state = useMemo(() => (a && b ? replay(room.seed!, [a, b], players, moves) : null), [room.seed, a, b, players, moves]);
+  const state = useMemo(() => replay(room.seed!, [a, b], players, moves), [room.seed, a, b, players, moves]);
   const [error, setError] = useState<string | null>(null);
   // The move number being sent: the screen waits for the server to have it.
   const [sending, setSending] = useState<number | null>(null);
@@ -123,16 +112,15 @@ function Game({ room, moves, uid }: { room: Room; moves: HeroRoomData['moves']; 
   // The result waits a moment, so the last hit shows first.
   const [over, setOver] = useState(false);
   useEffect(() => {
-    if (state?.winner === null || state?.winner === undefined) return;
-    const t = setTimeout(() => setOver(true), turnShowMs(state!) + 400);
+    if (state.winner === null) return;
+    const t = setTimeout(() => setOver(true), turnShowMs(state) + 400);
     return () => clearTimeout(t);
-  }, [state?.winner]);
+  }, [state.winner]);
 
   useEffect(() => {
-    if (state?.winner !== null && state?.winner !== undefined && room.status === 'playing') void finishHeroRoom(room.code).catch(() => {});
-  }, [state?.winner, room.status, room.code]);
+    if (state.winner !== null && room.status === 'playing') void finishHeroRoom(room.code).catch(() => {});
+  }, [state.winner, room.status, room.code]);
 
-  if (!state || !a || !b) return <Gone text="This room's heroes couldn't be read." />;
   const me = players.indexOf(uid) as Side;
   const them = (me === 0 ? 1 : 0) as Side;
   const names: [string, string] = [a.name, b.name];
@@ -143,7 +131,6 @@ function Game({ room, moves, uid }: { room: Room; moves: HeroRoomData['moves']; 
         state={state}
         me={me}
         names={names}
-        levels={[heroLevel(a.tree), heroLevel(b.tree)]}
         waiting={sending !== null ? 'Sending your move…' : `${names[them]} is choosing…`}
         locked={sending !== null}
         onMove={(move) => {
@@ -161,7 +148,7 @@ function Game({ room, moves, uid }: { room: Room; moves: HeroRoomData['moves']; 
             <div className="panel" role="dialog" aria-label="Fight over">
               <h2>{state.winner === me ? 'You win' : 'You lose'}</h2>
               <p className="hero-result">{state.winner === me ? `You beat ${names[them]}.` : `${names[them]} wins.`}</p>
-              <Link className="button primary" to="/hero/online">
+              <Link className="button primary" to="/">
                 New fight
               </Link>
               <Link className="button ghost" to="/">

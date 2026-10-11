@@ -3380,7 +3380,8 @@ button.seat:disabled {
 }
 
 /* ---------- Hero Gambit ---------- */
-/* Plain for now (the user's choice, 2026-10-11): stick figures, HP bars, ordinary buttons. */
+/* Plain for now (the user's choice, 2026-10-11): stick figures, HP bars, ordinary buttons,
+   and a simple animation for every skill. */
 
 .player-bar {
   justify-content: space-between;
@@ -3399,6 +3400,13 @@ button.seat:disabled {
   width: 60px;
   height: 100px;
   color: var(--label);
+  overflow: visible;
+}
+
+.stickman-arm {
+  transform-box: view-box;
+  transform-origin: 30px 36px;
+  transition: transform 150ms ease-out;
 }
 
 .home-hero,
@@ -3410,11 +3418,14 @@ button.seat:disabled {
   padding: 16px 0 4px;
 }
 
-.home-stats {
+.home-pair {
+  display: flex;
+  gap: 24px;
+}
+
+.home-title {
   margin: 0;
-  color: var(--label-2);
-  font-size: var(--fs-sm);
-  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-xl);
 }
 
 .profile-name {
@@ -3428,15 +3439,7 @@ button.seat:disabled {
   margin-top: 8px;
 }
 
-.group > li + li {
-  border-top: 1px solid var(--separator);
-}
-
-.ladder-row:disabled {
-  opacity: 0.5;
-}
-
-/* The fight: you on the left, the other side on the right, the text box and skills below. */
+/* The fight: names and HP along the top, then you, the skill's show and the other side. */
 .battle {
   display: flex;
   flex-direction: column;
@@ -3445,23 +3448,19 @@ button.seat:disabled {
 
 .battle-field {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
+  grid-template-areas:
+    'info-mine . info-foe'
+    'fig-mine show fig-foe';
+  grid-template-columns: 1fr 1.4fr 1fr;
+  align-items: end;
+  gap: 8px 4px;
   padding: 12px;
   border: 1px solid var(--separator);
   border-radius: var(--r-lg);
   background: var(--surface);
 }
 
-.battle-side {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
-}
-
 .battle-info {
-  width: 100%;
   font-size: var(--fs-sm);
 }
 
@@ -3490,24 +3489,41 @@ button.seat:disabled {
 
 .battle-figure {
   position: relative;
-  transition: transform 250ms ease-out, opacity 250ms ease-out;
+  justify-self: center;
+  transition: transform 200ms ease-out, opacity 250ms ease-out;
 }
 
-.battle-figure.boss .stickman {
-  width: 84px;
-  height: 140px;
+.battle-figure.mine {
+  grid-area: fig-mine;
 }
 
-.battle-side.mine .battle-figure.lunge {
-  transform: translateX(24px);
+.battle-figure.foe {
+  grid-area: fig-foe;
 }
 
-.battle-side.foe .battle-figure.lunge {
-  transform: translateX(-24px);
+.battle-figure.mine.lunge {
+  transform: translateX(28px);
+}
+
+.battle-figure.foe.lunge {
+  transform: translateX(-28px);
+}
+
+/* The swing: the front arm thrown straight out. */
+.battle-figure.punch .stickman-arm {
+  transform: rotate(-35deg) scale(1.35);
 }
 
 .battle-figure.struck {
-  animation: battle-struck 300ms ease-out;
+  animation: battle-struck 350ms ease-out;
+}
+
+.battle-figure.foe.struck {
+  --knock: 14px;
+}
+
+.battle-figure.mine.struck {
+  --knock: -14px;
 }
 
 .battle-figure.down {
@@ -3516,11 +3532,8 @@ button.seat:disabled {
 }
 
 @keyframes battle-struck {
-  25% {
-    transform: translateX(-6px);
-  }
-  75% {
-    transform: translateX(6px);
+  30% {
+    transform: translateX(var(--knock)) rotate(calc(var(--knock) * 0.6deg));
   }
 }
 
@@ -3536,14 +3549,246 @@ button.seat:disabled {
 
 .battle-pop.crit {
   color: var(--danger);
-  font-size: var(--fs-md);
+  font-size: var(--fs-lg);
 }
 
 @keyframes battle-pop {
   to {
     opacity: 0;
-    transform: translateY(-20px);
+    transform: translateY(-24px);
   }
+}
+
+/* Each skill's show, between the two figures. */
+.battle-show {
+  display: grid;
+  grid-area: show;
+  place-items: center;
+  min-height: 110px;
+}
+
+.show-readout {
+  margin-top: 4px;
+  color: var(--label-2);
+  font-size: var(--fs-cap);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  opacity: 0;
+  transition: opacity 200ms;
+}
+
+.show-readout.in {
+  opacity: 1;
+}
+
+.show-clock,
+.show-light {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.show-clock svg {
+  width: 88px;
+  height: 88px;
+}
+
+.clock-face {
+  fill: var(--surface);
+  stroke: var(--label);
+  stroke-width: 3;
+}
+
+.show-clock svg.perfect .clock-face {
+  fill: var(--accent-soft);
+  stroke: var(--accent);
+}
+
+.clock-tick {
+  stroke: var(--label-3);
+  stroke-width: 2;
+}
+
+.clock-target {
+  stroke: var(--danger);
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+
+.clock-hand {
+  stroke: var(--label);
+  stroke-width: 3;
+  stroke-linecap: round;
+  animation: clock-sweep 1200ms cubic-bezier(0.3, 0.1, 0.3, 1) forwards;
+}
+
+.clock-hub {
+  fill: var(--label);
+}
+
+@keyframes clock-sweep {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(var(--to));
+  }
+}
+
+.light-bulb {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  transition: background-color 80ms;
+}
+
+.light-bulb.red {
+  background: var(--hero-wheel-red);
+}
+
+.light-bulb.green {
+  background: var(--hero-wheel-green);
+}
+
+.light-bulb.flash {
+  animation: bulb-flash 400ms ease-out;
+}
+
+@keyframes bulb-flash {
+  50% {
+    transform: scale(1.25);
+  }
+}
+
+.spin-wheel {
+  width: 116px;
+  height: 116px;
+}
+
+.spin-rim {
+  fill: var(--label);
+}
+
+.spin-pocket.red {
+  fill: var(--hero-wheel-red);
+}
+
+.spin-pocket.black {
+  fill: var(--hero-wheel-black);
+}
+
+.spin-pocket.green {
+  fill: var(--hero-wheel-green);
+}
+
+.spin-pocket.picked {
+  stroke: var(--accent);
+  stroke-width: 4;
+}
+
+.spin-num {
+  fill: var(--on-dark);
+  font-size: 11px;
+  text-anchor: middle;
+  dominant-baseline: middle;
+}
+
+.spin-cone {
+  fill: var(--surface-2);
+}
+
+.spin-ball {
+  fill: var(--on-dark);
+  stroke: var(--label);
+  stroke-width: 2;
+}
+
+.spin-wheel.hit .spin-cone {
+  fill: var(--accent-soft);
+}
+
+.show-cards {
+  display: flex;
+  gap: 8px;
+}
+
+.show-card-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--fs-cap);
+}
+
+/* A playing card: its back and face stacked, turned over with a 3D flip. */
+.pk-table {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+}
+
+.pk-card {
+  position: relative;
+  display: block;
+  aspect-ratio: 5 / 7;
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  perspective: 400px;
+  cursor: pointer;
+}
+
+.pk-card.big {
+  width: 44px;
+  transition: transform 300ms ease-out;
+}
+
+.pk-card.big.high {
+  transform: translateY(-8px);
+}
+
+.pk-back,
+.pk-face {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-sm);
+  backface-visibility: hidden;
+  transition: transform 350ms ease-out;
+}
+
+.pk-back {
+  background: var(--accent);
+}
+
+.pk-face {
+  background: var(--surface);
+  color: var(--label);
+  font-weight: 700;
+  transform: rotateY(180deg);
+}
+
+.pk-card.up .pk-back {
+  transform: rotateY(-180deg);
+}
+
+.pk-card.up .pk-face {
+  transform: rotateY(0deg);
+}
+
+.pk-card.theirs .pk-face {
+  border-color: var(--danger);
+}
+
+.pk-card.high .pk-face {
+  border: 2px solid var(--accent);
+}
+
+.pk-card:disabled {
+  cursor: default;
 }
 
 .battle-box {
@@ -3668,29 +3913,7 @@ button.seat:disabled {
 }
 
 .hero-slot.picked {
-  border-color: var(--accent);
-  outline: 2px solid var(--accent);
-}
-
-.pk-table {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 6px;
-}
-
-.pk-card {
-  aspect-ratio: 5 / 7;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--r-sm);
-  background: var(--accent-soft);
-  color: var(--accent);
-  font: inherit;
-  font-weight: 700;
-}
-
-.pk-card:disabled {
-  background: var(--fill-2);
-  color: var(--label-3);
+  outline: 3px solid var(--accent);
 }
 
 .hero-log .row {
@@ -3699,15 +3922,9 @@ button.seat:disabled {
   font-size: var(--fs-sm);
 }
 
-.hero-result,
-.hero-reward {
+.hero-result {
   margin: 0;
   text-align: center;
-}
-
-.hero-reward {
-  color: var(--accent);
-  font-weight: 650;
 }
 
 .panel h2 {
@@ -3715,59 +3932,17 @@ button.seat:disabled {
   text-align: center;
 }
 
-/* The skill tree. */
-.st-loadout {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-}
-
-.st-row {
-  justify-content: space-between;
-  padding: 8px 12px 8px 16px;
-}
-
-.st-name {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 2px;
-  padding: 0;
-  border: none;
-  background: none;
-  color: var(--label);
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-
-.st-name small {
-  color: var(--label-2);
-  font-size: var(--fs-cap);
-}
-
-.st-bar {
-  position: sticky;
-  bottom: 0;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 0 max(10px, env(safe-area-inset-bottom));
-  background: var(--bg);
-}
-
-.st-left {
-  flex: 1;
-  font-weight: 600;
-}
-
 @media (prefers-reduced-motion: reduce) {
   .battle-figure,
   .battle-figure.struck,
   .battle-pop,
-  .battle-hp-fill {
-    animation: none;
+  .battle-hp-fill,
+  .stickman-arm,
+  .clock-hand,
+  .light-bulb,
+  .pk-back,
+  .pk-face {
+    animation-duration: 1ms;
     transition: none;
   }
 }

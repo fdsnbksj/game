@@ -13,11 +13,8 @@ import { IsleRoom } from './screens/isle/IsleRoom';
 import { Brawl } from './screens/brawl/Brawl';
 import { BrawlOnline } from './screens/brawl/BrawlOnline';
 import { BrawlRoom } from './screens/brawl/BrawlRoom';
-import { HeroFight } from './screens/hero/HeroFight';
 import { Home } from './screens/hero/Home';
-import { HeroOnline } from './screens/hero/HeroOnline';
 import { HeroRoom } from './screens/hero/HeroRoom';
-import { SkillTree } from './screens/hero/SkillTree';
 import { WorldShell } from './screens/world/WorldShell';
 import { Zone } from './screens/world/Zone';
 import { Play } from './screens/Play';
@@ -64,9 +61,6 @@ export function App() {
         <Route path="/brawl/online" element={<BrawlOnline />} />
         <Route path="/brawl/:code" element={<BrawlRoom />} />
         <Route path="/hero" element={<Navigate to="/" replace />} />
-        <Route path="/hero/tree" element={<SkillTree />} />
-        <Route path="/hero/fight" element={<HeroFight />} />
-        <Route path="/hero/online" element={<HeroOnline />} />
         <Route path="/hero/:code" element={<HeroRoom />} />
         <Route
           path="/saved"

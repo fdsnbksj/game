@@ -44,9 +44,9 @@ export const ZONES: readonly Zone[] = [
   {
     id: 'arena',
     name: 'Battle Arena',
-    lore: 'Your hero, a ladder of bots, and stick fighters. Last one standing.',
+    lore: 'Hero duels with a friend, and stick fighters. Last one standing.',
     games: [
-      { id: 'hero', name: 'Hero Gambit', tagline: 'Timing, roulette and cards. Grow your hero', players: '1–2', path: '/hero' },
+      { id: 'hero', name: 'Hero Gambit', tagline: 'Timing, roulette and cards, against a friend', players: '2', path: '/hero' },
       { id: 'brawl', name: 'Stick Brawl', tagline: 'Guns, chickens, sixteen stages', players: '1–4', path: '/brawl' },
     ],
   },

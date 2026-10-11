@@ -1,5 +1,4 @@
 import { stream } from '../../nonogram/rng';
-import type { AttackId, EffectId } from './monsters';
 import type { SkillId, Stats, Tree } from './stats';
 
 // The four skills. Each turn's luck comes from streams named after the fight's seed and
@@ -44,7 +43,7 @@ export const seconds = (ms: number) => `${Math.floor(ms / 1000)}.${String(Math.f
 /** Percent of power for a stop `error` ms off: 100 at 0, down 5 a tenth of a second, never under 10. */
 export const accuracyPct = (error: number) => Math.max(10, 100 - Math.floor(error / 20));
 
-/** A hero's skill, or a bot creature's attack (monsters.ts). */
+/** A hero's move. */
 export type Move =
   | { skill: 'stopwatch'; ms: number }
   /** A reaction time in ms, or -1 for a tap before the light turned green. */
@@ -52,12 +51,11 @@ export type Move =
   | { skill: 'roulette'; pick: number }
   | { skill: 'poker'; pick: number }
   | { skill: 'card'; pick: number }
-  | { skill: 'attack'; id: AttackId }
-  /** Every skill in the loadout is cooling down: the turn passes. */
+  /** Every skill is cooling down: the turn passes. */
   | { skill: 'rest' };
 
 /** A skill's move. `card` isn't one (the defender's answer to Poker), nor `rest`. */
-export type SkillMove = Exclude<Move, { skill: 'attack' } | { skill: 'card' } | { skill: 'rest' }>;
+export type SkillMove = Exclude<Move, { skill: 'card' } | { skill: 'rest' }>;
 
 export type Detail =
   | { skill: 'stopwatch'; target: number; ms: number; pct: number; perfect: boolean }
@@ -74,8 +72,7 @@ export type Detail =
       mine: number;
       theirs: number;
       won: boolean;
-    }
-  | { skill: 'attack'; id: AttackId; missed: boolean; healed: number; effect: EffectId | null };
+    };
 
 export interface Hit {
   /** HP taken from the defender, after DEF. */
@@ -91,12 +88,23 @@ export const afterDef = (dmg: number, def: number) => (dmg <= 0 ? 0 : Math.max(1
 const critOf = (dmg: number, stats: Stats) => Math.floor((dmg * stats.critDmg) / 100);
 
 /**
- * One skill. `boost` is the percent its damage is at, before DEF: 100 unless an effect
- * (monsters.ts) changes it, so fights without effects come out as they always did.
+ * The thirteen cards of a turn's Poker, 2 to A, as they lie face down after the shuffle.
+ * The screen uses it too, to turn over the card you tap at once.
  */
-export function resolve(move: SkillMove, tree: Tree, attacker: Stats, defender: Stats, seed: string, turn: number, boost = 100, theirPick_?: number): Hit {
+export function pokerDeck(seed: string, turn: number): number[] {
+  const shuffle = stream(`${seed}:turn:${turn}:deck`);
+  const deck = Array.from({ length: RANKS }, (_, i) => i + 2);
+  for (let i = RANKS - 1; i > 0; i--) {
+    const j = shuffle(i + 1);
+    [deck[i], deck[j]] = [deck[j], deck[i]];
+  }
+  return deck;
+}
+
+/** One skill, from a hero with `tree` against `defender`. */
+export function resolve(move: SkillMove, tree: Tree, attacker: Stats, defender: Stats, seed: string, turn: number, theirPick_?: number): Hit {
   const name = `${seed}:turn:${turn}`;
-  const out = (dmg: number) => afterDef(Math.floor((dmg * boost) / 100), defender.def);
+  const out = (dmg: number) => afterDef(dmg, defender.def);
   const rolledCrit = stream(`${name}:crit`)(100) < attacker.crit;
   switch (move.skill) {
     case 'stopwatch': {
@@ -128,12 +136,7 @@ export function resolve(move: SkillMove, tree: Tree, attacker: Stats, defender: 
     case 'poker': {
       // One shuffled deck of 2 to A laid face down. The attacker picks a card and the
       // defender another (state.ts waits for it; without one it's seeded), so never a tie.
-      const shuffle = stream(`${name}:deck`);
-      const deck = Array.from({ length: RANKS }, (_, i) => i + 2);
-      for (let i = RANKS - 1; i > 0; i--) {
-        const j = shuffle(i + 1);
-        [deck[i], deck[j]] = [deck[j], deck[i]];
-      }
+      const deck = pokerDeck(seed, turn);
       const pick = move.pick;
       const theirPick = theirPick_ ?? (pick + 1 + stream(`${name}:theirs`)(RANKS - 1)) % RANKS;
       const mine = deck[pick];

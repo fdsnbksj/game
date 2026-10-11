@@ -1,6 +1,5 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { BOT_COUNT, NODES, pointsFor, spent, type Tree } from '../../src/games/hero/stats';
 import { NONOGRAM_VERSION, sizeFor } from '../../src/nonogram/generate';
 
 // firestore.rules keeps its own copies of a few numbers from src/nonogram. This fails if
@@ -24,25 +23,5 @@ describe('firestore.rules matches src/nonogram', () => {
     // The rules' conditional is valid JavaScript too, so evaluate it as written.
     const rulesSize = new Function('level', `return ${body('sizeFor')};`) as (level: number) => number;
     for (let level = 1; level <= 200; level++) expect(rulesSize(level), `level ${level}`).toBe(sizeFor(level));
-  });
-});
-
-describe('firestore.rules matches src/games/hero', () => {
-  it('gives the same skill points for the levels cleared', () => {
-    const rulesPoints = new Function('cleared', 'math', `return ${body('heroPoints')};`) as (cleared: number, math: { floor: (x: number) => number }) => number;
-    for (let cleared = 0; cleared <= BOT_COUNT; cleared++) expect(rulesPoints(cleared, Math), `cleared ${cleared}`).toBe(pointsFor(cleared));
-  });
-
-  it('prices a tree the same way (doubled in the rules)', () => {
-    const rulesCost2 = new Function('t', 'math', `return ${body('heroTreeCost2')};`) as (t: Tree, math: { ceil: (x: number) => number }) => number;
-    for (let i = 0; i < 400; i++) {
-      const t = Object.fromEntries(NODES.map((n, k) => [n.id, (i * (k + 3) + k * 7) % (n.max + 1)])) as Tree;
-      t.stopwatch = Math.max(1, t.stopwatch);
-      expect(rulesCost2(t, Math), JSON.stringify(t)).toBe(2 * spent(t));
-    }
-  });
-
-  it('has the same number of bot levels', () => {
-    expect(Number(body('heroBotCount'))).toBe(BOT_COUNT);
   });
 });

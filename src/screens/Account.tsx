@@ -4,8 +4,6 @@ import { reloadFresh } from '../reload';
 import { accountError, createAccount, resetPassword, signIn, signOut } from '../services/account';
 import { renamePlayer } from '../services/players';
 import { useGameStore } from '../store';
-import { BOT_COUNT, heroLevel } from '../games/hero/stats';
-import { useHeroStore } from '../heroStore';
 import { Stickman } from './hero/Stickman';
 
 export function Account() {
@@ -59,18 +57,13 @@ export function Account() {
   );
 }
 
-/** You at a glance: your hero, its level and how far up the bot ladder it is. */
+/** You at a glance: your hero and your name. */
 function ProfileCard() {
   const name = useGameStore((s) => s.player?.displayName ?? 'Traveller');
-  const tree = useHeroStore((s) => s.tree);
-  const cleared = useHeroStore((s) => s.cleared);
   return (
     <section className="profile-card">
       <Stickman />
       <strong className="profile-name">{name}</strong>
-      <p className="note">
-        Hero Lv {heroLevel(tree)} · Bot ladder {cleared}/{BOT_COUNT}
-      </p>
     </section>
   );
 }

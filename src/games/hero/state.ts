@@ -1,47 +1,24 @@
 import { stream } from '../../nonogram/rng';
-import {
-  ATTACKS,
-  BURN_PCT,
-  CHARGED_PCT,
-  ENRAGE_PCT,
-  GUARD_DEF,
-  hasEffect,
-  isAttack,
-  resolveAttack,
-  WEAK_PCT,
-  type Effect,
-  type Kit,
-} from './monsters';
 import { isSkill, RANKS, resolve, SPEED_MAX_MS, WHEEL, type Hit, type Move } from './skills';
-import { cooldownOf, defaultLoadout, statsOf, validLoadout, type SkillId, type Stats, type Tree } from './stats';
+import { cooldownOf, HERO_STATS, HERO_TREE, SKILLS, type SkillId, type Stats } from './stats';
 
 // A fight as a reducer: apply(state, move, by) gives the next state, or null when the move
-// isn't allowed. Turns alternate from a seeded coin flip; the fight ends at 0 HP. replay()
-// runs a fight's moves from its seed, skipping any the game refuses, so a bot fight saved on
-// the phone and an online fight read from Firestore both come out the same everywhere.
-// Bot levels are creatures with a kit of attacks (monsters.ts) instead of skills; their
-// buffs and hindrances are effects that last a few turns.
+// isn't allowed. Both heroes are the same (HERO_TREE), with all four skills. Turns alternate
+// from a seeded coin flip; the fight ends at 0 HP. replay() runs a fight's moves from its
+// seed, skipping any the game refuses, so both phones come out the same.
 
 /** Bump when a change would make old fights replay differently. */
-export const HERO_VERSION = 7;
+export const HERO_VERSION = 8;
 
 export type Side = 0 | 1;
 
 export interface Fighter {
   name: string;
-  /** A hero's tree; a creature uses only its stats. */
-  tree: Tree;
-  /** A bot creature's attacks, instead of skills. */
-  kit?: Kit;
-  /** The skills a hero brings (up to four); without one, its first four. */
-  loadout?: SkillId[];
 }
 
 export interface Turn extends Hit {
   by: Side;
-  skill: SkillId | 'attack' | 'rest';
-  /** What a burn took from the mover after its move. */
-  burn: number;
+  skill: SkillId | 'rest';
 }
 
 export interface HeroState {
@@ -49,8 +26,6 @@ export interface HeroState {
   fighters: [Fighter, Fighter];
   stats: [Stats, Stats];
   hp: [number, number];
-  /** Effects on each fighter. */
-  effects: [Effect[], Effect[]];
   /** Each fighter's skills cooling down: own turns left before they're ready again. */
   cooldowns: [Cooldowns, Cooldowns];
   /** Whose move it is. */
@@ -70,28 +45,29 @@ export interface Recorded {
 }
 
 export function start(seed: string, fighters: [Fighter, Fighter]): HeroState {
-  const stats: [Stats, Stats] = [statsOf(fighters[0].tree), statsOf(fighters[1].tree)];
-  return { seed, fighters, stats, hp: [stats[0].hp, stats[1].hp], effects: [[], []], cooldowns: [{}, {}], turn: stream(`${seed}:first`)(2) as Side, pending: null, log: [], winner: null };
+  return {
+    seed,
+    fighters,
+    stats: [HERO_STATS, HERO_STATS],
+    hp: [HERO_STATS.hp, HERO_STATS.hp],
+    cooldowns: [{}, {}],
+    turn: stream(`${seed}:first`)(2) as Side,
+    pending: null,
+    log: [],
+    winner: null,
+  };
 }
 
 export const other = (side: Side): Side => (side === 0 ? 1 : 0);
 
-/** Skills this fighter brings: its loadout, or its first four. */
-export const usable = (f: Pick<Fighter, 'tree' | 'loadout'>): SkillId[] => validLoadout(f.loadout, f.tree) ?? defaultLoadout(f.tree);
-
-/** Skills this side can use this turn: brought and not cooling down. */
-export const ready = (state: HeroState, side: Side): SkillId[] => usable(state.fighters[side]).filter((s) => !state.cooldowns[side][s]);
-
-/** A boss below half its HP. */
-export const enraged = (state: HeroState, side: Side) => !!state.fighters[side].kit?.enrage && state.hp[side] * 2 < state.stats[side].hp;
+/** Skills this side can use this turn: the ones not cooling down. */
+export const ready = (state: HeroState, side: Side): SkillId[] => SKILLS.filter((s) => !state.cooldowns[side][s]);
 
 export function isLegal(state: HeroState, move: Move, by: Side): boolean {
   if (state.winner !== null || by !== state.turn || !move) return false;
   // Waiting on the defender's card: that's the only move, and not the attacker's card.
   if (state.pending) return move.skill === 'card' && Number.isInteger(move.pick) && move.pick >= 0 && move.pick < RANKS && move.pick !== state.pending.pick;
   if (move.skill === 'card') return false;
-  if (move.skill === 'attack') return isAttack(move.id) && !!state.fighters[by].kit?.attacks.includes(move.id);
-  if (state.fighters[by].kit) return false;
   if (move.skill === 'rest') return ready(state, by).length === 0;
   if (!isSkill(move.skill) || !ready(state, by).includes(move.skill)) return false;
   if (move.skill === 'stopwatch') return Number.isInteger(move.ms) && move.ms >= 0 && move.ms <= 60_000;
@@ -111,23 +87,11 @@ export function apply(state: HeroState, move: Move, by: Side): HeroState | null 
 
 function play(state: HeroState, move: Exclude<Move, { skill: 'card' }>, by: Side, theirPick?: number): HeroState {
   const them = other(by);
-  const mine = state.effects[by];
-  const theirs = state.effects[them];
-  // Effects on the damage, before DEF.
-  const hurts = move.skill !== 'rest' && (move.skill !== 'attack' || ATTACKS[move.id].power > 0);
-  const charged = hurts && hasEffect(mine, 'charged');
-  let boost = 100;
-  if (charged) boost = (boost * CHARGED_PCT) / 100;
-  if (hasEffect(mine, 'weak')) boost = Math.floor((boost * WEAK_PCT) / 100);
-  if (enraged(state, by)) boost = Math.floor((boost * ENRAGE_PCT) / 100);
-  const defender = hasEffect(theirs, 'guard') ? { ...state.stats[them], def: state.stats[them].def + GUARD_DEF } : state.stats[them];
   const turn = state.log.length;
   const hit: Hit =
     move.skill === 'rest'
       ? { damage: 0, crit: false, kill: false, detail: { skill: 'rest' } }
-      : move.skill === 'attack'
-        ? resolveAttack(move.id, state.fighters[by].kit!, state.stats[by], defender, state.seed, turn, boost)
-        : resolve(move, state.fighters[by].tree, state.stats[by], defender, state.seed, turn, boost, theirPick);
+      : resolve(move, HERO_TREE, state.stats[by], state.stats[them], state.seed, turn, theirPick);
 
   // The mover's cooldowns count down a turn, then the skill just used starts its own.
   const cooled: Cooldowns = {};
@@ -137,33 +101,14 @@ function play(state: HeroState, move: Exclude<Move, { skill: 'card' }>, by: Side
 
   const hp: [number, number] = [...state.hp];
   hp[them] = hit.kill ? 0 : Math.max(0, hp[them] - hit.damage);
-  if (hit.detail.skill === 'attack') hp[by] = Math.min(state.stats[by].hp, hp[by] + hit.detail.healed);
-
-  // The mover's effects run down after its move (a burn hurts as it does); ones gained this
-  // turn start counting next turn.
-  let burn = 0;
-  if (hp[them] > 0 && hasEffect(mine, 'burn')) {
-    burn = Math.max(1, Math.floor((state.stats[by].hp * BURN_PCT) / 100));
-    hp[by] = Math.max(0, hp[by] - burn);
-  }
-  let myEffects = mine.filter((e) => !(charged && e.id === 'charged')).map((e) => ({ ...e, turns: e.turns - 1 })).filter((e) => e.turns > 0);
-  let theirEffects = theirs;
-  const cast = hit.detail.skill === 'attack' && hit.detail.effect ? ATTACKS[hit.detail.id].effect : undefined;
-  if (cast) {
-    const add = (list: Effect[]) => [...list.filter((e) => e.id !== cast.id), { id: cast.id, turns: cast.turns }];
-    if (cast.on === 'self') myEffects = add(myEffects);
-    else theirEffects = add(theirEffects);
-  }
-  const effects: [Effect[], Effect[]] = by === 0 ? [myEffects, theirEffects] : [theirEffects, myEffects];
 
   return {
     ...state,
     hp,
-    effects,
     cooldowns,
     turn: them,
-    log: [...state.log, { ...hit, by, skill: move.skill, burn }],
-    winner: hp[them] === 0 ? by : hp[by] === 0 ? them : null,
+    log: [...state.log, { ...hit, by, skill: move.skill }],
+    winner: hp[them] === 0 ? by : null,
   };
 }
 
