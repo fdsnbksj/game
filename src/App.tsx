@@ -15,6 +15,7 @@ import { BrawlOnline } from './screens/brawl/BrawlOnline';
 import { BrawlRoom } from './screens/brawl/BrawlRoom';
 import { Home } from './screens/hero/Home';
 import { HeroRoom } from './screens/hero/HeroRoom';
+import { LocalFight } from './screens/hero/LocalFight';
 import { WorldShell } from './screens/world/WorldShell';
 import { Zone } from './screens/world/Zone';
 import { Play } from './screens/Play';
@@ -61,6 +62,7 @@ export function App() {
         <Route path="/brawl/online" element={<BrawlOnline />} />
         <Route path="/brawl/:code" element={<BrawlRoom />} />
         <Route path="/hero" element={<Navigate to="/" replace />} />
+        <Route path="/hero/local" element={<LocalFight />} />
         <Route path="/hero/:code" element={<HeroRoom />} />
         <Route
           path="/saved"

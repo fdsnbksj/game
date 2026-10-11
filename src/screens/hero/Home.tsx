@@ -1,12 +1,12 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router';
+import { Link, useNavigate } from 'react-router';
 import { SummaryRow } from '../../components/SummaryRow';
 import { createHeroRoom, joinHeroRoom } from '../../services/hero';
 import { useGameStore } from '../../store';
 import { Stickman } from './Stickman';
 
-// Home is Hero Gambit (the other games are hidden for now), a game only for playing a
-// friend: host a fight and share the code, or join theirs. The rules fold away.
+// Home is Hero Gambit (the other games are hidden for now), a game for playing a friend:
+// host a fight and share the code, join theirs, or share one phone. The rules fold away.
 
 export function Home() {
   const navigate = useNavigate();
@@ -47,7 +47,7 @@ export function Home() {
           <Stickman flip />
         </div>
         <h1 className="home-title">Hero Gambit</h1>
-        <p className="note">You against a friend, one phone each.</p>
+        <p className="note">You against a friend.</p>
       </section>
 
       {!ready && <p className="note center-note">Connecting…</p>}
@@ -82,11 +82,14 @@ export function Home() {
         </button>
       )}
       {error && <p className="error">{error}</p>}
+      <Link className="button" to="/hero/local">
+        Play on one phone
+      </Link>
 
       <div className="home-more">
         <SummaryRow label="How to play" title="How to play Hero Gambit">
           <div className="how-to">
-            <p>You and your friend each have 250 HP and the same four skills. Take turns using one; bring the other's HP to 0 to win. After you use a skill it rests a few of your turns: Stopwatch never, I'm Speed 1, Poker 2, Roulette 3.</p>
+            <p>You and your friend each have 250 HP and the same four skills, each on your own phone or taking turns on one. Take turns using one skill; bring the other's HP to 0 to win. After you use a skill it rests a few of your turns: Stopwatch never, I'm Speed 1, Poker 2, Roulette 3.</p>
             <p>
               <strong>Stopwatch:</strong> you're shown a time between 1.00 and 10.00 seconds, like 4.37. Press Start, count, press Stop. The closer you are, the harder the hit. Within 0.05 s is Perfect: a sure crit.
             </p>
@@ -97,7 +100,7 @@ export function Home() {
               <strong>Roulette:</strong> pick a number from 0 to 36. If the ball lands on it, it's an instant kill; if not, you punch.
             </p>
             <p>
-              <strong>Poker:</strong> tap one of thirteen face-down cards, 2 low to A high; it turns over at once. Your friend then picks another. Higher card hits for 100 as a crit; lower does nothing.
+              <strong>Poker:</strong> tap one of thirteen face-down cards, 2 low to A high; it turns over at once. Your friend then picks another. Higher card hits for 50; lower does nothing.
             </p>
           </div>
         </SummaryRow>

@@ -26,7 +26,8 @@ export const BALL_LEVELS: readonly number[] = [5, 10];
 export const rouletteBalls = (level: number) => (level < 1 ? 0 : 1 + BALL_LEVELS.filter((l) => level >= l).length);
 /** A missed Roulette's punch: 12, plus 5 for every level past the first that isn't a ball level. */
 export const punchPower = (level: number) => 12 + 5 * Math.max(0, level - rouletteBalls(level));
-export const pokerPower = (level: number) => 100 + 10 * (level - 1);
+/** A won Poker's hit (nerfed by the user, 2026-10-11: it was 100 and always a crit). */
+export const pokerPower = (level: number) => 50 + 10 * (level - 1);
 
 /** The turn's target, from 1.00 to 10.00 seconds in hundredths (1.23 s is 1230), shown before Start. */
 export const stopwatchTarget = (seed: string, turn: number) => (stream(`${seed}:turn:${turn}:target`)(901) + 100) * 10;
@@ -144,7 +145,8 @@ export function resolve(move: SkillMove, tree: Tree, attacker: Stats, defender: 
       const won = mine > theirs;
       const detail: Detail = { skill: 'poker', deck, pick, theirPick, mine, theirs, won };
       if (!won) return { damage: 0, crit: false, kill: false, detail };
-      return { damage: out(critOf(pokerPower(tree.poker), attacker)), crit: true, kill: false, detail };
+      const base = pokerPower(tree.poker);
+      return { damage: out(rolledCrit ? critOf(base, attacker) : base), crit: rolledCrit, kill: false, detail };
     }
   }
 }

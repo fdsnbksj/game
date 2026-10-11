@@ -79,7 +79,7 @@ describe('the skills', () => {
     expect(Math.abs(hits / 6000 - 1 / WHEEL)).toBeLessThan(0.01);
   });
 
-  it('lays out the turn’s deck (the same one the screen turns over), ace high, a win doing 100 as a crit', () => {
+  it('lays out the turn’s deck (the same one the screen turns over), ace high, a win doing 50 (a crit only on the roll)', () => {
     for (let i = 0; i < 300; i++) {
       const hit = resolve({ skill: 'poker', pick: i % 13 }, HERO_TREE, plain, plain, `k${i}`, i % 5);
       if (hit.detail.skill !== 'poker') throw new Error();
@@ -89,7 +89,7 @@ describe('the skills', () => {
       expect(theirPick).not.toBe(pick);
       expect([mine, theirs]).toEqual([deck[pick], deck[theirPick]]);
       expect(won).toBe(mine > theirs);
-      expect(hit.damage).toBe(won ? 150 : 0);
+      expect(hit.damage).toBe(won ? (hit.crit ? 75 : 50) : 0);
     }
   });
 
@@ -185,6 +185,6 @@ describe('a fight', () => {
       const { state } = fightOut(`golden${i}`);
       return `${state.winner}:${state.hp.join(',')}:${state.log.length}`;
     });
-    expect(hashSeed(results.join('|'))).toBe(77957203);
+    expect(hashSeed(results.join('|'))).toBe(141810337);
   });
 });

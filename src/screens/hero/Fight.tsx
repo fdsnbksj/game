@@ -34,6 +34,7 @@ export function Fight({
   state,
   me,
   names,
+  hotseat = false,
   onMove,
   waiting,
   locked = false,
@@ -41,8 +42,13 @@ export function Fight({
 }: {
   state: HeroState;
   me: Side;
-  /** Fighter names, in fighter order; yours shows as "You". */
+  /** Fighter names, in fighter order; yours shows as "You" (unless `hotseat`). */
   names: [string, string];
+  /**
+   * Both players on this phone, taking turns: `me` is only whose figure stands bottom left,
+   * whoever's turn it is plays, and everyone goes by name.
+   */
+  hotseat?: boolean;
   /** Sends your move; only called on your turn. */
   onMove: (move: Move) => void;
   /** What the other side is doing while it's their turn. */
@@ -53,8 +59,13 @@ export function Fight({
   children?: ReactNode;
 }) {
   const them: Side = me === 0 ? 1 : 0;
-  const show = useShow(state, names, me);
-  const mine = state.turn === me && state.winner === null && !locked;
+  // Who plays now: you, or on a shared phone whoever's turn it is.
+  const actor: Side = hotseat ? state.turn : me;
+  const other: Side = actor === 0 ? 1 : 0;
+  const you: Side | null = hotseat ? null : me;
+  const nameOf = (side: Side) => (side === you ? 'You' : names[side]);
+  const show = useShow(state, names, you);
+  const mine = state.turn === actor && state.winner === null && !locked;
   const [skill, setSkill] = useState<SkillId | null>(null);
   // Once a skill has started (the stopwatch running, a card picked) there's no going back.
   const [committed, setCommitted] = useState(false);
@@ -79,7 +90,7 @@ export function Fight({
   const pop = playing && show.hit && turn && (turn.damage > 0 || turn.kill) ? (turn.kill ? 'KO!' : `−${turn.damage}`) : null;
   const fighter = (side: Side) => (
     <>
-      <InfoBox mine={side === me} name={side === me ? 'You' : names[side]} hp={hp[side]} max={state.stats[side].hp} />
+      <InfoBox mine={side === me} numbers={side === me || hotseat} name={nameOf(side)} hp={hp[side]} max={state.stats[side].hp} />
       <div className={`battle-spot ${side === me ? 'mine' : 'foe'}`}>
         <span className="battle-platform" />
         <div className={`battle-figure${pose(side)}`}>
@@ -93,7 +104,7 @@ export function Fight({
       </div>
     </>
   );
-  const canUse = ready(state, me);
+  const canUse = ready(state, actor);
 
   return (
     <div className="battle">
@@ -104,7 +115,7 @@ export function Fight({
       {/* The skill's show, big in the middle of the screen, until the attacker swings. */}
       {playing && turn && turn.skill !== 'rest' && show.t < show.current!.impact - SWING_MS && (
         <div className="battle-overlay" aria-hidden="true">
-          <SkillShow key={state.log.length} turn={turn} who={turn.by === me ? 'You' : names[turn.by]} other={turn.by === me ? names[them] : 'You'} />
+          <SkillShow key={state.log.length} turn={turn} who={nameOf(turn.by)} other={nameOf(turn.by === 0 ? 1 : 0)} />
         </div>
       )}
 
@@ -116,22 +127,29 @@ export function Fight({
             ))}
           </button>
         ) : state.winner !== null ? (
-          <p className="battle-text">{state.winner === me ? 'You win!' : `${names[them]} wins.`}</p>
+          <p className="battle-text">{state.winner === you ? 'You win!' : `${names[state.winner]} wins!`}</p>
         ) : !mine ? (
           <p className="battle-text">
-            {state.pending?.by === me && !locked
+            {state.pending?.by === actor && !locked
               ? `You drew ${rankName(pokerDeck(state.seed, state.log.length)[state.pending.pick])}. ${names[them]} is picking a card…`
               : waiting}
           </p>
         ) : state.pending ? (
-          <PokerPick
+          <>
+            {hotseat && (
+              <p className="battle-prompt">
+                <strong>{names[actor]}’s turn.</strong>
+              </p>
+            )}
+            <PokerPick
             key={`answer${state.log.length}`}
             deck={pokerDeck(state.seed, state.log.length)}
             taken={state.pending.pick}
-            takenBy={names[them]}
+            takenBy={names[other]}
             onPick={(pick) => onMove({ skill: 'card', pick })}
             onCommit={() => setCommitted(true)}
-          />
+            />
+          </>
         ) : skill ? (
           <>
             <SkillPlay key={`${state.log.length}:${skill}`} skill={skill} state={state} onMove={onMove} onCommit={() => setCommitted(true)} />
@@ -143,7 +161,10 @@ export function Fight({
           </>
         ) : (
           <>
-            <p className="battle-prompt">{canUse.length === 0 ? 'Every skill is resting.' : state.log.length ? 'Your turn' : 'You go first'}</p>
+            <p className="battle-prompt">
+              {hotseat && <strong>{names[actor]}’s turn. </strong>}
+              {canUse.length === 0 ? 'Every skill is resting.' : hotseat ? '' : state.log.length ? 'Your turn' : 'You go first'}
+            </p>
             {canUse.length === 0 ? (
               <button className="button primary" onClick={() => onMove({ skill: 'rest' })}>
                 Catch your breath
@@ -151,7 +172,7 @@ export function Fight({
             ) : (
               <div className="battle-menu">
                 {SKILLS.map((s) => {
-                  const left = state.cooldowns[me][s] ?? 0;
+                  const left = state.cooldowns[actor][s] ?? 0;
                   return (
                     <button key={s} className="button skill-button" disabled={left > 0} onClick={() => setSkill(s)}>
                       <strong>{SKILL_NAME[s]}</strong>
@@ -169,7 +190,7 @@ export function Fight({
   );
 }
 
-function InfoBox({ mine, name, hp, max }: { mine: boolean; name: string; hp: number; max: number }) {
+function InfoBox({ mine, numbers, name, hp, max }: { mine: boolean; numbers: boolean; name: string; hp: number; max: number }) {
   const pct = Math.max(0, Math.round((hp * 100) / max));
   return (
     <div className={`battle-info ${mine ? 'mine' : 'foe'}`}>
@@ -177,7 +198,7 @@ function InfoBox({ mine, name, hp, max }: { mine: boolean; name: string; hp: num
       <div className="battle-hp" role="meter" aria-label="HP" aria-valuemin={0} aria-valuemax={max} aria-valuenow={hp}>
         <div className={`battle-hp-fill${pct <= 20 ? ' low' : ''}`} style={{ width: `${pct}%` }} />
       </div>
-      {mine && (
+      {numbers && (
         <small>
           {hp}/{max}
         </small>
@@ -205,7 +226,7 @@ interface Planned {
 }
 
 /** The lines that tell the last turn, and when each shows. */
-function plan(state: HeroState, names: [string, string], me: Side, before: [number, number]): Planned {
+function plan(state: HeroState, names: [string, string], me: Side | null, before: [number, number]): Planned {
   const turn = state.log.at(-1)!;
   const by = turn.by;
   const target: Side = by === 0 ? 1 : 0;
@@ -264,7 +285,7 @@ export function turnShowMs(state: HeroState): number {
 }
 
 /** Plays each new turn: the time into it, which line is up, whether the hit has landed, and a skip. */
-function useShow(state: HeroState, names: [string, string], me: Side) {
+function useShow(state: HeroState, names: [string, string], me: Side | null) {
   const seen = useRef({ length: state.log.length, hp: state.hp });
   const [current, setCurrent] = useState<Planned | null>(null);
   const [t, setT] = useState(0);
@@ -420,7 +441,7 @@ function PokerPick({ deck, onPick, onCommit, taken, takenBy }: { deck: number[];
           ? `You drew ${rankName(deck[picked])}!`
           : taken !== undefined
             ? `${takenBy} drew ${rankName(deck[taken])}. Pick yours: beat it and their hit misses.`
-            : 'Pick a card, 2 low to A high. They pick another; the higher card wins a big crit.'}
+            : 'Pick a card, 2 low to A high. They pick another; the higher card hits for 50.'}
       </p>
       <div className="pk-table">
         {Array.from({ length: RANKS }, (_, i) => (
