@@ -89,7 +89,7 @@ export function Home() {
       <div className="home-more">
         <SummaryRow label="How to play" title="How to play Hero Gambit">
           <div className="how-to">
-            <p>You and your friend each have 250 HP and the same four skills, each on your own phone or taking turns on one. Take turns using one skill; bring the other's HP to 0 to win. After you use a skill it rests a few of your turns: Stopwatch never, I'm Speed 1, Poker 2, Roulette 3.</p>
+            <p>You and your friend each have 100 HP and the same four skills, each on your own phone or taking turns on one. Take turns using one skill; bring the other's HP to 0 to win. After you use a skill it rests a few of your turns: Stopwatch never, I'm Speed 1, Poker 2, Roulette 3.</p>
             <p>
               <strong>Stopwatch:</strong> you're shown a time between 1.00 and 10.00 seconds, like 4.37. Press Start, count, press Stop. The closer you are, the harder the hit. Within 0.05 s is Perfect: a sure crit.
             </p>

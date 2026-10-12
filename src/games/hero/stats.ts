@@ -13,8 +13,8 @@ export const SKILLS: readonly SkillId[] = ['stopwatch', 'speed', 'poker', 'roule
 const COOLDOWNS: Record<SkillId, number> = { stopwatch: 0, speed: 1, poker: 2, roulette: 3 };
 export const cooldownOf = (skill: SkillId) => COOLDOWNS[skill];
 
-/** Every hero: each skill at level 1, and 250 HP (HP 10), so a fight lasts several turns. */
-export const HERO_TREE: Tree = { stopwatch: 1, speed: 1, poker: 1, roulette: 1, hp: 10, def: 0, crit: 0, critDmg: 0 };
+/** Every hero: each skill at level 1, and 100 HP (HP 0), so a fight is short (the user's ask, 2026-10-12). */
+export const HERO_TREE: Tree = { stopwatch: 1, speed: 1, poker: 1, roulette: 1, hp: 0, def: 0, crit: 0, critDmg: 0 };
 
 export interface Stats {
   hp: number;

@@ -25,11 +25,11 @@ const plain = HERO_STATS;
 const NAMES: [{ name: string }, { name: string }] = [{ name: 'A' }, { name: 'B' }];
 
 describe('every hero', () => {
-  it('is the same: 250 HP and all four skills at level 1', () => {
-    expect(HERO_STATS).toEqual({ hp: 250, def: 0, crit: 5, critDmg: 150 });
+  it('is the same: 100 HP and all four skills at level 1', () => {
+    expect(HERO_STATS).toEqual({ hp: 100, def: 0, crit: 5, critDmg: 150 });
     expect([HERO_TREE.stopwatch, HERO_TREE.speed, HERO_TREE.poker, HERO_TREE.roulette]).toEqual([1, 1, 1, 1]);
     const s = start('same', NAMES);
-    expect(s.hp).toEqual([250, 250]);
+    expect(s.hp).toEqual([100, 100]);
     expect(ready(s, 0)).toEqual(['stopwatch', 'speed', 'poker', 'roulette']);
   });
 });
@@ -185,6 +185,6 @@ describe('a fight', () => {
       const { state } = fightOut(`golden${i}`);
       return `${state.winner}:${state.hp.join(',')}:${state.log.length}`;
     });
-    expect(hashSeed(results.join('|'))).toBe(141810337);
+    expect(hashSeed(results.join('|'))).toBe(2532766828);
   });
 });
