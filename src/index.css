@@ -2991,57 +2991,7 @@ button.seat:disabled {
   padding: max(10px, env(safe-area-inset-top)) 14px 8px;
 }
 
-/* Game-style frames: a double border with small gold corners. */
-.frame {
-  position: relative;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--r-lg);
-  background: var(--surface-grad);
-  box-shadow: var(--highlight), var(--shadow-1), inset 0 0 0 3px var(--bg), inset 0 0 0 4px var(--separator);
-}
-
-.frame::before,
-.frame::after {
-  content: '';
-  position: absolute;
-  width: 14px;
-  height: 14px;
-  border: 2px solid var(--accent-line);
-  pointer-events: none;
-}
-
-.frame::before {
-  top: 6px;
-  left: 6px;
-  border-right: none;
-  border-bottom: none;
-  border-top-left-radius: 8px;
-}
-
-.frame::after {
-  right: 6px;
-  bottom: 6px;
-  border-top: none;
-  border-left: none;
-  border-bottom-right-radius: 8px;
-}
-
-/* A banner title: gold lettering on a ribbon with notched ends. */
-.ribbon {
-  position: relative;
-  display: inline-block;
-  margin: 0;
-  padding: 6px 22px;
-  background: linear-gradient(180deg, var(--surface-2), var(--surface));
-  clip-path: polygon(0 0, 100% 0, calc(100% - 10px) 50%, 100% 100%, 0 100%, 10px 50%);
-  color: var(--accent);
-  font-size: var(--fs-md);
-  font-weight: 750;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
-/* A game's front door: its emblem and name in a frame. */
+/* A game's front door: its emblem and name in a white card. */
 .door-hero {
   display: flex;
   flex-direction: column;
@@ -3053,6 +3003,11 @@ button.seat:disabled {
 
 .door-hero .note {
   max-width: 30ch;
+}
+
+.door-title {
+  margin: 0;
+  font-size: var(--fs-xl);
 }
 
 /* The fight's pause: a small panel of two buttons side by side. */

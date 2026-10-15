@@ -55,13 +55,13 @@ export function GameHome({
 
   return (
     <Page title={title} back={back ?? '/'}>
-      <section className="door-hero frame">
+      <section className="door-hero group">
         {Glyph && (
           <span className={`game-glyph ${gameId}`}>
             <Glyph />
           </span>
         )}
-        <h2 className="ribbon">{title}</h2>
+        <h2 className="door-title">{title}</h2>
         <p className="note">{tagline}</p>
       </section>
       {!ready && <p className="note">Connecting…</p>}
@@ -129,7 +129,7 @@ export function Lobby({ code, players, options, action }: { code: string; player
   const [showOptions, setShowOptions] = useState(false);
   return (
     <>
-      <div className="room-code frame">
+      <div className="room-code group">
         <span className="micro">Room code</span>
         <strong>{code}</strong>
         <span className="note">Friends tap “Join with a code” and type it in.</span>
