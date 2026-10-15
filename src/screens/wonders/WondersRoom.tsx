@@ -52,7 +52,7 @@ export function WondersRoom() {
   else body = <Game room={room} moves={data.moves} uid={uid} />;
 
   return (
-    <Page title={`Ancient Wonders · ${code}`} back="/wonders">
+    <Page title={`Ancient Wonders · ${code}`} back="/wonders" game="wonders">
       {body}
     </Page>
   );

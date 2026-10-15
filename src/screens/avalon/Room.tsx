@@ -52,7 +52,7 @@ export function Room() {
   else body = <Game room={room} data={data} uid={uid} />;
 
   return (
-    <Page title={`Avalon · ${code}`} back="/avalon">
+    <Page title={`Avalon · ${code}`} back="/avalon" game="avalon">
       {body}
     </Page>
   );

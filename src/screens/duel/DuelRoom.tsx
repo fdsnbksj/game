@@ -47,7 +47,7 @@ export function DuelRoom() {
   else body = <Game room={room} moves={data.moves} uid={uid} />;
 
   return (
-    <Page title={`Rival Wonders · ${code}`} back="/duel">
+    <Page title={`Rival Wonders · ${code}`} back="/duel" game="duel">
       {body}
     </Page>
   );

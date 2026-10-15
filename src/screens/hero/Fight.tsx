@@ -174,7 +174,7 @@ export function Fight({
                 {SKILLS.map((s) => {
                   const left = state.cooldowns[actor][s] ?? 0;
                   return (
-                    <button key={s} className="button skill-button" disabled={left > 0} onClick={() => setSkill(s)}>
+                    <button key={s} className={`button skill-button skill-${s}`} disabled={left > 0} onClick={() => setSkill(s)}>
                       <strong>{SKILL_NAME[s]}</strong>
                       <small>{left ? `Rests ${left} more` : SKILL_HINT[s]}</small>
                     </button>

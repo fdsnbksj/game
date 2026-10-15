@@ -60,7 +60,7 @@ export function IsleRoom() {
   else body = <Game room={room} moves={data.moves} uid={uid} />;
 
   return (
-    <Page title={`Island Settlers · ${code}`} back="/isle">
+    <Page title={`Island Settlers · ${code}`} back="/isle" game="isle">
       {body}
     </Page>
   );

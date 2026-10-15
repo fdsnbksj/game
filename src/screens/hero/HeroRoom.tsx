@@ -29,7 +29,7 @@ export function HeroRoom() {
   else body = <Game room={room} moves={data.moves} uid={uid} />;
 
   return (
-    <Page title={`Hero Gambit · ${code}`} back="/hero">
+    <Page title={`Hero Gambit · ${code}`} back="/hero" game="hero">
       {body}
     </Page>
   );

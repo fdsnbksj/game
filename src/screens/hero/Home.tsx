@@ -42,7 +42,7 @@ export function Home() {
   };
 
   return (
-    <Page title="" back="/">
+    <Page title="" back="/" game="hero">
       <div className="home front-door">
         <GameBanner
           id="hero"

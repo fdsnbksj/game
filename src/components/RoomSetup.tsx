@@ -54,7 +54,7 @@ export function GameHome({
   };
 
   return (
-    <Page title="" back={back ?? '/'}>
+    <Page title="" back={back ?? '/'} game={gameId}>
       <GameBanner id={gameId} line={tagline} />
       {!ready && <p className="note center-note">Connecting…</p>}
       <div className="front-door">
@@ -121,7 +121,7 @@ export function Lobby({ code, players, options, action }: { code: string; player
   const [showOptions, setShowOptions] = useState(false);
   return (
     <>
-      <div className="room-code group">
+      <div className="room-code">
         <span className="micro">Room code</span>
         <strong>{code}</strong>
         <span className="note">Friends tap “Join with a code” and type it in.</span>
