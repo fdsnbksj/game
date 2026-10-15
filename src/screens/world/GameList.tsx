@@ -3,9 +3,7 @@ import { Link } from 'react-router';
 import { GAME_GLYPHS } from '../../components/GameGlyphs';
 import { lastRoom } from '../../lastPage';
 import { useNonogramStore } from '../../nonogramStore';
-import { ZONES } from './zones';
-
-const GAMES = ZONES.flatMap((zone) => zone.games.map((game) => ({ ...game, zone: zone.name })));
+import { GAMES } from './games';
 
 /** Home: every game in one list, with a search on top and a way back to a room still on. */
 export function GameList() {
@@ -14,7 +12,7 @@ export function GameList() {
   const room = lastRoom();
   const words = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
   const shown = GAMES.filter((game) => {
-    const text = `${game.name} ${game.tagline} ${game.zone}`.toLowerCase();
+    const text = `${game.name} ${game.tagline}`.toLowerCase();
     return words.every((word) => text.includes(word));
   });
   const ongoing = room && GAMES.find((game) => room.startsWith(`/${game.id}/`));

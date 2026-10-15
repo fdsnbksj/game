@@ -1,20 +1,18 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { ZONES } from '../../src/screens/world/zones';
+import { GAMES } from '../../src/screens/world/games';
 
-// Home lists every game from the zones; the map itself is unrouted but kept whole.
-describe('the world map', () => {
+describe('the list of games', () => {
   const app = readFileSync(new URL('../../src/App.tsx', import.meta.url), 'utf8');
 
-  it('puts every game in exactly one zone', () => {
-    const ids = ZONES.flatMap((z) => z.games.map((g) => g.id));
+  it('lists every game once', () => {
+    const ids = GAMES.map((g) => g.id);
     expect(new Set(ids).size).toBe(ids.length);
     expect([...ids].sort()).toEqual(['avalon', 'brawl', 'duel', 'hero', 'isle', 'nonograms', 'wonders']);
   });
 
-  it('sends every game to a route that exists, and has a route for the zones', () => {
-    for (const zone of ZONES) for (const game of zone.games) expect(app).toContain(`path="${game.path}"`);
-    expect(app).toContain('path="/zone/:id"');
+  it('sends every game to a route that exists', () => {
+    for (const game of GAMES) expect(app).toContain(`path="${game.path}"`);
   });
 
   it('reopens on every game now that they all show', () => {

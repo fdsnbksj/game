@@ -113,28 +113,6 @@
   --game-isle: #79a955;
   --game-isle-soft: rgb(121 169 85 / 0.14);
   --game-brawl: #f08a5d;
-  /* The world map's three zones: a colour each; gold stays the one action colour. */
-  --zone-keep: #6f9cff;
-  --zone-keep-soft: rgb(111 156 255 / 0.16);
-  --zone-keep-glow: rgb(111 156 255 / 0.35);
-  --zone-tower: #b48cff;
-  --zone-tower-soft: rgb(180 140 255 / 0.16);
-  --zone-tower-glow: rgb(180 140 255 / 0.35);
-  --zone-arena: #ff8a4c;
-  --zone-arena-soft: rgb(255 138 76 / 0.16);
-  --zone-arena-glow: rgb(255 138 76 / 0.35);
-  /* The map itself: night sky, dark land, a river, trails, cloud. */
-  --map-sky-top: #0d1324;
-  --map-sky-bottom: #0a0b0d;
-  --map-star: #e8ecf8;
-  --map-land: #161b24;
-  --map-land-edge: #232a36;
-  --map-river: #1f3a5c;
-  --map-trail: rgb(238 187 69 / 0.4);
-  --map-cloud: rgb(200 210 235 / 0.06);
-  --map-window: #f6d27a;
-  --map-door: #0a0b0d;
-  --plate: rgb(10 11 13 / 0.78);
   --game-brawl-soft: rgb(240 138 93 / 0.14);
   /* Hero Gambit: its emblem, HP bars, the roulette numbers' three colours. */
   --game-hero: #2563eb;
@@ -2983,7 +2961,7 @@ button.seat:disabled {
   font-size: var(--fs-sm);
 }
 
-/* ---------- The world: map, zones, tabs ---------- */
+/* ---------- The world: the top bar and its pages ---------- */
 
 /* Home and the profile: who you are along the top, the page below. */
 .world {
@@ -3011,174 +2989,6 @@ button.seat:disabled {
   align-items: center;
   gap: 10px;
   padding: max(10px, env(safe-area-inset-top)) 14px 8px;
-}
-
-.player-avatar {
-  display: grid;
-  flex: none;
-  place-items: center;
-  width: 44px;
-  height: 44px;
-  border: 2px solid var(--accent-line);
-  border-radius: 50%;
-  background: var(--surface-grad);
-  box-shadow: var(--highlight), 0 0 0 3px var(--accent-soft);
-  color: var(--accent);
-  font-weight: 750;
-  text-decoration: none;
-  transition: transform var(--dur-fast) var(--ease);
-}
-
-.player-avatar:active {
-  transform: scale(0.92);
-}
-
-.player-who {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  gap: 3px;
-  min-width: 0;
-}
-
-.player-who strong {
-  overflow: hidden;
-  font-size: var(--fs-md);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.player-chips {
-  display: flex;
-  gap: 6px;
-}
-
-.player-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 1px 8px;
-  border-radius: 999px;
-  background: var(--fill-2);
-  color: var(--label-2);
-  font-size: var(--fs-label);
-  font-weight: 650;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
-.player-chip.tower {
-  background: var(--zone-tower-soft);
-  color: var(--zone-tower);
-}
-
-/* The map fills the space between the bars. */
-.world-map {
-  position: absolute;
-  inset: 0;
-}
-
-.map-svg {
-  display: block;
-  width: 100%;
-  height: 100%;
-  font-family: var(--font);
-}
-
-.map-sky { fill: var(--map-sky-top); }
-.map-glow-in { stop-color: var(--accent-soft); }
-.map-star {
-  fill: var(--map-star);
-  opacity: 0.55;
-  animation: twinkle 3.2s ease-in-out infinite;
-}
-.map-land { fill: var(--map-land); stroke: var(--map-land-edge); stroke-width: 2; }
-.map-land-edge { fill: none; stroke: var(--map-land-edge); stroke-width: 6; }
-.map-river { fill: none; stroke: var(--map-river); stroke-width: 9; stroke-linecap: round; }
-.map-trail { fill: none; stroke: var(--map-trail); stroke-width: 2.2; stroke-dasharray: 2 7; stroke-linecap: round; }
-.map-cloud { fill: var(--map-cloud); animation: drift 26s ease-in-out infinite alternate; }
-.map-cloud.slow { animation-duration: 38s; }
-
-.landmark {
-  cursor: pointer;
-  outline: none;
-  transition: transform var(--dur) var(--ease);
-  transform-box: fill-box;
-  transform-origin: center;
-}
-
-.landmark:active {
-  transform: scale(0.96);
-}
-
-.landmark:focus-visible .plate {
-  stroke: var(--accent);
-}
-
-.landmark-halo { animation: pulse 3.6s ease-in-out infinite; }
-.halo-in.keep { stop-color: var(--zone-keep-glow); }
-.halo-in.tower { stop-color: var(--zone-tower-glow); }
-.halo-in.arena { stop-color: var(--zone-arena-glow); }
-
-/* The landmarks' art: each in its zone's colour, windows lit gold. */
-.landmark-art .fill { fill: var(--surface-2); stroke-width: 1.4; }
-.landmark-art .window { fill: var(--map-window); }
-.landmark-art .door { fill: var(--map-door); }
-.landmark-art .pit { fill: var(--map-door); opacity: 0.7; }
-.landmark-art .flag { fill: none; stroke: var(--accent); stroke-width: 2; stroke-linejoin: round; }
-.landmark-art.keep .fill { stroke: var(--zone-keep); }
-.landmark-art.keep .roof { fill: var(--zone-keep); }
-.landmark-art.tower .fill { stroke: var(--zone-tower); }
-.landmark-art.tower .roof { fill: var(--zone-tower); }
-.landmark-art.arena .fill { stroke: var(--zone-arena); }
-.landmark-art.arena .roof { fill: var(--zone-arena-soft); stroke: var(--zone-arena); stroke-width: 1.4; }
-
-.plate { fill: var(--plate); stroke: var(--accent-line); stroke-width: 1; }
-.plate-name { fill: var(--label); font-size: 11.5px; font-weight: 700; letter-spacing: 0.02em; }
-.plate-badge { stroke-width: 1; }
-.plate-badge.keep { fill: var(--zone-keep-soft); stroke: var(--zone-keep); }
-.plate-badge.tower { fill: var(--zone-tower-soft); stroke: var(--zone-tower); }
-.plate-badge.arena { fill: var(--zone-arena-soft); stroke: var(--zone-arena); }
-.plate-badge-text { fill: var(--label); font-size: 9px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
-
-/* A room you're in: a banner across the top of the map. */
-.battle-banner {
-  position: absolute;
-  top: 8px;
-  right: 14px;
-  left: 14px;
-  z-index: 2;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 16px;
-  border: 1px solid var(--accent-line);
-  border-radius: var(--r-lg);
-  background: var(--glow), var(--surface-grad);
-  box-shadow: var(--highlight), var(--shadow-2);
-  color: var(--label);
-  text-decoration: none;
-  animation: rise var(--dur) var(--ease) both;
-}
-
-.battle-banner > span:nth-child(2) {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.battle-banner svg {
-  color: var(--accent);
-}
-
-.battle-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: var(--danger);
-  box-shadow: 0 0 0 4px var(--danger-soft);
-  animation: pulse 1.6s ease-in-out infinite;
 }
 
 /* Game-style frames: a double border with small gold corners. */
@@ -3231,8 +3041,7 @@ button.seat:disabled {
   text-transform: uppercase;
 }
 
-/* A zone: its banner in its colour, then its games as stage cards. */
-.zone-banner,
+/* A game's front door: its emblem and name in a frame. */
 .door-hero {
   display: flex;
   flex-direction: column;
@@ -3242,97 +3051,8 @@ button.seat:disabled {
   text-align: center;
 }
 
-.zone-banner .note,
 .door-hero .note {
   max-width: 30ch;
-}
-
-.zone-keep .zone-banner { background: radial-gradient(120% 90% at 50% 0%, var(--zone-keep-soft), transparent 70%), var(--surface-grad); }
-.zone-tower .zone-banner { background: radial-gradient(120% 90% at 50% 0%, var(--zone-tower-soft), transparent 70%), var(--surface-grad); }
-.zone-arena .zone-banner { background: radial-gradient(120% 90% at 50% 0%, var(--zone-arena-soft), transparent 70%), var(--surface-grad); }
-
-.stage-cards {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.stage-card {
-  overflow: hidden;
-}
-
-.stage-main {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 16px;
-  color: var(--label);
-  text-decoration: none;
-  transition: transform var(--dur-fast) var(--ease);
-}
-
-.stage-main:active {
-  transform: scale(0.98);
-}
-
-.stage-text {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  gap: 3px;
-  min-width: 0;
-}
-
-.stage-text strong {
-  font-size: var(--fs-md);
-}
-
-.stage-text small {
-  color: var(--label-2);
-  font-size: var(--fs-cap);
-}
-
-.stage-extra {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-  padding: 0 16px 14px;
-}
-
-.stage-ribbon {
-  display: block;
-  padding: 7px 16px;
-  background: var(--accent-grad);
-  color: var(--on-accent);
-  font-size: var(--fs-label);
-  font-weight: 750;
-  letter-spacing: 0.08em;
-  text-decoration: none;
-  text-transform: uppercase;
-}
-
-@keyframes twinkle {
-  0%, 100% { opacity: 0.25; }
-  50% { opacity: 0.8; }
-}
-
-@keyframes drift {
-  from { transform: translateX(-18px); }
-  to { transform: translateX(18px); }
-}
-
-@keyframes pulse {
-  0%, 100% { opacity: 0.65; }
-  50% { opacity: 1; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .map-star,
-  .map-cloud,
-  .landmark-halo,
-  .battle-dot {
-    animation: none;
-  }
 }
 
 /* The fight's pause: a small panel of two buttons side by side. */

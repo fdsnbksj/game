@@ -18,7 +18,6 @@ import { GameList } from './screens/world/GameList';
 import { HeroRoom } from './screens/hero/HeroRoom';
 import { LocalFight } from './screens/hero/LocalFight';
 import { WorldShell } from './screens/world/WorldShell';
-import { Zone } from './screens/world/Zone';
 import { Play } from './screens/Play';
 import { Rankings } from './screens/Rankings';
 import { Saved } from './screens/Saved';
@@ -41,7 +40,6 @@ export function App() {
             </WorldShell>
           }
         />
-        <Route path="/zone/:id" element={<Zone />} />
         <Route
           path="/account"
           element={

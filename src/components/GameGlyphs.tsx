@@ -1,4 +1,4 @@
-/** Each game as a small emblem: on the map's stage cards and anywhere a game is named. */
+/** Each game as a small emblem: on home's list and anywhere a game is named. */
 
 /** A few squares filled in, like a puzzle half done. */
 export const NonogramGlyph = () => (
