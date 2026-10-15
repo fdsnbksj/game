@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router';
-import { GAME_GLYPHS } from './GameGlyphs';
+import { GameBanner } from '../screens/world/GameBanner';
+import type { GameId } from '../screens/world/games';
 import { useGameStore } from '../store';
 import { Page } from './Page';
 import { Sheet } from './Sheet';
@@ -31,9 +32,8 @@ export function GameHome({
 }) {
   const navigate = useNavigate();
   const ready = useGameStore((s) => s.player !== null);
-  // The game this door belongs to, from its base path, for its emblem.
-  const gameId = base.slice(1) as keyof typeof GAME_GLYPHS;
-  const Glyph = GAME_GLYPHS[gameId];
+  // The game this door belongs to, from its base path, for its banner.
+  const gameId = base.slice(1) as GameId;
   const [joining, setJoining] = useState(false);
   const [rules, setRules] = useState(false);
   const [code, setCode] = useState('');
@@ -54,17 +54,9 @@ export function GameHome({
   };
 
   return (
-    <Page title={title} back={back ?? '/'}>
-      <section className="door-hero group">
-        {Glyph && (
-          <span className={`game-glyph ${gameId}`}>
-            <Glyph />
-          </span>
-        )}
-        <h2 className="door-title">{title}</h2>
-        <p className="note">{tagline}</p>
-      </section>
-      {!ready && <p className="note">Connecting…</p>}
+    <Page title="" back={back ?? '/'}>
+      <GameBanner id={gameId} line={tagline} />
+      {!ready && <p className="note center-note">Connecting…</p>}
       <div className="front-door">
         <button className="button primary" disabled={!ready || busy} onClick={() => void run(onHost)}>
           Host a game
