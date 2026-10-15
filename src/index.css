@@ -135,9 +135,13 @@
   --hero-wheel-black: #27272a;
   --hero-wheel-green: #16a34a;
   --on-dark: #ffffff;
-  /* Avalon's table: a dark felt. */
-  --felt: radial-gradient(ellipse at 50% 35%, #1f2a26, #141a18 70%);
-  --felt-edge: #2b3a34;
+  /* Avalon's table, game-centre style: a deep sweep from Avalon's blue. */
+  --avalon-table-from: #8fb0ff;
+  --avalon-table-to: #4f5fd1;
+  --avalon-table-glow: rgb(79 95 209 / 0.35);
+  --seat-shadow: 0 4px 12px rgb(0 0 0 / 0.08);
+  --good-deep: #1f7a3a;
+  --evil-deep: #b3301f;
   /* Percival's Merlin-or-Morgana pair: its own colour, apart from the leader's amber. */
   --maybe: #b48cff;
   --maybe-soft: rgb(180 140 255 / 0.14);
@@ -1137,8 +1141,33 @@ button.icon-button:active:not(:disabled) {
   font-weight: 600;
 }
 
+.role-card:not(.shown) {
+  min-height: 60px;
+  border-color: transparent;
+  border-radius: var(--r-xl);
+  background:
+    radial-gradient(90% 80% at 85% 10%, var(--on-feature-soft), transparent 60%),
+    linear-gradient(160deg, var(--avalon-table-from), var(--avalon-table-to));
+  box-shadow: 0 8px 20px var(--avalon-table-glow);
+  color: var(--on-feature);
+}
+
 .role-card.shown {
   min-height: 132px;
+  border-color: transparent;
+  border-radius: var(--r-xl);
+  color: var(--on-feature);
+}
+
+.role-card.shown .micro,
+.role-card.shown .note {
+  color: var(--on-feature);
+}
+
+.role-card.shown .micro {
+  font-weight: 750;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
 }
 
 .role-card.shown strong {
@@ -1146,21 +1175,13 @@ button.icon-button:active:not(:disabled) {
 }
 
 .role-card.good {
-  border-color: var(--success);
-  background: var(--success-soft);
-}
-
-.role-card.good .micro {
-  color: var(--success);
+  background: linear-gradient(160deg, var(--success), var(--good-deep));
+  box-shadow: 0 8px 20px var(--success-soft);
 }
 
 .role-card.evil {
-  border-color: var(--danger-line);
-  background: var(--danger-soft);
-}
-
-.role-card.evil .micro {
-  color: var(--danger);
+  background: linear-gradient(160deg, var(--danger), var(--evil-deep));
+  box-shadow: 0 8px 20px var(--danger-soft);
 }
 
 .board-track {
@@ -1201,22 +1222,22 @@ button.icon-button:active:not(:disabled) {
 }
 
 .quest.current {
-  border-color: var(--accent);
-  background: var(--accent-soft);
-  box-shadow: 0 0 0 3px var(--accent-soft);
-  color: var(--accent);
+  border-color: transparent;
+  background: linear-gradient(160deg, var(--avalon-table-from), var(--avalon-table-to));
+  box-shadow: 0 4px 12px var(--avalon-table-glow);
+  color: var(--on-feature);
 }
 
 .quest.won {
-  border-color: var(--success);
-  background: var(--success-soft);
-  color: var(--success);
+  border-color: transparent;
+  background: linear-gradient(160deg, var(--success), var(--good-deep));
+  color: var(--on-feature);
 }
 
 .quest.lost {
-  border-color: var(--danger-line);
-  background: var(--danger-soft);
-  color: var(--danger);
+  border-color: transparent;
+  background: linear-gradient(160deg, var(--danger), var(--evil-deep));
+  color: var(--on-feature);
 }
 
 /* The quests and rejected teams in one strip at the top of the game. */
@@ -1225,10 +1246,11 @@ button.icon-button:active:not(:disabled) {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 8px 12px;
+  padding: 10px 14px;
   border: 1px solid var(--separator);
-  border-radius: var(--r-md);
+  border-radius: var(--r-lg);
   background: var(--surface);
+  box-shadow: var(--seat-shadow);
 }
 
 .quests.compact {
@@ -1363,23 +1385,28 @@ button.icon-button:active:not(:disabled) {
   align-items: center;
   justify-content: center;
   gap: 6px;
-  border: 1px solid var(--felt-edge);
   border-radius: 50%;
-  background: var(--felt);
-  box-shadow: var(--highlight), var(--shadow-1), inset 0 0 30px rgb(0 0 0 / 0.35);
+  background:
+    radial-gradient(70% 60% at 50% 20%, var(--on-feature-soft), transparent 70%),
+    linear-gradient(160deg, var(--avalon-table-from), var(--avalon-table-to));
+  box-shadow: 0 12px 28px var(--avalon-table-glow), inset 0 -10px 24px var(--on-feature-shade);
+  color: var(--on-feature);
   text-align: center;
 }
 
 .table-caption {
   padding: 0 8px;
   font-size: var(--fs-sm);
-  font-weight: 600;
+  font-weight: 750;
+  text-shadow: 0 1px 2px var(--on-feature-shade);
 }
 
 .clockwise {
-  color: var(--label-3);
+  color: var(--on-feature);
   font-size: var(--fs-label);
+  font-weight: 650;
   letter-spacing: 0.04em;
+  opacity: 0.8;
 }
 
 .seats {
@@ -1400,11 +1427,11 @@ button.icon-button:active:not(:disabled) {
   gap: 3px;
   width: 78px;
   min-height: 44px;
-  padding: 6px 4px;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--r-md);
-  background: var(--surface-2);
-  box-shadow: var(--highlight), var(--shadow-1);
+  padding: 7px 4px;
+  border: 2px solid transparent;
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  box-shadow: var(--seat-shadow);
   color: var(--label);
   font: inherit;
   text-align: center;
@@ -1424,21 +1451,32 @@ button.seat:disabled {
 }
 
 .seat.team {
-  border-color: var(--accent-line);
+  border-color: var(--game-avalon);
+  background: var(--game-avalon-soft);
 }
 
 .seat.leading {
-  border-color: var(--accent);
+  border-color: var(--avalon-table-to);
 }
 
 .seat.picked {
-  border-color: var(--accent);
-  background: var(--accent-soft);
-  box-shadow: 0 0 0 3px var(--accent-soft), var(--shadow-1);
+  border-color: transparent;
+  background: linear-gradient(160deg, var(--avalon-table-from), var(--avalon-table-to));
+  box-shadow: 0 6px 16px var(--avalon-table-glow);
+  color: var(--on-feature);
 }
 
 .seat.you .seat-name {
-  color: var(--accent);
+  color: var(--avalon-table-to);
+}
+
+.seat.picked.you .seat-name {
+  color: var(--on-feature);
+}
+
+.seat.picked .mark {
+  background: var(--on-feature-soft);
+  color: var(--on-feature);
 }
 
 .seat-name {
@@ -1462,8 +1500,8 @@ button.seat:disabled {
 }
 
 .mark {
-  padding: 1px 4px;
-  border-radius: 4px;
+  padding: 1px 6px;
+  border-radius: 999px;
   background: var(--fill-3);
   color: var(--label-2);
   font-size: 0.5625rem;
@@ -1473,8 +1511,8 @@ button.seat:disabled {
 }
 
 .mark.lead {
-  background: var(--accent-soft);
-  color: var(--accent);
+  background: var(--avalon-table-to);
+  color: var(--on-feature);
 }
 
 .mark.lady {
