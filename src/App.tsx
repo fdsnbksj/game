@@ -10,9 +10,6 @@ import { WondersHome } from './screens/wonders/WondersHome';
 import { WondersRoom } from './screens/wonders/WondersRoom';
 import { IsleHome } from './screens/isle/IsleHome';
 import { IsleRoom } from './screens/isle/IsleRoom';
-import { Brawl } from './screens/brawl/Brawl';
-import { BrawlOnline } from './screens/brawl/BrawlOnline';
-import { BrawlRoom } from './screens/brawl/BrawlRoom';
 import { Home } from './screens/hero/Home';
 import { GameList } from './screens/world/GameList';
 import { HeroRoom } from './screens/hero/HeroRoom';
@@ -35,9 +32,7 @@ export function App() {
         <Route
           path="/"
           element={
-            <WorldShell>
-              <GameList />
-            </WorldShell>
+<GameList />
           }
         />
         <Route
@@ -57,9 +52,6 @@ export function App() {
         <Route path="/wonders/:code" element={<WondersRoom />} />
         <Route path="/isle" element={<IsleHome />} />
         <Route path="/isle/:code" element={<IsleRoom />} />
-        <Route path="/brawl" element={<Brawl />} />
-        <Route path="/brawl/online" element={<BrawlOnline />} />
-        <Route path="/brawl/:code" element={<BrawlRoom />} />
         <Route path="/hero" element={<Home />} />
         <Route path="/hero/local" element={<LocalFight />} />
         <Route path="/hero/:code" element={<HeroRoom />} />

@@ -55,15 +55,6 @@ export const IsleGlyph = () => (
   </svg>
 );
 
-/** Two blades crossed over the island they fight on. */
-export const BrawlGlyph = () => (
-  <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true">
-    <path d="M18.6 2.8 20.2 4.4 9.4 15.2l-1.6-1.6z" fill="currentColor" />
-    <path d="M5.4 2.8 3.8 4.4l10.8 10.8 1.6-1.6z" fill="currentColor" opacity="0.6" />
-    <rect x="3" y="18.5" width="18" height="2.6" rx="1.3" fill="currentColor" />
-  </svg>
-);
-
 /** A shield with a stopwatch's face: your hero. */
 export const HeroGlyph = () => (
   <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true">
@@ -80,6 +71,5 @@ export const GAME_GLYPHS = {
   wonders: WondersGlyph,
   isle: IsleGlyph,
   nonograms: NonogramGlyph,
-  brawl: BrawlGlyph,
   hero: HeroGlyph,
 } as const;

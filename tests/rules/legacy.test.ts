@@ -82,3 +82,22 @@ describe('retired Hero Gambit wardrobes and arena', () => {
     await assertFails(updateDoc(doc(db, 'arena', 'alice'), { rating: 1035, wins: 1 }));
   });
 });
+
+// Stick Brawl was removed; its rooms and handshakes stay, closed.
+describe('retired Stick Brawl rooms', () => {
+  beforeEach(async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      const db = asModular(ctx.firestore());
+      await setDoc(doc(db, 'brawls', 'ABCD'), { host: 'alice', playerIds: ['alice'], names: { alice: 'Alice' }, status: 'lobby' });
+      await setDoc(doc(db, 'brawls', 'ABCD', 'signals', 'offer'), { sdp: 'v=0' });
+    });
+  });
+
+  it('closes them to their players too', async () => {
+    const db = dbFor('alice');
+    await assertFails(getDoc(doc(db, 'brawls', 'ABCD')));
+    await assertFails(setDoc(doc(db, 'brawls', 'WXYZ'), { host: 'alice', playerIds: ['alice'], names: { alice: 'Alice' }, status: 'lobby', createdAt: serverTimestamp() }));
+    await assertFails(getDoc(doc(db, 'brawls', 'ABCD', 'signals', 'offer')));
+    await assertFails(deleteDoc(doc(db, 'brawls', 'ABCD')));
+  });
+});

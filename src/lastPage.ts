@@ -6,11 +6,11 @@
 const KEY = 'game:lastPage';
 
 // Only the app's own pages; anything else (an old or tampered value) opens the home screen.
-const PAGES = /^\/((avalon|duel|wonders|isle|brawl|hero)(\/[A-Z]{4})?|hero\/local|brawl\/online|nonograms|saved|ranks|settings|account)$/;
+const PAGES = /^\/((avalon|duel|wonders|isle|hero)(\/[A-Z]{4})?|hero\/local|nonograms|saved|ranks|settings|account)$/;
 
 // The last party-game room, so home can offer a way back until that game ends.
 const ROOM_KEY = 'game:lastRoom';
-const ROOM = /^\/(avalon|duel|wonders|isle|brawl|hero)\/[A-Z]{4}$/;
+const ROOM = /^\/(avalon|duel|wonders|isle|hero)\/[A-Z]{4}$/;
 
 export function rememberPage(path: string) {
   try {

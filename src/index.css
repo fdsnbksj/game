@@ -112,64 +112,21 @@
   --game-wonders-soft: rgb(79 179 200 / 0.14);
   --game-isle: #79a955;
   --game-isle-soft: rgb(121 169 85 / 0.14);
-  --game-brawl: #f08a5d;
-  --game-brawl-soft: rgb(240 138 93 / 0.14);
   /* Hero Gambit: its emblem, HP bars, the roulette numbers' three colours. */
   --game-hero: #2563eb;
   --game-hero-soft: rgb(37 99 235 / 0.12);
+  /* Home, the game centre: the featured card's sweep and the live dot. */
+  --hub-feature-from: #2563eb;
+  --hub-feature-to: #7c3aed;
+  --hub-feature-glow: rgb(124 58 237 / 0.35);
+  --on-feature: #ffffff;
+  --on-feature-soft: rgb(255 255 255 / 0.22);
   --hero-hp: #22a34a;
   --hero-hp-low: #dc2626;
   --hero-wheel-red: #dc2626;
   --hero-wheel-black: #27272a;
   --hero-wheel-green: #16a34a;
   --on-dark: #ffffff;
-  /* Sky Brawl: a night sky, a stone island, and a colour per fighter (gold is you). */
-  --brawl-sky-top: #141a2a;
-  --brawl-sky-bottom: #0a0b0d;
-  --brawl-glow: rgb(238 187 69 / 0.1);
-  --brawl-stage: #343a48;
-  --brawl-stage-top: #5d6577;
-  --brawl-stage-edge: #1c1f27;
-  --brawl-ledge: #4a5162;
-  --brawl-p1: #eebb45;
-  --brawl-p2: #5c9cf5;
-  --brawl-p3: #ef5a63;
-  --brawl-p4: #44c58c;
-  --brawl-flash: #ffffff;
-  --brawl-steel: #d4d9e2;
-  --brawl-wood: #9a6b3d;
-  --brawl-eye: #0a0b0d;
-  --brawl-bomb: #23262e;
-  --brawl-spark: #ffb347;
-  --brawl-item-glow: rgb(238 187 69 / 0.45);
-  --brawl-ice: rgb(160 220 255 / 0.55);
-  --brawl-ice-edge: #c9ecff;
-  --brawl-frost: #8fdcff;
-  --brawl-gun: #2b2f38;
-  --brawl-lava: #e2582a;
-  --brawl-lava-glow: rgb(226 88 42 / 0.35);
-  --brawl-spike: #b8bfcc;
-  --brawl-pad: #44c58c;
-  --brawl-wind: rgb(200 220 255 / 0.55);
-  --brawl-hp-good: #44c58c;
-  --brawl-hp-mid: #eebb45;
-  --brawl-hp-low: #ef5a63;
-  --brawl-hp-back: rgb(255 255 255 / 0.15);
-  --brawl-belt: rgb(255 255 255 / 0.28);
-  --brawl-rink: rgb(200 236 255 / 0.7);
-  --brawl-saw: #c9ced8;
-  --brawl-chicken: #f3d34a;
-  --brawl-bread: #d9a35b;
-  --brawl-banana: #f6dc4f;
-  --brawl-bubble: #b6e6ff;
-  --brawl-moon: rgb(230 232 240 / 0.12);
-  --brawl-laser: #ff4d6d;
-  --brawl-flame: #ff9a3c;
-  --brawl-vortex: #2a1b4a;
-  --brawl-mine: #ef5a63;
-  --brawl-control: rgb(255 255 255 / 0.08);
-  --brawl-control-edge: rgb(255 255 255 / 0.16);
-  --brawl-control-down: rgb(255 255 255 / 0.22);
   /* Avalon's table: a dark felt. */
   --felt: radial-gradient(ellipse at 50% 35%, #1f2a26, #141a18 70%);
   --felt-edge: #2b3a34;
@@ -2582,385 +2539,6 @@ button.seat:disabled {
   white-space: nowrap;
 }
 
-/* ---------- Sky Brawl ---------- */
-
-.game-glyph.brawl {
-  background: var(--game-brawl-soft);
-  color: var(--game-brawl);
-}
-
-.brawl-fighters {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
-}
-
-.brawl-fighter {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  padding: 14px 8px;
-  border: 1px solid var(--separator);
-  border-radius: var(--r-lg);
-  background: var(--surface-grad);
-  box-shadow: var(--highlight), var(--shadow-1);
-  color: var(--label);
-  font: inherit;
-  text-align: center;
-  cursor: pointer;
-  transition: transform var(--dur-fast) var(--ease), border-color var(--dur) var(--ease);
-}
-
-.brawl-fighter:active {
-  transform: scale(0.97);
-}
-
-.brawl-fighter[aria-checked='true'] {
-  border-color: var(--accent-line);
-  background: var(--accent-soft);
-}
-
-.brawl-fighter small {
-  color: var(--label-2);
-  font-size: var(--fs-cap);
-  line-height: 1.35;
-}
-
-.brawl-hud {
-  display: grid;
-  gap: 4px;
-}
-
-.brawl-chip {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 1px;
-  min-width: 0;
-  padding: 4px 2px 5px;
-  border-radius: 10px;
-  background: var(--fill-1);
-  font-variant-numeric: tabular-nums;
-}
-
-.brawl-chip.out {
-  opacity: 0.4;
-}
-
-.brawl-chip-name {
-  max-width: 100%;
-  overflow: hidden;
-  color: var(--label-2);
-  font-size: var(--fs-label);
-  letter-spacing: 0.08em;
-  text-overflow: ellipsis;
-  text-transform: uppercase;
-  white-space: nowrap;
-}
-
-.brawl-chip strong {
-  font-size: var(--fs-md);
-  font-weight: 700;
-  line-height: 1.1;
-}
-
-.brawl-chip strong.warm {
-  color: var(--accent);
-}
-
-.brawl-chip strong.hot {
-  color: var(--danger);
-}
-
-.brawl-stocks {
-  display: flex;
-  gap: 3px;
-}
-
-.brawl-stocks i {
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: var(--fill-3);
-}
-
-.brawl-chip.p1 .brawl-stocks i.on { background: var(--brawl-p1); }
-.brawl-chip.p2 .brawl-stocks i.on { background: var(--brawl-p2); }
-.brawl-chip.p3 .brawl-stocks i.on { background: var(--brawl-p3); }
-.brawl-chip.p4 .brawl-stocks i.on { background: var(--brawl-p4); }
-
-.brawl-result {
-  margin: 0;
-  font-size: var(--fs-lg);
-  font-weight: 700;
-}
-
-/* Over the arena while the other phone has gone quiet. */
-.brawl-waiting {
-  position: fixed;
-  top: 30%;
-  left: 50%;
-  z-index: 20;
-  margin: 0;
-  padding: 8px 14px;
-  border-radius: 999px;
-  background: var(--bar-bg);
-  color: var(--label-2);
-  font-size: var(--fs-sm);
-  transform: translateX(-50%);
-  pointer-events: none;
-}
-
-.brawl-chip-name svg {
-  margin-right: 3px;
-  vertical-align: -1px;
-}
-
-.brawl-weapons {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 14px;
-  margin: 0;
-  padding: 0;
-  color: var(--label);
-  font-size: var(--fs-sm);
-  list-style: none;
-}
-
-.brawl-weapons li {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-}
-
-/* ---------- Sky Brawl: the fight, sideways ---------- */
-
-/* The arena fills the screen; the controls float over its lower corners. */
-.brawl-stage {
-  position: fixed;
-  inset: 0;
-  overflow: hidden;
-  background: var(--brawl-sky-bottom);
-  touch-action: none;
-  user-select: none;
-  -webkit-user-select: none;
-  -webkit-touch-callout: none;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.brawl-canvas {
-  position: absolute;
-  inset: 0;
-  display: block;
-  width: 100%;
-  height: 100%;
-}
-
-.brawl-top {
-  position: absolute;
-  top: max(8px, env(safe-area-inset-top));
-  right: max(12px, env(safe-area-inset-right));
-  left: max(12px, env(safe-area-inset-left));
-  display: grid;
-  grid-template-columns: 44px 1fr 44px;
-  align-items: start;
-  gap: 8px;
-}
-
-.brawl-top .brawl-hud {
-  justify-content: center;
-}
-
-.brawl-top .brawl-chip {
-  background: var(--bar-bg);
-}
-
-/* Anywhere in the lower left: the left thumb's stick appears where it lands. */
-.brawl-stick-zone {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  width: 45%;
-  height: 62%;
-}
-
-.brawl-stick-hint {
-  position: absolute;
-  bottom: max(18px, env(safe-area-inset-bottom));
-  left: max(24px, env(safe-area-inset-left));
-  margin: 0;
-  color: var(--label-3);
-  font-size: var(--fs-label);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  pointer-events: none;
-}
-
-.brawl-stick {
-  position: absolute;
-  top: 0;
-  left: 0;
-  pointer-events: none;
-}
-
-.brawl-stick[hidden] {
-  display: none;
-}
-
-.brawl-stick::before {
-  content: '';
-  position: absolute;
-  top: -56px;
-  left: -56px;
-  width: 112px;
-  height: 112px;
-  border: 1px solid var(--brawl-control-edge);
-  border-radius: 50%;
-  background: var(--brawl-control);
-}
-
-.brawl-knob {
-  position: absolute;
-  top: -24px;
-  left: -24px;
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  background: var(--fill-3);
-  box-shadow: var(--highlight), var(--shadow-1);
-}
-
-/* The right thumb's four buttons in a diamond: Heavy on top, Attack left, Dodge right, Jump below. */
-.brawl-buttons {
-  position: absolute;
-  right: max(20px, env(safe-area-inset-right));
-  bottom: max(16px, env(safe-area-inset-bottom));
-  display: grid;
-  grid-template-areas:
-    '. heavy .'
-    'normal . dodge'
-    '. jump .';
-  grid-template-columns: repeat(3, 64px);
-  grid-template-rows: repeat(3, 56px);
-}
-
-.brawl-button {
-  display: grid;
-  place-items: center;
-  width: 64px;
-  height: 64px;
-  margin: -4px 0;
-  padding: 0;
-  border: 1px solid var(--brawl-control-edge);
-  border-radius: 50%;
-  background: var(--brawl-control);
-  color: var(--label);
-  font: inherit;
-  font-size: var(--fs-label);
-  font-weight: 650;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  touch-action: none;
-  transition: transform var(--dur-fast) var(--ease), background-color var(--dur-fast) var(--ease);
-}
-
-.brawl-button[data-down] {
-  background: var(--brawl-control-down);
-  transform: scale(0.94);
-}
-
-.brawl-button.heavy { grid-area: heavy; }
-.brawl-button.normal { grid-area: normal; }
-.brawl-button.dodge { grid-area: dodge; }
-
-/* Jump is the one pressed most: the gold one. */
-.brawl-button.jump {
-  grid-area: jump;
-  border-color: transparent;
-  background: var(--accent-grad);
-  color: var(--on-accent);
-}
-
-/* Upright (a phone locked to portrait): the whole stage turned a quarter, to be held sideways.
-   Fixed children (the panels) turn with it, since a transformed parent holds them. */
-.brawl-stage.turned {
-  inset: auto;
-  top: 0;
-  left: 100vw;
-  width: 100dvh;
-  height: 100vw;
-  transform: rotate(90deg);
-  transform-origin: 0 0;
-}
-
-/* Panels over the fight: short screens sideways, so they scroll if they must. */
-.brawl-stage .overlay {
-  place-items: center;
-}
-
-.brawl-stage .panel {
-  max-height: calc(100dvh - 24px);
-}
-
-.brawl-stage .brawl-waiting {
-  top: 22%;
-}
-
-.brawl-hp {
-  display: block;
-  width: 100%;
-  height: 5px;
-  margin: 2px 0 1px;
-  overflow: hidden;
-  border-radius: 3px;
-  background: var(--brawl-hp-back);
-}
-
-.brawl-hp i {
-  display: block;
-  height: 100%;
-  border-radius: 3px;
-  transition: width var(--dur) var(--ease);
-}
-
-.brawl-hp i.good { background: var(--brawl-hp-good); }
-.brawl-hp i.mid { background: var(--brawl-hp-mid); }
-.brawl-hp i.low { background: var(--brawl-hp-low); }
-
-.brawl-ammo {
-  margin-left: 4px;
-  color: var(--label);
-  font-style: normal;
-  font-variant-numeric: tabular-nums;
-}
-
-/* Between rounds: who took it, and what's next. */
-.brawl-banner {
-  position: absolute;
-  top: 34%;
-  left: 50%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  padding: 12px 22px;
-  border-radius: var(--r-lg);
-  background: var(--bar-bg);
-  transform: translateX(-50%);
-  pointer-events: none;
-  animation: rise var(--dur) var(--ease) both;
-}
-
-.brawl-banner strong {
-  font-size: var(--fs-lg);
-}
-
-.brawl-banner span {
-  color: var(--label-2);
-  font-size: var(--fs-sm);
-}
-
 /* ---------- The world: the top bar and its pages ---------- */
 
 /* Home and the profile: who you are along the top, the page below. */
@@ -3008,50 +2586,6 @@ button.seat:disabled {
 .door-title {
   margin: 0;
   font-size: var(--fs-xl);
-}
-
-/* The fight's pause: a small panel of two buttons side by side. */
-.pause-panel {
-  width: min(100%, 360px);
-  gap: 12px;
-  padding: 18px;
-}
-
-.pause-actions {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-}
-
-.pause-actions .button {
-  min-height: 56px;
-}
-
-/* Timed fights: the clock, top centre under the chips. */
-.brawl-clock {
-  position: absolute;
-  top: calc(max(8px, env(safe-area-inset-top)) + 64px);
-  left: 50%;
-  padding: 3px 12px;
-  border-radius: 999px;
-  background: var(--bar-bg);
-  color: var(--label);
-  font-size: var(--fs-sm);
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  transform: translateX(-50%);
-  pointer-events: none;
-}
-
-.brawl-clock.overtime {
-  color: var(--danger);
-}
-
-.brawl-wins {
-  color: var(--label);
-  font-size: var(--fs-cap);
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
 }
 
 /* ---------- Hero Gambit ---------- */
@@ -3118,29 +2652,311 @@ button.seat:disabled {
   color: var(--game-hero);
 }
 
-/* Home: every game in one list under a search. */
-.game-row {
-  min-height: 72px;
+/* Home, the game centre: you, a search, the featured game, every game as a tile. */
+.hub {
+  gap: 16px;
 }
 
-.row.game-row > .game-glyph {
+.hub-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 8px;
+}
+
+.hub-hello {
+  margin: 0;
+  color: var(--label-2);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+
+.hub-title {
+  margin: 0;
+  font-size: 2.125rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.hub-avatar {
+  display: grid;
   flex: none;
+  place-items: center;
   width: 44px;
   height: 44px;
-  border-radius: 12px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--hub-feature-from), var(--hub-feature-to));
+  color: var(--on-feature);
+  font-weight: 750;
+  text-decoration: none;
+  transition: transform var(--dur-fast) var(--ease);
 }
 
-.game-row-text {
+.hub-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 46px;
+  padding: 0 14px;
+  border-radius: 999px;
+  background: var(--fill-2);
+  color: var(--label-3);
+}
+
+.hub-search:focus-within {
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.hub-search input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: none;
+  color: var(--label);
+  font: inherit;
+  /* 16px or iOS zooms the page on focus. */
+  font-size: 16px;
+  outline: none;
+}
+
+.hub-continue {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--accent-line);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  color: var(--label);
+  text-decoration: none;
+}
+
+.hub-continue-text {
   display: flex;
   flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.hub-continue-text small {
+  color: var(--label-2);
+  font-size: var(--fs-cap);
+}
+
+.hub-continue .hub-pill {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+.hub-live {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--danger);
+  box-shadow: 0 0 0 4px var(--danger-soft);
+  animation: hub-pulse 1.6s ease-in-out infinite;
+}
+
+.hub-feature {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 4px 12px;
+  padding: 16px 18px 18px;
+  overflow: hidden;
+  border-radius: var(--r-xl);
+  background:
+    radial-gradient(90% 80% at 85% 10%, var(--on-feature-soft), transparent 60%),
+    linear-gradient(135deg, var(--hub-feature-from), var(--hub-feature-to));
+  box-shadow: 0 12px 28px var(--hub-feature-glow);
+  color: var(--on-feature);
+  text-decoration: none;
+  transition: transform var(--dur-fast) var(--ease);
+  animation: rise var(--dur) var(--ease) backwards;
+}
+
+.hub-feature-tag {
+  grid-column: 1 / -1;
+  justify-self: start;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--on-feature-soft);
+  font-size: var(--fs-label);
+  font-weight: 750;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.hub-feature-art {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  padding: 4px 0 8px;
+  color: var(--on-feature);
+}
+
+.hub-feature-art .stickman {
+  width: 54px;
+  height: 90px;
+  color: var(--on-feature);
+}
+
+.hub-feature-art .stickman:first-child {
+  animation: hub-bob 2.4s ease-in-out infinite;
+}
+
+.hub-feature-art .stickman:last-child {
+  animation: hub-bob 2.4s ease-in-out 1.2s infinite;
+}
+
+.hub-vs {
+  font-size: var(--fs-lg);
+  font-style: italic;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+}
+
+.hub-feature-text {
+  display: flex;
   flex-direction: column;
   gap: 2px;
   min-width: 0;
 }
 
-.game-row-text small {
-  color: var(--label-2);
+.hub-feature-text strong {
+  font-size: var(--fs-lg);
+  font-weight: 800;
+}
+
+.hub-feature-text small {
   font-size: var(--fs-sm);
+  opacity: 0.85;
+}
+
+.hub-pill {
+  flex: none;
+  padding: 8px 18px;
+  border-radius: 999px;
+  background: var(--on-feature);
+  color: var(--hub-feature-from);
+  font-size: var(--fs-sm);
+  font-weight: 750;
+}
+
+.hub-section {
+  margin: 4px 2px -4px;
+  font-size: var(--fs-md);
+  font-weight: 750;
+}
+
+.hub-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.hub-tile {
+  --tile: var(--accent);
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 10px 12px;
+  border: 1px solid var(--separator);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  color: var(--label);
+  text-decoration: none;
+  transition: transform var(--dur-fast) var(--ease);
+  animation: rise var(--dur) var(--ease) backwards;
+  animation-delay: calc(var(--i, 0) * 40ms);
+}
+
+.tile-hero { --tile: var(--game-hero); }
+.tile-nonograms { --tile: var(--game-nonogram); }
+.tile-avalon { --tile: var(--game-avalon); }
+.tile-duel { --tile: var(--game-duel); }
+.tile-wonders { --tile: var(--game-wonders); }
+.tile-isle { --tile: var(--game-isle); }
+
+.hub-tile-art {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 16 / 10;
+  border-radius: var(--r-md);
+  background:
+    radial-gradient(80% 90% at 80% 0%, var(--on-feature-soft), transparent 60%),
+    var(--tile);
+  color: var(--on-feature);
+}
+
+.hub-tile-art svg {
+  width: 46px;
+  height: 46px;
+}
+
+.hub-tile-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  padding: 0 2px;
+  min-width: 0;
+}
+
+.hub-tile-text strong {
+  font-size: var(--fs-base);
+}
+
+.hub-tile-text small {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--label-2);
+  font-size: var(--fs-cap);
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.hub-chip {
+  align-self: flex-start;
+  margin-left: 2px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--fill-1);
+  color: var(--label-2);
+  font-size: var(--fs-label);
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+.hub-feature:active,
+.hub-tile:active,
+.hub-avatar:active {
+  transform: scale(0.97);
+}
+
+@keyframes hub-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+}
+
+@keyframes hub-pulse {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hub-feature,
+  .hub-tile,
+  .hub-live,
+  .hub-feature-art .stickman {
+    animation: none;
+  }
 }
 
 .home-more {
