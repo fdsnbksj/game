@@ -133,7 +133,7 @@ function FrontDoor() {
   const [rules, setRules] = useState(false);
 
   return (
-    <Page title="Stick Brawl" back="/zone/arena">
+    <Page title="Stick Brawl" back="/">
       <p className="lead-note">Stick fighters, guns, blades and a rubber chicken, sixteen stages. Pick the rules and the bots. Played sideways, with both thumbs.</p>
 
       <SummaryRow label="Rules" figures={rulesLine(matchRules)}>

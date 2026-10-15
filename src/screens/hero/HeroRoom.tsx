@@ -29,7 +29,7 @@ export function HeroRoom() {
   else body = <Game room={room} moves={data.moves} uid={uid} />;
 
   return (
-    <Page title={`Hero Gambit · ${code}`} back="/">
+    <Page title={`Hero Gambit · ${code}`} back="/hero">
       {body}
     </Page>
   );
@@ -148,7 +148,7 @@ function Game({ room, moves, uid }: { room: Room; moves: HeroRoomData['moves']; 
             <div className="panel" role="dialog" aria-label="Fight over">
               <h2>{state.winner === me ? 'You win' : 'You lose'}</h2>
               <p className="hero-result">{state.winner === me ? `You beat ${names[them]}.` : `${names[them]} wins.`}</p>
-              <Link className="button primary" to="/">
+              <Link className="button primary" to="/hero">
                 New fight
               </Link>
               <Link className="button ghost" to="/">

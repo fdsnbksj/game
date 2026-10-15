@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router';
+import { Page } from '../../components/Page';
 import { SummaryRow } from '../../components/SummaryRow';
 import { createHeroRoom, joinHeroRoom } from '../../services/hero';
 import { useGameStore } from '../../store';
 import { Stickman } from './Stickman';
 
-// Home is Hero Gambit (the other games are hidden for now), a game for playing a friend:
-// host a fight and share the code, join theirs, or share one phone. The rules fold away.
+// Hero Gambit's front door, a game for playing a friend: host a fight and share the code,
+// join theirs, or share one phone. The rules fold away.
 
 export function Home() {
   const navigate = useNavigate();
@@ -40,7 +41,8 @@ export function Home() {
   };
 
   return (
-    <main className="screen home">
+    <Page title="Hero Gambit" back="/">
+      <div className="home">
       <section className="home-hero">
         <div className="home-pair">
           <Stickman />
@@ -105,6 +107,7 @@ export function Home() {
           </div>
         </SummaryRow>
       </div>
-    </main>
+      </div>
+    </Page>
   );
 }

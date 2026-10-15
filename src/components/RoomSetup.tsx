@@ -1,7 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router';
 import { GAME_GLYPHS } from './GameGlyphs';
-import { zoneOf } from '../screens/world/zones';
 import { useGameStore } from '../store';
 import { Page } from './Page';
 import { Sheet } from './Sheet';
@@ -23,7 +22,7 @@ export function GameHome({
   tagline: string;
   /** Where rooms live: `/avalon`, `/duel`, `/wonders`, `/isle`. */
   base: string;
-  /** Where the back arrow goes; the game's zone unless given. */
+  /** Where the back arrow goes; the list of games unless given. */
   back?: string;
   howTo: ReactNode;
   onHost: () => Promise<string>;
@@ -32,7 +31,7 @@ export function GameHome({
 }) {
   const navigate = useNavigate();
   const ready = useGameStore((s) => s.player !== null);
-  // The game this door belongs to, from its base path, for its emblem and the way back to its zone.
+  // The game this door belongs to, from its base path, for its emblem.
   const gameId = base.slice(1) as keyof typeof GAME_GLYPHS;
   const Glyph = GAME_GLYPHS[gameId];
   const [joining, setJoining] = useState(false);
@@ -55,7 +54,7 @@ export function GameHome({
   };
 
   return (
-    <Page title={title} back={back ?? `/zone/${zoneOf(gameId)?.id ?? ''}`}>
+    <Page title={title} back={back ?? '/'}>
       <section className="door-hero frame">
         {Glyph && (
           <span className={`game-glyph ${gameId}`}>

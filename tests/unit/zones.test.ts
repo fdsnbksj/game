@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { ZONES } from '../../src/screens/world/zones';
 
-// The world map and its zones are hidden for now (home is Hero Gambit), but kept whole.
+// Home lists every game from the zones; the map itself is unrouted but kept whole.
 describe('the world map', () => {
   const app = readFileSync(new URL('../../src/App.tsx', import.meta.url), 'utf8');
 
@@ -17,10 +17,11 @@ describe('the world map', () => {
     expect(app).toContain('path="/zone/:id"');
   });
 
-  it('reopens only on Hero Gambit while the other games are hidden', () => {
+  it('reopens on every game now that they all show', () => {
     const lastPage = readFileSync(new URL('../../src/lastPage.ts', import.meta.url), 'utf8');
-    const pages = lastPage.match(/const PAGES = (\/.*\/);/)![1];
-    for (const hidden of ['nonograms', 'avalon', 'duel', 'wonders', 'isle', 'brawl', 'zone']) expect(pages).not.toContain(hidden);
-    expect(pages).toContain('hero');
+    const pages = new RegExp(lastPage.match(/const PAGES = \/(.*)\/;/)![1]);
+    for (const path of ['/nonograms', '/avalon/ABCD', '/duel', '/wonders/ABCD', '/isle', '/brawl/online', '/hero', '/hero/local', '/hero/ABCD', '/account'])
+      expect(pages.test(path)).toBe(true);
+    for (const path of ['/zone/keep', '/hero/abcd', '/elsewhere']) expect(pages.test(path)).toBe(false);
   });
 });

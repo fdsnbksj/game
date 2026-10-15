@@ -6,8 +6,7 @@
 const KEY = 'game:lastPage';
 
 // Only the app's own pages; anything else (an old or tampered value) opens the home screen.
-// The other games are hidden for now (home is Hero Gambit), so only its pages come back.
-const PAGES = /^\/(hero\/([A-Z]{4}|local)|account)$/;
+const PAGES = /^\/((avalon|duel|wonders|isle|brawl|hero)(\/[A-Z]{4})?|hero\/local|brawl\/online|nonograms|saved|ranks|settings|account)$/;
 
 // The last party-game room, so home can offer a way back until that game ends.
 const ROOM_KEY = 'game:lastRoom';

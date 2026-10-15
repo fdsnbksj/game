@@ -47,7 +47,7 @@ export function LocalFight() {
     setSaved(next);
   };
   return (
-    <Page title="Hero Gambit · One phone" back="/">
+    <Page title="Hero Gambit · One phone" back="/hero">
       {saved ? (
         <Game key={saved.seed} saved={saved} onChange={update} />
       ) : (

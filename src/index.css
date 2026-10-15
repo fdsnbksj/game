@@ -3432,6 +3432,42 @@ button.seat:disabled {
   font-size: var(--fs-md);
 }
 
+.home {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.game-glyph.hero {
+  background: var(--game-hero-soft);
+  color: var(--game-hero);
+}
+
+/* Home: every game in one list under a search. */
+.game-row {
+  min-height: 72px;
+}
+
+.row.game-row > .game-glyph {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+}
+
+.game-row-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.game-row-text small {
+  color: var(--label-2);
+  font-size: var(--fs-sm);
+}
+
 .home-more {
   display: flex;
   flex-direction: column;
