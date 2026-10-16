@@ -17,7 +17,7 @@ export function Table({ state, me, name, onNeighbour }: { state: WondersState; m
   return (
     <div className="wonder-table">
       <Rail state={state} me={me} seat={left} side="left" name={name} onOpen={() => onNeighbour(left)} />
-      <Board state={state} seat={me} />
+      <WonderBoard state={state} seat={me} />
       <Rail state={state} me={me} seat={right} side="right" name={name} onOpen={() => onNeighbour(right)} />
     </div>
   );
@@ -28,10 +28,28 @@ function Rail({ state, me, seat, side, name, onOpen }: { state: WondersState; me
   const city = state.cities[seat];
   const sale = saleSupply(city);
   const price = prices(state.cities[me])[side];
+  const board = boardOf(city.board);
+  const stages = stagesOf(city);
   return (
-    <button className={`rail rail-${side}`} onClick={onOpen} aria-label={`${side === 'left' ? 'Left' : 'Right'} neighbour: ${name(seat)}`}>
-      <span className="rail-arrow">{side === 'left' ? '◀' : '▶'}</span>
-      <span className="rail-name">{name(seat)}</span>
+    <button className={`rail rail-${side}`} onClick={onOpen} aria-label={`${side === 'left' ? 'Left' : 'Right'} neighbour: ${name(seat)}, ${board.name}, ${city.stages} of ${stages.length} stages built`}>
+      <span className="mini-board">
+        <span className="mini-art">
+          <WonderArt id={board.id} />
+          <span className="mini-start">
+            <Icon name={board.starts} size={10} />
+          </span>
+        </span>
+        <span className="mini-slots">
+          {stages.map((_, i) => (
+            <span key={i} className={i < city.stages ? 'mini-slot built' : 'mini-slot'} />
+          ))}
+        </span>
+      </span>
+      <span className="rail-name">
+        {side === 'left' ? '◀ ' : ''}
+        {name(seat)}
+        {side === 'right' ? ' ▶' : ''}
+      </span>
       <Count name="shield" n={shieldsOf(city)} size={14} />
       <span className="rail-line" />
       {RESOURCES.filter((r) => sale.fixed[r] > 0).map((r) => (
@@ -50,16 +68,21 @@ function Rail({ state, me, seat, side, name, onOpen }: { state: WondersState; me
   );
 }
 
-/** Your wonder board: figures, stages (what each costs and gives), what you make, your cards by colour. */
-function Board({ state, seat }: { state: WondersState; seat: number }) {
+/**
+ * A wonder board, like the real one: figures, stages (what each costs and gives), what the city
+ * makes, its cards by colour. `title` heads it with whose it is and adds battles and built cards.
+ */
+export function WonderBoard({ state, seat, title }: { state: WondersState; seat: number; title?: string }) {
   const city = state.cities[seat];
   const board = boardOf(city.board);
   const supply = ownSupply(city);
   const stages = stagesOf(city);
   const cards = city.cards.map(cardOf);
   const science = (['compass', 'gear', 'tablet'] as const).map((sym) => [sym, cards.filter((c) => c.science === sym).length] as const);
+  const wins = city.victories.reduce((a, b) => a + b, 0);
   return (
-    <section className="wboard" aria-label={`Your wonder board: ${board.name}, side ${city.side}`}>
+    <section className={title ? 'wboard titled' : 'wboard'} aria-label={`${title ?? 'Your'} wonder board: ${board.name}, side ${city.side}`}>
+      {title && <strong className="wboard-title">{title}</strong>}
       <div className="wboard-plate">
         <div className="wboard-art">
           <WonderArt id={board.id} />
@@ -88,6 +111,12 @@ function Board({ state, seat }: { state: WondersState; seat: number }) {
         <Count name="coin" n={city.coins} size={16} />
         <Count name="shield" n={shieldsOf(city)} size={16} />
         <Count name="points" n={score(state, seat).total} size={16} />
+        {title && (wins > 0 || city.defeats > 0) && (
+          <span className="icons" title="Battle points and defeats">
+            {wins > 0 && <Count name="shield" n={`+${wins}`} size={13} />}
+            {city.defeats > 0 && <Count name="defeat" n={`−${city.defeats}`} size={13} />}
+          </span>
+        )}
       </span>
       <div className="wboard-row">
         {RESOURCES.filter((r) => supply.fixed[r] > 0).map((r) => (
@@ -125,6 +154,7 @@ function Board({ state, seat }: { state: WondersState; seat: number }) {
           })}
         </div>
       )}
+      {title && cards.length > 0 && <p className="note built-list">{cards.map((c) => c.name).join(', ')}</p>}
     </section>
   );
 }

@@ -5,17 +5,15 @@ import { Lobby as LobbyFrame } from '../../components/RoomSetup';
 import { Sheet } from '../../components/Sheet';
 import { SummaryRow } from '../../components/SummaryRow';
 import { botMove } from '../../games/wonders/bot';
-import { boardOf, cardOf, RESOURCES, type Color } from '../../games/wonders/cards';
-import { cardText, COLOR_NAMES, RES_NAMES, stageText } from '../../games/wonders/describe';
+import { cardOf } from '../../games/wonders/cards';
+import { cardText } from '../../games/wonders/describe';
 import { baseId, type SideChoice } from '../../games/wonders/setup';
-import { leftOf, ownSupply, replay, reviveOptions, rightOf, score, shieldsOf, stagesOf, waitingFor, type Move, type Score, type WondersState } from '../../games/wonders/state';
+import { leftOf, replay, reviveOptions, rightOf, shieldsOf, waitingFor, type Move, type Score, type WondersState } from '../../games/wonders/state';
 import { addBot, finishGame, isBot, joinRoom, leaveRoom, sendMove, setup, startGame, watchRoom, type WondersData, type WondersRoom as Room } from '../../services/wonders';
 import { forgetRoom } from '../../lastPage';
 import { useGameStore } from '../../store';
-import { CostIcons, StageEffect } from './CardIcons';
 import { CardViewer, Hand } from './CardViewer';
-import { Table } from './Table';
-import { Count, Icon } from '../../components/GameIcons';
+import { Table, WonderBoard } from './Table';
 
 export function WondersRoom() {
   const { code = '' } = useParams();
@@ -268,7 +266,7 @@ function Game({ room, moves, uid }: { room: Room; moves: WondersData['moves']; u
       {neighbour !== null && (
         <Sheet title={neighbour === left ? 'Your left neighbour' : 'Your right neighbour'} onClose={() => setNeighbour(null)}>
           <p className="note">You trade with and fight only your two neighbours. Your shields: {shieldsOf(city)}.</p>
-          <CityPanel state={state} seat={neighbour} name={name} />
+          <WonderBoard state={state} seat={neighbour} title={name(neighbour)} />
           <button className="button" onClick={() => setNeighbour(null)}>
             Close
           </button>
@@ -280,7 +278,7 @@ function Game({ room, moves, uid }: { room: Room; moves: WondersData['moves']; u
           {state.cities.map((_, k) => {
             const seat = me >= 0 ? (me + k) % state.n : k;
             const label = seat === me ? undefined : seat === left ? 'Left' : seat === rightOf(state, me) ? 'Right' : undefined;
-            return <CityPanel key={seat} state={state} seat={seat} name={name} mine={seat === me} label={label} />;
+            return <WonderBoard key={seat} state={state} seat={seat} title={label ? `${label}: ${name(seat)}` : name(seat)} />;
           })}
           <button className="button" onClick={() => setEveryone(false)}>
             Close
@@ -324,90 +322,6 @@ function LastTurn({ state, name }: { state: WondersState; name: (s: number) => s
         </>
       )}
     </SummaryRow>
-  );
-}
-
-const pts = (n: number) => `${n} ${n === 1 ? 'pt' : 'pts'}`;
-
-const COLORS: Color[] = ['brown', 'grey', 'blue', 'yellow', 'red', 'green', 'purple'];
-
-/** A city: wonder and stages, coins, shields, what it makes, its cards by colour. */
-function CityPanel({ state, seat, name, mine, label }: { state: WondersState; seat: number; name: (s: number) => string; mine?: boolean; label?: string }) {
-  const city = state.cities[seat];
-  const board = boardOf(city.board);
-  const supply = ownSupply(city);
-  const stages = stagesOf(city);
-  const cards = city.cards.map(cardOf);
-  const science = (['compass', 'gear', 'tablet'] as const).map((sym) => [sym, cards.filter((c) => c.science === sym).length] as const);
-  const wins = city.victories.reduce((a, b) => a + b, 0);
-  return (
-    <section className={mine ? 'group card-pad city mine' : 'group card-pad city'}>
-      <header className="city-head">
-        <strong>
-          {label ? `${label}: ` : ''}
-          {name(seat)}
-        </strong>
-        <span className="city-figures" aria-label={`${city.coins} coins, ${shieldsOf(city)} shields, ${pts(score(state, seat).total)}`}>
-          <Count name="coin" n={city.coins} size={16} />
-          <Count name="shield" n={shieldsOf(city)} size={16} />
-          <Count name="points" n={score(state, seat).total} size={16} />
-        </span>
-      </header>
-      <p className="note wonder-line">
-        <Icon name="stage" size={13} /> {board.name} · side {city.side}
-      </p>
-      <div className="stages">
-        {stages.map((st, i) => (
-          <span key={i} className={i < city.stages ? 'stage built' : 'stage'} title={stageText(st)}>
-            {i < city.stages ? '✓' : `${i + 1}`}
-            {mine && i >= city.stages && <CostIcons cost={st.cost} size={12} />}
-            {mine && <span className="arrow">→</span>}
-            {mine ? <StageEffect stage={st} size={12} /> : null}
-          </span>
-        ))}
-      </div>
-      <div className="city-row">
-        {RESOURCES.filter((r) => supply.fixed[r] > 0).map((r) => (
-          <span key={r} className="have" title={RES_NAMES[r]}>
-            <Count name={r} n={supply.fixed[r]} size={15} />
-          </span>
-        ))}
-        {supply.choices.map((choice, i) => (
-          <span key={`c${i}`} className="have choice" title="One of these each turn">
-            {choice.map((r, k) => (
-              <span key={r} className="icons">
-                {k > 0 && <span className="slash">/</span>}
-                <Icon name={r} size={13} />
-              </span>
-            ))}
-          </span>
-        ))}
-        {science
-          .filter(([, n]) => n > 0)
-          .map(([sym, n]) => (
-            <span key={sym} className="have">
-              <Count name={sym} n={n} size={15} />
-            </span>
-          ))}
-        {(wins > 0 || city.defeats > 0) && (
-          <span className="have" title="Battle points and defeats">
-            {wins > 0 && <Count name="points" n={`+${wins}`} size={13} />}
-            {city.defeats > 0 && <Count name="defeat" n={`−${city.defeats}`} size={13} />}
-          </span>
-        )}
-      </div>
-      <div className="city-row">
-        {COLORS.map((c) => {
-          const n = cards.filter((card) => card.color === c).length;
-          return n ? (
-            <span key={c} className={`pip c-${c}`} title={COLOR_NAMES[c]}>
-              {n}
-            </span>
-          ) : null;
-        })}
-      </div>
-      {mine && city.cards.length > 0 && <p className="note built-list">{cards.map((c) => c.name).join(', ')}</p>}
-    </section>
   );
 }
 

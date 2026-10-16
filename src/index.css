@@ -3883,7 +3883,7 @@ button.seat:disabled {
 /* The table as you sit: left neighbour, your board, right neighbour. */
 .wonder-table {
   display: grid;
-  grid-template-columns: 58px minmax(0, 1fr) 58px;
+  grid-template-columns: 62px minmax(0, 1fr) 62px;
   gap: 6px;
   align-items: stretch;
 }
@@ -4566,4 +4566,71 @@ button.seat:disabled {
     animation: none;
     box-shadow: 0 0 0 2px var(--chain-glow), 0 0 14px 4px color-mix(in srgb, var(--chain-glow) 75%, transparent);
   }
+}
+
+/* A neighbour's board in small at the top of their side: the wonder, its starting resource,
+   and a slot per stage, filled once built. */
+.mini-board {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  overflow: hidden;
+  border: 2px solid var(--board-frame);
+  border-radius: 7px;
+  background: var(--board-sand);
+}
+
+.mini-art {
+  position: relative;
+  display: block;
+  height: 32px;
+  background: linear-gradient(to bottom, var(--board-sky-top), var(--board-sky-bottom) calc(100% * 52 / 60), var(--board-ground) calc(100% * 52 / 60));
+}
+
+.mini-start {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  display: grid;
+  place-items: center;
+  width: 15px;
+  height: 15px;
+  border: 1px solid var(--board-frame);
+  border-radius: 3px;
+  background: var(--board-sand);
+}
+
+.mini-slots {
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  border-top: 1.5px solid var(--board-frame);
+}
+
+.mini-slot {
+  flex: 1;
+  height: 8px;
+  border: 1px dashed var(--board-frame-light);
+  border-radius: 2px;
+  background: var(--board-slot);
+}
+
+.mini-slot.built {
+  border: 1px solid var(--board-frame);
+  background: repeating-linear-gradient(45deg, var(--board-card-back), var(--board-card-back) 2px, var(--board-card-back-2) 2px, var(--board-card-back-2) 4px);
+}
+
+/* Every player's board, in a sheet: whose it is above, details below. */
+.wboard.titled + .wboard.titled {
+  padding-top: 12px;
+  border-top: 1px solid var(--separator);
+}
+
+.wboard-title {
+  font-size: var(--fs-md);
+}
+
+.wboard .built-list {
+  margin: 0;
+  font-size: var(--fs-cap);
 }
