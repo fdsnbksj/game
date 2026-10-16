@@ -106,7 +106,7 @@ export function Home() {
                 <strong>Roulette:</strong> pick a number from 0 to 36. If the ball lands on it, it's an instant kill; if not, you punch.
               </p>
               <p>
-                <strong>Poker:</strong> tap one of thirteen face-down cards, 2 low to A high; it turns over at once. Your friend then picks another. Higher card hits for 50; lower does nothing.
+                <strong>Poker:</strong> tap one of thirteen face-down cards, 2 low to A high; it turns over at once. Your friend then picks another. Higher card hits for 90; lower does nothing.
               </p>
             </div>
           </SummaryRow>

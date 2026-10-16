@@ -59,10 +59,10 @@ describe('the skills', () => {
     for (let i = 0; i < 50; i++) {
       const target = stopwatchTarget(`p${i}`, 0);
       const perfect = resolve({ skill: 'stopwatch', ms: target + 30 }, HERO_TREE, plain, plain, `p${i}`, 0);
-      expect([perfect.crit, perfect.damage]).toEqual([true, 36]); // 24 power, ×1.5
+      expect([perfect.crit, perfect.damage]).toEqual([true, 90]); // 60 power, ×1.5
       const far = resolve({ skill: 'stopwatch', ms: target + 9000 }, HERO_TREE, plain, plain, `p${i}`, 0);
       expect(far.damage).toBeGreaterThan(0);
-      expect(far.damage).toBeLessThanOrEqual(4);
+      expect(far.damage).toBeLessThanOrEqual(9);
     }
   });
 
@@ -74,12 +74,12 @@ describe('the skills', () => {
       expect(hit.detail.balls).toHaveLength(1);
       expect(hit.kill).toBe(hit.detail.balls.includes(7));
       if (hit.kill) hits++;
-      else expect(hit.damage).toBeGreaterThanOrEqual(12);
+      else expect(hit.damage).toBeGreaterThanOrEqual(30);
     }
     expect(Math.abs(hits / 6000 - 1 / WHEEL)).toBeLessThan(0.01);
   });
 
-  it('lays out the turn’s deck (the same one the screen turns over), ace high, a win doing 50 (a crit only on the roll)', () => {
+  it('lays out the turn’s deck (the same one the screen turns over), ace high, a win doing 90 (a crit only on the roll)', () => {
     for (let i = 0; i < 300; i++) {
       const hit = resolve({ skill: 'poker', pick: i % 13 }, HERO_TREE, plain, plain, `k${i}`, i % 5);
       if (hit.detail.skill !== 'poker') throw new Error();
@@ -89,7 +89,7 @@ describe('the skills', () => {
       expect(theirPick).not.toBe(pick);
       expect([mine, theirs]).toEqual([deck[pick], deck[theirPick]]);
       expect(won).toBe(mine > theirs);
-      expect(hit.damage).toBe(won ? (hit.crit ? 75 : 50) : 0);
+      expect(hit.damage).toBe(won ? (hit.crit ? 135 : 90) : 0);
     }
   });
 
@@ -217,6 +217,6 @@ describe('a fight', () => {
       const { state } = fightOut(`golden${i}`);
       return `${state.winner}:${state.hp.join(',')}:${state.log.length}`;
     });
-    expect(hashSeed(results.join('|'))).toBe(3410350515);
+    expect(hashSeed(results.join('|'))).toBe(363485288);
   });
 });

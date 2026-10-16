@@ -465,7 +465,7 @@ function PokerPick({ deck, onPick, onCommit, taken, takenBy }: { deck: number[];
           ? `You drew ${rankName(deck[picked])}!`
           : taken !== undefined
             ? `${takenBy} drew ${rankName(deck[taken])}. Pick yours: beat it and their hit misses.`
-            : 'Pick a card, 2 low to A high. They pick another; the higher card hits for 50.'}
+            : 'Pick a card, 2 low to A high. They pick another; the higher card hits for 90.'}
       </p>
       <div className="pk-table">
         {Array.from({ length: RANKS }, (_, i) => (

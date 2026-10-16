@@ -8,7 +8,7 @@ import { cooldownOf, HERO_STATS, HERO_TREE, SKILLS, type SkillId, type Stats } f
 // seed, skipping any the game refuses, so both phones come out the same.
 
 /** Bump when a change would make old fights replay differently. */
-export const HERO_VERSION = 11;
+export const HERO_VERSION = 12;
 
 export type Side = 0 | 1;
 
