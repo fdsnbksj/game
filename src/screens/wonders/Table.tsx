@@ -3,6 +3,7 @@ import { boardOf, cardOf, RESOURCES, type Color } from '../../games/wonders/card
 import { COLOR_NAMES, RES_NAMES, stageText } from '../../games/wonders/describe';
 import { leftOf, ownSupply, prices, rightOf, saleSupply, score, shieldsOf, stagesOf, type WondersState } from '../../games/wonders/state';
 import { CostIcons, StageEffect } from './CardIcons';
+import { WonderArt } from './WonderArt';
 
 const COLORS: Color[] = ['brown', 'grey', 'blue', 'yellow', 'red', 'green', 'purple'];
 
@@ -58,27 +59,37 @@ function Board({ state, seat }: { state: WondersState; seat: number }) {
   const cards = city.cards.map(cardOf);
   const science = (['compass', 'gear', 'tablet'] as const).map((sym) => [sym, cards.filter((c) => c.science === sym).length] as const);
   return (
-    <section className="board" aria-label="Your wonder board">
-      <header className="board-head">
-        <strong>{board.name}</strong>
-        <span className="note">side {city.side}</span>
-      </header>
-      <span className="board-figures">
+    <section className="wboard" aria-label={`Your wonder board: ${board.name}, side ${city.side}`}>
+      <div className="wboard-plate">
+        <div className="wboard-art">
+          <WonderArt id={board.id} />
+          <span className="wboard-start" title={`Makes ${RES_NAMES[board.starts]} from the start`}>
+            <Icon name={board.starts} size={16} />
+          </span>
+          <span className="wboard-name">
+            {board.name} <span className="wboard-side">{city.side}</span>
+          </span>
+        </div>
+        <ol className="wboard-slots">
+          {stages.map((st, i) => {
+            const built = i < city.stages;
+            return (
+              <li key={i} className={built ? 'wboard-slot built' : 'wboard-slot'} title={stageText(st)}>
+                <span className="slot-cost">{built ? '✓' : <CostIcons cost={st.cost} size={11} />}</span>
+                <span className="slot-effect">
+                  <StageEffect stage={st} size={13} />
+                </span>
+              </li>
+            );
+          })}
+        </ol>
+      </div>
+      <span className="wboard-figures">
         <Count name="coin" n={city.coins} size={16} />
         <Count name="shield" n={shieldsOf(city)} size={16} />
         <Count name="points" n={score(state, seat).total} size={16} />
       </span>
-      <ol className="board-stages">
-        {stages.map((st, i) => (
-          <li key={i} className={i < city.stages ? 'board-stage built' : 'board-stage'} title={stageText(st)}>
-            <span className="board-stage-n">{i < city.stages ? '✓' : i + 1}</span>
-            {i >= city.stages && <CostIcons cost={st.cost} size={12} />}
-            <span className="arrow">→</span>
-            <StageEffect stage={st} size={12} />
-          </li>
-        ))}
-      </ol>
-      <div className="board-row">
+      <div className="wboard-row">
         {RESOURCES.filter((r) => supply.fixed[r] > 0).map((r) => (
           <span key={r} className="have" title={RES_NAMES[r]}>
             <Count name={r} n={supply.fixed[r]} size={15} />
@@ -103,7 +114,7 @@ function Board({ state, seat }: { state: WondersState; seat: number }) {
           ))}
       </div>
       {cards.length > 0 && (
-        <div className="board-row">
+        <div className="wboard-row">
           {COLORS.map((c) => {
             const n = cards.filter((card) => card.color === c).length;
             return n ? (

@@ -8,6 +8,20 @@
 
   --bg: #f2f2f4;
   --chain-glow: #f5b82e;
+  --board-frame: #7a5a32;
+  --board-frame-light: #b8955e;
+  --board-sand: #f1e2bf;
+  --board-slot: #e6d2a4;
+  --board-sky-top: #8fc4ea;
+  --board-sky-bottom: #f6dfb0;
+  --board-sun: #ffd76a;
+  --board-wonder: #b88a4f;
+  --board-wonder-shade: #9a7038;
+  --board-ground: #c9a46a;
+  --board-fire: #ff8a2a;
+  --board-green: #5aa65a;
+  --board-card-back: #8a5a2c;
+  --board-card-back-2: #9c6a38;
   --surface: #ffffff;
   --surface-2: #f6f6f8;
   --surface-grad: #ffffff;
@@ -3928,76 +3942,160 @@ button.seat:disabled {
   background: var(--surface-2);
 }
 
-.board {
+/* Your wonder board, like the real thing: a framed plate, the wonder against its sky, the
+   resource it starts with in the corner, and its stages as slots along the bottom. A built
+   stage has a card tucked under it, face down. What you've built sits below, beside the board. */
+.wboard {
   display: flex;
   flex-direction: column;
   gap: 8px;
   min-width: 0;
-  padding: 10px;
-  border: 1px solid var(--accent-line);
-  border-radius: var(--r-md);
+}
+
+.wboard-plate {
+  overflow: hidden;
+  border: 3px solid var(--board-frame);
+  border-radius: 12px;
+  background: var(--board-sand);
+  box-shadow:
+    inset 0 0 0 1px var(--board-frame-light),
+    0 4px 12px rgb(60 40 10 / 0.25);
+}
+
+.wboard-art {
+  position: relative;
+  height: 74px;
+  /* The ground's top is where the drawing's (y 52 of 60) lands at this height. */
+  background: linear-gradient(to bottom, var(--board-sky-top), var(--board-sky-bottom) calc(100% * 52 / 60), var(--board-ground) calc(100% * 52 / 60));
+}
+
+.wonder-art {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.wonder-art .wonder-shape { fill: var(--board-wonder); }
+.wonder-art .shade { fill: var(--board-wonder-shade); }
+.wonder-art .limb { fill: none; stroke: var(--board-wonder); stroke-width: 3; stroke-linecap: round; }
+.wonder-art .limb.thick { stroke-width: 6; }
+.wonder-art .fire { fill: var(--board-fire); }
+.wonder-art .green { fill: var(--board-green); }
+.wonder-art .sun { fill: var(--board-sun); }
+
+.wboard-start {
+  position: absolute;
+  top: 5px;
+  left: 5px;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border: 2px solid var(--board-frame);
+  border-radius: 6px;
+  background: var(--board-sand);
+}
+
+.wboard-name {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  padding: 10px 6px 3px;
+  background: linear-gradient(transparent, rgb(40 25 5 / 0.6));
+  color: var(--on-dark);
+  font-size: var(--fs-label);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-align: center;
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.wboard-side {
+  margin-left: 2px;
+  padding: 0 4px;
+  border-radius: 4px;
+  background: var(--board-frame);
+}
+
+.wboard-slots {
+  display: flex;
+  gap: 4px;
+  margin: 0;
+  padding: 6px 5px 7px;
+  list-style: none;
+  border-top: 2px solid var(--board-frame);
+}
+
+.wboard-slot {
+  position: relative;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  min-width: 0;
+  padding: 3px 2px 4px;
+  border: 1.5px dashed var(--board-frame-light);
+  border-radius: 6px;
+  background: var(--board-slot);
+  font-size: var(--fs-label);
+}
+
+.wboard-slot .icons {
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.slot-cost {
+  display: flex;
+  justify-content: center;
+  min-height: 14px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--board-sand);
+}
+
+.slot-effect {
+  display: flex;
+  justify-content: center;
+}
+
+.slot-effect .words {
+  font-size: 0.5625rem;
+  line-height: 1.1;
+  text-align: center;
+}
+
+/* A built stage: the slot filled with a face-down card, its reward showing. */
+.wboard-slot.built {
+  border: 1.5px solid var(--board-frame);
+  background: repeating-linear-gradient(45deg, var(--board-card-back), var(--board-card-back) 4px, var(--board-card-back-2) 4px, var(--board-card-back-2) 8px);
+}
+
+.wboard-slot.built .slot-cost {
+  color: var(--success);
+  font-weight: 700;
+}
+
+.wboard-slot.built .slot-effect {
+  padding: 1px 4px;
+  border-radius: 6px;
   background: var(--surface);
 }
 
-.board-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 6px;
-}
-
-.board-head strong {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.board-figures,
-.board-row {
+.wboard-figures,
+.wboard-row {
   display: flex;
   flex-wrap: wrap;
   gap: 4px 10px;
 }
 
-.board-row {
+.wboard-row {
   gap: 4px;
-}
-
-.board-stages {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.board-stage {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px;
-  padding: 3px 6px;
-  border: 1px dashed var(--border-strong);
-  border-radius: 6px;
-  color: var(--label-2);
-  font-size: var(--fs-cap);
-}
-
-.board-stage.built {
-  border-style: solid;
-  border-color: var(--accent-line);
-  background: var(--accent-soft);
-  color: var(--accent);
-}
-
-.board-stage-n {
-  min-width: 12px;
-  font-weight: 700;
-}
-
-.board-stage .arrow {
-  color: var(--label-3);
 }
 
 /* A card face, small in the hand and big in the viewer: same parts, same order. */
