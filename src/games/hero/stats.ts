@@ -13,7 +13,7 @@ export const SKILLS: readonly SkillId[] = ['stopwatch', 'speed', 'poker', 'roule
 const COOLDOWNS: Record<SkillId, number> = { stopwatch: 0, speed: 1, poker: 2, roulette: 3 };
 export const cooldownOf = (skill: SkillId) => COOLDOWNS[skill];
 
-/** Every hero: each skill at level 1, and 100 HP (HP 0), so a fight is short (the user's ask, 2026-10-12). */
+/** Every hero: each skill at level 1, and 200 HP (the user's ask, 2026-10-17; it was 100). */
 export const HERO_TREE: Tree = { stopwatch: 1, speed: 1, poker: 1, roulette: 1, hp: 0, def: 0, crit: 0, critDmg: 0 };
 
 export interface Stats {
@@ -27,7 +27,7 @@ export interface Stats {
 
 export function statsOf(tree: Tree): Stats {
   return {
-    hp: 100 + 15 * tree.hp,
+    hp: 200 + 15 * tree.hp,
     def: 2 * tree.def,
     crit: Math.min(50, 5 + 3 * tree.crit),
     critDmg: 150 + 10 * tree.critDmg,

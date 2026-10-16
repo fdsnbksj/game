@@ -25,11 +25,11 @@ const plain = HERO_STATS;
 const NAMES: [{ name: string }, { name: string }] = [{ name: 'A' }, { name: 'B' }];
 
 describe('every hero', () => {
-  it('is the same: 100 HP and all four skills at level 1', () => {
-    expect(HERO_STATS).toEqual({ hp: 100, def: 0, crit: 5, critDmg: 150 });
+  it('is the same: 200 HP and all four skills at level 1', () => {
+    expect(HERO_STATS).toEqual({ hp: 200, def: 0, crit: 5, critDmg: 150 });
     expect([HERO_TREE.stopwatch, HERO_TREE.speed, HERO_TREE.poker, HERO_TREE.roulette]).toEqual([1, 1, 1, 1]);
     const s = start('same', NAMES);
-    expect(s.hp).toEqual([100, 100]);
+    expect(s.hp).toEqual([200, 200]);
     expect(ready(s, 0)).toEqual(['stopwatch', 'speed', 'poker', 'roulette']);
   });
 });
@@ -100,7 +100,10 @@ describe('the skills', () => {
 
 /** A random legal move for whoever's turn it is. */
 function randomMove(s: HeroState, roll: (n: number) => number): Move {
-  if (s.pending) return { skill: 'card', pick: (s.pending.pick + 1 + roll(RANKS - 1)) % RANKS };
+  const p = s.pending?.move;
+  if (p?.skill === 'poker') return { skill: 'card', pick: (p.pick + 1 + roll(RANKS - 1)) % RANKS };
+  if (p?.skill === 'stopwatch') return { skill: 'answer', ms: stopwatchTarget(s.seed, s.log.length) + roll(2001) - 1000 };
+  if (p) return { skill: 'answer', ms: roll(10) === 0 ? -1 : 120 + roll(500) };
   const choices = ready(s, s.turn);
   if (!choices.length) return { skill: 'rest' };
   const skill = choices[roll(choices.length)];
@@ -135,7 +138,7 @@ describe('a fight', () => {
     expect(apply(s, { skill: 'stopwatch', ms: -5 }, s.turn)).toBeNull();
     expect(apply(s, { skill: 'speed', ms: SPEED_MAX_MS + 1 }, s.turn)).toBeNull();
     expect(apply(s, { skill: 'rest' }, s.turn)).toBeNull();
-    const next = apply(s, { skill: 'stopwatch', ms: 1000 }, s.turn)!;
+    const next = apply(s, { skill: 'roulette', pick: 3 }, s.turn)!;
     expect([next.turn, next.log.length]).toEqual([other, 1]);
   });
 
@@ -144,7 +147,8 @@ describe('a fight', () => {
     const attacker = s.turn;
     const defender = (attacker === 0 ? 1 : 0) as Side;
     s = apply(s, { skill: 'poker', pick: 4 }, attacker)!;
-    expect([s.pending, s.turn, s.log.length]).toEqual([{ by: attacker, pick: 4 }, defender, 0]);
+    expect([s.pending, s.turn, s.log.length]).toEqual([{ by: attacker, move: { skill: 'poker', pick: 4 } }, defender, 0]);
+    expect(apply(s, { skill: 'answer', ms: 100 }, defender)).toBeNull();
     expect(apply(s, { skill: 'card', pick: 7 }, attacker)).toBeNull();
     expect(apply(s, { skill: 'stopwatch', ms: 1000 }, defender)).toBeNull();
     expect(apply(s, { skill: 'card', pick: 4 }, defender)).toBeNull();
@@ -156,13 +160,41 @@ describe('a fight', () => {
     expect([done.pending, done.turn]).toEqual([null, defender]);
   });
 
+  it('lets the defender have their own go at Stopwatch and I’m Speed; only a better one hits', () => {
+    let s = start('race', NAMES);
+    const attacker = s.turn;
+    const defender = (attacker === 0 ? 1 : 0) as Side;
+    const target = stopwatchTarget('race', 0);
+    s = apply(s, { skill: 'stopwatch', ms: target + 100 }, attacker)!;
+    expect([s.pending, s.turn, s.log.length]).toEqual([{ by: attacker, move: { skill: 'stopwatch', ms: target + 100 } }, defender, 0]);
+    expect(apply(s, { skill: 'card', pick: 1 }, defender)).toBeNull();
+    expect(apply(s, { skill: 'answer', ms: -1 }, defender)).toBeNull();
+    const closer = apply(s, { skill: 'answer', ms: target - 40 }, defender)!;
+    expect([closer.log[0].by, closer.log[0].damage, closer.turn, closer.hp[defender]]).toEqual([attacker, 0, defender, 200]);
+    const tie = apply(s, { skill: 'answer', ms: target - 100 }, defender)!;
+    expect(tie.log[0].damage).toBe(0);
+    const worse = apply(s, { skill: 'answer', ms: target + 300 }, defender)!;
+    expect(worse.log[0].damage).toBeGreaterThan(0);
+    expect(worse.log[0].detail).toMatchObject({ skill: 'stopwatch', theirMs: target + 300, won: true });
+
+    const race = (mine: number, theirs: number) => {
+      const a = apply(start('race', NAMES), { skill: 'speed', ms: mine }, attacker)!;
+      return apply(a, { skill: 'answer', ms: theirs }, defender)!.log[0];
+    };
+    expect(race(200, 250).damage).toBeGreaterThan(0);
+    expect(race(200, -1).damage).toBeGreaterThan(0);
+    expect(race(250, 200).damage).toBe(0);
+    expect(race(200, 200).damage).toBe(0);
+    expect(race(-1, -1).damage).toBe(0);
+  });
+
   it('rests each skill for its cooldown in your own turns, and rests only when all four are', () => {
     let s: HeroState = { ...start('cool', NAMES), turn: 0 };
     s = apply(s, { skill: 'roulette', pick: 36 }, 0)!;
     expect(s.cooldowns[0]).toEqual({ roulette: 3 });
-    s = apply(s, { skill: 'stopwatch', ms: 0 }, 1)!;
-    s = apply(s, { skill: 'speed', ms: 300 }, 0)!;
-    s = apply(s, { skill: 'stopwatch', ms: 0 }, 1)!;
+    s = apply(apply(s, { skill: 'stopwatch', ms: 0 }, 1)!, { skill: 'answer', ms: 0 }, 0)!;
+    s = apply(apply(s, { skill: 'speed', ms: 300 }, 0)!, { skill: 'answer', ms: 300 }, 1)!;
+    s = apply(apply(s, { skill: 'stopwatch', ms: 0 }, 1)!, { skill: 'answer', ms: 0 }, 0)!;
     expect(apply(s, { skill: 'roulette', pick: 1 }, 0)).toBeNull();
     expect(apply(s, { skill: 'rest' }, 0)).toBeNull(); // the stopwatch never rests
     s = apply(s, { skill: 'poker', pick: 0 }, 0)!;
@@ -185,6 +217,6 @@ describe('a fight', () => {
       const { state } = fightOut(`golden${i}`);
       return `${state.winner}:${state.hp.join(',')}:${state.log.length}`;
     });
-    expect(hashSeed(results.join('|'))).toBe(2532766828);
+    expect(hashSeed(results.join('|'))).toBe(3410350515);
   });
 });

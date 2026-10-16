@@ -95,12 +95,12 @@ export function Home() {
         <div className="home-more">
           <SummaryRow label="How to play" title="How to play Hero Gambit">
             <div className="how-to">
-              <p>You and your friend each have 100 HP and the same four skills, each on your own phone or taking turns on one. Take turns using one skill; bring the other's HP to 0 to win. After you use a skill it rests a few of your turns: Stopwatch never, I'm Speed 1, Poker 2, Roulette 3.</p>
+              <p>You and your friend each have 200 HP and the same four skills, each on your own phone or taking turns on one. Take turns using one skill; bring the other's HP to 0 to win. After you use a skill it rests a few of your turns: Stopwatch never, I'm Speed 1, Poker 2, Roulette 3.</p>
               <p>
-                <strong>Stopwatch:</strong> you're shown a time between 1.00 and 10.00 seconds, like 4.37. Press Start, count, press Stop. The closer you are, the harder the hit. Within 0.05 s is Perfect: a sure crit.
+                <strong>Stopwatch:</strong> you're shown a time between 1.00 and 10.00 seconds, like 4.37. Press Start, count, press Stop. Then your friend tries the same time: only if you were closer does your hit land, and the closer you are, the harder it is. Within 0.05 s is Perfect: a sure crit.
               </p>
               <p>
-                <strong>I'm Speed:</strong> tap Ready, wait for the light to turn green, then tap. The faster, the harder; 0.15 s or less is a sure crit. Tap on red and you miss.
+                <strong>I'm Speed:</strong> tap Ready, wait for the light to turn green, then tap. Then your friend gets their own light: only if you were faster does your hit land, and the faster, the harder; 0.15 s or less is a sure crit. Tap on red and you miss.
               </p>
               <p>
                 <strong>Roulette:</strong> pick a number from 0 to 36. If the ball lands on it, it's an instant kill; if not, you punch.

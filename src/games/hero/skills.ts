@@ -32,8 +32,11 @@ export const pokerPower = (level: number) => 50 + 10 * (level - 1);
 /** The turn's target, from 1.00 to 10.00 seconds in hundredths (1.23 s is 1230), shown before Start. */
 export const stopwatchTarget = (seed: string, turn: number) => (stream(`${seed}:turn:${turn}:target`)(901) + 100) * 10;
 
-/** How long I'm Speed's light stays red before it turns green: 1.50 to 4.50 s, from the seed. */
-export const speedDelay = (seed: string, turn: number) => 1500 + stream(`${seed}:turn:${turn}:delay`)(301) * 10;
+/**
+ * How long I'm Speed's light stays red before it turns green: 1.50 to 4.50 s, from the seed.
+ * The defender's answer waits its own time, so watching the attacker's light on a shared phone doesn't help.
+ */
+export const speedDelay = (seed: string, turn: number, answer = false) => 1500 + stream(`${seed}:turn:${turn}:${answer ? 'answerDelay' : 'delay'}`)(301) * 10;
 
 /** Percent of power for a reaction of `ms`: 100 up to FLASH_MS, then down 1 every 5 ms, never under 10; a jump the gun (-1) does nothing. */
 export const speedPct = (ms: number) => (ms < 0 ? 0 : Math.max(10, 100 - Math.floor(Math.max(0, ms - FLASH_MS) / 5)));
@@ -52,15 +55,26 @@ export type Move =
   | { skill: 'roulette'; pick: number }
   | { skill: 'poker'; pick: number }
   | { skill: 'card'; pick: number }
+  /** The defender's own go at the attacker's Stopwatch (ms stopped) or I'm Speed (reaction, -1 too early). */
+  | { skill: 'answer'; ms: number }
   /** Every skill is cooling down: the turn passes. */
   | { skill: 'rest' };
 
-/** A skill's move. `card` isn't one (the defender's answer to Poker), nor `rest`. */
-export type SkillMove = Exclude<Move, { skill: 'card' } | { skill: 'rest' }>;
+/** A skill's move. `card` and `answer` aren't (the defender's replies), nor `rest`. */
+export type SkillMove = Exclude<Move, { skill: 'card' } | { skill: 'answer' } | { skill: 'rest' }>;
+
+/** The skills both sides play (the user's design): the attacker, then the defender; only the better one's hit lands. */
+export type ContestMove = Extract<SkillMove, { skill: 'stopwatch' | 'speed' | 'poker' }>;
+export const isContest = (move: SkillMove): move is ContestMove => move.skill !== 'roulette';
+
+/** Whether the attacker's reaction beats the defender's: on green (not -1) and strictly faster. */
+export const fasterThan = (ms: number, theirs: number) => ms >= 0 && (theirs < 0 || ms < theirs);
 
 export type Detail =
-  | { skill: 'stopwatch'; target: number; ms: number; pct: number; perfect: boolean }
-  | { skill: 'speed'; delay: number; ms: number; pct: number; flash: boolean }
+  /** `theirMs` is the defender's stop; `won` when the attacker's was strictly closer. */
+  | { skill: 'stopwatch'; target: number; ms: number; theirMs: number | null; pct: number; perfect: boolean; won: boolean }
+  /** `theirMs` is the defender's reaction; `won` when the attacker's was strictly faster. */
+  | { skill: 'speed'; delay: number; ms: number; theirMs: number | null; pct: number; flash: boolean; won: boolean }
   | { skill: 'rest' }
   | { skill: 'roulette'; pick: number; balls: number[]; hit: boolean }
   | {
@@ -102,8 +116,12 @@ export function pokerDeck(seed: string, turn: number): number[] {
   return deck;
 }
 
-/** One skill, from a hero with `tree` against `defender`. */
-export function resolve(move: SkillMove, tree: Tree, attacker: Stats, defender: Stats, seed: string, turn: number, theirPick_?: number): Hit {
+/**
+ * One skill, from a hero with `tree` against `defender`. `answer` is the defender's reply to a
+ * contest: their card for Poker, their stop or reaction for Stopwatch and I'm Speed (without
+ * one, Poker's is seeded and the others go uncontested).
+ */
+export function resolve(move: SkillMove, tree: Tree, attacker: Stats, defender: Stats, seed: string, turn: number, answer?: number): Hit {
   const name = `${seed}:turn:${turn}`;
   const out = (dmg: number) => afterDef(dmg, defender.def);
   const rolledCrit = stream(`${name}:crit`)(100) < attacker.crit;
@@ -113,17 +131,25 @@ export function resolve(move: SkillMove, tree: Tree, attacker: Stats, defender: 
       const error = Math.abs(move.ms - target);
       const perfect = error <= PERFECT_MS;
       const pct = perfect ? 100 : accuracyPct(error);
+      // Closer than the defender's stop, or the hit misses (a tie misses too).
+      const won = answer === undefined || error < Math.abs(answer - target);
+      const detail: Detail = { skill: 'stopwatch', target, ms: move.ms, theirMs: answer ?? null, pct, perfect, won };
+      if (!won) return { damage: 0, crit: false, kill: false, detail };
       const base = Math.floor((stopwatchPower(tree.stopwatch) * pct) / 100);
       const crit = perfect || rolledCrit;
-      return { damage: out(crit ? critOf(base, attacker) : base), crit, kill: false, detail: { skill: 'stopwatch', target, ms: move.ms, pct, perfect } };
+      return { damage: out(crit ? critOf(base, attacker) : base), crit, kill: false, detail };
     }
     case 'speed': {
       const delay = speedDelay(seed, turn);
       const pct = speedPct(move.ms);
       const flash = move.ms >= 0 && move.ms <= FLASH_MS;
+      // Faster than the defender, or the hit misses (a tie misses too).
+      const won = answer === undefined ? move.ms >= 0 : fasterThan(move.ms, answer);
+      const detail: Detail = { skill: 'speed', delay, ms: move.ms, theirMs: answer ?? null, pct, flash, won };
+      if (!won) return { damage: 0, crit: false, kill: false, detail };
       const base = Math.floor((speedPower(tree.speed) * pct) / 100);
       const crit = base > 0 && (flash || rolledCrit);
-      return { damage: out(crit ? critOf(base, attacker) : base), crit, kill: false, detail: { skill: 'speed', delay, ms: move.ms, pct, flash } };
+      return { damage: out(crit ? critOf(base, attacker) : base), crit, kill: false, detail };
     }
     case 'roulette': {
       const roll = stream(`${name}:balls`);
@@ -139,7 +165,7 @@ export function resolve(move: SkillMove, tree: Tree, attacker: Stats, defender: 
       // defender another (state.ts waits for it; without one it's seeded), so never a tie.
       const deck = pokerDeck(seed, turn);
       const pick = move.pick;
-      const theirPick = theirPick_ ?? (pick + 1 + stream(`${name}:theirs`)(RANKS - 1)) % RANKS;
+      const theirPick = answer ?? (pick + 1 + stream(`${name}:theirs`)(RANKS - 1)) % RANKS;
       const mine = deck[pick];
       const theirs = deck[theirPick];
       const won = mine > theirs;

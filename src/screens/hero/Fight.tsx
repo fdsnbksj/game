@@ -129,11 +129,7 @@ export function Fight({
         ) : state.winner !== null ? (
           <p className="battle-text">{state.winner === you ? 'You win!' : `${names[state.winner]} wins!`}</p>
         ) : !mine ? (
-          <p className="battle-text">
-            {state.pending?.by === actor && !locked
-              ? `You drew ${rankName(pokerDeck(state.seed, state.log.length)[state.pending.pick])}. ${names[them]} is picking a card…`
-              : waiting}
-          </p>
+          <p className="battle-text">{state.pending?.by === actor && !locked ? `${playedLine(state, 'You')} ${names[them]}’s go…` : waiting}</p>
         ) : state.pending ? (
           <>
             {hotseat && (
@@ -141,14 +137,25 @@ export function Fight({
                 <strong>{names[actor]}’s turn.</strong>
               </p>
             )}
-            <PokerPick
-            key={`answer${state.log.length}`}
-            deck={pokerDeck(state.seed, state.log.length)}
-            taken={state.pending.pick}
-            takenBy={names[other]}
-            onPick={(pick) => onMove({ skill: 'card', pick })}
-            onCommit={() => setCommitted(true)}
-            />
+            {state.pending.move.skill === 'poker' ? (
+              <PokerPick
+                key={`answer${state.log.length}`}
+                deck={pokerDeck(state.seed, state.log.length)}
+                taken={state.pending.move.pick}
+                takenBy={names[other]}
+                onPick={(pick) => onMove({ skill: 'card', pick })}
+                onCommit={() => setCommitted(true)}
+              />
+            ) : (
+              <>
+                <p className="battle-prompt">{playedLine(state, names[other])} Beat it and their hit misses.</p>
+                {state.pending.move.skill === 'stopwatch' ? (
+                  <Stopwatch key={`answer${state.log.length}`} target={stopwatchTarget(state.seed, state.log.length)} onStart={() => setCommitted(true)} onStop={(ms) => onMove({ skill: 'answer', ms })} />
+                ) : (
+                  <SpeedPlay key={`answer${state.log.length}`} delay={speedDelay(state.seed, state.log.length, true)} onStart={() => setCommitted(true)} onTap={(ms) => onMove({ skill: 'answer', ms })} />
+                )}
+              </>
+            )}
           </>
         ) : skill ? (
           <>
@@ -188,6 +195,14 @@ export function Fight({
       {children}
     </div>
   );
+}
+
+/** What the attacker did in a contest still waiting for the defender's go: "Ann stopped 0.04 s off." */
+function playedLine(state: HeroState, who: string): string {
+  const move = state.pending!.move;
+  if (move.skill === 'poker') return `${who} drew ${rankName(pokerDeck(state.seed, state.log.length)[move.pick])}.`;
+  if (move.skill === 'stopwatch') return `${who} stopped at ${secs(move.ms)}, ${secs(Math.abs(move.ms - stopwatchTarget(state.seed, state.log.length)))} off.`;
+  return move.ms < 0 ? `${who} jumped the gun.` : `${who} reacted in ${secs(move.ms)}.`;
 }
 
 function InfoBox({ mine, numbers, name, hp, max }: { mine: boolean; numbers: boolean; name: string; hp: number; max: number }) {
@@ -244,8 +259,13 @@ function plan(state: HeroState, names: [string, string], me: Side | null, before
   if (d.skill === 'stopwatch') {
     opening.push(`${who(by)} used Stopwatch!`);
     opening.push(`Stop at ${seconds(d.target)} s…`);
-    result.push(d.perfect ? `${secs(d.ms)}. Perfect!` : `${secs(d.ms)}: ${secs(Math.abs(d.ms - d.target))} off, ${d.pct}% power.`);
-    hurt();
+    const off = (ms: number) => secs(Math.abs(ms - d.target));
+    if (d.theirMs !== null) result.push(`${who(by)}: ${off(d.ms)} off. ${who(target)}: ${off(d.theirMs)} off.`);
+    if (!d.won) result.push(`${who(target)} ${target === me ? 'were' : 'was'} as close or closer. No damage.`);
+    else {
+      result.push(d.perfect ? `${secs(d.ms)}. Perfect!` : `Closer! ${d.pct}% power.`);
+      hurt();
+    }
   } else if (d.skill === 'roulette') {
     opening.push(`${who(by)} used Roulette on ${d.pick}!`);
     opening.push('The wheel spins…');
@@ -257,9 +277,12 @@ function plan(state: HeroState, names: [string, string], me: Side | null, before
   } else if (d.skill === 'speed') {
     opening.push(`${who(by)} used I’m Speed!`);
     opening.push('Wait for green…');
+    const time = (ms: number) => (ms < 0 ? 'too early' : secs(ms));
+    if (d.theirMs !== null) result.push(`${who(by)}: ${time(d.ms)}. ${who(target)}: ${time(d.theirMs)}.`);
     if (d.ms < 0) result.push(`${who(by)} jumped the gun! No damage.`);
+    else if (!d.won) result.push(`${who(target)} ${target === me ? 'were' : 'was'} as fast or faster. No damage.`);
     else {
-      result.push(d.flash ? `${secs(d.ms)}. I’M SPEED!` : `Reacted in ${secs(d.ms)}, ${d.pct}% power.`);
+      result.push(d.flash ? `${secs(d.ms)}. I’M SPEED!` : `Faster! ${d.pct}% power.`);
       hurt();
     }
   } else if (d.skill === 'rest') {
@@ -330,15 +353,15 @@ const secs = (ms: number) => `${(ms / 1000).toFixed(2)} s`;
 
 function SkillShow({ turn, who, other }: { turn: Turn; who: string; other: string }) {
   const d = turn.detail;
-  if (d.skill === 'stopwatch') return <ClockShow target={d.target} ms={d.ms} perfect={d.perfect} />;
-  if (d.skill === 'speed') return <LightShow delay={Math.min(700, Math.floor(SHOW_MS.speed / 2))} ms={d.ms} flash={d.flash} />;
+  if (d.skill === 'stopwatch') return <ClockShow target={d.target} ms={d.ms} theirs={d.theirMs} perfect={d.perfect} who={who} other={other} />;
+  if (d.skill === 'speed') return <LightShow delay={Math.min(700, Math.floor(SHOW_MS.speed / 2))} ms={d.ms} theirs={d.theirMs} flash={d.flash} who={who} other={other} />;
   if (d.skill === 'roulette') return <RouletteSpin pick={d.pick} balls={d.balls} />;
   if (d.skill === 'poker') return <CardsShow mine={d.mine} theirs={d.theirs} won={d.won} who={who} other={other} />;
   return null;
 }
 
-/** A clock face, ten seconds a lap: a mark at the target, and the hand sweeps round to the stop. */
-function ClockShow({ target, ms, perfect }: { target: number; ms: number; perfect: boolean }) {
+/** A clock face, ten seconds a lap: a mark at the target, and a hand for each side sweeps round to its stop. */
+function ClockShow({ target, ms, theirs, perfect, who, other }: { target: number; ms: number; theirs: number | null; perfect: boolean; who: string; other: string }) {
   const angle = (n: number) => (Math.min(n, 60_000) / 10_000) * 360;
   const [done, setDone] = useState(false);
   useEffect(() => {
@@ -353,11 +376,12 @@ function ClockShow({ target, ms, perfect }: { target: number; ms: number; perfec
           <path key={i} className="clock-tick" d="M0 -46V-39" transform={`rotate(${i * 36})`} />
         ))}
         <path className="clock-target" d="M0 -46V-30" transform={`rotate(${angle(target)})`} />
+        {theirs !== null && <path className="clock-hand theirs" d="M0 4V-34" style={{ '--to': `${angle(theirs)}deg` } as CSSProperties} />}
         <path className="clock-hand" d="M0 4V-40" style={{ '--to': `${angle(ms)}deg` } as CSSProperties} />
         <circle className="clock-hub" r="4" />
       </svg>
       <small className={`show-readout${done ? ' in' : ''}`}>
-        {seconds(ms)} / {seconds(target)}
+        {theirs === null ? `${seconds(ms)} / ${seconds(target)}` : `${who} ${seconds(ms)} · ${other} ${seconds(theirs)} / ${seconds(target)}`}
         {perfect && ' · Perfect!'}
       </small>
     </div>
@@ -365,7 +389,7 @@ function ClockShow({ target, ms, perfect }: { target: number; ms: number; perfec
 }
 
 /** The reaction light: red, then green, then the time (or still red: too early). */
-function LightShow({ delay, ms, flash }: { delay: number; ms: number; flash: boolean }) {
+function LightShow({ delay, ms, theirs, flash, who, other }: { delay: number; ms: number; theirs: number | null; flash: boolean; who: string; other: string }) {
   const [phase, setPhase] = useState<'red' | 'green' | 'done'>('red');
   useEffect(() => {
     if (ms < 0) {
@@ -383,7 +407,7 @@ function LightShow({ delay, ms, flash }: { delay: number; ms: number; flash: boo
   return (
     <div className="show-light">
       <span className={`light-bulb${green ? ' green' : ' red'}${phase === 'done' && flash ? ' flash' : ''}`} />
-      <small className={`show-readout${phase === 'done' ? ' in' : ''}`}>{ms < 0 ? 'Too early!' : secs(ms)}</small>
+      <small className={`show-readout${phase === 'done' ? ' in' : ''}`}>{theirs === null ? (ms < 0 ? 'Too early!' : secs(ms)) : `${who} ${ms < 0 ? 'too early' : secs(ms)} · ${other} ${theirs < 0 ? 'too early' : secs(theirs)}`}</small>
     </div>
   );
 }
