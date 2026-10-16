@@ -4175,7 +4175,7 @@ button.seat:disabled {
 /* The hand: fanned out as you'd hold it, the middle card highest. */
 .fan {
   position: relative;
-  height: calc(min(26vw, 108px) * 1.52 + 24px);
+  height: calc(min(36vw, 144px) * 1.52 + 24px);
   margin-top: 4px;
   touch-action: none;
   user-select: none;
@@ -4184,7 +4184,7 @@ button.seat:disabled {
 }
 
 .hand-card {
-  --w: min(26vw, 108px);
+  --w: min(36vw, 144px);
   --step: min(var(--w) * 0.62, (100% - var(--w)) / max(var(--n) - 1, 1));
   position: absolute;
   bottom: 0;
@@ -4219,18 +4219,24 @@ button.seat:disabled {
   display: none;
 }
 
-.hand-card .face-cost {
-  margin-left: auto;
+/* Fanned, only a card's left side shows, so what matters sits on the left, as on real cards. */
+.hand-card .face-band {
+  justify-content: flex-start;
 }
 
 .hand-card .face-name {
-  padding: 3px 5px 0;
-  font-size: var(--fs-label);
+  padding: 4px 6px 0;
+  font-size: var(--fs-cap);
 }
 
 .hand-card .face-art {
-  margin: 3px 4px;
-  padding: 2px;
+  place-items: center start;
+  margin: 4px 5px;
+  padding: 4px;
+}
+
+.hand-card .face-art .icons.effect {
+  justify-content: flex-start;
 }
 
 .hand-card .face-age {
@@ -4238,10 +4244,9 @@ button.seat:disabled {
 }
 
 .hand-card .hand-cost {
-  padding: 0 5px 5px;
+  padding: 0 6px 6px;
   color: var(--label-3);
-  font-size: var(--fs-label);
-  text-align: center;
+  font-size: var(--fs-cap);
 }
 
 .hand-card .free,
@@ -4275,7 +4280,7 @@ button.seat:disabled {
 }
 
 .peek-card {
-  width: min(64vw, 260px, calc((100dvh - 300px) * 0.68));
+  width: min(64vw, 260px, calc((100dvh - 390px) * 0.68));
   transform: none;
   animation: peek-up 180ms var(--ease) backwards;
 }
@@ -4546,7 +4551,7 @@ button.seat:disabled {
 /* The hand lives at the bottom of the screen, under the thumb, like cards held low. */
 .fan-space {
   flex: none;
-  height: calc(min(26vw, 108px) * 1.52 + 56px);
+  height: calc(min(36vw, 144px) * 1.52 + 56px);
 }
 
 .fan-dock {

@@ -16,12 +16,12 @@ export function CardFace({ card, big }: { card: Card; big?: boolean }) {
       <span className="face-band">
         <span>{COLOR_NAMES[card.color]}</span>
         <span className="face-cost">
-          <CostIcons cost={card.cost} size={big ? 16 : 11} />
+          <CostIcons cost={card.cost} size={big ? 16 : 13} />
         </span>
       </span>
       <strong className="face-name">{card.name}</strong>
       <span className="face-art">
-        <CardEffect card={card} size={big ? 30 : 15} />
+        <CardEffect card={card} size={big ? 30 : 20} />
       </span>
       {big && (
         <span className="face-text">
@@ -47,7 +47,7 @@ function CostNow({ state, me, id }: { state: WondersState; me: number; id: strin
       </span>
     );
   if (cost.total === 0) return <span className="free">Free</span>;
-  return <Count name="coin" n={cost.total} size={12} />;
+  return <Count name="coin" n={cost.total} size={14} />;
 }
 
 /** On a card you can build free through a chain: which of your cards makes it free. */
