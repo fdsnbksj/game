@@ -446,7 +446,7 @@ service cloud.firestore {
         && request.resource.data.status == 'lobby'
         && request.resource.data.version is int
         && request.resource.data.createdAt == request.time;
-      allow update: if request.auth != null && (isHeroJoin() || isHeroStart() || isHeroFinish());
+      allow update: if request.auth != null && (isHeroJoin() || isHeroStart() || isHeroFinish() || isHeroRematch(code));
 
       match /moves/{n} {
         allow read: if isHeroRoomPlayer(code);
@@ -484,6 +484,23 @@ service cloud.firestore {
         && after.status == 'playing'
         && after.seed is string && after.seed.size() >= 6 && after.seed.size() <= 40
         && after.startedAt == request.time;
+    }
+
+    // Another fight in the same room once one is over (the user's ask), by either player:
+    // a new seed, and `from`, the number of the new fight's first move. Moves keep their
+    // numbers, so `from` must be exactly how many there are: move from-1 exists, move from doesn't.
+    function isHeroRematch(code) {
+      let before = resource.data;
+      let after = request.resource.data;
+      return before.status == 'done' && request.auth.uid in before.playerIds
+        && after.diff(before).affectedKeys().hasOnly(['status', 'seed', 'startedAt', 'from'])
+        && after.status == 'playing'
+        && after.seed is string && after.seed.size() >= 6 && after.seed.size() <= 40
+        && after.seed != before.seed
+        && after.startedAt == request.time
+        && after.from is int && after.from >= 1
+        && exists(/databases/$(database)/documents/heroDuels/$(code)/moves/$(string(after.from - 1)))
+        && !exists(/databases/$(database)/documents/heroDuels/$(code)/moves/$(string(after.from)));
     }
 
     function isHeroFinish() {

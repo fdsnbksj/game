@@ -3,8 +3,8 @@ import { Link, useParams } from 'react-router';
 import { Page } from '../../components/Page';
 import { Lobby as LobbyFrame } from '../../components/RoomSetup';
 import { replay, type Fighter, type Side } from '../../games/hero/state';
-import { forgetRoom } from '../../lastPage';
-import { finishHeroRoom, joinHeroRoom, sendHeroMove, startHeroRoom, versionProblem, watchHeroRoom, type HeroRoom as Room, type HeroRoomData } from '../../services/hero';
+import { forgetRoom, rememberPage } from '../../lastPage';
+import { finishHeroRoom, joinHeroRoom, rematchHeroRoom, sendHeroMove, startHeroRoom, versionProblem, watchHeroRoom, type HeroRoom as Room, type HeroRoomData } from '../../services/hero';
 import { reloadFresh } from '../../reload';
 import { useGameStore } from '../../store';
 import { Fight, turnShowMs } from './Fight';
@@ -17,8 +17,10 @@ export function HeroRoom() {
   useEffect(() => (uid ? watchHeroRoom(code, uid, setData) : undefined), [code, uid]);
   const ended = data.missing || data.room?.status === 'done' || (!!uid && !!data.room && data.room.status !== 'lobby' && !data.room.playerIds.includes(uid));
   useEffect(() => {
+    // A rematch puts the room back on home's Continue.
     if (ended) forgetRoom(`/hero/${code}`);
-  }, [ended, code]);
+    else if (data.room?.status === 'playing') rememberPage(`/hero/${code}`);
+  }, [ended, code, data.room?.status]);
 
   const room = data.room;
   let body: ReactNode;
@@ -28,7 +30,8 @@ export function HeroRoom() {
   else if (!room.playerIds.includes(uid)) body = <NotIn room={room} />;
   else if (room.status !== 'done' && versionProblem(room.version)) body = <OtherVersion text={versionProblem(room.version)!} />;
   else if (room.status === 'lobby' || !room.seed) body = <Lobby room={room} uid={uid} />;
-  else body = <Game room={room} moves={data.moves} uid={uid} />;
+  // Keyed by the seed: a rematch starts the screen over.
+  else body = <Game key={room.seed} room={room} moves={data.moves} uid={uid} />;
 
   return (
     <Page title={`Hero Gambit · ${code}`} back="/hero" game="hero">
@@ -122,11 +125,12 @@ function Game({ room, moves, uid }: { room: Room; moves: HeroRoomData['moves']; 
   // A move of theirs the game refuses means their phone runs another version: the fight would stall.
   const [state, stalled] = useMemo(() => {
     let refused = false;
-    const s = replay(room.seed!, [a, b], players, moves, (side) => {
+    // This fight's moves only: a rematch follows on from the last fight's.
+    const s = replay(room.seed!, [a, b], players, moves.slice(room.from), (side) => {
       if (players[side] !== uid) refused = true;
     });
     return [s, refused] as const;
-  }, [room.seed, a, b, players, moves, uid]);
+  }, [room.seed, room.from, a, b, players, moves, uid]);
   const [error, setError] = useState<string | null>(null);
   // The move number being sent: the screen waits for the server to have it.
   const [sending, setSending] = useState<number | null>(null);
@@ -144,6 +148,17 @@ function Game({ room, moves, uid }: { room: Room; moves: HeroRoomData['moves']; 
   useEffect(() => {
     if (state.winner !== null && room.status === 'playing') void finishHeroRoom(room.code).catch(() => {});
   }, [state.winner, room.status, room.code]);
+
+  // Another fight in this room; whichever phone asks first starts it for both.
+  const [rematching, setRematching] = useState(false);
+  const rematch = () => {
+    setRematching(true);
+    setError(null);
+    void rematchHeroRoom(room.code, moves.length).catch(() => {
+      setRematching(false);
+      setError('Couldn’t start a rematch. Check the connection and try again.');
+    });
+  };
 
   const me = players.indexOf(uid) as Side;
   const them = (me === 0 ? 1 : 0) as Side;
@@ -172,11 +187,11 @@ function Game({ room, moves, uid }: { room: Room; moves: HeroRoomData['moves']; 
             <div className="panel" role="dialog" aria-label="Fight over">
               <h2>{state.winner === me ? 'You win' : 'You lose'}</h2>
               <p className="hero-result">{state.winner === me ? `You beat ${names[them]}.` : `${names[them]} wins.`}</p>
-              <Link className="button primary" to="/hero">
-                New fight
-              </Link>
-              <Link className="button ghost" to="/">
-                Home
+              <button className="button primary" disabled={rematching} onClick={rematch}>
+                {rematching ? 'Starting…' : 'Rematch'}
+              </button>
+              <Link className="button ghost" to="/hero">
+                Leave the room
               </Link>
             </div>
           </div>

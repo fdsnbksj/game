@@ -24,6 +24,8 @@ export interface HeroRoom {
   seed: string | null;
   /** The HERO_VERSION of the phone that opened it; null for a room from before rooms said. */
   version: number | null;
+  /** The number of this fight's first move: 0, or where the latest rematch began. */
+  from: number;
 }
 
 /** Why this phone can't play in a room made by another version of the game, if it can't. */
@@ -72,9 +74,23 @@ export async function joinHeroRoom(code: string): Promise<string | null> {
   return null;
 }
 
+const newSeed = () => Array.from(crypto.getRandomValues(new Uint32Array(3)), (n) => n.toString(36)).join('');
+
 export async function startHeroRoom(code: string) {
-  const seed = Array.from(crypto.getRandomValues(new Uint32Array(3)), (n) => n.toString(36)).join('');
-  await rest.updateDoc(roomRest(code), { status: 'playing', seed, startedAt: rest.serverTimestamp() });
+  await rest.updateDoc(roomRest(code), { status: 'playing', seed: newSeed(), startedAt: rest.serverTimestamp() });
+  poke(`heroDuels/${code}`);
+}
+
+/**
+ * Another fight in the same room, once one is over: `from` is how many moves the room has,
+ * so the new fight's moves follow on. If the other player got there first, that's fine.
+ */
+export async function rematchHeroRoom(code: string, from: number) {
+  try {
+    await rest.updateDoc(roomRest(code), { status: 'playing', seed: newSeed(), startedAt: rest.serverTimestamp(), from });
+  } catch (error) {
+    if (!(error instanceof FirebaseError && error.code === 'permission-denied')) throw error;
+  }
   poke(`heroDuels/${code}`);
 }
 
@@ -111,6 +127,7 @@ export function watchHeroRoom(code: string, uid: string, onChange: (data: HeroRo
       status: d.status as HeroRoom['status'],
       seed: (d.seed as string | undefined) ?? null,
       version: (d.version as number | undefined) ?? null,
+      from: (d.from as number | undefined) ?? 0,
     }),
     // Only the two players may read the moves, once the fight has started.
     (room) => room.playerIds.includes(uid) && room.status !== 'lobby',

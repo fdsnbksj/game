@@ -69,4 +69,21 @@ describe('hero rooms', () => {
     await assertFails(getDoc(doc(dbFor('eve'), 'heroDuels', CODE, 'moves', '0')));
     await assertSucceeds(updateDoc(room(dbFor('bob')), { status: 'done', endedAt: serverTimestamp() }));
   });
+
+  it('play again in the same room once a fight is over, its moves following on', async () => {
+    await admin(['heroDuels', CODE], { ...open, playerIds: ['ann', 'bob'], names: { ann: 'Ann', bob: 'Bob' }, status: 'playing', seed: 'abcdef12' });
+    await admin(['heroDuels', CODE, 'moves', '0'], { n: 0, by: 'ann', move: { skill: 'roulette', pick: 1 } });
+    await admin(['heroDuels', CODE, 'moves', '1'], { n: 1, by: 'bob', move: { skill: 'roulette', pick: 2 } });
+    const again = (uid: string, data: Record<string, unknown>) => updateDoc(room(dbFor(uid)), { status: 'playing', seed: 'zyxwvu98', startedAt: serverTimestamp(), from: 2, ...data });
+    await assertFails(again('bob', {})); // still on
+    await assertSucceeds(updateDoc(room(dbFor('ann')), { status: 'done', endedAt: serverTimestamp() }));
+    await assertFails(again('eve', {}));
+    await assertFails(again('bob', { from: 1 })); // not where the moves end
+    await assertFails(again('bob', { from: 3 }));
+    await assertFails(again('bob', { seed: 'abcdef12' })); // the same fight again
+    await assertFails(again('bob', { host: 'bob' }));
+    await assertSucceeds(again('bob', {}));
+    await assertFails(again('ann', {})); // only once
+    await assertSucceeds(setDoc(doc(dbFor('ann'), 'heroDuels', CODE, 'moves', '2'), { n: 2, by: 'ann', move: { skill: 'rest' } }));
+  });
 });
