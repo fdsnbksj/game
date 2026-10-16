@@ -7,6 +7,7 @@
   color-scheme: light;
 
   --bg: #f2f2f4;
+  --chain-glow: #f5b82e;
   --surface: #ffffff;
   --surface-2: #f6f6f8;
   --surface-grad: #ffffff;
@@ -2080,6 +2081,14 @@ button.seat:disabled {
   display: inline-block;
   flex: none;
   vertical-align: -2px;
+}
+
+.emoji-icon {
+  display: inline-grid;
+  place-items: center;
+  font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif;
+  font-weight: 400;
+  line-height: 1;
 }
 
 .icons {
@@ -4358,5 +4367,105 @@ button.seat:disabled {
 
   .view-card {
     transform: none;
+  }
+}
+
+/* The status box with an (i) for every player's city. */
+.duel-status.with-info {
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+}
+
+.status-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.info-button {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 1.5px solid currentColor;
+  border-radius: 999px;
+  background: none;
+  color: inherit;
+  font: italic 700 var(--fs-base) Georgia, 'Times New Roman', serif;
+  cursor: pointer;
+}
+
+/* The hand lives at the bottom of the screen, under the thumb, like cards held low. */
+.fan-space {
+  flex: none;
+  height: calc(min(26vw, 108px) * 1.52 + 56px);
+}
+
+.fan-dock {
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  z-index: 10;
+  width: min(100%, 480px);
+  padding: 18px 16px max(10px, env(safe-area-inset-bottom));
+  background: linear-gradient(to bottom, transparent, var(--bg) 28px);
+  transform: translateX(-50%);
+}
+
+.fan-dock .fan-hint {
+  margin-bottom: 2px;
+  font-size: var(--fs-cap);
+}
+
+/* Free through a chain: the card glows. */
+.hand-card.chained {
+  border-color: var(--chain-glow);
+  animation:
+    deal 260ms var(--ease) backwards,
+    chain-glow 1.4s ease-in-out infinite alternate;
+  animation-delay: calc(var(--i, 0) * 40ms), 0s;
+}
+
+.view-card.chained {
+  box-shadow:
+    0 0 0 3px var(--chain-glow),
+    0 0 36px 8px color-mix(in srgb, var(--chain-glow) 70%, transparent),
+    0 18px 50px rgb(0 0 0 / 0.5);
+}
+
+.chain-note {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin: 0 14px 6px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--chain-glow) 22%, var(--surface));
+  font-size: var(--fs-cap);
+  font-weight: 600;
+}
+
+@keyframes chain-glow {
+  from {
+    box-shadow:
+      0 0 0 2px var(--chain-glow),
+      0 0 6px 1px color-mix(in srgb, var(--chain-glow) 60%, transparent);
+  }
+  to {
+    box-shadow:
+      0 0 0 2px var(--chain-glow),
+      0 0 18px 5px color-mix(in srgb, var(--chain-glow) 85%, transparent);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hand-card.chained {
+    animation: none;
+    box-shadow: 0 0 0 2px var(--chain-glow), 0 0 14px 4px color-mix(in srgb, var(--chain-glow) 75%, transparent);
   }
 }

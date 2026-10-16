@@ -1,4 +1,4 @@
-// Small drawn icons for the wonder games: coins, points, shields, the resources and the
+// Small icons for the wonder games (emoji for most, drawn for the rest): coins, points, shields, the resources and the
 // science symbols, so a card or a city can be read at a glance. Colours come from the
 // palette in src/index.css (`--icon-*` and `--res-*`).
 
@@ -305,8 +305,35 @@ function Shape({ name }: { name: IconName }) {
   }
 }
 
+/** The wonder games' icons as emoji (the user's choice, for a simpler look); the rest stay drawn. */
+const EMOJI: Partial<Record<IconName, string>> = {
+  coin: '🪙',
+  points: '⭐',
+  shield: '🛡️',
+  defeat: '❌',
+  stage: '🏛️',
+  chain: '🔗',
+  wood: '🪵',
+  stone: '🪨',
+  clay: '🧱',
+  ore: '⛏️',
+  glass: '🧪',
+  cloth: '🧵',
+  papyrus: '📜',
+  compass: '📐',
+  gear: '⚙️',
+  tablet: '📋',
+};
+
 /** One icon, inline with text. */
 export function Icon({ name, size = 14, title }: { name: IconName; size?: number; title?: string }) {
+  const emoji = EMOJI[name];
+  if (emoji)
+    return (
+      <span className="game-icon emoji-icon" role="img" aria-label={title ?? LABELS[name]} style={{ width: size, height: size, fontSize: size * 0.9 }}>
+        {emoji}
+      </span>
+    );
   return (
     <svg className="game-icon" viewBox="0 0 24 24" width={size} height={size} role="img" aria-label={title ?? LABELS[name]}>
       <Shape name={name} />

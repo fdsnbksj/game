@@ -50,6 +50,18 @@ function CostNow({ state, me, id }: { state: WondersState; me: number; id: strin
   return <Count name="coin" n={cost.total} size={12} />;
 }
 
+/** On a card you can build free through a chain: which of your cards makes it free. */
+function ChainNote({ state, me, card }: { state: WondersState; me: number; card: Card }) {
+  const city = state.cities[me];
+  const from = card.chainFrom?.find((id) => city.cards.includes(id));
+  if (!from || city.cards.includes(card.id)) return null;
+  return (
+    <span className="chain-note">
+      <Icon name="chain" size={14} /> Free: you have {cardOf(from).name}
+    </span>
+  );
+}
+
 const HOLD_MS = 220;
 
 /**
@@ -78,56 +90,70 @@ export function Hand({ state, me, onOpen }: { state: WondersState; me: number; o
 
   return (
     <>
-      <div
-        className={held === null ? 'fan' : 'fan holding'}
-        style={{ '--n': n } as React.CSSProperties}
-        onPointerDown={(e) => {
-          const i = cardAt(e.clientX, e.clientY);
-          if (i === null) return;
-          e.currentTarget.setPointerCapture(e.pointerId);
-          press.current = { i, x: e.clientX, timer: window.setTimeout(() => setHeld(press.current?.i ?? null), HOLD_MS) };
-        }}
-        onPointerMove={(e) => {
-          if (!press.current) return;
-          const i = cardAt(e.clientX, e.clientY);
-          // Sliding along the fan is reading: pick the card up straight away.
-          if (held === null && Math.abs(e.clientX - press.current.x) > 12) setHeld(i ?? press.current.i);
-          else if (held !== null && i !== null && i !== held) setHeld(i);
-          if (i !== null) press.current.i = i;
-        }}
-        onPointerUp={() => {
-          const tapped = held === null && press.current ? press.current.i : null;
-          end();
-          if (tapped !== null) onOpen(tapped);
-        }}
-        onPointerCancel={end}
-        onContextMenu={(e) => e.preventDefault()}
-      >
-        {hand.map((card, i) => {
-          const c = cardOf(baseId(card));
-          const affordable = !!buildCost(state, me, c.id);
-          const off = i - mid;
-          return (
-            <div
-              key={card}
-              data-card={i}
-              className={`hand-card c-${c.color}${affordable ? '' : ' unaffordable'}${held === i ? ' up' : ''}`}
-              style={{ '--i': i, '--off': off, '--abs': Math.abs(off) } as React.CSSProperties}
-            >
-              <CardFace card={c} />
-              <span className="hand-cost">
-                <CostNow state={state} me={me} id={c.id} />
-              </span>
-            </div>
-          );
-        })}
+      <div className="fan-space" aria-hidden="true" />
+      <div className="fan-dock">
+        <p className="note center-note fan-hint">Hold a card to read it · tap to play it</p>
+        <div
+          className={held === null ? 'fan' : 'fan holding'}
+          style={{ '--n': n } as React.CSSProperties}
+          onPointerDown={(e) => {
+            const i = cardAt(e.clientX, e.clientY);
+            if (i === null) return;
+            e.currentTarget.setPointerCapture(e.pointerId);
+            press.current = {
+              i,
+              x: e.clientX,
+              timer: window.setTimeout(() => setHeld(press.current?.i ?? null), HOLD_MS),
+            };
+          }}
+          onPointerMove={(e) => {
+            if (!press.current) return;
+            const i = cardAt(e.clientX, e.clientY);
+            // Sliding along the fan is reading: pick the card up straight away.
+            if (held === null && Math.abs(e.clientX - press.current.x) > 12) setHeld(i ?? press.current.i);
+            else if (held !== null && i !== null && i !== held) setHeld(i);
+            if (i !== null) press.current.i = i;
+          }}
+          onPointerUp={() => {
+            const tapped = held === null && press.current ? press.current.i : null;
+            end();
+            if (tapped !== null) onOpen(tapped);
+          }}
+          onPointerCancel={end}
+          onContextMenu={(e) => e.preventDefault()}
+        >
+          {hand.map((card, i) => {
+            const c = cardOf(baseId(card));
+            const cost = buildCost(state, me, c.id);
+            const off = i - mid;
+            return (
+              <div
+                key={card}
+                data-card={i}
+                className={`hand-card c-${c.color}${cost ? '' : ' unaffordable'}${cost?.chained ? ' chained' : ''}${held === i ? ' up' : ''}`}
+                style={
+                  {
+                    '--i': i,
+                    '--off': off,
+                    '--abs': Math.abs(off),
+                  } as React.CSSProperties
+                }
+              >
+                <CardFace card={c} />
+                <span className="hand-cost">
+                  <CostNow state={state} me={me} id={c.id} />
+                </span>
+              </div>
+            );
+          })}
+        </div>
       </div>
-      <p className="note center-note fan-hint">Hold a card to read it · tap to play it</p>
       {peek &&
         createPortal(
           <div className="peek" aria-live="polite">
-            <div key={peek.id} className={`view-card peek-card c-${peek.color}`}>
+            <div key={peek.id} className={`view-card peek-card c-${peek.color}${buildCost(state, me, peek.id)?.chained ? ' chained' : ''}`}>
               <CardFace card={peek} big />
+              <ChainNote state={state} me={me} card={peek} />
               <span className="peek-cost">
                 Costs you now: <CostNow state={state} me={me} id={peek.id} />
               </span>
@@ -139,7 +165,12 @@ export function Hand({ state, me, onOpen }: { state: WondersState; me: number; o
   );
 }
 
-type Action = { key: string; label: string; detail?: string; move: Move | null };
+type Action = {
+  key: string;
+  label: string;
+  detail?: string;
+  move: Move | null;
+};
 
 /** What you could do with a card now, the likeliest first: build, else a wonder stage, else discard. */
 function actionsFor(state: WondersState, me: number, card: string, name: (s: number) => string): { actions: Action[]; best: string } {
@@ -152,7 +183,11 @@ function actionsFor(state: WondersState, me: number, card: string, name: (s: num
   const stagePay = stageCost(state, me);
   const coins = (n: number) => `${n} coin${n === 1 ? '' : 's'}`;
   const payText = (p: { coins: number; left: number; right: number }) => {
-    const parts = [...(p.coins ? [`${coins(p.coins)} to the bank`] : []), ...(p.left ? [`${coins(p.left)} to ${name(leftOf(state, me))}`] : []), ...(p.right ? [`${coins(p.right)} to ${name(rightOf(state, me))}`] : [])];
+    const parts = [
+      ...(p.coins ? [`${coins(p.coins)} to the bank`] : []),
+      ...(p.left ? [`${coins(p.left)} to ${name(leftOf(state, me))}`] : []),
+      ...(p.right ? [`${coins(p.right)} to ${name(rightOf(state, me))}`] : []),
+    ];
     return parts.length ? parts.join(', ') : 'free';
   };
   const actions: Action[] = [
@@ -161,9 +196,30 @@ function actionsFor(state: WondersState, me: number, card: string, name: (s: num
       label: owned ? 'You already have this' : cost ? (cost.chained ? 'Build: free through a chain' : `Build: ${payText(cost)}`) : 'Can’t afford to build',
       move: cost ? { ...at, as: 'build' } : null,
     },
-    ...(free && !cost?.chained ? [{ key: 'free', label: 'Build free (once this age)', move: { ...at, as: 'build' as const, free: true } }] : []),
-    ...(stage ? [{ key: 'wonder', label: `Wonder stage ${state.cities[me].stages + 1}: ${stagePay ? payText(stagePay) : 'can’t afford'}`, detail: stageText(stage), move: stagePay ? { ...at, as: 'wonder' as const } : null }] : []),
-    { key: 'discard', label: 'Discard for 3 coins', move: { ...at, as: 'discard' } },
+    ...(free && !cost?.chained
+      ? [
+          {
+            key: 'free',
+            label: 'Build free (once this age)',
+            move: { ...at, as: 'build' as const, free: true },
+          },
+        ]
+      : []),
+    ...(stage
+      ? [
+          {
+            key: 'wonder',
+            label: `Wonder stage ${state.cities[me].stages + 1}: ${stagePay ? payText(stagePay) : 'can’t afford'}`,
+            detail: stageText(stage),
+            move: stagePay ? { ...at, as: 'wonder' as const } : null,
+          },
+        ]
+      : []),
+    {
+      key: 'discard',
+      label: 'Discard for 3 coins',
+      move: { ...at, as: 'discard' },
+    },
   ];
   const best = cost ? 'build' : stagePay && stage ? 'wonder' : 'discard';
   actions.sort((x, y) => Number(y.key === best) - Number(x.key === best));
@@ -250,7 +306,7 @@ export function CardViewer({
         <div
           key={card}
           ref={cardRef}
-          className={`view-card c-${c.color} from-${from}`}
+          className={`view-card c-${c.color} from-${from}${buildCost(state, me, c.id)?.chained ? ' chained' : ''}`}
           onClick={(e) => e.stopPropagation()}
           onPointerDown={(e) => {
             drag.current = { x: e.clientX, y: e.clientY };
@@ -272,6 +328,7 @@ export function CardViewer({
           }}
         >
           <CardFace card={c} big />
+          <ChainNote state={state} me={me} card={c} />
           <span className="view-sheen" />
         </div>
         {hand.length > 1 && (

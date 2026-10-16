@@ -8,20 +8,7 @@ import { botMove } from '../../games/wonders/bot';
 import { boardOf, cardOf, RESOURCES, type Color } from '../../games/wonders/cards';
 import { cardText, COLOR_NAMES, RES_NAMES, stageText } from '../../games/wonders/describe';
 import { baseId, type SideChoice } from '../../games/wonders/setup';
-import {
-  leftOf,
-  ownSupply,
-  replay,
-  reviveOptions,
-  rightOf,
-  score,
-  shieldsOf,
-  stagesOf,
-  waitingFor,
-  type Move,
-  type Score,
-  type WondersState,
-} from '../../games/wonders/state';
+import { leftOf, ownSupply, replay, reviveOptions, rightOf, score, shieldsOf, stagesOf, waitingFor, type Move, type Score, type WondersState } from '../../games/wonders/state';
 import { addBot, finishGame, isBot, joinRoom, leaveRoom, sendMove, setup, startGame, watchRoom, type WondersData, type WondersRoom as Room } from '../../services/wonders';
 import { forgetRoom } from '../../lastPage';
 import { useGameStore } from '../../store';
@@ -197,6 +184,7 @@ function Game({ room, moves, uid }: { room: Room; moves: WondersData['moves']; u
   const [error, setError] = useState<string | null>(null);
   const [viewing, setViewing] = useState<number | null>(null);
   const [neighbour, setNeighbour] = useState<number | null>(null);
+  const [everyone, setEveryone] = useState(false);
 
   const play = (move: Move, by?: string) => {
     setError(null);
@@ -241,13 +229,18 @@ function Game({ room, moves, uid }: { room: Room; moves: WondersData['moves']; u
         <Outcome state={state} name={name} />
       ) : (
         <>
-          <div className="duel-status">
-            <strong className={mine && !picked ? 'yours' : undefined}>
-              {reviving ? 'Choose from the discards' : picked ? `You picked ${cardOf(baseId(picked.card)).name}` : mine ? 'Pick a card' : 'Waiting…'}
-            </strong>
-            <span className="note">
-              {picked || !mine ? (others.length ? `Waiting for ${others.join(', ')}` : 'Revealing…') : `Age ${['I', 'II', 'III'][state.age - 1]}, ${turns} · hands pass ${pass}`}
-            </span>
+          <div className="duel-status with-info">
+            <div className="status-text">
+              <strong className={mine && !picked ? 'yours' : undefined}>
+                {reviving ? 'Choose from the discards' : picked ? `You picked ${cardOf(baseId(picked.card)).name}` : mine ? 'Pick a card' : 'Waiting…'}
+              </strong>
+              <span className="note">
+                {picked || !mine ? (others.length ? `Waiting for ${others.join(', ')}` : 'Revealing…') : `Age ${['I', 'II', 'III'][state.age - 1]}, ${turns} · hands pass ${pass}`}
+              </span>
+            </div>
+            <button className="info-button" aria-label="Every player's details" onClick={() => setEveryone(true)}>
+              i
+            </button>
           </div>
 
           {me >= 0 && <Table state={state} me={me} name={name} onNeighbour={setNeighbour} />}
@@ -264,21 +257,32 @@ function Game({ room, moves, uid }: { room: Room; moves: WondersData['moves']; u
       )}
 
       {state.phase === 'over' && me >= 0 && <Table state={state} me={me} name={name} onNeighbour={setNeighbour} />}
-      {state.n > 3 && (
-        <SummaryRow label="Across the table" figures={<span className="note">{state.n - 3} more</span>}>
-          <TableSummary state={state} me={me} name={name} />
-        </SummaryRow>
+      {state.phase === 'over' && (
+        <button className="button" onClick={() => setEveryone(true)}>
+          Every player's city
+        </button>
       )}
       <LastTurn state={state} name={name} />
 
-      {viewing !== null && me >= 0 && !picked && !reviving && (
-        <CardViewer state={state} me={me} start={viewing} canPick={mine} name={name} onMove={play} onClose={() => setViewing(null)} />
-      )}
+      {viewing !== null && me >= 0 && !picked && !reviving && <CardViewer state={state} me={me} start={viewing} canPick={mine} name={name} onMove={play} onClose={() => setViewing(null)} />}
       {neighbour !== null && (
         <Sheet title={neighbour === left ? 'Your left neighbour' : 'Your right neighbour'} onClose={() => setNeighbour(null)}>
           <p className="note">You trade with and fight only your two neighbours. Your shields: {shieldsOf(city)}.</p>
           <CityPanel state={state} seat={neighbour} name={name} />
           <button className="button" onClick={() => setNeighbour(null)}>
+            Close
+          </button>
+        </Sheet>
+      )}
+      {everyone && (
+        <Sheet title="Every player" onClose={() => setEveryone(false)}>
+          <p className="note">Round the table from you, clockwise: your left neighbour comes next, your right neighbour last.</p>
+          {state.cities.map((_, k) => {
+            const seat = me >= 0 ? (me + k) % state.n : k;
+            const label = seat === me ? undefined : seat === left ? 'Left' : seat === rightOf(state, me) ? 'Right' : undefined;
+            return <CityPanel key={seat} state={state} seat={seat} name={name} mine={seat === me} label={label} />;
+          })}
+          <button className="button" onClick={() => setEveryone(false)}>
             Close
           </button>
         </Sheet>
@@ -404,29 +408,6 @@ function CityPanel({ state, seat, name, mine, label }: { state: WondersState; se
       </div>
       {mine && city.cards.length > 0 && <p className="note built-list">{cards.map((c) => c.name).join(', ')}</p>}
     </section>
-  );
-}
-
-/** The rest of the table, one line each. */
-function TableSummary({ state, me, name }: { state: WondersState; me: number; name: (s: number) => string }) {
-  const others = state.cities.map((_, seat) => seat).filter((seat) => seat !== me && seat !== leftOf(state, me) && seat !== rightOf(state, me));
-  if (!others.length) return null;
-  return (
-    <>
-      <ol className="group players">
-        {others.map((seat) => (
-          <li key={seat} className="row">
-            <span>{name(seat)}</span>
-            <span className="row-detail icons effect">
-              <Count name="coin" n={state.cities[seat].coins} />
-              <Count name="shield" n={shieldsOf(state.cities[seat])} />
-              <Count name="stage" n={`${state.cities[seat].stages}/${stagesOf(state.cities[seat]).length}`} />
-              <Count name="points" n={score(state, seat).total} />
-            </span>
-          </li>
-        ))}
-      </ol>
-    </>
   );
 }
 
