@@ -1133,6 +1133,12 @@ button.icon-button:active:not(:disabled) {
   border-radius: 999px;
 }
 
+/* A plain button stands off the grey page: white, with a soft shadow. */
+.game-room .button:not(.primary, .ghost, .danger, .skill-button) {
+  background: var(--surface);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.08);
+}
+
 .game-room .button.primary:not(.choice-row, .skill-button, .wonder-button) {
   border: none;
   background: linear-gradient(135deg, var(--hub-feature-from), var(--hub-feature-to));
@@ -4429,7 +4435,47 @@ button.seat:disabled {
   color: rgb(255 255 255 / 0.75);
 }
 
+/* Over the dark table every button is solid: white, or the sweep for the best move. */
+.viewer-actions .button {
+  min-height: 50px;
+  border: none;
+  border-radius: 999px;
+  background: var(--surface);
+  box-shadow: 0 4px 14px rgb(0 0 0 / 0.35);
+  color: var(--label);
+  font-weight: 600;
+}
+
+.viewer-actions .button.primary {
+  background: linear-gradient(135deg, var(--hub-feature-from), var(--hub-feature-to));
+  color: var(--on-feature);
+  font-weight: 700;
+}
+
+.viewer-actions .button.wonder-button {
+  align-items: center;
+  text-align: center;
+}
+
+.viewer-actions .button small {
+  color: inherit;
+  opacity: 0.75;
+}
+
+/* Can't do it now: still readable, plainly not pressable. */
+.viewer-actions .button:disabled,
+.viewer-actions .button.primary:disabled {
+  border: 1.5px dashed rgb(255 255 255 / 0.45);
+  background: rgb(255 255 255 / 0.12);
+  box-shadow: none;
+  color: rgb(255 255 255 / 0.8);
+  opacity: 1;
+}
+
 .viewer-actions .button.ghost {
+  border: 1.5px solid rgb(255 255 255 / 0.7);
+  background: none;
+  box-shadow: none;
   color: var(--on-dark);
 }
 
