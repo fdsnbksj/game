@@ -119,13 +119,18 @@ function play(state: HeroState, move: Exclude<Move, { skill: 'card' } | { skill:
   };
 }
 
-/** The fight so far: `players` are the ids moves are recorded by, in fighter order. */
-export function replay(seed: string, fighters: [Fighter, Fighter], players: readonly [string, string], moves: readonly Recorded[]): HeroState {
+/**
+ * The fight so far: `players` are the ids moves are recorded by, in fighter order.
+ * `onRefused` hears of each player's move the game skipped (a phone on another version, or tampered).
+ */
+export function replay(seed: string, fighters: [Fighter, Fighter], players: readonly [string, string], moves: readonly Recorded[], onRefused?: (side: Side) => void): HeroState {
   let state = start(seed, fighters);
   for (const { by, move } of moves) {
     const side = players.indexOf(by);
     if (side < 0) continue;
-    state = apply(state, move, side as Side) ?? state;
+    const next = apply(state, move, side as Side);
+    if (next) state = next;
+    else onRefused?.(side as Side);
   }
   return state;
 }

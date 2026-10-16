@@ -4,7 +4,8 @@ import { Page } from '../../components/Page';
 import { Lobby as LobbyFrame } from '../../components/RoomSetup';
 import { replay, type Fighter, type Side } from '../../games/hero/state';
 import { forgetRoom } from '../../lastPage';
-import { finishHeroRoom, joinHeroRoom, sendHeroMove, startHeroRoom, watchHeroRoom, type HeroRoom as Room, type HeroRoomData } from '../../services/hero';
+import { finishHeroRoom, joinHeroRoom, sendHeroMove, startHeroRoom, versionProblem, watchHeroRoom, type HeroRoom as Room, type HeroRoomData } from '../../services/hero';
+import { reloadFresh } from '../../reload';
 import { useGameStore } from '../../store';
 import { Fight, turnShowMs } from './Fight';
 
@@ -25,6 +26,7 @@ export function HeroRoom() {
   else if (data.missing) body = <Gone text={`There's no room ${code}.`} />;
   else if (!room) body = <div className="spinner" aria-label="Loading" />;
   else if (!room.playerIds.includes(uid)) body = <NotIn room={room} />;
+  else if (room.status !== 'done' && versionProblem(room.version)) body = <OtherVersion text={versionProblem(room.version)!} />;
   else if (room.status === 'lobby' || !room.seed) body = <Lobby room={room} uid={uid} />;
   else body = <Game room={room} moves={data.moves} uid={uid} />;
 
@@ -41,6 +43,21 @@ function Gone({ text }: { text: string }) {
       <p className="note">{text}</p>
       <Link className="button" to="/">
         Home
+      </Link>
+    </>
+  );
+}
+
+/** The two phones would play the same moves differently: reload and start over. */
+function OtherVersion({ text }: { text: string }) {
+  return (
+    <>
+      <p className="note">{text} Both phones need the latest version to play each other.</p>
+      <button className="button primary" onClick={() => void reloadFresh()}>
+        Reload the latest version
+      </button>
+      <Link className="button" to="/hero">
+        Back
       </Link>
     </>
   );
@@ -102,7 +119,14 @@ function Lobby({ room, uid }: { room: Room; uid: string }) {
 function Game({ room, moves, uid }: { room: Room; moves: HeroRoomData['moves']; uid: string }) {
   const players = room.playerIds as [string, string];
   const [a, b] = useMemo(() => [fighterOf(room, players[0]), fighterOf(room, players[1])], [room, players]);
-  const state = useMemo(() => replay(room.seed!, [a, b], players, moves), [room.seed, a, b, players, moves]);
+  // A move of theirs the game refuses means their phone runs another version: the fight would stall.
+  const [state, stalled] = useMemo(() => {
+    let refused = false;
+    const s = replay(room.seed!, [a, b], players, moves, (side) => {
+      if (players[side] !== uid) refused = true;
+    });
+    return [s, refused] as const;
+  }, [room.seed, a, b, players, moves, uid]);
   const [error, setError] = useState<string | null>(null);
   // The move number being sent: the screen waits for the server to have it.
   const [sending, setSending] = useState<number | null>(null);
@@ -159,6 +183,20 @@ function Game({ room, moves, uid }: { room: Room; moves: HeroRoomData['moves']; 
         )}
       </Fight>
       {error && <p className="error">{error}</p>}
+      {stalled && state.winner === null && (
+        <div className="overlay">
+          <div className="panel" role="dialog" aria-label="Different versions">
+            <h2>Different versions</h2>
+            <p className="hero-result">{names[them]}’s phone is on another version of the game, so your moves don’t match. Both of you: reload, then open a new room.</p>
+            <button className="button primary" onClick={() => void reloadFresh()}>
+              Reload the latest version
+            </button>
+            <Link className="button ghost" to="/hero">
+              Back
+            </Link>
+          </div>
+        </div>
+      )}
     </>
   );
 }

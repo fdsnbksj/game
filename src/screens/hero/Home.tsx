@@ -3,7 +3,8 @@ import { Link, useNavigate } from 'react-router';
 import { Page } from '../../components/Page';
 import { GameBanner } from '../world/GameBanner';
 import { SummaryRow } from '../../components/SummaryRow';
-import { createHeroRoom, joinHeroRoom } from '../../services/hero';
+import { reloadFresh } from '../../reload';
+import { createHeroRoom, joinHeroRoom, versionProblem } from '../../services/hero';
 import { useGameStore } from '../../store';
 import { Stickman } from './Stickman';
 
@@ -88,6 +89,11 @@ export function Home() {
           </button>
         )}
         {error && <p className="error">{error}</p>}
+        {error && (error === versionProblem(0) || error === versionProblem(Number.MAX_SAFE_INTEGER)) && (
+          <button className="button" onClick={() => void reloadFresh()}>
+            Reload the latest version
+          </button>
+        )}
         <Link className="button" to="/hero/local">
           Play on one phone
         </Link>

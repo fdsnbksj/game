@@ -212,6 +212,16 @@ describe('a fight', () => {
     }
   });
 
+  it('tells which side’s move it refused (a phone on another version)', () => {
+    const s = start('stale', NAMES);
+    const attacker = IDS[s.turn];
+    const defender = IDS[s.turn === 0 ? 1 : 0];
+    const refused: Side[] = [];
+    // An older phone took the Stopwatch as played and went on with a skill of its own.
+    replay('stale', NAMES, IDS, [{ by: attacker, move: { skill: 'stopwatch', ms: 3000 } }, { by: defender, move: { skill: 'roulette', pick: 1 } }], (side) => refused.push(side));
+    expect(refused).toEqual([s.turn === 0 ? 1 : 0]);
+  });
+
   it('comes out the same as when it was written (golden hash)', () => {
     const results = Array.from({ length: 40 }, (_, i) => {
       const { state } = fightOut(`golden${i}`);

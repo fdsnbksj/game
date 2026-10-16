@@ -32,13 +32,16 @@ describe('retired hero docs', () => {
 });
 
 describe('hero rooms', () => {
-  const open = { host: 'ann', playerIds: ['ann'], names: { ann: 'Ann' }, status: 'lobby' };
+  const open = { host: 'ann', playerIds: ['ann'], names: { ann: 'Ann' }, status: 'lobby', version: 12 };
 
   it('open with just the host', async () => {
     await assertSucceeds(setDoc(room(dbFor('ann')), { ...open, createdAt: serverTimestamp() }));
     await assertFails(setDoc(doc(dbFor('bob'), 'heroDuels', 'ABCD'), { ...open, createdAt: serverTimestamp() })); // as someone else
     await assertFails(setDoc(doc(dbFor('ann'), 'heroDuels', 'ABCE'), { ...open, fighters: { ann: {} }, createdAt: serverTimestamp() }));
     await assertFails(setDoc(doc(dbFor('ann'), 'heroDuels', 'abcd'), { ...open, createdAt: serverTimestamp() }));
+    const { version: _, ...unversioned } = open;
+    await assertFails(setDoc(doc(dbFor('ann'), 'heroDuels', 'ABCF'), { ...unversioned, createdAt: serverTimestamp() }));
+    await assertFails(setDoc(doc(dbFor('ann'), 'heroDuels', 'ABCG'), { ...open, version: '12', createdAt: serverTimestamp() }));
   });
 
   it('take a second player, once', async () => {

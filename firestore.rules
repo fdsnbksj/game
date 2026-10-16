@@ -422,8 +422,9 @@ service cloud.firestore {
     // ---------- Hero Gambit ----------
     // A fight between two phones, built like Rival Wonders' rooms. Every hero is the same,
     // so a room holds only the players, their names and the seed. The rules can't watch a
-    // fight, so a tampered phone could still claim a win. heroes/{uid} (the retired bot
-    // ladder and skill tree) is closed, like the other old data.
+    // fight, so a tampered phone could still claim a win. `version` is the game's version
+    // (HERO_VERSION): phones on another one don't join, as they'd replay moves differently.
+    // heroes/{uid} (the retired bot ladder and skill tree) is closed, like the other old data.
 
     function heroRoom(code) {
       return get(/databases/$(database)/documents/heroDuels/$(code)).data;
@@ -437,12 +438,13 @@ service cloud.firestore {
       allow read: if request.auth != null;
       allow create: if request.auth != null
         && code.matches('[A-Z]{4}')
-        && hasExactly(request.resource.data, ['host', 'playerIds', 'names', 'status', 'createdAt'])
+        && hasExactly(request.resource.data, ['host', 'playerIds', 'names', 'status', 'version', 'createdAt'])
         && request.resource.data.host == request.auth.uid
         && request.resource.data.playerIds == [request.auth.uid]
         && request.resource.data.names.keys().hasOnly([request.auth.uid])
         && isValidName(request.resource.data.names[request.auth.uid])
         && request.resource.data.status == 'lobby'
+        && request.resource.data.version is int
         && request.resource.data.createdAt == request.time;
       allow update: if request.auth != null && (isHeroJoin() || isHeroStart() || isHeroFinish());
 

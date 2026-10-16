@@ -1,7 +1,7 @@
 import { FirebaseError } from 'firebase/app';
 import type { Unsubscribe } from 'firebase/firestore';
 import type { Move } from '../games/hero/skills';
-import type { Recorded } from '../games/hero/state';
+import { HERO_VERSION, type Recorded } from '../games/hero/state';
 import { useGameStore } from '../store';
 import { followRoom, poke, rest, restDoc } from './resilient';
 import { newCode } from './roomCode';
@@ -22,7 +22,13 @@ export interface HeroRoom {
   names: Record<string, string>;
   status: 'lobby' | 'playing' | 'done';
   seed: string | null;
+  /** The HERO_VERSION of the phone that opened it; null for a room from before rooms said. */
+  version: number | null;
 }
+
+/** Why this phone can't play in a room made by another version of the game, if it can't. */
+export const versionProblem = (version: number | null) =>
+  version === HERO_VERSION ? null : version !== null && version > HERO_VERSION ? 'This fight is on a newer version of the game. Reload to get it.' : 'This fight was opened on an older version of the game. Reload, and open a new room.';
 
 const roomRest = (code: string) => restDoc('heroDuels', code);
 const moveRest = (code: string, n: number) => restDoc('heroDuels', code, 'moves', String(n));
@@ -38,7 +44,7 @@ export async function createHeroRoom(): Promise<string> {
   for (let tries = 0; tries < 5; tries++) {
     const code = newCode();
     try {
-      await rest.setDoc(roomRest(code), { host: uid, playerIds: [uid], names: { [uid]: name }, status: 'lobby', createdAt: rest.serverTimestamp() });
+      await rest.setDoc(roomRest(code), { host: uid, playerIds: [uid], names: { [uid]: name }, status: 'lobby', version: HERO_VERSION, createdAt: rest.serverTimestamp() });
       return code;
     } catch (error) {
       if (!(error instanceof FirebaseError && error.code === 'permission-denied')) throw error;
@@ -54,6 +60,9 @@ export async function joinHeroRoom(code: string): Promise<string | null> {
   if (!snap.exists()) return 'No room with that code.';
   const room = snap.data();
   if ((room.playerIds as string[]).includes(uid)) return null;
+  // Two versions would play the same moves differently, and the fight would stall.
+  const problem = versionProblem((room.version as number | undefined) ?? null);
+  if (problem) return problem;
   if (room.status !== 'lobby' || room.playerIds.length >= 2) return 'That fight is full.';
   await rest.updateDoc(roomRest(code), {
     playerIds: [...room.playerIds, uid],
@@ -101,6 +110,7 @@ export function watchHeroRoom(code: string, uid: string, onChange: (data: HeroRo
       names: d.names as Record<string, string>,
       status: d.status as HeroRoom['status'],
       seed: (d.seed as string | undefined) ?? null,
+      version: (d.version as number | undefined) ?? null,
     }),
     // Only the two players may read the moves, once the fight has started.
     (room) => room.playerIds.includes(uid) && room.status !== 'lobby',
