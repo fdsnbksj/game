@@ -4059,36 +4059,43 @@ button.seat:disabled {
   text-align: right;
 }
 
-/* The hand: portrait cards, four a row, dealt in one after another. */
-.hand {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 8px;
+/* The hand: fanned out as you'd hold it, the middle card highest. */
+.fan {
+  position: relative;
+  height: calc(min(26vw, 108px) * 1.52 + 24px);
+  margin-top: 4px;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
 }
 
 .hand-card {
+  --w: min(26vw, 108px);
+  --step: min(var(--w) * 0.62, (100% - var(--w)) / max(var(--n) - 1, 1));
+  position: absolute;
+  bottom: 0;
+  left: calc(50% - var(--w) / 2 + var(--off) * var(--step));
   display: flex;
   flex-direction: column;
-  width: calc((100% - 24px) / 4);
+  width: var(--w);
   aspect-ratio: 5 / 7.6;
-  padding: 0;
   overflow: hidden;
   border: 1px solid var(--border-strong);
   border-radius: 9px;
   background: var(--surface);
-  box-shadow: var(--shadow-2);
+  box-shadow: -2px 3px 10px rgb(0 0 0 / 0.16);
   color: var(--label);
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
+  transform-origin: 50% 160%;
+  transform: translateY(calc(var(--abs) * var(--abs) * 2px)) rotate(calc(var(--off) * 5deg));
+  transition: transform 160ms var(--ease);
   animation: deal 260ms var(--ease) backwards;
   animation-delay: calc(var(--i, 0) * 40ms);
-  transition: transform 120ms var(--ease);
 }
 
-.hand-card:active {
-  transform: translateY(-4px) scale(1.04);
+.hand-card.up {
+  z-index: 1;
+  transform: translateY(-14px) rotate(calc(var(--off) * 5deg));
 }
 
 .hand-card .face-band {
@@ -4124,13 +4131,57 @@ button.seat:disabled {
   text-align: center;
 }
 
-.hand-card .hand-cost .free {
+.hand-card .free,
+.peek-cost .free {
   color: var(--success);
   font-weight: 600;
 }
 
-.hand-card.unaffordable {
-  opacity: 0.6;
+.hand-card.unaffordable .face-art,
+.hand-card.unaffordable .face-name {
+  opacity: 0.55;
+}
+
+.fan.holding .hand-card:not(.up) {
+  filter: brightness(0.92);
+}
+
+.fan-hint {
+  margin: 0;
+}
+
+/* The card you're holding, big enough to read, above your thumb; it never takes the touch. */
+.peek {
+  position: fixed;
+  inset: 0 0 auto;
+  z-index: 20;
+  display: flex;
+  justify-content: center;
+  padding: max(16px, env(safe-area-inset-top)) 16px 0;
+  pointer-events: none;
+}
+
+.peek-card {
+  width: min(64vw, 260px, calc((100dvh - 300px) * 0.68));
+  transform: none;
+  animation: peek-up 180ms var(--ease) backwards;
+}
+
+.peek-cost {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 14px 10px;
+  color: var(--label-2);
+  font-size: var(--fs-cap);
+}
+
+@keyframes peek-up {
+  from {
+    opacity: 0;
+    transform: translateY(40px) scale(0.85);
+  }
 }
 
 @keyframes deal {
@@ -4299,6 +4350,7 @@ button.seat:disabled {
 @media (prefers-reduced-motion: reduce) {
   .hand-card,
   .view-card,
+  .peek-card,
   .viewer-actions {
     animation: none;
     transition: none;

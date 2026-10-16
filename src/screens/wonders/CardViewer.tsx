@@ -35,36 +35,107 @@ export function CardFace({ card, big }: { card: Card; big?: boolean }) {
   );
 }
 
-/** Your hand, card-shaped: what each gives, and what it would cost you now. Tap one to look at it big. */
+/** What a card would cost you now, in a word or an icon. */
+function CostNow({ state, me, id }: { state: WondersState; me: number; id: string }) {
+  const cost = buildCost(state, me, id);
+  if (state.cities[me].cards.includes(id)) return <>Built</>;
+  if (!cost) return <>Can’t build</>;
+  if (cost.chained)
+    return (
+      <span className="icons free">
+        <Icon name="chain" size={12} /> Free
+      </span>
+    );
+  if (cost.total === 0) return <span className="free">Free</span>;
+  return <Count name="coin" n={cost.total} size={12} />;
+}
+
+const HOLD_MS = 220;
+
+/**
+ * Your hand, fanned out as you'd hold it. Press and hold a card and it comes up to read;
+ * slide along the fan to read the others; let go and it goes back. A quick tap opens it to play.
+ */
 export function Hand({ state, me, onOpen }: { state: WondersState; me: number; onOpen: (index: number) => void }) {
+  const hand = state.hands[me];
+  const [held, setHeld] = useState<number | null>(null);
+  const press = useRef<{ i: number; x: number; timer: number } | null>(null);
+  const n = hand.length;
+  const mid = (n - 1) / 2;
+
+  const cardAt = (x: number, y: number) => {
+    const el = document.elementFromPoint(x, y)?.closest<HTMLElement>('[data-card]');
+    return el ? Number(el.dataset.card) : null;
+  };
+  const end = () => {
+    if (press.current) window.clearTimeout(press.current.timer);
+    press.current = null;
+    setHeld(null);
+  };
+  useEffect(() => end, []);
+
+  const peek = held !== null && hand[held] ? cardOf(baseId(hand[held])) : null;
+
   return (
-    <div className="hand">
-      {state.hands[me].map((card, i) => {
-        const c = cardOf(baseId(card));
-        const cost = buildCost(state, me, c.id);
-        const owned = state.cities[me].cards.includes(c.id);
-        return (
-          <button key={card} className={`hand-card c-${c.color}${cost ? '' : ' unaffordable'}`} style={{ '--i': i } as React.CSSProperties} onClick={() => onOpen(i)}>
-            <CardFace card={c} />
-            <span className="hand-cost">
-              {owned ? (
-                'Built'
-              ) : !cost ? (
-                'Can’t build'
-              ) : cost.chained ? (
-                <span className="icons free">
-                  <Icon name="chain" size={12} /> Free
-                </span>
-              ) : cost.total === 0 ? (
-                <span className="free">Free</span>
-              ) : (
-                <Count name="coin" n={cost.total} size={12} />
-              )}
-            </span>
-          </button>
-        );
-      })}
-    </div>
+    <>
+      <div
+        className={held === null ? 'fan' : 'fan holding'}
+        style={{ '--n': n } as React.CSSProperties}
+        onPointerDown={(e) => {
+          const i = cardAt(e.clientX, e.clientY);
+          if (i === null) return;
+          e.currentTarget.setPointerCapture(e.pointerId);
+          press.current = { i, x: e.clientX, timer: window.setTimeout(() => setHeld(press.current?.i ?? null), HOLD_MS) };
+        }}
+        onPointerMove={(e) => {
+          if (!press.current) return;
+          const i = cardAt(e.clientX, e.clientY);
+          // Sliding along the fan is reading: pick the card up straight away.
+          if (held === null && Math.abs(e.clientX - press.current.x) > 12) setHeld(i ?? press.current.i);
+          else if (held !== null && i !== null && i !== held) setHeld(i);
+          if (i !== null) press.current.i = i;
+        }}
+        onPointerUp={() => {
+          const tapped = held === null && press.current ? press.current.i : null;
+          end();
+          if (tapped !== null) onOpen(tapped);
+        }}
+        onPointerCancel={end}
+        onContextMenu={(e) => e.preventDefault()}
+      >
+        {hand.map((card, i) => {
+          const c = cardOf(baseId(card));
+          const affordable = !!buildCost(state, me, c.id);
+          const off = i - mid;
+          return (
+            <div
+              key={card}
+              data-card={i}
+              className={`hand-card c-${c.color}${affordable ? '' : ' unaffordable'}${held === i ? ' up' : ''}`}
+              style={{ '--i': i, '--off': off, '--abs': Math.abs(off) } as React.CSSProperties}
+            >
+              <CardFace card={c} />
+              <span className="hand-cost">
+                <CostNow state={state} me={me} id={c.id} />
+              </span>
+            </div>
+          );
+        })}
+      </div>
+      <p className="note center-note fan-hint">Hold a card to read it · tap to play it</p>
+      {peek &&
+        createPortal(
+          <div className="peek" aria-live="polite">
+            <div key={peek.id} className={`view-card peek-card c-${peek.color}`}>
+              <CardFace card={peek} big />
+              <span className="peek-cost">
+                Costs you now: <CostNow state={state} me={me} id={peek.id} />
+              </span>
+            </div>
+          </div>,
+          document.body,
+        )}
+    </>
   );
 }
 

@@ -28,7 +28,7 @@ import { useGameStore } from '../../store';
 import { CostIcons, StageEffect } from './CardIcons';
 import { CardViewer, Hand } from './CardViewer';
 import { Table } from './Table';
-import { Count, Icon, type IconName } from '../../components/GameIcons';
+import { Count, Icon } from '../../components/GameIcons';
 
 export function WondersRoom() {
   const { code = '' } = useParams();
@@ -270,12 +270,6 @@ function Game({ room, moves, uid }: { room: Room; moves: WondersData['moves']; u
         </SummaryRow>
       )}
       <LastTurn state={state} name={name} />
-      {me >= 0 && (
-        <SummaryRow label={`Your cards · ${city.cards.length} built`} title={`You · ${boardOf(city.board).name}`}>
-          <CityPanel state={state} seat={me} name={name} mine />
-          <IconKey />
-        </SummaryRow>
-      )}
 
       {viewing !== null && me >= 0 && !picked && !reviving && (
         <CardViewer state={state} me={me} start={viewing} canPick={mine} name={name} onMove={play} onClose={() => setViewing(null)} />
@@ -433,50 +427,6 @@ function TableSummary({ state, me, name }: { state: WondersState; me: number; na
         ))}
       </ol>
     </>
-  );
-}
-
-const KEY: [IconName, string][] = [
-  ['coin', 'Coins'],
-  ['points', 'Points at the end'],
-  ['shield', 'Shields: win battles with your neighbours'],
-  ['defeat', 'A lost battle: −1 point'],
-  ['stage', 'Wonder stage'],
-  ['chain', 'Free by chain'],
-  ['wood', 'Wood'],
-  ['stone', 'Stone'],
-  ['clay', 'Clay'],
-  ['ore', 'Ore'],
-  ['glass', 'Glass'],
-  ['cloth', 'Cloth'],
-  ['papyrus', 'Papyrus'],
-  ['compass', 'Science: compass'],
-  ['gear', 'Science: gear'],
-  ['tablet', 'Science: tablet'],
-];
-
-/** What the icons mean, folded away until wanted. */
-function IconKey() {
-  return (
-    <details className="group card-pad icon-key">
-      <summary>What the icons mean</summary>
-      <ul>
-        {KEY.map(([icon, text]) => (
-          <li key={icon}>
-            <Icon name={icon} size={18} />
-            <span>{text}</span>
-          </li>
-        ))}
-        <li>
-          <span className="where">◀ ▶</span>
-          <span>Your left and right neighbours (◀•▶: them and you)</span>
-        </li>
-        <li>
-          <span className="where">/</span>
-          <span>One of these, your choice, each turn</span>
-        </li>
-      </ul>
-    </details>
   );
 }
 
