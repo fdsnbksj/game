@@ -6,11 +6,9 @@ import { Sheet } from '../../components/Sheet';
 import { SummaryRow } from '../../components/SummaryRow';
 import { botMove } from '../../games/wonders/bot';
 import { boardOf, cardOf, RESOURCES, type Color } from '../../games/wonders/cards';
-import { cardText, COLOR_NAMES, costText, RES_NAMES, stageText } from '../../games/wonders/describe';
+import { cardText, COLOR_NAMES, RES_NAMES, stageText } from '../../games/wonders/describe';
 import { baseId, type SideChoice } from '../../games/wonders/setup';
 import {
-  buildCost,
-  canBuildFree,
   leftOf,
   ownSupply,
   replay,
@@ -18,7 +16,6 @@ import {
   rightOf,
   score,
   shieldsOf,
-  stageCost,
   stagesOf,
   waitingFor,
   type Move,
@@ -28,7 +25,9 @@ import {
 import { addBot, finishGame, isBot, joinRoom, leaveRoom, sendMove, setup, startGame, watchRoom, type WondersData, type WondersRoom as Room } from '../../services/wonders';
 import { forgetRoom } from '../../lastPage';
 import { useGameStore } from '../../store';
-import { CardEffect, CostIcons, StageEffect } from './CardIcons';
+import { CostIcons, StageEffect } from './CardIcons';
+import { CardViewer, Hand } from './CardViewer';
+import { Table } from './Table';
 import { Count, Icon, type IconName } from '../../components/GameIcons';
 
 export function WondersRoom() {
@@ -196,7 +195,8 @@ function Game({ room, moves, uid }: { room: Room; moves: WondersData['moves']; u
   const count = useRef(moves.length);
   count.current = moves.length;
   const [error, setError] = useState<string | null>(null);
-  const [viewing, setViewing] = useState<string | null>(null);
+  const [viewing, setViewing] = useState<number | null>(null);
+  const [neighbour, setNeighbour] = useState<number | null>(null);
 
   const play = (move: Move, by?: string) => {
     setError(null);
@@ -233,7 +233,6 @@ function Game({ room, moves, uid }: { room: Room; moves: WondersData['moves']; u
   const picked = me >= 0 ? state.picks[me] : null;
   const others = waiting.filter((seat) => seat !== me).map(name);
   const left = leftOf(state, me);
-  const right = rightOf(state, me);
   const city = state.cities[me];
 
   return (
@@ -251,102 +250,47 @@ function Game({ room, moves, uid }: { room: Room; moves: WondersData['moves']; u
             </span>
           </div>
 
+          {me >= 0 && <Table state={state} me={me} name={name} onNeighbour={setNeighbour} />}
+
           {picked ? (
             <p className="note center-note">
               {picked.as === 'discard' ? 'Discarding it for 3 coins' : picked.as === 'wonder' ? 'Building a wonder stage with it' : 'Building it'}. Everyone's picks show when the last one is in.
             </p>
           ) : (
-            me >= 0 && <Hand state={state} me={me} disabled={!mine} onOpen={setViewing} />
+            me >= 0 && <Hand state={state} me={me} onOpen={setViewing} />
           )}
           {error && <p className="error">{error}</p>}
         </>
       )}
 
-      {me >= 0 && (
-        <SummaryRow
-          mine
-          label="You"
-          title={`You · ${boardOf(city.board).name}`}
-          figures={<Figures state={state} seat={me} stages />}
-        >
-          <CityPanel state={state} seat={me} name={name} mine />
-          <IconKey />
-        </SummaryRow>
-      )}
-      <SummaryRow
-        label={left === right ? `Neighbour: ${name(left)}` : `◀ ${name(left)} · ${name(right)} ▶`}
-        title="Your neighbours"
-        figures={
-          <>
-            <Count name="shield" n={shieldsOf(state.cities[left])} />
-            {left !== right && <Count name="shield" n={shieldsOf(state.cities[right])} />}
-          </>
-        }
-      >
-        <p className="note">You trade with and fight only these two. Your shields: {shieldsOf(city)}.</p>
-        <CityPanel state={state} seat={left} name={name} label="Left" />
-        {left !== right && <CityPanel state={state} seat={right} name={name} label="Right" />}
-      </SummaryRow>
+      {state.phase === 'over' && me >= 0 && <Table state={state} me={me} name={name} onNeighbour={setNeighbour} />}
       {state.n > 3 && (
         <SummaryRow label="Across the table" figures={<span className="note">{state.n - 3} more</span>}>
           <TableSummary state={state} me={me} name={name} />
         </SummaryRow>
       )}
       <LastTurn state={state} name={name} />
+      {me >= 0 && (
+        <SummaryRow label={`Your cards · ${city.cards.length} built`} title={`You · ${boardOf(city.board).name}`}>
+          <CityPanel state={state} seat={me} name={name} mine />
+          <IconKey />
+        </SummaryRow>
+      )}
 
-      {viewing && mine && !reviving && <CardSheet state={state} me={me} card={viewing} name={name} onMove={play} onClose={() => setViewing(null)} />}
+      {viewing !== null && me >= 0 && !picked && !reviving && (
+        <CardViewer state={state} me={me} start={viewing} canPick={mine} name={name} onMove={play} onClose={() => setViewing(null)} />
+      )}
+      {neighbour !== null && (
+        <Sheet title={neighbour === left ? 'Your left neighbour' : 'Your right neighbour'} onClose={() => setNeighbour(null)}>
+          <p className="note">You trade with and fight only your two neighbours. Your shields: {shieldsOf(city)}.</p>
+          <CityPanel state={state} seat={neighbour} name={name} />
+          <button className="button" onClick={() => setNeighbour(null)}>
+            Close
+          </button>
+        </Sheet>
+      )}
       {reviving && <ReviveSheet state={state} me={me} onMove={play} />}
     </>
-  );
-}
-
-/** Coins, shields and points (and wonder stages built) on one line. */
-function Figures({ state, seat, stages }: { state: WondersState; seat: number; stages?: boolean }) {
-  const city = state.cities[seat];
-  return (
-    <>
-      <Count name="coin" n={city.coins} />
-      <Count name="shield" n={shieldsOf(city)} />
-      {stages && <Count name="stage" n={`${city.stages}/${stagesOf(city).length}`} />}
-      <Count name="points" n={score(state, seat).total} />
-    </>
-  );
-}
-
-/** Your hand, big: each card's name, what it gives, and what it would cost you now. */
-function Hand({ state, me, disabled, onOpen }: { state: WondersState; me: number; disabled: boolean; onOpen: (card: string) => void }) {
-  return (
-    <div className="hand">
-      {state.hands[me].map((card) => {
-        const c = cardOf(baseId(card));
-        const owned = state.cities[me].cards.includes(c.id);
-        const cost = buildCost(state, me, c.id);
-        return (
-          <button key={card} className={`hand-card c-${c.color}${cost ? '' : ' unaffordable'}`} disabled={disabled} onClick={() => onOpen(card)}>
-            <span className="dcard-band" />
-            <strong>{c.name}</strong>
-            <span className="hand-effect">
-              <CardEffect card={c} size={16} />
-            </span>
-            <span className="hand-cost">
-              {owned ? (
-                'Already built'
-              ) : !cost ? (
-                'Can’t build'
-              ) : cost.chained ? (
-                <span className="icons free">
-                  <Icon name="chain" size={13} /> Free
-                </span>
-              ) : cost.total === 0 ? (
-                <span className="free">Free</span>
-              ) : (
-                <Count name="coin" n={cost.total} size={13} />
-              )}
-            </span>
-          </button>
-        );
-      })}
-    </div>
   );
 }
 
@@ -533,65 +477,6 @@ function IconKey() {
         </li>
       </ul>
     </details>
-  );
-}
-
-function CardSheet({ state, me, card, name, onMove, onClose }: { state: WondersState; me: number; card: string; name: (s: number) => string; onMove: (m: Move) => void; onClose: () => void }) {
-  const c = cardOf(baseId(card));
-  const at = { type: 'pick' as const, age: state.age, turn: state.turn, card };
-  const cost = buildCost(state, me, c.id);
-  const owned = state.cities[me].cards.includes(c.id);
-  const free = canBuildFree(state, me) && !owned;
-  const stage = stagesOf(state.cities[me])[state.cities[me].stages];
-  const stagePay = stageCost(state, me);
-  const coins = (n: number) => `${n} coin${n === 1 ? '' : 's'}`;
-  const payText = (p: { coins: number; left: number; right: number; total: number }) => {
-    const parts = [...(p.coins ? [`${coins(p.coins)} to the bank`] : []), ...(p.left ? [`${coins(p.left)} to ${name(leftOf(state, me))}`] : []), ...(p.right ? [`${coins(p.right)} to ${name(rightOf(state, me))}`] : [])];
-    return parts.length ? parts.join(', ') : 'free';
-  };
-  // The one that most likely makes sense goes first: build, else a wonder stage, else discard.
-  const actions: { key: string; label: string; detail?: string; move: Move | null }[] = [
-    {
-      key: 'build',
-      label: owned ? 'You already have this' : cost ? (cost.chained ? 'Build: free through a chain' : `Build: ${payText(cost)}`) : 'Can’t afford to build',
-      move: cost ? { ...at, as: 'build' } : null,
-    },
-    ...(free && !cost?.chained ? [{ key: 'free', label: 'Build free (once this age)', move: { ...at, as: 'build' as const, free: true } }] : []),
-    ...(stage
-      ? [{ key: 'wonder', label: `Wonder stage ${state.cities[me].stages + 1}: ${stagePay ? payText(stagePay) : 'can’t afford'}`, detail: stageText(stage), move: stagePay ? { ...at, as: 'wonder' as const } : null }]
-      : []),
-    { key: 'discard', label: 'Discard for 3 coins', move: { ...at, as: 'discard' } },
-  ];
-  const best = cost ? 'build' : stagePay && stage ? 'wonder' : 'discard';
-  actions.sort((x, y) => Number(y.key === best) - Number(x.key === best));
-  return (
-    <Sheet onClose={onClose}>
-      <span className={`micro c-text-${c.color}`}>{COLOR_NAMES[c.color]}</span>
-      <h3 className="sheet-title">{c.name}</h3>
-      <div className="sheet-icons">
-        <span className="micro">Gives</span>
-        <CardEffect card={c} size={20} />
-        <span className="micro">Costs</span>
-        <CostIcons cost={c.cost} size={18} />
-      </div>
-      <p className="note">{costText(c.cost) === 'Free' ? 'Free to build.' : `Costs ${costText(c.cost)}.`}</p>
-      {cardText(c).map((line) => (
-        <p key={line} className="note">
-          {line}
-        </p>
-      ))}
-      <div className="sheet-actions">
-        {actions.map(({ key, label, detail, move }) => (
-          <button key={key} className={`button${key === best ? ' primary' : ''}${key === 'wonder' ? ' wonder-button' : ''}`} disabled={!move} onClick={() => move && onMove(move)}>
-            <span>{label}</span>
-            {detail && <small>{detail}</small>}
-          </button>
-        ))}
-        <button className="button ghost" onClick={onClose}>
-          Back to your hand
-        </button>
-      </div>
-    </Sheet>
   );
 }
 

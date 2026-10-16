@@ -2038,73 +2038,6 @@ button.seat:disabled {
 .res-ore { --res: var(--res-ore); }
 .res-cloth { --res: var(--res-cloth); }
 
-/* The hand: two cards a row, big enough to read and tap. */
-.hand {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-}
-
-.hand-card {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  min-height: 84px;
-  padding: 0 0 8px;
-  overflow: hidden;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--r-md);
-  background: var(--surface-2);
-  color: var(--label);
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-
-.hand-card strong,
-.hand-card small {
-  padding: 0 10px;
-}
-
-.hand-card strong {
-  margin-top: 4px;
-  font-size: var(--fs-sm);
-  font-weight: 600;
-}
-
-.hand-card small {
-  color: var(--label-2);
-  font-size: var(--fs-cap);
-}
-
-.hand-card .hand-cost {
-  color: var(--label-3);
-  font-size: var(--fs-cap);
-}
-
-/* The hand is the decision: big cards. One you can't build is dimmed, still tappable. */
-.hand-card {
-  min-height: 104px;
-}
-
-.hand-card strong {
-  font-size: var(--fs-md);
-}
-
-.hand-card.unaffordable:not(:disabled) {
-  opacity: 0.55;
-}
-
-.hand-card .hand-cost .free {
-  color: var(--success);
-  font-weight: 600;
-}
-
-.hand-card:disabled {
-  opacity: 0.6;
-  cursor: default;
-}
-
 .city.mine {
   border-color: var(--accent-line);
 }
@@ -3920,4 +3853,458 @@ button.seat:disabled {
   background: var(--sky-item-bomb);
   font-size: 13px;
   font-weight: 800;
+}
+
+/* ---------- Ancient Wonders: the table and the cards ---------- */
+
+/* The table as you sit: left neighbour, your board, right neighbour. */
+.wonder-table {
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr) 58px;
+  gap: 6px;
+  align-items: stretch;
+}
+
+.rail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  padding: 8px 4px;
+  border: 1px solid var(--separator);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  color: var(--label);
+  font: inherit;
+  font-size: var(--fs-cap);
+  cursor: pointer;
+}
+
+.rail-arrow {
+  color: var(--label-3);
+  font-size: var(--fs-label);
+}
+
+.rail-name {
+  max-width: 100%;
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rail-line {
+  width: 70%;
+  height: 1px;
+  background: var(--separator);
+}
+
+.rail-res {
+  display: flex;
+  justify-content: center;
+  padding: 2px 4px;
+  border: 1.5px solid transparent;
+  border-radius: 8px;
+}
+
+.rail-res.cheap {
+  border-color: var(--success);
+}
+
+.rail-choice {
+  flex-wrap: wrap;
+  gap: 1px;
+  max-width: 48px;
+  background: var(--surface-2);
+}
+
+.board {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid var(--accent-line);
+  border-radius: var(--r-md);
+  background: var(--surface);
+}
+
+.board-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.board-head strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.board-figures,
+.board-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+}
+
+.board-row {
+  gap: 4px;
+}
+
+.board-stages {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.board-stage {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 6px;
+  border: 1px dashed var(--border-strong);
+  border-radius: 6px;
+  color: var(--label-2);
+  font-size: var(--fs-cap);
+}
+
+.board-stage.built {
+  border-style: solid;
+  border-color: var(--accent-line);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.board-stage-n {
+  min-width: 12px;
+  font-weight: 700;
+}
+
+.board-stage .arrow {
+  color: var(--label-3);
+}
+
+/* A card face, small in the hand and big in the viewer: same parts, same order. */
+.face-band {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  padding: 3px 6px;
+  background: var(--band);
+  color: var(--on-card);
+  font-size: var(--fs-label);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.face-cost {
+  display: flex;
+  padding: 1px 4px;
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--label);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.face-name {
+  padding: 4px 6px 0;
+  font-size: var(--fs-cap);
+  font-weight: 650;
+  line-height: 1.15;
+}
+
+.face-art {
+  display: grid;
+  flex: 1 1 auto;
+  min-height: 40px;
+  place-items: center;
+  margin: 4px 6px;
+  padding: 4px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--band) 16%, var(--surface));
+}
+
+.face-art .icons.effect {
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.face-text {
+  display: flex;
+  flex: 0 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  flex-direction: column;
+  gap: 6px;
+  padding: 0 14px;
+  color: var(--label-2);
+  font-size: var(--fs-sm);
+  line-height: 1.35;
+}
+
+.face-age {
+  padding: 2px 6px 5px;
+  color: var(--label-3);
+  font-size: var(--fs-label);
+  text-align: right;
+}
+
+/* The hand: portrait cards, four a row, dealt in one after another. */
+.hand {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
+.hand-card {
+  display: flex;
+  flex-direction: column;
+  width: calc((100% - 24px) / 4);
+  aspect-ratio: 5 / 7.6;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--border-strong);
+  border-radius: 9px;
+  background: var(--surface);
+  box-shadow: var(--shadow-2);
+  color: var(--label);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  animation: deal 260ms var(--ease) backwards;
+  animation-delay: calc(var(--i, 0) * 40ms);
+  transition: transform 120ms var(--ease);
+}
+
+.hand-card:active {
+  transform: translateY(-4px) scale(1.04);
+}
+
+.hand-card .face-band {
+  padding: 2px 4px;
+}
+
+.hand-card .face-band > span:first-child {
+  display: none;
+}
+
+.hand-card .face-cost {
+  margin-left: auto;
+}
+
+.hand-card .face-name {
+  padding: 3px 5px 0;
+  font-size: var(--fs-label);
+}
+
+.hand-card .face-art {
+  margin: 3px 4px;
+  padding: 2px;
+}
+
+.hand-card .face-age {
+  display: none;
+}
+
+.hand-card .hand-cost {
+  padding: 0 5px 5px;
+  color: var(--label-3);
+  font-size: var(--fs-label);
+  text-align: center;
+}
+
+.hand-card .hand-cost .free {
+  color: var(--success);
+  font-weight: 600;
+}
+
+.hand-card.unaffordable {
+  opacity: 0.6;
+}
+
+@keyframes deal {
+  from {
+    opacity: 0;
+    transform: translateY(16px) rotate(-4deg);
+  }
+}
+
+/* The viewer: one card, big, over a dark table; the choices under the thumb. */
+.viewer {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
+  background: rgb(10 12 20 / 0.82);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  animation: fade-in var(--dur) var(--ease) both;
+}
+
+.viewer-stage {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  width: 100%;
+  min-height: 0;
+  perspective: 900px;
+}
+
+.view-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: min(68vw, 280px, calc((100dvh - 360px) * 0.68));
+  aspect-ratio: 5 / 7.4;
+  overflow: hidden;
+  border: 6px solid var(--band);
+  border-radius: 16px;
+  background: var(--surface);
+  box-shadow: 0 18px 50px rgb(0 0 0 / 0.5);
+  color: var(--label);
+  touch-action: none;
+  user-select: none;
+  transform: translateX(var(--dx, 0)) rotateX(var(--rx, 0)) rotateY(var(--ry, 0));
+  transition: transform 300ms var(--ease);
+}
+
+.view-card.held {
+  transition: none;
+}
+
+.view-card.from-zoom { animation: card-zoom 320ms var(--ease) backwards; }
+.view-card.from-right { animation: card-from-right 240ms var(--ease) backwards; }
+.view-card.from-left { animation: card-from-left 240ms var(--ease) backwards; }
+
+.view-card .face-band {
+  padding: 8px 12px;
+  font-size: var(--fs-cap);
+}
+
+.view-card .face-name {
+  padding: 10px 14px 0;
+  font-size: var(--fs-lg);
+  letter-spacing: -0.02em;
+}
+
+.view-card .face-art {
+  margin: 10px 14px;
+  padding: 12px;
+  border-radius: 10px;
+}
+
+.view-card .face-age {
+  padding: 8px 14px 10px;
+  font-size: var(--fs-cap);
+}
+
+/* A light that follows the finger, like a foil card turned in the hand. */
+.view-sheen {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(circle at var(--px, 50%) var(--py, 0%), rgb(255 255 255 / 0.45), transparent 55%);
+  opacity: 0;
+  transition: opacity 200ms;
+}
+
+.view-card.held .view-sheen {
+  opacity: 1;
+}
+
+.viewer-nav {
+  flex: none;
+  width: 32px;
+  height: 56px;
+  border: none;
+  border-radius: 10px;
+  background: rgb(255 255 255 / 0.12);
+  color: var(--on-dark);
+  font-size: 1.75rem;
+  cursor: pointer;
+}
+
+.viewer-dots {
+  display: flex;
+  gap: 6px;
+}
+
+.viewer-dots span {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.3);
+}
+
+.viewer-dots span.on {
+  background: var(--on-dark);
+}
+
+.viewer-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: min(100%, 420px);
+  animation: rise var(--dur) var(--ease) both;
+}
+
+.viewer-actions .note {
+  margin: 0;
+  color: rgb(255 255 255 / 0.75);
+}
+
+.viewer-actions .button.ghost {
+  color: var(--on-dark);
+}
+
+@keyframes card-zoom {
+  from {
+    opacity: 0;
+    transform: translateY(80px) scale(0.45) rotate(-6deg);
+  }
+}
+
+@keyframes card-from-right {
+  from {
+    opacity: 0;
+    transform: translateX(60%) rotateY(-25deg);
+  }
+}
+
+@keyframes card-from-left {
+  from {
+    opacity: 0;
+    transform: translateX(-60%) rotateY(25deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hand-card,
+  .view-card,
+  .viewer-actions {
+    animation: none;
+    transition: none;
+  }
+
+  .view-card {
+    transform: none;
+  }
 }
