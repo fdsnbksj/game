@@ -14,6 +14,8 @@ import { Home } from './screens/hero/Home';
 import { GameList } from './screens/world/GameList';
 import { HeroRoom } from './screens/hero/HeroRoom';
 import { LocalFight } from './screens/hero/LocalFight';
+import { SkyHome } from './screens/sky/SkyHome';
+import { SkyPlay } from './screens/sky/SkyPlay';
 import { WorldShell } from './screens/world/WorldShell';
 import { Play } from './screens/Play';
 import { Rankings } from './screens/Rankings';
@@ -52,6 +54,8 @@ export function App() {
         <Route path="/wonders/:code" element={<WondersRoom />} />
         <Route path="/isle" element={<IsleHome />} />
         <Route path="/isle/:code" element={<IsleRoom />} />
+        <Route path="/sky" element={<SkyHome />} />
+        <Route path="/sky/play" element={<SkyPlay />} />
         <Route path="/hero" element={<Home />} />
         <Route path="/hero/local" element={<LocalFight />} />
         <Route path="/hero/:code" element={<HeroRoom />} />

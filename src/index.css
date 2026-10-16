@@ -112,6 +112,44 @@
   --game-wonders-soft: rgb(79 179 200 / 0.14);
   --game-isle: #79a955;
   --game-isle-soft: rgb(121 169 85 / 0.14);
+  --game-sky: #0ea5e9;
+  --game-sky-soft: rgb(14 165 233 / 0.14);
+  /* Sky Ace's world, drawn on a canvas: grounds, the ship, enemies, shots and pickups. */
+  --sky-ground-0: #2d333c;
+  --sky-ground-0-mark: #424a55;
+  --sky-ground-1: #123a56;
+  --sky-ground-1-mark: #2f6a8e;
+  --sky-ground-2: #3b3529;
+  --sky-ground-2-mark: #574e3c;
+  --sky-ship: #e8f1ff;
+  --sky-ship-wing: #3b82f6;
+  --sky-flame: #fbbf24;
+  --sky-vulcan: #fb923c;
+  --sky-laser: #60a5fa;
+  --sky-missile: #f8fafc;
+  --sky-enemy: #9ca3af;
+  --sky-enemy-dark: #1f2329;
+  --sky-tank: #6b7f4e;
+  --sky-turret: #7c6f58;
+  --sky-boss: #8b95a5;
+  --sky-boss-part: #f97316;
+  --sky-shield: #a5f3fc;
+  --sky-bullet: #ff3d9a;
+  --sky-bullet-core: #ffe4f1;
+  --sky-blast: #f97316;
+  --sky-blast-core: #fde68a;
+  --sky-flash: #ffffff;
+  --sky-item-red: #ef4444;
+  --sky-item-blue: #2563eb;
+  --sky-item-missile: #10b981;
+  --sky-item-bomb: #a855f7;
+  --sky-medal: #facc15;
+  --sky-text: #ffffff;
+  --sky-text-shade: rgb(0 0 0 / 0.55);
+  --sky-warn: #ef4444;
+  --sky-scrim: rgb(10 14 20 / 0.55);
+  --sky-bomb-bg: rgb(255 255 255 / 0.16);
+  --sky-bomb-ring: rgb(255 255 255 / 0.5);
   /* Hero Gambit: its emblem, HP bars, the roulette numbers' three colours. */
   --game-hero: #2563eb;
   --game-hero-soft: rgb(37 99 235 / 0.12);
@@ -3100,6 +3138,7 @@ button.seat:disabled {
 .tile-duel { --tile: var(--game-duel); }
 .tile-wonders { --tile: var(--game-wonders); }
 .tile-isle { --tile: var(--game-isle); }
+.tile-sky { --tile: var(--game-sky); }
 
 .hub-tile-art {
   display: grid;
@@ -3773,4 +3812,112 @@ button.seat:disabled {
     animation-duration: 1ms;
     transition: none;
   }
+}
+
+/* ---------- Sky Ace: a full-screen canvas, a pause card and the bomb button ---------- */
+
+.sky-screen {
+  position: fixed;
+  inset: 0;
+  background: var(--sky-ground-0);
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.sky-field {
+  position: absolute;
+  inset: env(safe-area-inset-top) 0 env(safe-area-inset-bottom);
+  touch-action: none;
+}
+
+.sky-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.sky-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 16px;
+  background: var(--sky-scrim);
+  color: var(--sky-text);
+  text-align: center;
+  pointer-events: none;
+}
+
+.sky-over {
+  pointer-events: auto;
+}
+
+.sky-hint {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 800;
+}
+
+.sky-subhint {
+  margin: 0 0 18px;
+  font-size: 15px;
+  opacity: 0.85;
+}
+
+.sky-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: min(260px, 100%);
+  pointer-events: auto;
+}
+
+.sky-menu .button {
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--label);
+}
+
+.sky-menu .button.primary {
+  background: linear-gradient(135deg, var(--hub-feature-from), var(--hub-feature-to));
+  color: var(--on-feature);
+}
+
+.sky-bomb {
+  position: absolute;
+  left: 16px;
+  bottom: 16px;
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  border: 2px solid var(--sky-bomb-ring);
+  border-radius: 50%;
+  background: var(--sky-bomb-bg);
+  color: var(--sky-text);
+  font: inherit;
+  touch-action: none;
+}
+
+.sky-bomb-icon {
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.sky-bomb-count {
+  position: absolute;
+  right: -4px;
+  top: -4px;
+  min-width: 22px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: var(--sky-item-bomb);
+  font-size: 13px;
+  font-weight: 800;
 }

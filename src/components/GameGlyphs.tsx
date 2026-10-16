@@ -64,6 +64,14 @@ export const HeroGlyph = () => (
   </svg>
 );
 
+/** A jet seen from above, nose up: Sky Ace. */
+export const SkyGlyph = () => (
+  <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true">
+    <path d="M2.5 14 12 10l9.5 4v1.8L12 13.6l-9.5 2.2z" fill="currentColor" opacity="0.85" />
+    <path d="M12 2c1.1 1.2 1.6 3 1.6 5v9.5l2.6 2v1.7L12 19l-4.2 1.2v-1.7l2.6-2V7c0-2 .5-3.8 1.6-5z" fill="currentColor" />
+  </svg>
+);
+
 /** Each game's emblem by its id, for lists built from data. */
 export const GAME_GLYPHS = {
   avalon: AvalonGlyph,
@@ -72,4 +80,5 @@ export const GAME_GLYPHS = {
   isle: IsleGlyph,
   nonograms: NonogramGlyph,
   hero: HeroGlyph,
+  sky: SkyGlyph,
 } as const;
