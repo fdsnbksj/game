@@ -4,8 +4,6 @@ import { rememberPage } from './lastPage';
 import { Account } from './screens/Account';
 import { AvalonHome } from './screens/avalon/AvalonHome';
 import { Room } from './screens/avalon/Room';
-import { DuelHome } from './screens/duel/DuelHome';
-import { DuelRoom } from './screens/duel/DuelRoom';
 import { WondersHome } from './screens/wonders/WondersHome';
 import { WondersRoom } from './screens/wonders/WondersRoom';
 import { IsleHome } from './screens/isle/IsleHome';
@@ -50,8 +48,6 @@ export function App() {
         <Route path="/nonograms" element={<Play />} />
         <Route path="/avalon" element={<AvalonHome />} />
         <Route path="/avalon/:code" element={<Room />} />
-        <Route path="/duel" element={<DuelHome />} />
-        <Route path="/duel/:code" element={<DuelRoom />} />
         <Route path="/wonders" element={<WondersHome />} />
         <Route path="/wonders/:code" element={<WondersRoom />} />
         <Route path="/isle" element={<IsleHome />} />

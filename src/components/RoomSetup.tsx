@@ -21,7 +21,7 @@ export function GameHome({
 }: {
   title: string;
   tagline: string;
-  /** Where rooms live: `/avalon`, `/duel`, `/wonders`, `/isle`. */
+  /** Where rooms live: `/avalon`, `/wonders`, `/isle`. */
   base: string;
   /** Where the back arrow goes; the list of games unless given. */
   back?: string;

@@ -28,17 +28,6 @@ export const AvalonGlyph = () => (
   </svg>
 );
 
-/** Columns under a pediment: a wonder. */
-export const DuelGlyph = () => (
-  <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true">
-    <path d="M12 3l9 5H3l9-5z" fill="currentColor" />
-    {[5, 10.5, 16].map((x) => (
-      <rect key={x} x={x} y="10" width="3" height="8" rx="0.8" fill="currentColor" opacity="0.85" />
-    ))}
-    <rect x="3" y="19" width="18" height="2" rx="1" fill="currentColor" />
-  </svg>
-);
-
 export const WondersGlyph = () => (
   <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true">
     <path d="M12 3 4 20h16L12 3z" fill="currentColor" opacity="0.9" />
@@ -84,7 +73,6 @@ export const BluffGlyph = () => (
 /** Each game's emblem by its id, for lists built from data. */
 export const GAME_GLYPHS = {
   avalon: AvalonGlyph,
-  duel: DuelGlyph,
   wonders: WondersGlyph,
   isle: IsleGlyph,
   nonograms: NonogramGlyph,

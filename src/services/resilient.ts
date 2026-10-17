@@ -100,7 +100,7 @@ export interface RoomWithMoves<R, M> {
 }
 
 /**
- * Follows `root/{code}` and its `moves/{n}`, appended in order: Rival Wonders, Ancient
+ * Follows `root/{code}` and its `moves/{n}`, appended in order: Ancient
  * Wonders, Island Settlers and Hero Gambit. Moves are kept by number, so whichever way one
  * arrives, it counts once; the moves are read only once `canReadMoves(room)` (the rules let
  * only the room's members read them, once the game has started).

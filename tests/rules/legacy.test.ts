@@ -101,3 +101,23 @@ describe('retired Stick Brawl rooms', () => {
     await assertFails(deleteDoc(doc(db, 'brawls', 'ABCD')));
   });
 });
+
+// Rival Wonders was removed; its rooms and moves stay, closed.
+describe('retired Rival Wonders rooms', () => {
+  beforeEach(async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      const db = asModular(ctx.firestore());
+      await setDoc(doc(db, 'duels', 'ABCD'), { host: 'alice', playerIds: ['alice', 'bob'], names: { alice: 'Alice', bob: 'Bob' }, status: 'playing', seed: 'seed123' });
+      await setDoc(doc(db, 'duels', 'ABCD', 'moves', '0'), { n: 0, by: 'alice', move: { type: 'discard', slot: 0 } });
+    });
+  });
+
+  it('closes them to their players too', async () => {
+    const db = dbFor('alice');
+    await assertFails(getDoc(doc(db, 'duels', 'ABCD')));
+    await assertFails(setDoc(doc(db, 'duels', 'WXYZ'), { host: 'alice', playerIds: ['alice'], names: { alice: 'Alice' }, status: 'lobby', createdAt: serverTimestamp() }));
+    await assertFails(getDoc(doc(db, 'duels', 'ABCD', 'moves', '0')));
+    await assertFails(setDoc(doc(db, 'duels', 'ABCD', 'moves', '1'), { n: 1, by: 'alice', move: {} }));
+    await assertFails(deleteDoc(doc(db, 'duels', 'ABCD')));
+  });
+});
