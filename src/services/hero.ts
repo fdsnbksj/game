@@ -132,5 +132,6 @@ export function watchHeroRoom(code: string, uid: string, onChange: (data: HeroRo
     // Only the two players may read the moves, once the fight has started.
     (room) => room.playerIds.includes(uid) && room.status !== 'lobby',
     onChange,
+    { rematch: true },
   );
 }

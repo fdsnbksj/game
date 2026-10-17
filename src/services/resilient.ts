@@ -84,9 +84,12 @@ export function keepFresh(
   };
 }
 
-/** How far along a room is; a read that arrives late never steps a room back past this. */
+/**
+ * How far along a room is; a read that arrives late never steps a room back past this. A
+ * rematch (a later `from`) is further along than the game before it, though it's playing again.
+ */
 const STAGES: Record<string, number> = { lobby: 0, playing: 1, done: 2 };
-const stage = (room: { status: string }) => STAGES[room.status] ?? 0;
+const stage = (room: { status: string; from?: number }) => (room.from ?? 0) * 3 + (STAGES[room.status] ?? 0);
 
 export interface Recorded<M> {
   by: string;
@@ -101,16 +104,17 @@ export interface RoomWithMoves<R, M> {
 
 /**
  * Follows `root/{code}` and its `moves/{n}`, appended in order: Ancient
- * Wonders, Island Settlers and Hero Gambit. Moves are kept by number, so whichever way one
+ * Wonders, Island Settlers, Hero Gambit and Bluff Table. Moves are kept by number, so whichever way one
  * arrives, it counts once; the moves are read only once `canReadMoves(room)` (the rules let
  * only the room's members read them, once the game has started).
  */
-export function followRoom<R extends { status: string }, M>(
+export function followRoom<R extends { status: string; from?: number }, M>(
   root: string,
   code: string,
   parse: (data: Record<string, unknown>) => R,
   canReadMoves: (room: R) => boolean,
   onChange: (data: RoomWithMoves<R, M>) => void,
+  { rematch = false }: { rematch?: boolean } = {},
 ): Unsubscribe {
   let room: R | null = null;
   let missing = false;
@@ -186,7 +190,8 @@ export function followRoom<R extends { status: string }, M>(
         if (takeMoves(fresh.docs) && movesSub) relisten();
       }
     },
-    { active: () => room?.status !== 'done' },
+    // A room that can have a rematch keeps being read once it's done, so one started on another phone arrives.
+    { active: () => rematch || room?.status !== 'done' },
   );
   return () => {
     stopped = true;

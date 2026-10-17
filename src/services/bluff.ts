@@ -141,5 +141,6 @@ export function watchRoom(code: string, uid: string, onChange: (data: BluffData)
     (d) => ({ code, host: d.host as string, seats: d.seats as string[], names: d.names as Record<string, string>, status: d.status as BluffRoom['status'], seed: (d.seed as string | undefined) ?? null, from: (d.from as number | undefined) ?? 0 }),
     (room) => room.seats.includes(uid) && room.status !== 'lobby',
     onChange,
+    { rematch: true },
   );
 }
