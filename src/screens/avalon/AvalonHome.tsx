@@ -6,6 +6,7 @@ export function AvalonHome() {
     <GameHome
       title="Avalon"
       tagline="Hidden loyalty for 5 to 10 players at one table, a phone each."
+      rooms="rooms"
       base="/avalon"
       onHost={createRoom}
       onJoin={joinRoom}

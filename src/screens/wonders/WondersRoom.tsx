@@ -14,12 +14,15 @@ import { forgetRoom } from '../../lastPage';
 import { useGameStore } from '../../store';
 import { CardViewer, Hand } from './CardViewer';
 import { Table, WonderBoard } from './Table';
+import { useLobbyHeartbeat } from '../../services/lobbies';
 
 export function WondersRoom() {
   const { code = '' } = useParams();
   const uid = useGameStore((s) => s.uid);
   const [data, setData] = useState<WondersData>({ room: null, missing: false, moves: [] });
   useEffect(() => (uid ? watchRoom(code, uid, setData) : undefined), [code, uid]);
+  // Says this phone is in the lobby, so the room stays listed (src/services/lobbies.ts).
+  useLobbyHeartbeat('wonders', code, !!uid && data.room?.status === 'lobby' && data.room.seats.includes(uid));
   // Home offers this room until its game is over, or it's gone, or you're not in it.
   const ended = data.missing || data.room?.status === 'done' || (!!uid && !!data.room && data.room.status !== 'lobby' && !data.room.seats.includes(uid));
   useEffect(() => {

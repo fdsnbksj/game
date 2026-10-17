@@ -6,6 +6,7 @@ export function WondersHome() {
     <GameHome
       title="Ancient Wonders"
       tagline="Three to seven cities, three ages. Bots can fill empty seats."
+      rooms="wonders"
       base="/wonders"
       onHost={createRoom}
       onJoin={joinRoom}

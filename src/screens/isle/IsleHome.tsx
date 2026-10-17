@@ -6,6 +6,7 @@ export function IsleHome() {
     <GameHome
       title="Island Settlers"
       tagline="Three or four settlers, one island. Bots can fill empty seats."
+      rooms="isles"
       base="/isle"
       onHost={createRoom}
       onJoin={joinRoom}

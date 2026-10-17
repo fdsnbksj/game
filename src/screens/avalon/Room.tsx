@@ -28,6 +28,7 @@ import {
 import { forgetRoom } from '../../lastPage';
 import { useGameStore } from '../../store';
 import { TableView, type SeatMarks } from './TableView';
+import { useLobbyHeartbeat } from '../../services/lobbies';
 
 /** A room, from the lobby to the reveal. Everything follows the documents live. */
 export function Room() {
@@ -36,6 +37,8 @@ export function Room() {
   const [data, setData] = useState<RoomData>(emptyRoom);
 
   useEffect(() => (uid ? watchRoom(code, uid, setData) : undefined), [code, uid]);
+  // Says this phone is in the lobby, so the room stays listed (src/services/lobbies.ts).
+  useLobbyHeartbeat('rooms', code, !!uid && data.room?.status === 'lobby' && data.room.playerIds.includes(uid));
   // Home offers this room until its game is over, or it's gone, or you're not in it.
   const ended = data.missing || data.room?.status === 'done' || (!!uid && !!data.room && data.room.status !== 'lobby' && !data.room.playerIds.includes(uid));
   useEffect(() => {

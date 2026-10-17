@@ -6,6 +6,7 @@ export function BluffHome() {
     <GameHome
       title="Bluff Table"
       tagline="Lie with a straight face. Two to four, bots welcome."
+      rooms="bluffs"
       base="/bluff"
       onHost={createRoom}
       onJoin={joinRoom}

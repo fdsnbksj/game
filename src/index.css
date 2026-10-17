@@ -2165,6 +2165,97 @@ button.seat:disabled {
   }
 }
 
+/* A game home's rooms waiting for players: a heading with Refresh, then a row per room. */
+.open-rooms {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.open-rooms-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.open-rooms-head h2 {
+  margin: 0;
+  font-size: var(--fs-base);
+}
+
+.front-door .open-rooms-head .button {
+  min-height: 40px;
+  padding: 0 14px;
+  font-size: var(--fs-sm);
+}
+
+.open-rooms .note {
+  margin: 0;
+}
+
+.open-room-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.open-room {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 60px;
+  padding: 10px 14px;
+  border: 1px solid var(--separator);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.08);
+  color: var(--label);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.open-room:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.open-room-who {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.open-room-who small {
+  overflow: hidden;
+  color: var(--label-3);
+  font-size: var(--fs-cap);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.open-room-count {
+  color: var(--label-2);
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.open-room-go {
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: var(--tile, var(--accent));
+  color: var(--on-feature);
+  font-size: var(--fs-sm);
+  font-weight: 700;
+}
+
 .join-inline {
   display: grid;
   grid-template-columns: 1fr auto;

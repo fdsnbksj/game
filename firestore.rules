@@ -27,6 +27,28 @@ service cloud.firestore {
         && isValidName(request.resource.data.displayName);
     }
 
+    // Every party game's lobby (rooms, heroDuels, wonders, isles, bluffs). A player on the
+    // lobby page says they're still there (`seenAt`) about once a minute; a lobby nobody has
+    // been in for 10 minutes (or, before its first heartbeat, made that long ago) may be
+    // deleted by anyone, which is how the game homes clear empty rooms from their lists.
+    // Only lobbies: nothing has been written under them yet, and a game under way is kept
+    // for phones that went to sleep. No `? :` here (see the Lady of the Lake's rules).
+    function isHeartbeat(members) {
+      return resource.data.status == 'lobby'
+        && request.auth.uid in members
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['seenAt'])
+        && request.resource.data.seenAt == request.time;
+    }
+
+    function isAbandonedLobby() {
+      let lobby = resource.data;
+      let cutoff = request.time - duration.value(10, 'm');
+      return request.auth != null && lobby.status == 'lobby'
+        && (('seenAt' in lobby && lobby.seenAt < cutoff)
+          || (!('seenAt' in lobby) && 'createdAt' in lobby && lobby.createdAt < cutoff)
+          || (!('seenAt' in lobby) && !('createdAt' in lobby)));
+    }
+
     function playerName(uid) {
       return get(/databases/$(database)/documents/players/$(uid)).data.displayName;
     }
@@ -208,7 +230,8 @@ service cloud.firestore {
     match /rooms/{code} {
       allow read: if request.auth != null;
       allow create: if request.auth != null && isNewRoom(code);
-      allow update: if request.auth != null && (isJoin() || isLeave() || isHostSetup() || isStart() || isFinish(code));
+      allow update: if request.auth != null && (isJoin() || isLeave() || isHostSetup() || isStart() || isFinish(code) || isHeartbeat(resource.data.playerIds));
+      allow delete: if isAbandonedLobby();
 
       // Each player's role and night knowledge, written by the host in the batch that
       // starts the game, and readable only by that player until the game is over.
@@ -379,7 +402,8 @@ service cloud.firestore {
         && request.resource.data.status == 'lobby'
         && request.resource.data.version is int
         && request.resource.data.createdAt == request.time;
-      allow update: if request.auth != null && (isHeroJoin() || isHeroStart() || isHeroFinish() || isHeroRematch(code));
+      allow update: if request.auth != null && (isHeroJoin() || isHeroStart() || isHeroFinish() || isHeroRematch(code) || isHeartbeat(resource.data.playerIds));
+      allow delete: if isAbandonedLobby();
 
       match /moves/{n} {
         allow read: if isHeroRoomPlayer(code);
@@ -475,7 +499,8 @@ service cloud.firestore {
         && request.resource.data.sides in ['A', 'B', 'random']
         && request.resource.data.createdAt == request.time;
       allow update: if request.auth != null
-        && (isWondersJoin() || isWondersLeave() || isWondersSetup() || isWondersStart() || isWondersFinish());
+        && (isWondersJoin() || isWondersLeave() || isWondersSetup() || isWondersStart() || isWondersFinish() || isHeartbeat(resource.data.seats));
+      allow delete: if isAbandonedLobby();
 
       match /moves/{n} {
         allow read: if isWondersPlayer(code);
@@ -575,7 +600,8 @@ service cloud.firestore {
         && request.resource.data.status == 'lobby'
         && request.resource.data.createdAt == request.time;
       allow update: if request.auth != null
-        && (isIsleJoin() || isIsleLeave() || isIsleSetup() || isIsleStart() || isIsleFinish());
+        && (isIsleJoin() || isIsleLeave() || isIsleSetup() || isIsleStart() || isIsleFinish() || isHeartbeat(resource.data.seats));
+      allow delete: if isAbandonedLobby();
 
       match /moves/{n} {
         allow read: if isIslePlayer(code);
@@ -672,7 +698,8 @@ service cloud.firestore {
         && request.resource.data.status == 'lobby'
         && request.resource.data.createdAt == request.time;
       allow update: if request.auth != null
-        && (isBluffJoin() || isBluffLeave() || isBluffSetup() || isBluffStart() || isBluffFinish() || isBluffRematch(code));
+        && (isBluffJoin() || isBluffLeave() || isBluffSetup() || isBluffStart() || isBluffFinish() || isBluffRematch(code) || isHeartbeat(resource.data.seats));
+      allow delete: if isAbandonedLobby();
 
       match /moves/{n} {
         allow read: if isBluffPlayer(code);

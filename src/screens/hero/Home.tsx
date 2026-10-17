@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { Page } from '../../components/Page';
 import { GameBanner } from '../world/GameBanner';
+import { OpenRooms } from '../../components/RoomSetup';
 import { SummaryRow } from '../../components/SummaryRow';
 import { reloadFresh } from '../../reload';
 import { createHeroRoom, joinHeroRoom, versionProblem } from '../../services/hero';
@@ -9,7 +10,7 @@ import { useGameStore } from '../../store';
 import { Stickman } from './Stickman';
 
 // Hero Gambit's front door, a game for playing a friend: host a fight and share the code,
-// join theirs, or share one phone. The rules fold away.
+// join theirs (by code or from the open rooms), or share one phone. The rules fold away.
 
 export function Home() {
   const navigate = useNavigate();
@@ -32,8 +33,7 @@ export function Home() {
     }
   };
 
-  const join = async () => {
-    const room = code.trim().toUpperCase();
+  const join = async (room = code.trim().toUpperCase()) => {
     const problem = await joinHeroRoom(room);
     if (problem) {
       setError(problem);
@@ -66,7 +66,7 @@ export function Home() {
             className="join-inline"
             onSubmit={(event) => {
               event.preventDefault();
-              void run(join);
+              void run(() => join());
             }}
           >
             <input
@@ -97,6 +97,8 @@ export function Home() {
         <Link className="button" to="/hero/local">
           Play on one phone
         </Link>
+
+        <OpenRooms path="heroDuels" ready={ready} busy={busy} onPick={(room) => void run(() => join(room))} />
 
         <div className="home-more">
           <SummaryRow label="How to play" title="How to play Hero Gambit">
