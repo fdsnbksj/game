@@ -18,6 +18,8 @@ export interface BluffRoom {
   names: Record<string, string>;
   status: 'lobby' | 'playing' | 'done';
   seed: string | null;
+  /** The number of this game's first move: 0, or where the latest rematch began. */
+  from: number;
 }
 
 export const MAX_SEATS = 4;
@@ -76,9 +78,23 @@ export async function addBot(room: BluffRoom) {
   if (free) await setSeats(room, [...room.seats, free]);
 }
 
+const newSeed = () => Array.from(crypto.getRandomValues(new Uint32Array(3)), (n) => n.toString(36)).join('');
+
 export async function startGame(code: string) {
-  const seed = Array.from(crypto.getRandomValues(new Uint32Array(3)), (n) => n.toString(36)).join('');
-  await rest.updateDoc(roomRef(code), { status: 'playing', seed, startedAt: rest.serverTimestamp() });
+  await rest.updateDoc(roomRef(code), { status: 'playing', seed: newSeed(), startedAt: rest.serverTimestamp() });
+  poke(`bluffs/${code}`);
+}
+
+/**
+ * Another game in the same room and seats, once one is over: `from` is how many moves the
+ * room has, so the new game's moves follow on. If another phone got there first, that's fine.
+ */
+export async function rematch(code: string, from: number) {
+  try {
+    await rest.updateDoc(roomRef(code), { status: 'playing', seed: newSeed(), startedAt: rest.serverTimestamp(), from });
+  } catch (error) {
+    if (!(error instanceof FirebaseError && error.code === 'permission-denied')) throw error;
+  }
   poke(`bluffs/${code}`);
 }
 
@@ -122,7 +138,7 @@ export function watchRoom(code: string, uid: string, onChange: (data: BluffData)
   return followRoom<BluffRoom, Move>(
     'bluffs',
     code,
-    (d) => ({ code, host: d.host as string, seats: d.seats as string[], names: d.names as Record<string, string>, status: d.status as BluffRoom['status'], seed: (d.seed as string | undefined) ?? null }),
+    (d) => ({ code, host: d.host as string, seats: d.seats as string[], names: d.names as Record<string, string>, status: d.status as BluffRoom['status'], seed: (d.seed as string | undefined) ?? null, from: (d.from as number | undefined) ?? 0 }),
     (room) => room.seats.includes(uid) && room.status !== 'lobby',
     onChange,
   );

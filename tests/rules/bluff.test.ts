@@ -67,6 +67,23 @@ describe('bluff rooms', () => {
     await assertFails(updateDoc(ref(dbFor('eve')), { status: 'done', endedAt: serverTimestamp() }));
     await assertSucceeds(updateDoc(ref(dbFor('bob')), { status: 'done', endedAt: serverTimestamp() }));
   });
+
+  it('rematch by a player once done, following on exactly from the last move', async () => {
+    await seed({ seats: ['ann', 'bob', 'bot:1'], status: 'done', seed: 'abcdef12' });
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      for (const n of [0, 1, 2]) await setDoc(doc(asModular(ctx.firestore()), 'bluffs', CODE, 'moves', String(n)), { n, by: 'ann', move: { type: 'call' } });
+    });
+    const again = (uid: string, from: number, extra: Record<string, unknown> = {}) =>
+      updateDoc(ref(dbFor(uid)), { status: 'playing', seed: 'ghijkl34', startedAt: serverTimestamp(), from, ...extra });
+    await assertFails(again('eve', 3));
+    await assertFails(again('bob', 2));
+    await assertFails(again('bob', 4));
+    await assertFails(again('bob', 3, { seed: 'abcdef12' }));
+    await assertFails(again('bob', 3, { seats: ['ann', 'bob'] }));
+    await assertSucceeds(again('bob', 3));
+    await assertFails(again('ann', 3, { seed: 'mnopqr56' }));
+    await assertSucceeds(move('ann', 3));
+  });
 });
 
 describe('bluff moves', () => {

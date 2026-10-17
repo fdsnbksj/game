@@ -5,8 +5,8 @@ import { Lobby as LobbyFrame } from '../../components/RoomSetup';
 import { SummaryRow } from '../../components/SummaryRow';
 import { botMove } from '../../games/bluff/bot';
 import { CHAMBERS, claim, MAX_PLAY, MIN_SEATS, mustCall, RANK_NAMES, replay, type BluffState, type Card, type Move, type Showdown } from '../../games/bluff/state';
-import { forgetRoom } from '../../lastPage';
-import { addBot, finishGame, isBot, joinRoom, leaveRoom, MAX_SEATS, sendMove, setSeats, startGame, watchRoom, type BluffData, type BluffRoom as Room } from '../../services/bluff';
+import { forgetRoom, rememberPage } from '../../lastPage';
+import { addBot, finishGame, isBot, joinRoom, leaveRoom, MAX_SEATS, rematch, sendMove, setSeats, startGame, watchRoom, type BluffData, type BluffRoom as Room } from '../../services/bluff';
 import { useGameStore } from '../../store';
 
 // Bluff Table's room: the lobby, then the table. The screen centres on your move: the
@@ -26,8 +26,10 @@ export function BluffRoom() {
   useEffect(() => (uid ? watchRoom(code, uid, setData) : undefined), [code, uid]);
   const ended = data.missing || data.room?.status === 'done' || (!!uid && !!data.room && data.room.status !== 'lobby' && !data.room.seats.includes(uid));
   useEffect(() => {
+    // A rematch puts the room back on home's Continue.
     if (ended) forgetRoom(`/bluff/${code}`);
-  }, [ended, code]);
+    else if (data.room?.status === 'playing') rememberPage(`/bluff/${code}`);
+  }, [ended, code, data.room?.status]);
 
   const room = data.room;
   let body: ReactNode;
@@ -36,7 +38,8 @@ export function BluffRoom() {
   else if (!room) body = <div className="spinner" aria-label="Loading" />;
   else if (!room.seats.includes(uid)) body = room.status === 'lobby' ? <NotIn room={room} /> : <Gone text="This game is already under way." />;
   else if (room.status === 'lobby' || !room.seed) body = <Lobby room={room} uid={uid} />;
-  else body = <Game room={room} moves={data.moves} uid={uid} />;
+  // Keyed by the seed: a rematch starts the table over.
+  else body = <Game key={room.seed} room={room} moves={data.moves} uid={uid} />;
 
   return (
     <Page title={`Bluff Table · ${code}`} back="/bluff" game="bluff">
@@ -165,7 +168,8 @@ function Lobby({ room, uid }: { room: Room; uid: string }) {
 // ---------- The table ----------
 
 function Game({ room, moves, uid }: { room: Room; moves: BluffData['moves']; uid: string }) {
-  const state = useMemo(() => replay(room.seed!, room.seats, moves), [room.seed, room.seats, moves]);
+  // This game's moves only: a rematch follows on from the last game's.
+  const state = useMemo(() => replay(room.seed!, room.seats, moves.slice(room.from)), [room.seed, room.seats, room.from, moves]);
   const me = room.seats.indexOf(uid);
   const name = (seat: number) => (seat === me ? 'You' : room.names[room.seats[seat]]);
   const count = useRef(moves.length);
@@ -224,6 +228,17 @@ function Game({ room, moves, uid }: { room: Room; moves: BluffData['moves']; uid
     if (state.winner !== null && room.status === 'playing') void finishGame(room.code).catch(() => {});
   }, [state.winner, room.status, room.code]);
 
+  // Another game with the same seats; whichever phone asks first starts it for everyone.
+  const [rematching, setRematching] = useState(false);
+  const again = () => {
+    setRematching(true);
+    setError(null);
+    void rematch(room.code, moves.length).catch(() => {
+      setRematching(false);
+      setError('Couldn’t start a rematch. Check the connection and try again.');
+    });
+  };
+
   const mine = me === state.turn && state.winner === null;
   const hand = me >= 0 ? state.players[me].hand : [];
   const forced = mine && mustCall(state);
@@ -239,8 +254,12 @@ function Game({ room, moves, uid }: { room: Room; moves: BluffData['moves']; uid
         <Seats state={state} name={name} me={me} />
         {show && <ShowdownView show={show} name={name} onClose={() => setShow(null)} />}
         <History state={state} name={name} />
-        <Link className="button primary" to="/bluff">
-          Play again
+        {error && <p className="error">{error}</p>}
+        <button className="button primary" disabled={rematching} onClick={again}>
+          {rematching ? 'Starting…' : 'Rematch'}
+        </button>
+        <Link className="button ghost" to="/bluff">
+          Leave the room
         </Link>
       </>
     );

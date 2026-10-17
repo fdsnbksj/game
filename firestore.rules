@@ -672,7 +672,7 @@ service cloud.firestore {
         && request.resource.data.status == 'lobby'
         && request.resource.data.createdAt == request.time;
       allow update: if request.auth != null
-        && (isBluffJoin() || isBluffLeave() || isBluffSetup() || isBluffStart() || isBluffFinish());
+        && (isBluffJoin() || isBluffLeave() || isBluffSetup() || isBluffStart() || isBluffFinish() || isBluffRematch(code));
 
       match /moves/{n} {
         allow read: if isBluffPlayer(code);
@@ -733,6 +733,22 @@ service cloud.firestore {
         && after.status == 'playing'
         && after.seed is string && after.seed.size() >= 6 && after.seed.size() <= 40
         && after.startedAt == request.time;
+    }
+
+    // Another game with the same seats, once one is over: `from` is exactly where the
+    // room's moves end, so the new game's moves follow on.
+    function isBluffRematch(code) {
+      let before = resource.data;
+      let after = request.resource.data;
+      return before.status == 'done' && request.auth.uid in before.seats
+        && after.diff(before).affectedKeys().hasOnly(['status', 'seed', 'startedAt', 'from'])
+        && after.status == 'playing'
+        && after.seed is string && after.seed.size() >= 6 && after.seed.size() <= 40
+        && after.seed != before.seed
+        && after.startedAt == request.time
+        && after.from is int && after.from >= 1
+        && exists(/databases/$(database)/documents/bluffs/$(code)/moves/$(string(after.from - 1)))
+        && !exists(/databases/$(database)/documents/bluffs/$(code)/moves/$(string(after.from)));
     }
 
     function isBluffFinish() {
