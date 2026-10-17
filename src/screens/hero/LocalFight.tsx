@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router';
 import { Page } from '../../components/Page';
 import type { Move } from '../../games/hero/skills';
 import { HERO_VERSION, replay, type Recorded } from '../../games/hero/state';
-import { Fight, turnShowMs } from './Fight';
+import { Fight } from './Fight';
 
 // A fight on one phone (the user's ask): two players take turns, passing the phone. Nothing
 // goes to Firestore. The fight is saved to localStorage after every move (a key of its own),
@@ -79,19 +79,12 @@ function Setup({ onStart }: { onStart: (names: [string, string]) => void }) {
 
 function Game({ saved, onChange }: { saved: Saved; onChange: (next: Saved | null) => void }) {
   const state = useMemo(() => replay(saved.seed, [{ name: saved.names[0] }, { name: saved.names[1] }], PLAYERS, saved.moves), [saved]);
-  // The result waits a moment, so the last hit shows first.
-  const [over, setOver] = useState(false);
-  useEffect(() => {
-    if (state.winner === null) return;
-    const t = setTimeout(() => setOver(true), turnShowMs(state) + 400);
-    return () => clearTimeout(t);
-  }, [state.winner]);
 
   const play = (move: Move) => onChange({ ...saved, moves: [...saved.moves, { by: PLAYERS[state.turn], move }] });
 
   return (
     <Fight state={state} me={0} names={saved.names} hotseat onMove={play} waiting="">
-      {state.winner !== null && over && (
+      {state.winner !== null && (
         <div className="overlay">
           <div className="panel" role="dialog" aria-label="Fight over">
             <h2>{saved.names[state.winner]} wins!</h2>

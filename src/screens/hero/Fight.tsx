@@ -22,8 +22,8 @@ const LINE_MS = 1000;
 const SWING_MS = 350;
 /** Each skill's show over the field, until its result comes up under it. */
 const ANIM_MS: Record<Turn['skill'], number> = { stopwatch: 1500, speed: 1300, roulette: 2600, memory: 1800, rest: 0 };
-/** How long the result shows under the finished animation before the attacker swings. */
-const RESULT_MS = 1600;
+/** After the result card is tapped away, a beat before the attacker swings. */
+const AFTER_TAP_MS = 150;
 /** Catching your breath has no show: the turn just takes this long. */
 const REST_MS = 900;
 /** The roulette wheel's spin. */
@@ -118,17 +118,18 @@ export function Fight({
         {fighter(them)}
         {fighter(me)}
       </div>
-      {/* The skill's show, big in the middle of the screen, then its result, until the attacker swings. */}
+      {/* The skill's show, big in the middle of the screen, then its result, which stays until tapped; then the attacker swings. */}
       {playing && turn && turn.skill !== 'rest' && show.t < show.current!.impact - SWING_MS && (
-        <div className="battle-overlay" aria-hidden="true">
+        <div className={`battle-overlay${show.held ? ' holding' : ''}`} aria-hidden={!show.held} onClick={show.held ? show.release : undefined}>
           <div className="show-overlay-stack">
             <SkillShow key={state.log.length} turn={turn} who={nameOf(turn.by)} other={nameOf(turn.by === 0 ? 1 : 0)} />
             {show.t >= show.current!.anim && (
-              <div className={`show-result${turn.damage > 0 || turn.kill ? ' hit' : ''}`}>
+              <button className={`show-result${turn.damage > 0 || turn.kill ? ' hit' : ''}`} disabled={!show.held}>
                 {show.current!.verdict.map((l) => (
                   <span key={l}>{l}</span>
                 ))}
-              </div>
+                <small>Tap to go on</small>
+              </button>
             )}
           </div>
         </div>
@@ -196,7 +197,8 @@ export function Fight({
           </>
         )}
       </div>
-      {children}
+      {/* The fight's end waits until its last turn has been told. */}
+      {!playing && children}
     </div>
   );
 }
@@ -237,8 +239,9 @@ interface Line {
 interface Planned {
   turn: Turn;
   lines: Line[];
-  /** When the skill's show is over and its result comes up. */
+  /** When the skill's show is over and its result comes up, to stay until tapped (none for a rest). */
   anim: number;
+  hold: boolean;
   /** The result, shown under the finished show. */
   verdict: string[];
   /** When the hit lands: HP bars move, the struck side is knocked back. */
@@ -310,24 +313,23 @@ function plan(state: HeroState, names: [string, string], me: Side | null, before
 
   // Rest has no show: its line, then the turn passes.
   const anim = ANIM_MS[turn.skill];
-  const impact = d.skill === 'rest' ? REST_MS : anim + RESULT_MS + SWING_MS;
+  const hold = d.skill !== 'rest';
+  const impact = hold ? anim + AFTER_TAP_MS + SWING_MS : REST_MS;
   const lines: Line[] = opening.map((text, i) => ({ text, at: i * Math.min(LINE_MS, Math.floor((anim || REST_MS) / opening.length)) }));
-  result.forEach((text, i) => lines.push({ text, at: anim + i * Math.floor(RESULT_MS / result.length) }));
+  result.forEach((text) => lines.push({ text, at: anim }));
   after.forEach((text, i) => lines.push({ text, at: impact + i * LINE_MS }));
-  return { turn, lines, anim, verdict: result, impact, end: impact + after.length * LINE_MS, before };
+  return { turn, lines, anim, hold, verdict: result, impact, end: impact + after.length * LINE_MS, before };
 }
 
-/** How long the last turn takes to tell: the result panel waits this long. */
-export function turnShowMs(state: HeroState): number {
-  if (!state.log.length) return 0;
-  return plan(state, ['', ''], 0, state.hp).end;
-}
-
-/** Plays each new turn: the time into it, which line is up, whether the hit has landed, and a skip. */
+/**
+ * Plays each new turn: the time into it, which line is up, whether the hit has landed, and a
+ * skip. Time stops at the result card (`held`) until it's tapped (`release`).
+ */
 function useShow(state: HeroState, names: [string, string], me: Side | null) {
   const seen = useRef({ length: state.log.length, hp: state.hp });
   const [current, setCurrent] = useState<Planned | null>(null);
   const [t, setT] = useState(0);
+  const [released, setReleased] = useState(false);
   const latest = useRef({ state, names, me });
   latest.current = { state, names, me };
 
@@ -342,15 +344,17 @@ function useShow(state: HeroState, names: [string, string], me: Side | null) {
     }
     setCurrent(plan(now, latest.current.names, latest.current.me, before.hp));
     setT(0);
+    setReleased(false);
   }, [state.log.length]);
 
+  const held = !!current && current.hold && !released && t >= current.anim;
   useEffect(() => {
-    if (!current || t >= current.end) return;
+    if (!current || t >= current.end || held) return;
     const marks = [...current.lines.map((l) => l.at), SKIP_AFTER_MS, current.anim, current.impact - SWING_MS, current.impact, current.impact + 300, current.end];
     const next = marks.filter((x) => x > t).sort((a, b) => a - b)[0];
     const timer = setTimeout(() => setT(next), next - t);
     return () => clearTimeout(timer);
-  }, [current, t]);
+  }, [current, t, held]);
 
   const line = current ? current.lines.filter((l) => l.at <= t).length - 1 : -1;
   return {
@@ -359,7 +363,13 @@ function useShow(state: HeroState, names: [string, string], me: Side | null) {
     line: Math.max(0, line),
     hit: !!current && t >= current.impact,
     done: !current || t >= current.end,
-    skip: () => current && t >= SKIP_AFTER_MS && setT(current.end),
+    held,
+    release: () => setReleased(true),
+    skip: () => {
+      if (!current || t < SKIP_AFTER_MS) return;
+      setReleased(true);
+      setT(current.end);
+    },
   };
 }
 

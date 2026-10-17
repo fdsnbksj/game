@@ -7,7 +7,7 @@ import { forgetRoom, rememberPage } from '../../lastPage';
 import { finishHeroRoom, joinHeroRoom, rematchHeroRoom, sendHeroMove, startHeroRoom, versionProblem, watchHeroRoom, type HeroRoom as Room, type HeroRoomData } from '../../services/hero';
 import { reloadFresh } from '../../reload';
 import { useGameStore } from '../../store';
-import { Fight, turnShowMs } from './Fight';
+import { Fight } from './Fight';
 
 /** A fight between two phones: each move is written to the room, and both replay them. */
 export function HeroRoom() {
@@ -137,13 +137,6 @@ function Game({ room, moves, uid }: { room: Room; moves: HeroRoomData['moves']; 
   useEffect(() => {
     if (sending !== null && moves.length > sending) setSending(null);
   }, [moves.length, sending]);
-  // The result waits a moment, so the last hit shows first.
-  const [over, setOver] = useState(false);
-  useEffect(() => {
-    if (state.winner === null) return;
-    const t = setTimeout(() => setOver(true), turnShowMs(state) + 400);
-    return () => clearTimeout(t);
-  }, [state.winner]);
 
   useEffect(() => {
     if (state.winner !== null && room.status === 'playing') void finishHeroRoom(room.code).catch(() => {});
@@ -182,7 +175,7 @@ function Game({ room, moves, uid }: { room: Room; moves: HeroRoomData['moves']; 
           });
         }}
       >
-        {state.winner !== null && over && (
+        {state.winner !== null && (
           <div className="overlay">
             <div className="panel" role="dialog" aria-label="Fight over">
               <h2>{state.winner === me ? 'You win' : 'You lose'}</h2>

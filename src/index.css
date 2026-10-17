@@ -3262,11 +3262,18 @@ button.seat:disabled {
   align-items: center;
 }
 
-/* A skill's result, under its finished show. */
+/* A skill's result, under its finished show, until it's tapped: then the whole overlay takes the tap. */
+.battle-overlay.holding {
+  pointer-events: auto;
+  cursor: pointer;
+}
+
 .show-result {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  border: none;
+  font-family: inherit;
   max-width: min(90vw, 360px);
   margin-top: 14px;
   padding: 10px 16px;
@@ -3282,6 +3289,17 @@ button.seat:disabled {
 
 .show-result.hit {
   border: 2px solid var(--accent);
+}
+
+.show-result:disabled {
+  opacity: 1;
+}
+
+.show-result small {
+  margin-top: 4px;
+  color: var(--label-3);
+  font-size: var(--fs-cap);
+  font-weight: 500;
 }
 
 @keyframes result-in {
