@@ -17,7 +17,7 @@ import { useGameStore } from '../../store';
 /** How long the host's phone waits before a bot moves, so people can follow. */
 const BOT_MS = 1100;
 /** How long a call and its shot take to show. */
-const SHOW_MS = 3400;
+const SHOW_MS = 4000;
 
 export function BluffRoom() {
   const { code = '' } = useParams();
@@ -379,7 +379,7 @@ function ShowdownView({ show, name, onClose }: { show: Showdown; name: (s: numbe
   const said = name(show.caller) === 'You' ? 'You call' : `${name(show.caller)} calls`;
   const shooter = name(show.shooter);
   return (
-    <div className="bluff-show" onClick={onClose} role="dialog" aria-label="The call">
+    <div className={show.died ? 'bluff-show bang' : 'bluff-show'} onClick={onClose} role="dialog" aria-label="The call">
       <div className="bluff-show-card">
         <p className="bluff-show-title">{said} “Liar!”</p>
         <p className="note">
@@ -394,14 +394,60 @@ function ShowdownView({ show, name, onClose }: { show: Showdown; name: (s: numbe
         </div>
         <p className={show.lied ? 'bluff-verdict lie' : 'bluff-verdict truth'}>{show.lied ? 'A lie!' : 'All true!'}</p>
         <div className="bluff-trigger">
-          <Revolver pulls={show.pull} fired={show.died} />
+          <Gun fired={show.died} />
           <p>
+            <Revolver pulls={show.pull} fired={show.died} />
             {shooter === 'You' ? 'You pull' : `${shooter} pulls`} the trigger…{' '}
             <strong className={show.died ? 'bluff-bang' : 'bluff-click'}>{show.died ? `Bang. ${shooter === 'You' ? "You're" : `${shooter} is`} out.` : `Click. (${show.pull} of ${CHAMBERS})`}</strong>
           </p>
         </div>
       </div>
     </div>
+  );
+}
+
+const FLUTES = Array.from({ length: 14 }, (_, k) => 6 + k * 8);
+
+/**
+ * The revolver, side on, for a call's shot: the cylinder spins, the hammer cocks, the
+ * trigger goes back and the hammer falls: a muzzle flash and a kick on a bang, a twitch
+ * on a click. All CSS, timed after the cards turn over.
+ */
+function Gun({ fired }: { fired: boolean }) {
+  return (
+    <svg className={fired ? 'bluff-gun bang' : 'bluff-gun click'} viewBox="0 0 150 80" aria-hidden="true">
+      <defs>
+        <clipPath id="bluff-cylinder-clip">
+          <rect x="36" y="13" width="22" height="26" rx="4" />
+        </clipPath>
+      </defs>
+      <g className="bluff-gun-body">
+        <g className="bluff-gun-flash">
+          <polygon points="132,25 146,15 141,25 150,29 140,30 145,40 133,31" className="bluff-flash-outer" />
+          <circle cx="135" cy="27" r="5" className="bluff-flash-core" />
+        </g>
+        <path className="bluff-gun-hammer" d="M30 19 L21 8 Q22 5 26 6 L35 16 Z" />
+        <path className="bluff-gun-grip" d="M28 34 H46 L39 70 Q37 76 30 74 L19 71 Q14 69 16 63 Z" />
+        <path className="bluff-gun-guard" d="M42 38 Q40 52 52 51 Q57 50 57 38" />
+        <path className="bluff-gun-trigger" d="M49 37 Q48 43 51 47" />
+        <path className="bluff-gun-frame" d="M28 15 H62 V37 H28 Z" />
+        <rect className="bluff-gun-barrel" x="58" y="19" width="74" height="11" rx="2" />
+        <rect className="bluff-gun-rib" x="58" y="17" width="74" height="3" rx="1" />
+        <rect className="bluff-gun-rib" x="125" y="13" width="4" height="5" />
+        <rect className="bluff-gun-cylinder" x="36" y="13" width="22" height="26" rx="4" />
+        <g clipPath="url(#bluff-cylinder-clip)">
+          <g className="bluff-gun-flutes">
+            {FLUTES.map((y) => (
+              <rect key={y} x="38" y={y} width="18" height="3" rx="1.5" />
+            ))}
+          </g>
+        </g>
+      </g>
+      <g className="bluff-gun-smoke">
+        <circle cx="140" cy="22" r="6" />
+        <circle cx="148" cy="16" r="4" />
+      </g>
+    </svg>
   );
 }
 
