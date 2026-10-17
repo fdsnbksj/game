@@ -3,8 +3,9 @@ import { collection, deleteDoc, doc, getDocs, query, serverTimestamp, setDoc, Ti
 import { readFileSync } from 'node:fs';
 import { afterAll, beforeAll, beforeEach, describe, it } from 'vitest';
 
-// Mirrors src/services/lobbies.ts: every party game's lobby takes a heartbeat from its
-// players, and a lobby nobody has been in for 10 minutes may be deleted by anyone.
+// Mirrors src/services/lobbies.ts: every party game's room takes a heartbeat from its
+// players; a lobby nobody has been in for 10 minutes, or a started game nobody has been in
+// for 30, may be deleted by anyone, with what's under it.
 
 let env: RulesTestEnvironment;
 const asModular = (db: unknown) => db as Firestore;
@@ -37,14 +38,15 @@ for (const { path, room } of GAMES) {
   describe(`${path} lobbies`, () => {
     const ref = (uid: string) => doc(dbFor(uid), path, CODE);
 
-    it('take a heartbeat from their players only, and only while waiting', async () => {
+    it('take a heartbeat from their players only, waiting or playing', async () => {
       await admin(path, CODE, { ...room, status: 'lobby', createdAt: ago(1) });
       await assertSucceeds(updateDoc(ref('bob'), { seenAt: serverTimestamp() }));
       await assertFails(updateDoc(ref('eve'), { seenAt: serverTimestamp() }));
       await assertFails(updateDoc(ref('bob'), { seenAt: ago(0) }));
       await assertFails(updateDoc(ref('bob'), { seenAt: serverTimestamp(), host: 'bob' }));
       await admin(path, CODE, { ...room, status: 'playing', createdAt: ago(1) });
-      await assertFails(updateDoc(ref('bob'), { seenAt: serverTimestamp() }));
+      await assertSucceeds(updateDoc(ref('bob'), { seenAt: serverTimestamp() }));
+      await assertFails(updateDoc(ref('eve'), { seenAt: serverTimestamp() }));
     });
 
     it('may be deleted by anyone once nobody has been in for 10 minutes', async () => {
@@ -59,10 +61,30 @@ for (const { path, room } of GAMES) {
       await assertSucceeds(deleteDoc(ref('eve')));
     });
 
-    it('are kept once the game is under way or over, however long ago', async () => {
+    it('once started, are kept while anyone has been in within 30 minutes', async () => {
       for (const status of ['playing', 'done']) {
-        await admin(path, CODE, { ...room, status, createdAt: ago(600), seenAt: ago(600) });
-        await assertFails(deleteDoc(ref('ann')));
+        await admin(path, CODE, { ...room, status, createdAt: ago(600), seenAt: ago(20) });
+        await assertFails(deleteDoc(ref('eve')));
+        await admin(path, CODE, { ...room, status, createdAt: ago(20) });
+        await assertFails(deleteDoc(ref('eve')));
+        await admin(path, CODE, { ...room, status, createdAt: ago(600), seenAt: ago(31) });
+        await assertSucceeds(deleteDoc(ref('eve')));
+        await admin(path, CODE, { ...room, status, createdAt: ago(31) });
+        await assertSucceeds(deleteDoc(ref('eve')));
+      }
+    });
+
+    it('once abandoned, let anyone read and delete what’s under them', async () => {
+      const under = path === 'rooms' ? ['secrets/bob', 'votes/1-1-bob', 'quests/1', 'quests/1/cards/bob', 'lady/1', 'ladyResults/1', 'proposals/1-1'] : ['moves/0'];
+      await admin(path, CODE, { ...room, status: 'playing', createdAt: ago(600), seenAt: ago(5) });
+      for (const sub of under) {
+        await admin(`${path}/${CODE}/${sub.split('/').slice(0, -1).join('/')}`, sub.split('/').at(-1)!, { n: 0 });
+        await assertFails(deleteDoc(doc(dbFor('eve'), path, CODE, ...sub.split('/'))));
+      }
+      await admin(path, CODE, { ...room, status: 'playing', createdAt: ago(600), seenAt: ago(31) });
+      for (const sub of under) {
+        await assertSucceeds(getDocs(collection(dbFor('eve'), path, CODE, ...sub.split('/').slice(0, -1))));
+        await assertSucceeds(deleteDoc(doc(dbFor('eve'), path, CODE, ...sub.split('/'))));
       }
     });
 

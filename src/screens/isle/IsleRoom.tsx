@@ -36,7 +36,7 @@ import { forgetRoom } from '../../lastPage';
 import { addBot, finishGame, isBot, joinRoom, leaveRoom, MAX_SEATS, sendMove, setSeats, startGame, watchRoom, type IsleData, type IsleRoom as Room } from '../../services/isle';
 import { useGameStore } from '../../store';
 import { IslandMap, PLAYER_COLORS, type Targets } from './IslandMap';
-import { useLobbyHeartbeat } from '../../services/lobbies';
+import { useRoomHeartbeat } from '../../services/lobbies';
 
 const RES_ICONS: Record<Res, IconName> = { brick: 'brick', lumber: 'lumber', wool: 'wool', grain: 'grain', ore: 'ore' };
 
@@ -45,8 +45,8 @@ export function IsleRoom() {
   const uid = useGameStore((s) => s.uid);
   const [data, setData] = useState<IsleData>({ room: null, missing: false, moves: [] });
   useEffect(() => (uid ? watchRoom(code, uid, setData) : undefined), [code, uid]);
-  // Says this phone is in the lobby, so the room stays listed (src/services/lobbies.ts).
-  useLobbyHeartbeat('isles', code, !!uid && data.room?.status === 'lobby' && data.room.seats.includes(uid));
+  // Says this phone is in the room, so it isn't cleared away as empty (src/services/lobbies.ts).
+  useRoomHeartbeat('isles', code, !!uid && !!data.room?.seats.includes(uid));
   // Home offers this room until its game is over, or it's gone, or you're not in it.
   const ended = data.missing || data.room?.status === 'done' || (!!uid && !!data.room && data.room.status !== 'lobby' && !data.room.seats.includes(uid));
   useEffect(() => {

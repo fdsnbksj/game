@@ -8,7 +8,7 @@ import { finishHeroRoom, joinHeroRoom, rematchHeroRoom, sendHeroMove, startHeroR
 import { reloadFresh } from '../../reload';
 import { useGameStore } from '../../store';
 import { Fight } from './Fight';
-import { useLobbyHeartbeat } from '../../services/lobbies';
+import { useRoomHeartbeat } from '../../services/lobbies';
 
 /** A fight between two phones: each move is written to the room, and both replay them. */
 export function HeroRoom() {
@@ -16,8 +16,8 @@ export function HeroRoom() {
   const uid = useGameStore((s) => s.uid);
   const [data, setData] = useState<HeroRoomData>({ room: null, missing: false, moves: [] });
   useEffect(() => (uid ? watchHeroRoom(code, uid, setData) : undefined), [code, uid]);
-  // Says this phone is in the lobby, so the room stays listed (src/services/lobbies.ts).
-  useLobbyHeartbeat('heroDuels', code, !!uid && data.room?.status === 'lobby' && data.room.playerIds.includes(uid));
+  // Says this phone is in the room, so it isn't cleared away as empty (src/services/lobbies.ts).
+  useRoomHeartbeat('heroDuels', code, !!uid && !!data.room?.playerIds.includes(uid));
   const ended = data.missing || data.room?.status === 'done' || (!!uid && !!data.room && data.room.status !== 'lobby' && !data.room.playerIds.includes(uid));
   useEffect(() => {
     // A rematch puts the room back on home's Continue.

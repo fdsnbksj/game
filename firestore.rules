@@ -27,17 +27,24 @@ service cloud.firestore {
         && isValidName(request.resource.data.displayName);
     }
 
-    // Every party game's lobby (rooms, heroDuels, wonders, isles, bluffs). A player on the
-    // lobby page says they're still there (`seenAt`) about once a minute; a lobby nobody has
-    // been in for 10 minutes (or, before its first heartbeat, made that long ago) may be
-    // deleted by anyone, which is how the game homes clear empty rooms from their lists.
-    // Only lobbies: nothing has been written under them yet, and a game under way is kept
-    // for phones that went to sleep. No `? :` here (see the Lady of the Lake's rules).
+    // Every party game's room (rooms, heroDuels, wonders, isles, bluffs). A player on the
+    // room's page says they're still there (`seenAt`) about once a minute. A lobby nobody
+    // has been in for 10 minutes, or a started game nobody has been in for 30 (or, before
+    // its first heartbeat, made that long ago), may be deleted by anyone: that's how the
+    // game homes clear empty rooms (src/services/lobbies.ts). A game's documents under it
+    // go first (anyone may read and delete them once it's abandoned), the room last.
+    // No `? :` here (see the Lady of the Lake's rules).
     function isHeartbeat(members) {
-      return resource.data.status == 'lobby'
-        && request.auth.uid in members
+      return request.auth.uid in members
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['seenAt'])
         && request.resource.data.seenAt == request.time;
+    }
+
+    function isAbandonedGame(game) {
+      let cutoff = request.time - duration.value(30, 'm');
+      return request.auth != null && game.status != 'lobby'
+        && (('seenAt' in game && game.seenAt < cutoff)
+          || (!('seenAt' in game) && 'createdAt' in game && game.createdAt < cutoff));
     }
 
     function isAbandonedLobby() {
@@ -45,8 +52,7 @@ service cloud.firestore {
       let cutoff = request.time - duration.value(10, 'm');
       return request.auth != null && lobby.status == 'lobby'
         && (('seenAt' in lobby && lobby.seenAt < cutoff)
-          || (!('seenAt' in lobby) && 'createdAt' in lobby && lobby.createdAt < cutoff)
-          || (!('seenAt' in lobby) && !('createdAt' in lobby)));
+          || (!('seenAt' in lobby) && 'createdAt' in lobby && lobby.createdAt < cutoff));
     }
 
     function playerName(uid) {
@@ -231,11 +237,12 @@ service cloud.firestore {
       allow read: if request.auth != null;
       allow create: if request.auth != null && isNewRoom(code);
       allow update: if request.auth != null && (isJoin() || isLeave() || isHostSetup() || isStart() || isFinish(code) || isHeartbeat(resource.data.playerIds));
-      allow delete: if isAbandonedLobby();
+      allow delete: if isAbandonedLobby() || isAbandonedGame(resource.data);
 
       // Each player's role and night knowledge, written by the host in the batch that
       // starts the game, and readable only by that player until the game is over.
       match /secrets/{uid} {
+        allow read, delete: if isAbandonedGame(get(/databases/$(database)/documents/rooms/$(code)).data);
         allow read: if request.auth != null && (request.auth.uid == uid || room(code).status == 'done');
         allow create: if request.auth != null
           && room(code).host == request.auth.uid
@@ -248,6 +255,7 @@ service cloud.firestore {
 
       // The leader's team for one attempt at one quest: `{quest}-{attempt}`.
       match /proposals/{id} {
+        allow read, delete: if isAbandonedGame(get(/databases/$(database)/documents/rooms/$(code)).data);
         allow read: if isMember(code);
         allow create: if isMember(code) && isPlaying(code)
           && hasExactly(request.resource.data, ['quest', 'attempt', 'leader', 'team'])
@@ -263,6 +271,7 @@ service cloud.firestore {
 
       // One vote per player per team: `{quest}-{attempt}-{uid}`. Team votes are public in Avalon.
       match /votes/{id} {
+        allow read, delete: if isAbandonedGame(get(/databases/$(database)/documents/rooms/$(code)).data);
         allow read: if isMember(code);
         allow create: if isMember(code) && isPlaying(code)
           && hasExactly(request.resource.data, ['quest', 'attempt', 'uid', 'approve'])
@@ -275,6 +284,7 @@ service cloud.firestore {
       // A quest's cards as counts only. Playing a card writes, together, a marker saying
       // the player has played (with no choice in it) and a tally going up by one.
       match /quests/{quest} {
+        allow read, delete: if isAbandonedGame(get(/databases/$(database)/documents/rooms/$(code)).data);
         allow read: if isMember(code);
         allow create: if isMember(code) && isPlaying(code)
           && hasExactly(request.resource.data, ['quest', 'attempt', 'successes', 'fails'])
@@ -291,6 +301,7 @@ service cloud.firestore {
 
         // Who has played: nothing about what.
         match /cards/{uid} {
+          allow read, delete: if isAbandonedGame(get(/databases/$(database)/documents/rooms/$(code)).data);
           allow read: if isMember(code);
           allow create: if isMember(code) && isPlaying(code)
             && uid == request.auth.uid
@@ -346,6 +357,7 @@ service cloud.firestore {
 
       // Who the holder examined: public, as at a real table. `{after}` is 1, 2 or 3.
       match /lady/{after} {
+        allow read, delete: if isAbandonedGame(get(/databases/$(database)/documents/rooms/$(code)).data);
         allow read: if isMember(code);
         allow create: if isMember(code) && isPlaying(code)
           && room(code).get('lady', false) == true
@@ -361,6 +373,7 @@ service cloud.firestore {
       // What the holder learns. The examined player's own phone writes it, and the rules
       // check it against their role, so no one can lie; only the holder can read it.
       match /ladyResults/{after} {
+        allow read, delete: if isAbandonedGame(get(/databases/$(database)/documents/rooms/$(code)).data);
         allow read: if request.auth != null
           && (request.auth.uid == ladyPick(code, int(after)).holder || room(code).status == 'done');
         allow create: if isMember(code) && isPlaying(code)
@@ -403,9 +416,10 @@ service cloud.firestore {
         && request.resource.data.version is int
         && request.resource.data.createdAt == request.time;
       allow update: if request.auth != null && (isHeroJoin() || isHeroStart() || isHeroFinish() || isHeroRematch(code) || isHeartbeat(resource.data.playerIds));
-      allow delete: if isAbandonedLobby();
+      allow delete: if isAbandonedLobby() || isAbandonedGame(resource.data);
 
       match /moves/{n} {
+        allow read, delete: if isAbandonedGame(get(/databases/$(database)/documents/heroDuels/$(code)).data);
         allow read: if isHeroRoomPlayer(code);
         allow create: if isHeroRoomPlayer(code)
           && heroRoom(code).status == 'playing'
@@ -500,9 +514,10 @@ service cloud.firestore {
         && request.resource.data.createdAt == request.time;
       allow update: if request.auth != null
         && (isWondersJoin() || isWondersLeave() || isWondersSetup() || isWondersStart() || isWondersFinish() || isHeartbeat(resource.data.seats));
-      allow delete: if isAbandonedLobby();
+      allow delete: if isAbandonedLobby() || isAbandonedGame(resource.data);
 
       match /moves/{n} {
+        allow read, delete: if isAbandonedGame(get(/databases/$(database)/documents/wonders/$(code)).data);
         allow read: if isWondersPlayer(code);
         allow create: if isWondersPlayer(code)
           && wondersRoom(code).status == 'playing'
@@ -601,9 +616,10 @@ service cloud.firestore {
         && request.resource.data.createdAt == request.time;
       allow update: if request.auth != null
         && (isIsleJoin() || isIsleLeave() || isIsleSetup() || isIsleStart() || isIsleFinish() || isHeartbeat(resource.data.seats));
-      allow delete: if isAbandonedLobby();
+      allow delete: if isAbandonedLobby() || isAbandonedGame(resource.data);
 
       match /moves/{n} {
+        allow read, delete: if isAbandonedGame(get(/databases/$(database)/documents/isles/$(code)).data);
         allow read: if isIslePlayer(code);
         allow create: if isIslePlayer(code)
           && isleRoom(code).status == 'playing'
@@ -699,9 +715,10 @@ service cloud.firestore {
         && request.resource.data.createdAt == request.time;
       allow update: if request.auth != null
         && (isBluffJoin() || isBluffLeave() || isBluffSetup() || isBluffStart() || isBluffFinish() || isBluffRematch(code) || isHeartbeat(resource.data.seats));
-      allow delete: if isAbandonedLobby();
+      allow delete: if isAbandonedLobby() || isAbandonedGame(resource.data);
 
       match /moves/{n} {
+        allow read, delete: if isAbandonedGame(get(/databases/$(database)/documents/bluffs/$(code)).data);
         allow read: if isBluffPlayer(code);
         allow create: if isBluffPlayer(code)
           && bluffRoom(code).status == 'playing'
