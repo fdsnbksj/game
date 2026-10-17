@@ -3,8 +3,8 @@ import { stream } from '../../src/nonogram/rng';
 import {
   accuracyPct,
   afterDef,
-  pokerDeck,
-  RANKS,
+  MEMORY_DIGITS,
+  memoryNumber,
   resolve,
   seconds,
   SPEED_MAX_MS,
@@ -27,10 +27,10 @@ const NAMES: [{ name: string }, { name: string }] = [{ name: 'A' }, { name: 'B' 
 describe('every hero', () => {
   it('is the same: 200 HP and all four skills at level 1', () => {
     expect(HERO_STATS).toEqual({ hp: 200, def: 0, crit: 5, critDmg: 150 });
-    expect([HERO_TREE.stopwatch, HERO_TREE.speed, HERO_TREE.poker, HERO_TREE.roulette]).toEqual([1, 1, 1, 1]);
+    expect([HERO_TREE.stopwatch, HERO_TREE.speed, HERO_TREE.memory, HERO_TREE.roulette]).toEqual([1, 1, 1, 1]);
     const s = start('same', NAMES);
     expect(s.hp).toEqual([200, 200]);
-    expect(ready(s, 0)).toEqual(['stopwatch', 'speed', 'poker', 'roulette']);
+    expect(ready(s, 0)).toEqual(['stopwatch', 'speed', 'memory', 'roulette']);
   });
 });
 
@@ -79,18 +79,18 @@ describe('the skills', () => {
     expect(Math.abs(hits / 6000 - 1 / WHEEL)).toBeLessThan(0.01);
   });
 
-  it('lays out the turn’s deck (the same one the screen turns over), ace high, a win doing 90 (a crit only on the roll)', () => {
-    for (let i = 0; i < 300; i++) {
-      const hit = resolve({ skill: 'poker', pick: i % 13 }, HERO_TREE, plain, plain, `k${i}`, i % 5);
-      if (hit.detail.skill !== 'poker') throw new Error();
-      const { mine, theirs, won, deck, pick, theirPick } = hit.detail;
-      expect(deck).toEqual(pokerDeck(`k${i}`, i % 5));
-      expect([...deck].sort((a, b) => a - b)).toEqual([2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]);
-      expect(theirPick).not.toBe(pick);
-      expect([mine, theirs]).toEqual([deck[pick], deck[theirPick]]);
-      expect(won).toBe(mine > theirs);
-      expect(hit.damage).toBe(won ? (hit.crit ? 135 : 90) : 0);
+  it('draws 20 digits to remember, another number for the defender, and a win doing 90 (all 20 a sure crit)', () => {
+    for (let i = 0; i < 50; i++) {
+      const n = memoryNumber(`m${i}`, i % 5);
+      expect(n).toMatch(/^[0-9]{20}$/);
+      expect(memoryNumber(`m${i}`, i % 5)).toBe(n);
+      expect(memoryNumber(`m${i}`, i % 5, true)).not.toBe(n);
     }
+    const hit = (count: number, theirs?: number) => resolve({ skill: 'memory', count }, HERO_TREE, plain, plain, 'mem', 0, theirs);
+    expect(hit(12, 9).damage).toBeGreaterThanOrEqual(90);
+    expect([hit(9, 9).damage, hit(8, 9).damage, hit(0).damage]).toEqual([0, 0, 0]);
+    expect([hit(MEMORY_DIGITS, 19).crit, hit(MEMORY_DIGITS, 19).damage]).toEqual([true, 135]);
+    expect(hit(5, 4).detail).toEqual({ skill: 'memory', count: 5, theirCount: 4, perfect: false, won: true });
   });
 
   it('lets DEF soften every hit but never to nothing', () => {
@@ -101,7 +101,7 @@ describe('the skills', () => {
 /** A random legal move for whoever's turn it is. */
 function randomMove(s: HeroState, roll: (n: number) => number): Move {
   const p = s.pending?.move;
-  if (p?.skill === 'poker') return { skill: 'card', pick: (p.pick + 1 + roll(RANKS - 1)) % RANKS };
+  if (p?.skill === 'memory') return { skill: 'recall', count: roll(MEMORY_DIGITS + 1) };
   if (p?.skill === 'stopwatch') return { skill: 'answer', ms: stopwatchTarget(s.seed, s.log.length) + roll(2001) - 1000 };
   if (p) return { skill: 'answer', ms: roll(10) === 0 ? -1 : 120 + roll(500) };
   const choices = ready(s, s.turn);
@@ -110,7 +110,7 @@ function randomMove(s: HeroState, roll: (n: number) => number): Move {
   if (skill === 'stopwatch') return { skill, ms: stopwatchTarget(s.seed, s.log.length) + roll(2001) - 1000 };
   if (skill === 'speed') return { skill, ms: roll(10) === 0 ? -1 : 120 + roll(500) };
   if (skill === 'roulette') return { skill, pick: roll(WHEEL) };
-  return { skill, pick: roll(RANKS) };
+  return { skill, count: roll(MEMORY_DIGITS + 1) };
 }
 
 const IDS = ['a', 'b'] as const;
@@ -142,21 +142,21 @@ describe('a fight', () => {
     expect([next.turn, next.log.length]).toEqual([other, 1]);
   });
 
-  it('waits after Poker for the defender to pick their own card', () => {
-    let s = start('cards', NAMES);
+  it('waits after Memory for the defender’s own count', () => {
+    let s = start('digits', NAMES);
     const attacker = s.turn;
     const defender = (attacker === 0 ? 1 : 0) as Side;
-    s = apply(s, { skill: 'poker', pick: 4 }, attacker)!;
-    expect([s.pending, s.turn, s.log.length]).toEqual([{ by: attacker, move: { skill: 'poker', pick: 4 } }, defender, 0]);
+    expect(apply(s, { skill: 'memory', count: 21 }, attacker)).toBeNull();
+    expect(apply(s, { skill: 'memory', count: 2.5 }, attacker)).toBeNull();
+    s = apply(s, { skill: 'memory', count: 7 }, attacker)!;
+    expect([s.pending, s.turn, s.log.length]).toEqual([{ by: attacker, move: { skill: 'memory', count: 7 } }, defender, 0]);
     expect(apply(s, { skill: 'answer', ms: 100 }, defender)).toBeNull();
-    expect(apply(s, { skill: 'card', pick: 7 }, attacker)).toBeNull();
+    expect(apply(s, { skill: 'recall', count: 3 }, attacker)).toBeNull();
     expect(apply(s, { skill: 'stopwatch', ms: 1000 }, defender)).toBeNull();
-    expect(apply(s, { skill: 'card', pick: 4 }, defender)).toBeNull();
-    const done = apply(s, { skill: 'card', pick: 7 }, defender)!;
+    expect(apply(s, { skill: 'recall', count: -1 }, defender)).toBeNull();
+    const done = apply(s, { skill: 'recall', count: 3 }, defender)!;
     const t = done.log[0];
-    if (t.detail.skill !== 'poker') throw new Error();
-    expect([t.by, t.detail.pick, t.detail.theirPick]).toEqual([attacker, 4, 7]);
-    expect(t.detail.deck).toEqual(pokerDeck('cards', 0));
+    expect([t.by, t.detail]).toEqual([attacker, { skill: 'memory', count: 7, theirCount: 3, perfect: false, won: true }]);
     expect([done.pending, done.turn]).toEqual([null, defender]);
   });
 
@@ -167,7 +167,7 @@ describe('a fight', () => {
     const target = stopwatchTarget('race', 0);
     s = apply(s, { skill: 'stopwatch', ms: target + 100 }, attacker)!;
     expect([s.pending, s.turn, s.log.length]).toEqual([{ by: attacker, move: { skill: 'stopwatch', ms: target + 100 } }, defender, 0]);
-    expect(apply(s, { skill: 'card', pick: 1 }, defender)).toBeNull();
+    expect(apply(s, { skill: 'recall', count: 1 }, defender)).toBeNull();
     expect(apply(s, { skill: 'answer', ms: -1 }, defender)).toBeNull();
     const closer = apply(s, { skill: 'answer', ms: target - 40 }, defender)!;
     expect([closer.log[0].by, closer.log[0].damage, closer.turn, closer.hp[defender]]).toEqual([attacker, 0, defender, 200]);
@@ -197,9 +197,9 @@ describe('a fight', () => {
     s = apply(apply(s, { skill: 'stopwatch', ms: 0 }, 1)!, { skill: 'answer', ms: 0 }, 0)!;
     expect(apply(s, { skill: 'roulette', pick: 1 }, 0)).toBeNull();
     expect(apply(s, { skill: 'rest' }, 0)).toBeNull(); // the stopwatch never rests
-    s = apply(s, { skill: 'poker', pick: 0 }, 0)!;
-    s = apply(s, { skill: 'card', pick: 1 }, 1)!;
-    expect(s.cooldowns[0]).toEqual({ roulette: 1, poker: 2 });
+    s = apply(s, { skill: 'memory', count: 4 }, 0)!;
+    s = apply(s, { skill: 'recall', count: 1 }, 1)!;
+    expect(s.cooldowns[0]).toEqual({ roulette: 1, memory: 2 });
   });
 
   it('always ends, and replays the same from the same moves, skipping refused ones', () => {
@@ -227,6 +227,6 @@ describe('a fight', () => {
       const { state } = fightOut(`golden${i}`);
       return `${state.winner}:${state.hp.join(',')}:${state.log.length}`;
     });
-    expect(hashSeed(results.join('|'))).toBe(363485288);
+    expect(hashSeed(results.join('|'))).toBe(3529283593);
   });
 });

@@ -101,7 +101,7 @@ export function Home() {
         <div className="home-more">
           <SummaryRow label="How to play" title="How to play Hero Gambit">
             <div className="how-to">
-              <p>You and your friend each have 200 HP and the same four skills, each on your own phone or taking turns on one. Take turns using one skill; bring the other's HP to 0 to win. After you use a skill it rests a few of your turns: Stopwatch never, I'm Speed 1, Poker 2, Roulette 3.</p>
+              <p>You and your friend each have 200 HP and the same four skills, each on your own phone or taking turns on one. Take turns using one skill; bring the other's HP to 0 to win. After you use a skill it rests a few of your turns: Stopwatch never, I'm Speed 1, Memory 2, Roulette 3.</p>
               <p>
                 <strong>Stopwatch:</strong> you're shown a time between 1.00 and 10.00 seconds, like 4.37. Press Start, count, press Stop. Then your friend tries the same time: only if you were closer does your hit land, and the closer you are, the harder it is. Within 0.05 s is Perfect: a sure crit.
               </p>
@@ -112,7 +112,7 @@ export function Home() {
                 <strong>Roulette:</strong> pick a number from 0 to 36. If the ball lands on it, it's an instant kill; if not, you punch.
               </p>
               <p>
-                <strong>Poker:</strong> tap one of thirteen face-down cards, 2 low to A high; it turns over at once. Your friend then picks another. Higher card hits for 90; lower does nothing.
+                <strong>Memory:</strong> a 20-digit number shows for 5 seconds, then hides; type it back. The first wrong digit ends your go. Then your friend gets their own number: only if you remembered more does your hit of 90 land; all 20 is a sure crit.
               </p>
             </div>
           </SummaryRow>

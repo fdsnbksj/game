@@ -61,7 +61,7 @@ describe('hero rooms', () => {
     await admin(['heroDuels', CODE], { ...open, playerIds: ['ann', 'bob'], names: { ann: 'Ann', bob: 'Bob' } });
     await assertFails(updateDoc(room(dbFor('bob')), { status: 'playing', seed: 'abcdef12', startedAt: serverTimestamp() }));
     await assertSucceeds(updateDoc(room(dbFor('ann')), { status: 'playing', seed: 'abcdef12', startedAt: serverTimestamp() }));
-    const move = (uid: string, n: number) => setDoc(doc(dbFor(uid), 'heroDuels', CODE, 'moves', String(n)), { n, by: uid, move: { skill: 'poker' } });
+    const move = (uid: string, n: number) => setDoc(doc(dbFor(uid), 'heroDuels', CODE, 'moves', String(n)), { n, by: uid, move: { skill: 'memory' } });
     await assertFails(move('ann', 1));
     await assertSucceeds(move('ann', 0));
     await assertSucceeds(move('bob', 1));

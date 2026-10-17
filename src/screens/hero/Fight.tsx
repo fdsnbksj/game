@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
-import { pokerDeck, RANKS, rankName, seconds, SPEED_MAX_MS, speedDelay, stopwatchTarget, VISIBLE_MS, WHEEL, type Move } from '../../games/hero/skills';
+import { MEMORY_DIGITS, MEMORY_SHOW_MS, memoryNumber, seconds, SPEED_MAX_MS, speedDelay, stopwatchTarget, VISIBLE_MS, WHEEL, type Move } from '../../games/hero/skills';
 import { ready, type HeroState, type Side, type Turn } from '../../games/hero/state';
 import { SKILLS, type SkillId } from '../../games/hero/stats';
 import { Stickman } from './Stickman';
@@ -7,25 +7,31 @@ import { Stickman } from './Stickman';
 // One fight on screen between two friends, laid out like a handheld creature battle: the
 // other side's box top left and their stick figure top right, yours bottom left with your
 // box bottom right. While a turn plays, its skill's show (the stopwatch's clock, the
-// reaction light, the roulette wheel, the two cards) fills the middle of the screen, then
-// the hit lands on the field. Under it a text box tells the turn and becomes your four
+// reaction light, the roulette wheel, the two rows of digits) fills the middle of the
+// screen, then its result, then the hit lands on the field. Under it a text box tells the turn and becomes your four
 // skills. The screen only collects a move; the game (src/games/hero) decides what it does.
 
-export const SKILL_NAME: Record<SkillId, string> = { stopwatch: 'Stopwatch', speed: 'I’m Speed', roulette: 'Roulette', poker: 'Poker' };
+export const SKILL_NAME: Record<SkillId, string> = { stopwatch: 'Stopwatch', speed: 'I’m Speed', roulette: 'Roulette', memory: 'Memory' };
 
 /** One plain line under each skill's button. */
-const SKILL_HINT: Record<SkillId, string> = { stopwatch: 'Stop near the time', speed: 'Tap on green', roulette: 'Pick a number', poker: 'Pick a card' };
+const SKILL_HINT: Record<SkillId, string> = { stopwatch: 'Stop near the time', speed: 'Tap on green', roulette: 'Pick a number', memory: '20 digits in 5 s' };
 
 /** How long each line of the text box stays before the next. */
 const LINE_MS = 1000;
 /** How long the attacker's swing takes before the hit lands. */
 const SWING_MS = 350;
-/** Each turn's length until the hit lands; the skill's show fills the screen until the swing just before it. */
-const SHOW_MS: Record<Turn['skill'], number> = { stopwatch: 2400, speed: 2100, roulette: 3400, poker: 2500, rest: 900 };
+/** Each skill's show over the field, until its result comes up under it. */
+const ANIM_MS: Record<Turn['skill'], number> = { stopwatch: 1500, speed: 1300, roulette: 2600, memory: 1800, rest: 0 };
+/** How long the result shows under the finished animation before the attacker swings. */
+const RESULT_MS = 1600;
+/** Catching your breath has no show: the turn just takes this long. */
+const REST_MS = 900;
 /** The roulette wheel's spin. */
 const SPIN_MS = 2400;
-/** A picked card turns over, then the move goes. */
-const FLIP_MS = 700;
+/** Memory's show fills a digit this often. */
+const DIGIT_MS = 60;
+/** A wrong digit shows red this long, then the go is sent. */
+const WRONG_MS = 700;
 /** A tap on the text box skips the turn only after this long, so the click that follows a
  * Stop or a Tap (those act on pointerdown) can't skip the turn it just sent. */
 const SKIP_AFTER_MS = 600;
@@ -112,10 +118,19 @@ export function Fight({
         {fighter(them)}
         {fighter(me)}
       </div>
-      {/* The skill's show, big in the middle of the screen, until the attacker swings. */}
+      {/* The skill's show, big in the middle of the screen, then its result, until the attacker swings. */}
       {playing && turn && turn.skill !== 'rest' && show.t < show.current!.impact - SWING_MS && (
         <div className="battle-overlay" aria-hidden="true">
-          <SkillShow key={state.log.length} turn={turn} who={nameOf(turn.by)} other={nameOf(turn.by === 0 ? 1 : 0)} />
+          <div className="show-overlay-stack">
+            <SkillShow key={state.log.length} turn={turn} who={nameOf(turn.by)} other={nameOf(turn.by === 0 ? 1 : 0)} />
+            {show.t >= show.current!.anim && (
+              <div className={`show-result${turn.damage > 0 || turn.kill ? ' hit' : ''}`}>
+                {show.current!.verdict.map((l) => (
+                  <span key={l}>{l}</span>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       )}
 
@@ -137,24 +152,13 @@ export function Fight({
                 <strong>{names[actor]}’s turn.</strong>
               </p>
             )}
-            {state.pending.move.skill === 'poker' ? (
-              <PokerPick
-                key={`answer${state.log.length}`}
-                deck={pokerDeck(state.seed, state.log.length)}
-                taken={state.pending.move.pick}
-                takenBy={names[other]}
-                onPick={(pick) => onMove({ skill: 'card', pick })}
-                onCommit={() => setCommitted(true)}
-              />
+            <p className="battle-prompt">{playedLine(state, names[other])} Beat it and their hit misses.</p>
+            {state.pending.move.skill === 'memory' ? (
+              <MemoryPlay key={`answer${state.log.length}`} digits={memoryNumber(state.seed, state.log.length, true)} onStart={() => setCommitted(true)} onDone={(count) => onMove({ skill: 'recall', count })} />
+            ) : state.pending.move.skill === 'stopwatch' ? (
+              <Stopwatch key={`answer${state.log.length}`} target={stopwatchTarget(state.seed, state.log.length)} onStart={() => setCommitted(true)} onStop={(ms) => onMove({ skill: 'answer', ms })} />
             ) : (
-              <>
-                <p className="battle-prompt">{playedLine(state, names[other])} Beat it and their hit misses.</p>
-                {state.pending.move.skill === 'stopwatch' ? (
-                  <Stopwatch key={`answer${state.log.length}`} target={stopwatchTarget(state.seed, state.log.length)} onStart={() => setCommitted(true)} onStop={(ms) => onMove({ skill: 'answer', ms })} />
-                ) : (
-                  <SpeedPlay key={`answer${state.log.length}`} delay={speedDelay(state.seed, state.log.length, true)} onStart={() => setCommitted(true)} onTap={(ms) => onMove({ skill: 'answer', ms })} />
-                )}
-              </>
+              <SpeedPlay key={`answer${state.log.length}`} delay={speedDelay(state.seed, state.log.length, true)} onStart={() => setCommitted(true)} onTap={(ms) => onMove({ skill: 'answer', ms })} />
             )}
           </>
         ) : skill ? (
@@ -200,7 +204,7 @@ export function Fight({
 /** What the attacker did in a contest still waiting for the defender's go: "Ann stopped 0.04 s off." */
 function playedLine(state: HeroState, who: string): string {
   const move = state.pending!.move;
-  if (move.skill === 'poker') return `${who} drew ${rankName(pokerDeck(state.seed, state.log.length)[move.pick])}.`;
+  if (move.skill === 'memory') return `${who} remembered ${digitsOf(move.count)}.`;
   if (move.skill === 'stopwatch') return `${who} stopped at ${secs(move.ms)}, ${secs(Math.abs(move.ms - stopwatchTarget(state.seed, state.log.length)))} off.`;
   return move.ms < 0 ? `${who} jumped the gun.` : `${who} reacted in ${secs(move.ms)}.`;
 }
@@ -233,6 +237,10 @@ interface Line {
 interface Planned {
   turn: Turn;
   lines: Line[];
+  /** When the skill's show is over and its result comes up. */
+  anim: number;
+  /** The result, shown under the finished show. */
+  verdict: string[];
   /** When the hit lands: HP bars move, the struck side is knocked back. */
   impact: number;
   end: number;
@@ -249,12 +257,13 @@ function plan(state: HeroState, names: [string, string], me: Side | null, before
   const is = (side: Side) => (side === me ? 'You are' : `${who(side)} is`);
   const d = turn.detail;
   const opening: string[] = [];
+  // What the skill came to, shown once its show is over; then the hit's own lines.
   const result: string[] = [];
+  const after: string[] = [];
   const hurt = () => {
-    if (turn.crit) result.push('A critical hit!');
-    result.push(`${target === me ? 'You take' : `${who(target)} takes`} ${turn.damage}.`);
+    if (turn.crit) after.push('A critical hit!');
+    after.push(`${target === me ? 'You take' : `${who(target)} takes`} ${turn.damage}.`);
   };
-  const delay = SHOW_MS[turn.skill];
 
   if (d.skill === 'stopwatch') {
     opening.push(`${who(by)} used Stopwatch!`);
@@ -288,17 +297,24 @@ function plan(state: HeroState, names: [string, string], me: Side | null, before
   } else if (d.skill === 'rest') {
     opening.push(`${is(by)} catching ${by === me ? 'your' : 'their'} breath…`);
   } else {
-    opening.push(`${who(by)} used Poker!`);
-    opening.push('The cards turn over…');
-    result.push(`${rankName(d.mine)} against ${rankName(d.theirs)}.`);
-    if (d.won) hurt();
-    else result.push('Lower card. No damage.');
+    opening.push(`${who(by)} used Memory!`);
+    opening.push(`${MEMORY_DIGITS} digits in ${MEMORY_SHOW_MS / 1000} seconds…`);
+    if (d.theirCount !== null) result.push(`${who(by)}: ${d.count}. ${who(target)}: ${d.theirCount}.`);
+    if (!d.won) result.push(d.count === 0 ? `${who(by)} got none. No damage.` : `${who(target)} remembered as many or more. No damage.`);
+    else {
+      result.push(d.perfect ? `All ${MEMORY_DIGITS}. Perfect!` : 'More digits!');
+      hurt();
+    }
   }
-  if (state.winner !== null) result.push(`${is(state.winner === 0 ? 1 : 0)} down!`);
+  if (state.winner !== null) after.push(`${is(state.winner === 0 ? 1 : 0)} down!`);
 
-  const lines: Line[] = opening.map((text, i) => ({ text, at: i * Math.min(LINE_MS, Math.floor(delay / opening.length)) }));
-  result.forEach((text, i) => lines.push({ text, at: delay + i * LINE_MS }));
-  return { turn, lines, impact: delay, end: delay + result.length * LINE_MS, before };
+  // Rest has no show: its line, then the turn passes.
+  const anim = ANIM_MS[turn.skill];
+  const impact = d.skill === 'rest' ? REST_MS : anim + RESULT_MS + SWING_MS;
+  const lines: Line[] = opening.map((text, i) => ({ text, at: i * Math.min(LINE_MS, Math.floor((anim || REST_MS) / opening.length)) }));
+  result.forEach((text, i) => lines.push({ text, at: anim + i * Math.floor(RESULT_MS / result.length) }));
+  after.forEach((text, i) => lines.push({ text, at: impact + i * LINE_MS }));
+  return { turn, lines, anim, verdict: result, impact, end: impact + after.length * LINE_MS, before };
 }
 
 /** How long the last turn takes to tell: the result panel waits this long. */
@@ -330,7 +346,7 @@ function useShow(state: HeroState, names: [string, string], me: Side | null) {
 
   useEffect(() => {
     if (!current || t >= current.end) return;
-    const marks = [...current.lines.map((l) => l.at), SKIP_AFTER_MS, current.impact - SWING_MS, current.impact, current.impact + 300, current.end];
+    const marks = [...current.lines.map((l) => l.at), SKIP_AFTER_MS, current.anim, current.impact - SWING_MS, current.impact, current.impact + 300, current.end];
     const next = marks.filter((x) => x > t).sort((a, b) => a - b)[0];
     const timer = setTimeout(() => setT(next), next - t);
     return () => clearTimeout(timer);
@@ -348,15 +364,16 @@ function useShow(state: HeroState, names: [string, string], me: Side | null) {
 }
 
 const secs = (ms: number) => `${(ms / 1000).toFixed(2)} s`;
+const digitsOf = (n: number) => `${n} digit${n === 1 ? '' : 's'}`;
 
 // ---------- Each skill's show over the field ----------
 
 function SkillShow({ turn, who, other }: { turn: Turn; who: string; other: string }) {
   const d = turn.detail;
   if (d.skill === 'stopwatch') return <ClockShow target={d.target} ms={d.ms} theirs={d.theirMs} perfect={d.perfect} who={who} other={other} />;
-  if (d.skill === 'speed') return <LightShow delay={Math.min(700, Math.floor(SHOW_MS.speed / 2))} ms={d.ms} theirs={d.theirMs} flash={d.flash} who={who} other={other} />;
+  if (d.skill === 'speed') return <LightShow delay={700} ms={d.ms} theirs={d.theirMs} flash={d.flash} who={who} other={other} />;
   if (d.skill === 'roulette') return <RouletteSpin pick={d.pick} balls={d.balls} />;
-  if (d.skill === 'poker') return <CardsShow mine={d.mine} theirs={d.theirs} won={d.won} who={who} other={other} />;
+  if (d.skill === 'memory') return <MemoryShow count={d.count} theirs={d.theirCount} who={who} other={other} />;
   return null;
 }
 
@@ -412,26 +429,28 @@ function LightShow({ delay, ms, theirs, flash, who, other }: { delay: number; ms
   );
 }
 
-/** The two picked cards turn over side by side, the higher one lifted. */
-function CardsShow({ mine, theirs, won, who, other }: { mine: number; theirs: number; won: boolean; who: string; other: string }) {
-  const [up, setUp] = useState(false);
+/** A row of digit slots for each side, filling up to how many they remembered; the first miss shows red. */
+function MemoryShow({ count, theirs, who, other }: { count: number; theirs: number | null; who: string; other: string }) {
+  const [shown, setShown] = useState(0);
   useEffect(() => {
-    const t = setTimeout(() => setUp(true), 500);
+    if (shown > MEMORY_DIGITS) return;
+    const t = setTimeout(() => setShown(shown + 1), DIGIT_MS);
     return () => clearTimeout(t);
-  }, []);
+  }, [shown]);
+  const rows = theirs === null ? [{ name: who, n: count }] : [{ name: who, n: count }, { name: other, n: theirs }];
   return (
-    <div className="show-cards">
-      {[
-        { rank: mine, name: who, high: won },
-        { rank: theirs, name: other, high: !won },
-      ].map((c, i) => (
-        <span key={i} className="show-card-wrap">
-          <span className={`pk-card big${up ? ' up' : ''}${up && c.high ? ' high' : ''}`} style={{ transitionDelay: `${i * 200}ms` }}>
-            <span className="pk-back" />
-            <span className="pk-face">{rankName(c.rank)}</span>
-          </span>
-          <small>{c.name}</small>
-        </span>
+    <div className="show-memory">
+      {rows.map((r) => (
+        <div key={r.name} className="memory-row">
+          <small>
+            {r.name} <strong>{Math.min(shown, r.n)}</strong>
+          </small>
+          <div className="memory-slots">
+            {Array.from({ length: MEMORY_DIGITS }, (_, i) => (
+              <span key={i} className={`memory-slot${i < Math.min(shown, r.n) ? ' right' : i === r.n && shown > r.n ? ' wrong' : ''}`} />
+            ))}
+          </div>
+        </div>
       ))}
     </div>
   );
@@ -443,47 +462,105 @@ function SkillPlay({ skill, state, onMove, onCommit }: { skill: SkillId; state: 
   if (skill === 'stopwatch') return <Stopwatch target={stopwatchTarget(state.seed, state.log.length)} onStart={onCommit} onStop={(ms) => onMove({ skill, ms })} />;
   if (skill === 'speed') return <SpeedPlay delay={speedDelay(state.seed, state.log.length)} onStart={onCommit} onTap={(ms) => onMove({ skill, ms })} />;
   if (skill === 'roulette') return <RoulettePick onPick={(pick) => onMove({ skill, pick })} />;
-  return <PokerPick deck={pokerDeck(state.seed, state.log.length)} onPick={(pick) => onMove({ skill, pick })} onCommit={onCommit} />;
+  return <MemoryPlay digits={memoryNumber(state.seed, state.log.length)} onStart={onCommit} onDone={(count) => onMove({ skill, count })} />;
 }
 
 /**
- * Thirteen cards, 2 to A, face down; the one you tap turns over at once, then the move goes.
- * Answering the other side's Poker, their card (`taken`) already lies face up.
+ * Memory: Ready, then the number shows for MEMORY_SHOW_MS and hides; type it back on the
+ * keypad. The first wrong digit ends the go (it shows red a moment, then the count is sent);
+ * Done sends what you have.
  */
-function PokerPick({ deck, onPick, onCommit, taken, takenBy }: { deck: number[]; onPick: (pick: number) => void; onCommit: () => void; taken?: number; takenBy?: string }) {
-  const [picked, setPicked] = useState<number | null>(null);
+function MemoryPlay({ digits, onStart, onDone }: { digits: string; onStart: () => void; onDone: (count: number) => void }) {
+  const [phase, setPhase] = useState<'ready' | 'show' | 'type' | 'done'>('ready');
+  const [typed, setTyped] = useState('');
+  const [wrong, setWrong] = useState<string | null>(null);
+  const sent = useRef(false);
+  const send = (count: number, delay = 0) => {
+    if (sent.current) return;
+    sent.current = true;
+    setPhase('done');
+    setTimeout(() => onDone(count), delay);
+  };
   useEffect(() => {
-    if (picked === null) return;
-    const t = setTimeout(() => onPick(picked), FLIP_MS);
+    if (phase !== 'show') return;
+    const t = setTimeout(() => setPhase('type'), MEMORY_SHOW_MS);
     return () => clearTimeout(t);
-    // Sent once, after the card has turned.
-  }, [picked]);
+  }, [phase]);
+  const press = (d: string) => {
+    if (phase !== 'type') return;
+    if (d !== digits[typed.length]) {
+      setWrong(d);
+      send(typed.length, WRONG_MS);
+      return;
+    }
+    const next = typed + d;
+    setTyped(next);
+    if (next.length === MEMORY_DIGITS) send(next.length, WRONG_MS);
+  };
+
+  if (phase === 'ready')
+    return (
+      <div className="hero-play">
+        <p className="note center-note">
+          A {MEMORY_DIGITS}-digit number shows for {MEMORY_SHOW_MS / 1000} seconds. Then type it back: the first wrong digit ends your go. More digits than the other side hits for 90.
+        </p>
+        <button
+          className="button primary"
+          onClick={() => {
+            onStart();
+            setPhase('show');
+          }}
+        >
+          Ready
+        </button>
+      </div>
+    );
+  // Groups of five, to read like a phone number.
+  const groups = (text: string) => text.match(/.{1,5}/g) ?? [];
   return (
     <div className="hero-play">
-      <p className="note center-note">
-        {picked !== null
-          ? `You drew ${rankName(deck[picked])}!`
-          : taken !== undefined
-            ? `${takenBy} drew ${rankName(deck[taken])}. Pick yours: beat it and their hit misses.`
-            : 'Pick a card, 2 low to A high. They pick another; the higher card hits for 90.'}
-      </p>
-      <div className="pk-table">
-        {Array.from({ length: RANKS }, (_, i) => (
-          <button
-            key={i}
-            className={`pk-card${i === picked || i === taken ? ' up' : ''}${i === taken ? ' theirs' : ''}`}
-            disabled={i === taken || picked !== null}
-            onClick={() => {
-              onCommit();
-              setPicked(i);
-            }}
-            aria-label={i === taken ? `${takenBy}'s card, ${rankName(deck[i])}` : `Card ${i + 1}`}
-          >
-            <span className="pk-back" />
-            <span className="pk-face">{rankName(deck[i])}</span>
-          </button>
-        ))}
-      </div>
+      {phase === 'show' ? (
+        <>
+          <div className="memory-number">
+            {groups(digits).map((g, i) => (
+              <span key={i}>{g}</span>
+            ))}
+          </div>
+          <span className="memory-timer" style={{ animationDuration: `${MEMORY_SHOW_MS}ms` }} />
+          <p className="note center-note">Remember it…</p>
+        </>
+      ) : (
+        <>
+          <div className="memory-number typed" aria-live="polite">
+            {Array.from({ length: MEMORY_DIGITS / 5 }, (_, g) => (
+              <span key={g}>
+                {Array.from({ length: 5 }, (_, j) => {
+                  const i = g * 5 + j;
+                  const ch = i < typed.length ? typed[i] : i === typed.length && wrong !== null ? wrong : '·';
+                  return (
+                    <b key={j} className={i === typed.length && wrong !== null ? 'wrong' : i < typed.length ? 'right' : ''}>
+                      {ch}
+                    </b>
+                  );
+                })}
+              </span>
+            ))}
+          </div>
+          <p className="note center-note">
+            {wrong !== null ? `Wrong digit: ${digitsOf(typed.length)}.` : typed.length === MEMORY_DIGITS ? `All ${MEMORY_DIGITS}!` : phase === 'done' ? `Sent: ${digitsOf(typed.length)}.` : `${digitsOf(typed.length)} so far.`}
+          </p>
+          <div className="memory-keys">
+            {['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'].map((d) => (
+              <button key={d} className="button" disabled={phase !== 'type'} onClick={() => press(d)}>
+                {d}
+              </button>
+            ))}
+            <button className="button primary" disabled={phase !== 'type'} onClick={() => send(typed.length)}>
+              Done
+            </button>
+          </div>
+        </>
+      )}
     </div>
   );
 }

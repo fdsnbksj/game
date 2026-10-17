@@ -1,6 +1,6 @@
 # a game
 
-A small collection of games, all on a game-centre home page: Hero Gambit, the main one, a stick-figure duel between two friends, on two phones or sharing one, with four skills (a stopwatch, a reaction test, a poker card and a roulette wheel), each with its own animation; nonograms for between chapters, Avalon for a table of friends, Ancient Wonders for 3 to 7 players, and Island Settlers, a hex-island trading game for 3 or 4 (both with bots for empty seats).
+A small collection of games, all on a game-centre home page: Hero Gambit, the main one, a stick-figure duel between two friends, on two phones or sharing one, with four skills (a stopwatch, a reaction test, a 20-digit memory test and a roulette wheel), each with its own animation; nonograms for between chapters, Avalon for a table of friends, Ancient Wonders for 3 to 7 players, and Island Settlers, a hex-island trading game for 3 or 4 (both with bots for empty seats).
 
 Nonograms are small logic puzzles for between chapters. Each one is a nonogram: fill in squares so that every row and column matches the numbers beside it, and a picture appears. It's built for a train ride with a book. Everything works with one thumb, nothing needs sound, there's no clock and no way to lose, and every tap is saved, so you can close it at your stop, even without a signal. Levels go on forever, grow from 5×5 to 10×10 and are ranked.
 

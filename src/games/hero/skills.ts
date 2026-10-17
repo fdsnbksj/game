@@ -2,12 +2,13 @@ import { stream } from '../../nonogram/rng';
 import type { SkillId, Stats, Tree } from './stats';
 
 // The four skills. Each turn's luck comes from streams named after the fight's seed and
-// the turn number, so both phones (or a replay) roll the same balls, cards and crits.
+// the turn number, so both phones (or a replay) roll the same balls, numbers and crits.
 // Whole numbers only.
 
 export const WHEEL = 37;
-/** Ranks 2..14: 11 is J, 12 Q, 13 K, 14 A (ace high). */
-export const RANKS = 13;
+/** Memory's number: this many digits, shown for MEMORY_SHOW_MS, then typed back. */
+export const MEMORY_DIGITS = 20;
+export const MEMORY_SHOW_MS = 5000;
 /** Within this many ms of the target is Perfect: full power and a sure crit. */
 export const PERFECT_MS = 50;
 /** The stopwatch's running clock shows for this long, then hides. */
@@ -27,8 +28,8 @@ export const BALL_LEVELS: readonly number[] = [5, 10];
 export const rouletteBalls = (level: number) => (level < 1 ? 0 : 1 + BALL_LEVELS.filter((l) => level >= l).length);
 /** A missed Roulette's punch: 30, plus 5 for every level past the first that isn't a ball level. */
 export const punchPower = (level: number) => 30 + 5 * Math.max(0, level - rouletteBalls(level));
-/** A won Poker's hit (nerfed by the user, 2026-10-11: it was 100 and always a crit; 50, then 90 for 200 HP). */
-export const pokerPower = (level: number) => 90 + 10 * (level - 1);
+/** A won Memory's hit: 90, like the Poker it replaced (the user's ask, 2026-10-18). */
+export const memoryPower = (level: number) => 90 + 10 * (level - 1);
 
 /** The turn's target, from 1.00 to 10.00 seconds in hundredths (1.23 s is 1230), shown before Start. */
 export const stopwatchTarget = (seed: string, turn: number) => (stream(`${seed}:turn:${turn}:target`)(901) + 100) * 10;
@@ -54,18 +55,20 @@ export type Move =
   /** A reaction time in ms, or -1 for a tap before the light turned green. */
   | { skill: 'speed'; ms: number }
   | { skill: 'roulette'; pick: number }
-  | { skill: 'poker'; pick: number }
-  | { skill: 'card'; pick: number }
+  /** How many digits of the turn's number were typed back right before the first wrong one. */
+  | { skill: 'memory'; count: number }
+  /** The defender's own go at the attacker's Memory, with their own number. */
+  | { skill: 'recall'; count: number }
   /** The defender's own go at the attacker's Stopwatch (ms stopped) or I'm Speed (reaction, -1 too early). */
   | { skill: 'answer'; ms: number }
   /** Every skill is cooling down: the turn passes. */
   | { skill: 'rest' };
 
-/** A skill's move. `card` and `answer` aren't (the defender's replies), nor `rest`. */
-export type SkillMove = Exclude<Move, { skill: 'card' } | { skill: 'answer' } | { skill: 'rest' }>;
+/** A skill's move. `recall` and `answer` aren't (the defender's replies), nor `rest`. */
+export type SkillMove = Exclude<Move, { skill: 'recall' } | { skill: 'answer' } | { skill: 'rest' }>;
 
 /** The skills both sides play (the user's design): the attacker, then the defender; only the better one's hit lands. */
-export type ContestMove = Extract<SkillMove, { skill: 'stopwatch' | 'speed' | 'poker' }>;
+export type ContestMove = Extract<SkillMove, { skill: 'stopwatch' | 'speed' | 'memory' }>;
 export const isContest = (move: SkillMove): move is ContestMove => move.skill !== 'roulette';
 
 /** Whether the attacker's reaction beats the defender's: on green (not -1) and strictly faster. */
@@ -78,17 +81,8 @@ export type Detail =
   | { skill: 'speed'; delay: number; ms: number; theirMs: number | null; pct: number; flash: boolean; won: boolean }
   | { skill: 'rest' }
   | { skill: 'roulette'; pick: number; balls: number[]; hit: boolean }
-  | {
-      skill: 'poker';
-      /** The thirteen cards as they lay face down after the shuffle, 2 to 14 (ace). */
-      deck: number[];
-      /** Where the attacker and the defender picked. */
-      pick: number;
-      theirPick: number;
-      mine: number;
-      theirs: number;
-      won: boolean;
-    };
+  /** `theirCount` is the defender's; `won` when the attacker remembered strictly more. All of it is Perfect. */
+  | { skill: 'memory'; count: number; theirCount: number | null; perfect: boolean; won: boolean };
 
 export interface Hit {
   /** HP taken from the defender, after DEF. */
@@ -104,23 +98,18 @@ export const afterDef = (dmg: number, def: number) => (dmg <= 0 ? 0 : Math.max(1
 const critOf = (dmg: number, stats: Stats) => Math.floor((dmg * stats.critDmg) / 100);
 
 /**
- * The thirteen cards of a turn's Poker, 2 to A, as they lie face down after the shuffle.
- * The screen uses it too, to turn over the card you tap at once.
+ * The turn's number to remember, MEMORY_DIGITS digits. The defender's answer gets its own,
+ * so watching the attacker's on a shared phone doesn't help.
  */
-export function pokerDeck(seed: string, turn: number): number[] {
-  const shuffle = stream(`${seed}:turn:${turn}:deck`);
-  const deck = Array.from({ length: RANKS }, (_, i) => i + 2);
-  for (let i = RANKS - 1; i > 0; i--) {
-    const j = shuffle(i + 1);
-    [deck[i], deck[j]] = [deck[j], deck[i]];
-  }
-  return deck;
+export function memoryNumber(seed: string, turn: number, answer = false): string {
+  const digit = stream(`${seed}:turn:${turn}:${answer ? 'answerDigits' : 'digits'}`);
+  return Array.from({ length: MEMORY_DIGITS }, () => digit(10)).join('');
 }
 
 /**
  * One skill, from a hero with `tree` against `defender`. `answer` is the defender's reply to a
- * contest: their card for Poker, their stop or reaction for Stopwatch and I'm Speed (without
- * one, Poker's is seeded and the others go uncontested).
+ * contest: their count for Memory, their stop or reaction for Stopwatch and I'm Speed (without
+ * one, it goes uncontested).
  */
 export function resolve(move: SkillMove, tree: Tree, attacker: Stats, defender: Stats, seed: string, turn: number, answer?: number): Hit {
   const name = `${seed}:turn:${turn}`;
@@ -161,23 +150,20 @@ export function resolve(move: SkillMove, tree: Tree, attacker: Stats, defender: 
       const base = punchPower(tree.roulette);
       return { damage: out(rolledCrit ? critOf(base, attacker) : base), crit: rolledCrit, kill: false, detail };
     }
-    case 'poker': {
-      // One shuffled deck of 2 to A laid face down. The attacker picks a card and the
-      // defender another (state.ts waits for it; without one it's seeded), so never a tie.
-      const deck = pokerDeck(seed, turn);
-      const pick = move.pick;
-      const theirPick = answer ?? (pick + 1 + stream(`${name}:theirs`)(RANKS - 1)) % RANKS;
-      const mine = deck[pick];
-      const theirs = deck[theirPick];
-      const won = mine > theirs;
-      const detail: Detail = { skill: 'poker', deck, pick, theirPick, mine, theirs, won };
+    case 'memory': {
+      const perfect = move.count === MEMORY_DIGITS;
+      // More digits than the defender, or the hit misses (a tie misses too).
+      const won = answer === undefined ? move.count > 0 : move.count > answer;
+      const detail: Detail = { skill: 'memory', count: move.count, theirCount: answer ?? null, perfect, won };
       if (!won) return { damage: 0, crit: false, kill: false, detail };
-      const base = pokerPower(tree.poker);
-      return { damage: out(rolledCrit ? critOf(base, attacker) : base), crit: rolledCrit, kill: false, detail };
+      const base = memoryPower(tree.memory);
+      const crit = perfect || rolledCrit;
+      return { damage: out(crit ? critOf(base, attacker) : base), crit, kill: false, detail };
     }
   }
 }
 
-export const isSkill = (s: unknown): s is SkillId => s === 'stopwatch' || s === 'speed' || s === 'roulette' || s === 'poker';
+export const isSkill = (s: unknown): s is SkillId => s === 'stopwatch' || s === 'speed' || s === 'roulette' || s === 'memory';
 
-export const rankName = (rank: number) => (rank <= 10 ? String(rank) : ['J', 'Q', 'K', 'A'][rank - 11]);
+/** A count Memory may claim: 0 to every digit. */
+export const isCount = (n: number) => Number.isInteger(n) && n >= 0 && n <= MEMORY_DIGITS;

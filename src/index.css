@@ -199,7 +199,7 @@
   --battle-sky-bottom: #ffffff;
   --skill-stopwatch: #f59e0b;
   --skill-speed: #10b981;
-  --skill-poker: #ef4444;
+  --skill-memory: #ef4444;
   --skill-roulette: #8b5cf6;
   --hero-hp: #22a34a;
   --hero-hp-low: #dc2626;
@@ -3256,92 +3256,145 @@ button.seat:disabled {
   fill: var(--accent-soft);
 }
 
-.show-cards {
-  display: flex;
-  gap: 20px;
-}
-
-.show-card-wrap {
+.show-overlay-stack {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
-  padding: 4px 10px;
-  border-radius: var(--r-md);
+}
+
+/* A skill's result, under its finished show. */
+.show-result {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-width: min(90vw, 360px);
+  margin-top: 14px;
+  padding: 10px 16px;
+  border-radius: var(--r-lg);
   background: var(--surface);
-  font-weight: 600;
-}
-
-/* A playing card: its back and face stacked, turned over with a 3D flip. */
-.pk-table {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 6px;
-}
-
-.pk-card {
-  position: relative;
-  display: block;
-  aspect-ratio: 5 / 7;
-  padding: 0;
-  border: none;
-  background: none;
-  font: inherit;
-  perspective: 400px;
-  cursor: pointer;
-}
-
-.pk-card.big {
-  width: 96px;
-  font-size: var(--fs-xl);
-  transition: transform 300ms ease-out;
-}
-
-.pk-card.big.high {
-  transform: translateY(-8px);
-}
-
-.pk-back,
-.pk-face {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--r-sm);
-  backface-visibility: hidden;
-  transition: transform 350ms ease-out;
-}
-
-.pk-back {
-  background: var(--accent);
-}
-
-.pk-face {
-  background: var(--surface);
+  box-shadow: var(--shadow-2);
   color: var(--label);
-  font-weight: 700;
-  transform: rotateY(180deg);
+  font-size: var(--fs-lg);
+  font-weight: 650;
+  text-align: center;
+  animation: result-in 250ms ease-out;
 }
 
-.pk-card.up .pk-back {
-  transform: rotateY(-180deg);
-}
-
-.pk-card.up .pk-face {
-  transform: rotateY(0deg);
-}
-
-.pk-card.theirs .pk-face {
-  border-color: var(--danger);
-}
-
-.pk-card.high .pk-face {
+.show-result.hit {
   border: 2px solid var(--accent);
 }
 
-.pk-card:disabled {
-  cursor: default;
+@keyframes result-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.96);
+  }
+}
+
+/* Memory's show: a row of digit slots per side, filling up. */
+.show-memory {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px;
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-2);
+}
+
+.memory-row small {
+  color: var(--label-2);
+  font-size: var(--fs-base);
+  font-variant-numeric: tabular-nums;
+}
+
+.memory-row strong {
+  color: var(--label);
+}
+
+.memory-slots {
+  display: grid;
+  grid-template-columns: repeat(20, 1fr);
+  gap: 3px;
+  width: min(84vw, 340px);
+  margin-top: 4px;
+}
+
+.memory-slot {
+  height: 22px;
+  border-radius: 3px;
+  background: var(--surface-2);
+}
+
+.memory-slot.right {
+  background: var(--skill-memory);
+}
+
+.memory-slot.wrong {
+  background: var(--label);
+}
+
+/* Memory's play: the number in groups of five, then typed back on a keypad. */
+.memory-number {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px 14px;
+  font-size: 30px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.06em;
+}
+
+.memory-number.typed {
+  font-size: 24px;
+}
+
+.memory-number b {
+  display: inline-block;
+  width: 0.75em;
+  color: var(--label-3);
+  text-align: center;
+}
+
+.memory-number b.right {
+  color: var(--label);
+}
+
+.memory-number b.wrong {
+  color: var(--danger);
+}
+
+.memory-timer {
+  display: block;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--skill-memory);
+  transform-origin: left;
+  animation: memory-timer linear forwards;
+}
+
+@keyframes memory-timer {
+  to {
+    transform: scaleX(0);
+  }
+}
+
+.memory-keys {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.memory-keys .button {
+  min-height: 52px;
+  font-size: var(--fs-xl);
+  font-variant-numeric: tabular-nums;
+}
+
+.memory-keys .button:last-child {
+  grid-column: span 2;
+  font-size: var(--fs-base);
 }
 
 .battle-box {
@@ -3402,7 +3455,7 @@ button.seat:disabled {
 
 .skill-stopwatch { --skill: var(--skill-stopwatch); }
 .skill-speed { --skill: var(--skill-speed); }
-.skill-poker { --skill: var(--skill-poker); }
+.skill-memory { --skill: var(--skill-memory); }
 .skill-roulette { --skill: var(--skill-roulette); }
 
 .battle-menu .skill-button small {
@@ -3520,8 +3573,7 @@ button.seat:disabled {
   .stickman-arm,
   .clock-hand,
   .light-bulb,
-  .pk-back,
-  .pk-face {
+  .show-result {
     animation-duration: 1ms;
     transition: none;
   }

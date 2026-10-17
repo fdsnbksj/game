@@ -2,19 +2,19 @@
 // the same stats and all four skills at level 1. The numbers a designer might tune live here
 // and in skills.ts.
 
-export type SkillId = 'stopwatch' | 'speed' | 'poker' | 'roulette';
+export type SkillId = 'stopwatch' | 'speed' | 'memory' | 'roulette';
 export type NodeId = SkillId | 'hp' | 'def' | 'crit' | 'critDmg';
 /** Levels for each skill and stat; every hero has HERO_TREE. */
 export type Tree = Record<NodeId, number>;
 
-export const SKILLS: readonly SkillId[] = ['stopwatch', 'speed', 'poker', 'roulette'];
+export const SKILLS: readonly SkillId[] = ['stopwatch', 'speed', 'memory', 'roulette'];
 
 /** How many of your own turns a skill sits out after you use it (the user's design). */
-const COOLDOWNS: Record<SkillId, number> = { stopwatch: 0, speed: 1, poker: 2, roulette: 3 };
+const COOLDOWNS: Record<SkillId, number> = { stopwatch: 0, speed: 1, memory: 2, roulette: 3 };
 export const cooldownOf = (skill: SkillId) => COOLDOWNS[skill];
 
 /** Every hero: each skill at level 1, and 200 HP (the user's ask, 2026-10-17; it was 100). */
-export const HERO_TREE: Tree = { stopwatch: 1, speed: 1, poker: 1, roulette: 1, hp: 0, def: 0, crit: 0, critDmg: 0 };
+export const HERO_TREE: Tree = { stopwatch: 1, speed: 1, memory: 1, roulette: 1, hp: 0, def: 0, crit: 0, critDmg: 0 };
 
 export interface Stats {
   hp: number;
