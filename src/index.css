@@ -127,6 +127,20 @@
   --game-wonders-soft: rgb(79 179 200 / 0.14);
   --game-isle: #79a955;
   --game-isle-soft: rgb(121 169 85 / 0.14);
+  --game-bluff: #be123c;
+  --game-bluff-soft: rgb(190 18 60 / 0.12);
+  /* Bluff Table: the cards, the revolver, a lie and the truth. */
+  --bluff-card: #ffffff;
+  --bluff-card-ink: #18181b;
+  --bluff-card-edge: #d4d4d8;
+  --bluff-card-back: #9f1239;
+  --bluff-card-back-mark: rgb(255 255 255 / 0.25);
+  --bluff-joker: #7c3aed;
+  --bluff-true: #16a34a;
+  --bluff-lie: #dc2626;
+  --bluff-chamber: #e4e4e7;
+  --bluff-chamber-tried: #52525b;
+  --bluff-cylinder: #a1a1aa;
   --game-sky: #0ea5e9;
   --game-sky-soft: rgb(14 165 233 / 0.14);
   /* Sky Ace's world, drawn on a canvas: grounds, the ship, enemies, shots and pickups. */
@@ -3101,6 +3115,7 @@ button.seat:disabled {
 .tile-wonders { --tile: var(--game-wonders); }
 .tile-isle { --tile: var(--game-isle); }
 .tile-sky { --tile: var(--game-sky); }
+.tile-bluff { --tile: var(--game-bluff); }
 
 .hub-tile-art {
   display: grid;
@@ -4688,4 +4703,346 @@ button.seat:disabled {
 .wboard .built-list {
   margin: 0;
   font-size: var(--fs-cap);
+}
+
+/* ---------- Bluff Table ---------- */
+
+.bluff-table {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 16px;
+  border-radius: var(--r-lg);
+  background: var(--game-bluff);
+  color: var(--on-feature);
+}
+
+.bluff-table .bluff-card {
+  width: 52px;
+  height: 72px;
+  font-size: 30px;
+}
+
+.bluff-table-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.bluff-table-text strong {
+  font-size: 26px;
+  line-height: 1.1;
+}
+
+.bluff-table-text .micro,
+.bluff-pile {
+  opacity: 0.85;
+}
+
+.bluff-pile {
+  font-size: 14px;
+}
+
+.bluff-seats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(72px, 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.bluff-seat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 4px;
+  border: 2px solid transparent;
+  border-radius: var(--r-md);
+  background: var(--surface);
+  font-size: 14px;
+  text-align: center;
+}
+
+.bluff-seat strong {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bluff-seat.turn {
+  border-color: var(--game-bluff);
+}
+
+.bluff-seat.me {
+  background: var(--game-bluff-soft);
+}
+
+.bluff-seat.out {
+  opacity: 0.45;
+  text-decoration: line-through;
+}
+
+.bluff-seat-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--label-2);
+}
+
+.bluff-cylinder {
+  fill: var(--bluff-cylinder);
+}
+
+.bluff-chamber {
+  fill: var(--bluff-chamber);
+}
+
+.bluff-chamber.tried {
+  fill: var(--bluff-chamber-tried);
+}
+
+.bluff-chamber.fired {
+  fill: var(--bluff-lie);
+}
+
+.bluff-claim {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 64px;
+  padding: 10px 14px;
+  border-radius: var(--r-lg);
+  background: var(--surface);
+}
+
+.bluff-backs {
+  display: flex;
+}
+
+.bluff-backs .bluff-card + .bluff-card {
+  margin-left: -18px;
+}
+
+.bluff-line {
+  margin: 0;
+  color: var(--label-2);
+  text-align: center;
+}
+
+.bluff-line.yours {
+  color: var(--label);
+  font-weight: 700;
+}
+
+.bluff-card {
+  display: inline-grid;
+  place-items: center;
+  width: 44px;
+  height: 62px;
+  border: 1px solid var(--bluff-card-edge);
+  border-radius: 8px;
+  background: var(--bluff-card);
+  color: var(--bluff-card-ink);
+  font-size: 24px;
+  font-weight: 800;
+}
+
+.bluff-card.joker {
+  color: var(--bluff-joker);
+}
+
+.bluff-card.back {
+  border-color: var(--bluff-card-back-mark);
+  background: repeating-linear-gradient(45deg, var(--bluff-card-back) 0 6px, color-mix(in srgb, var(--bluff-card-back) 80%, var(--bluff-card-back-mark)) 6px 12px);
+}
+
+.bluff-hand {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-top: auto;
+}
+
+.bluff-pick {
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  background: none;
+  transition: transform var(--dur-fast) var(--ease);
+}
+
+.bluff-pick .bluff-card {
+  width: 54px;
+  height: 76px;
+  font-size: 28px;
+}
+
+.bluff-pick.picked {
+  transform: translateY(-12px);
+}
+
+.bluff-pick.picked .bluff-card {
+  border: 2px solid var(--game-bluff);
+  box-shadow: 0 6px 14px var(--game-bluff-soft);
+}
+
+.bluff-pick:disabled {
+  opacity: 1;
+}
+
+.bluff-actions {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+}
+
+.bluff-actions .button.danger {
+  padding-inline: 22px;
+}
+
+.bluff-result {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 20px;
+  border-radius: var(--r-lg);
+  background: var(--game-bluff);
+  color: var(--on-feature);
+}
+
+.bluff-result strong {
+  font-size: 28px;
+}
+
+.bluff-history .row {
+  font-size: 14px;
+}
+
+.bluff-show {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: var(--scrim);
+  animation: fade-in var(--dur) var(--ease);
+}
+
+.bluff-show-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: min(360px, 100%);
+  padding: 20px 16px;
+  border-radius: var(--r-xl);
+  background: var(--surface);
+  text-align: center;
+}
+
+.bluff-show-card p {
+  margin: 0;
+}
+
+.bluff-show-title {
+  font-size: 22px;
+  font-weight: 800;
+}
+
+.bluff-show-cards {
+  display: flex;
+  gap: 8px;
+  margin: 6px 0;
+}
+
+.bluff-flip .bluff-card {
+  width: 54px;
+  height: 76px;
+  font-size: 28px;
+  animation: bluff-flip 420ms var(--ease) backwards;
+}
+
+.bluff-flip.true .bluff-card {
+  border: 2px solid var(--bluff-true);
+}
+
+.bluff-flip.false .bluff-card {
+  border: 2px solid var(--bluff-lie);
+}
+
+@keyframes bluff-flip {
+  from {
+    transform: rotateY(90deg);
+  }
+}
+
+.bluff-verdict {
+  font-size: 18px;
+  font-weight: 800;
+  animation: rise var(--dur) var(--ease) 700ms backwards;
+}
+
+.bluff-verdict.lie {
+  color: var(--bluff-lie);
+}
+
+.bluff-verdict.truth {
+  color: var(--bluff-true);
+}
+
+.bluff-trigger {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  animation: rise var(--dur) var(--ease) 1200ms backwards;
+}
+
+.bluff-trigger .bluff-revolver {
+  width: 40px;
+  height: 40px;
+  animation: bluff-spin 900ms var(--ease) 1200ms backwards;
+}
+
+.bluff-trigger strong {
+  display: inline-block;
+  animation: rise var(--dur) var(--ease) 2100ms backwards;
+}
+
+.bluff-bang {
+  color: var(--bluff-lie);
+}
+
+@keyframes bluff-spin {
+  from {
+    transform: rotate(-540deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bluff-flip .bluff-card,
+  .bluff-verdict,
+  .bluff-trigger,
+  .bluff-trigger .bluff-revolver,
+  .bluff-trigger strong {
+    animation: none;
+  }
+}
+
+.bluff-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.bluff-mini {
+  width: 11px;
+  height: 15px;
+  border-radius: 2px;
+  background: var(--bluff-card-back);
 }

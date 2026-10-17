@@ -713,5 +713,102 @@ service cloud.firestore {
         && after.status == 'done'
         && after.endedAt == request.time;
     }
+
+    // ---------- Bluff Table ----------
+    // 2–4 seats, bots as in Island Settlers. The seed decides the deals, the table cards
+    // and where each revolver's bullet sits; every move is appended in order, by its own
+    // player or, for a bot, the host. Every phone replays them and skips any refused.
+
+    function bluffRoom(code) {
+      return get(/databases/$(database)/documents/bluffs/$(code)).data;
+    }
+
+    function isBluffPlayer(code) {
+      return request.auth != null && request.auth.uid in bluffRoom(code).seats;
+    }
+
+    match /bluffs/{code} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+        && code.matches('[A-Z]{4}')
+        && hasExactly(request.resource.data, ['host', 'seats', 'names', 'status', 'createdAt'])
+        && request.resource.data.host == request.auth.uid
+        && request.resource.data.seats == [request.auth.uid]
+        && request.resource.data.names.keys().hasOnly([request.auth.uid])
+        && isValidName(request.resource.data.names[request.auth.uid])
+        && request.resource.data.status == 'lobby'
+        && request.resource.data.createdAt == request.time;
+      allow update: if request.auth != null
+        && (isBluffJoin() || isBluffLeave() || isBluffSetup() || isBluffStart() || isBluffFinish());
+
+      match /moves/{n} {
+        allow read: if isBluffPlayer(code);
+        allow create: if isBluffPlayer(code)
+          && bluffRoom(code).status == 'playing'
+          && hasExactly(request.resource.data, ['n', 'by', 'move'])
+          && (request.resource.data.by == request.auth.uid
+            || (request.resource.data.by in botIds() && request.resource.data.by in bluffRoom(code).seats
+              && request.auth.uid == bluffRoom(code).host))
+          && request.resource.data.n is int && request.resource.data.n >= 0
+          && string(request.resource.data.n) == n
+          && (request.resource.data.n == 0
+            || exists(/databases/$(database)/documents/bluffs/$(code)/moves/$(string(request.resource.data.n - 1))))
+          && request.resource.data.move is map;
+      }
+    }
+
+    function isBluffJoin() {
+      let before = resource.data;
+      let after = request.resource.data;
+      return before.status == 'lobby'
+        && !(request.auth.uid in before.seats)
+        && before.seats.size() < 4
+        && after.diff(before).affectedKeys().hasOnly(['seats', 'names'])
+        && after.seats == before.seats.concat([request.auth.uid])
+        && after.names.diff(before.names).affectedKeys().hasOnly([request.auth.uid])
+        && isValidName(after.names[request.auth.uid]);
+    }
+
+    function isBluffLeave() {
+      let before = resource.data;
+      let after = request.resource.data;
+      return before.status == 'lobby'
+        && request.auth.uid in before.seats && request.auth.uid != before.host
+        && after.diff(before).affectedKeys().hasOnly(['seats'])
+        && after.seats == before.seats.removeAll([request.auth.uid]);
+    }
+
+    // The host's lobby controls: adding and removing bots, and the seating order.
+    function isBluffSetup() {
+      let before = resource.data;
+      let after = request.resource.data;
+      return before.status == 'lobby' && request.auth.uid == before.host
+        && after.diff(before).affectedKeys().hasOnly(['seats', 'names'])
+        && after.seats.size() >= 1 && after.seats.size() <= 4
+        && after.seats.toSet().size() == after.seats.size()
+        && after.seats.toSet().difference(before.seats.toSet()).hasOnly(botIds())
+        && before.seats.toSet().difference(after.seats.toSet()).hasOnly(botIds())
+        && after.names.diff(before.names).affectedKeys().hasOnly(botIds());
+    }
+
+    function isBluffStart() {
+      let before = resource.data;
+      let after = request.resource.data;
+      return before.status == 'lobby' && request.auth.uid == before.host
+        && before.seats.size() >= 2 && before.seats.size() <= 4
+        && after.diff(before).affectedKeys().hasOnly(['status', 'seed', 'startedAt'])
+        && after.status == 'playing'
+        && after.seed is string && after.seed.size() >= 6 && after.seed.size() <= 40
+        && after.startedAt == request.time;
+    }
+
+    function isBluffFinish() {
+      let before = resource.data;
+      let after = request.resource.data;
+      return before.status == 'playing' && request.auth.uid in before.seats
+        && after.diff(before).affectedKeys().hasOnly(['status', 'endedAt'])
+        && after.status == 'done'
+        && after.endedAt == request.time;
+    }
   }
 }

@@ -1,5 +1,5 @@
 /** Every game, in the order home lists them: add a game here and it appears there. */
-export type GameId = 'avalon' | 'duel' | 'wonders' | 'isle' | 'nonograms' | 'hero' | 'sky';
+export type GameId = 'avalon' | 'duel' | 'wonders' | 'isle' | 'nonograms' | 'hero' | 'sky' | 'bluff';
 
 export interface Game {
   id: GameId;
@@ -16,6 +16,7 @@ export const GAMES: readonly Game[] = [
   { id: 'duel', name: 'Rival Wonders', tagline: 'Two cities, head to head', players: '2', path: '/duel' },
   { id: 'wonders', name: 'Ancient Wonders', tagline: 'Build a city, bots welcome', players: '3–7', path: '/wonders' },
   { id: 'isle', name: 'Island Settlers', tagline: 'Build, trade, bots welcome', players: '3–4', path: '/isle' },
+  { id: 'bluff', name: 'Bluff Table', tagline: 'Lie, call, pull the trigger', players: '2–4', path: '/bluff' },
   { id: 'nonograms', name: 'Nonograms', tagline: 'Fill the grid to match the clues', players: '1', path: '/nonograms' },
   { id: 'sky', name: 'Sky Ace', tagline: 'A 90s arcade shooter, one thumb', players: '1', path: '/sky' },
   { id: 'hero', name: 'Hero Gambit', tagline: 'Timing, roulette and cards, against a friend', players: '2', path: '/hero' },

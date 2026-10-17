@@ -72,6 +72,15 @@ export const SkyGlyph = () => (
   </svg>
 );
 
+/** Two cards fanned, face down: Bluff Table. */
+export const BluffGlyph = () => (
+  <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true">
+    <rect x="3.5" y="5" width="10" height="14.5" rx="2" transform="rotate(-12 8.5 12)" fill="currentColor" opacity="0.5" />
+    <rect x="10" y="4" width="10" height="14.5" rx="2" transform="rotate(10 15 11)" fill="currentColor" />
+    <path d="M15.2 8.2l1 2.1 2.2.3-1.6 1.5.4 2.2-2-1-2 1 .4-2.2-1.6-1.5 2.2-.3z" transform="rotate(10 15 11)" style={{ fill: 'var(--tile)' }} />
+  </svg>
+);
+
 /** Each game's emblem by its id, for lists built from data. */
 export const GAME_GLYPHS = {
   avalon: AvalonGlyph,
@@ -81,4 +90,5 @@ export const GAME_GLYPHS = {
   nonograms: NonogramGlyph,
   hero: HeroGlyph,
   sky: SkyGlyph,
+  bluff: BluffGlyph,
 } as const;

@@ -14,6 +14,8 @@ import { Home } from './screens/hero/Home';
 import { GameList } from './screens/world/GameList';
 import { HeroRoom } from './screens/hero/HeroRoom';
 import { LocalFight } from './screens/hero/LocalFight';
+import { BluffHome } from './screens/bluff/BluffHome';
+import { BluffRoom } from './screens/bluff/BluffRoom';
 import { SkyHome } from './screens/sky/SkyHome';
 import { SkyPlay } from './screens/sky/SkyPlay';
 import { WorldShell } from './screens/world/WorldShell';
@@ -54,6 +56,8 @@ export function App() {
         <Route path="/wonders/:code" element={<WondersRoom />} />
         <Route path="/isle" element={<IsleHome />} />
         <Route path="/isle/:code" element={<IsleRoom />} />
+        <Route path="/bluff" element={<BluffHome />} />
+        <Route path="/bluff/:code" element={<BluffRoom />} />
         <Route path="/sky" element={<SkyHome />} />
         <Route path="/sky/play" element={<SkyPlay />} />
         <Route path="/hero" element={<Home />} />
