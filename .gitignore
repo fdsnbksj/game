@@ -6,3 +6,4 @@ dev-dist
 .firebase
 *-debug.log
 .DS_Store
+firebase-export-*
