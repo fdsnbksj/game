@@ -589,10 +589,6 @@ service cloud.firestore {
         && after.endedAt == request.time;
     }
 
-    // ---------- Island Settlers (removed) ----------
-    // Its rooms, isles/{code} and their moves, stay in the database, closed: nothing here
-    // matches them, so every read and write is denied.
-
     // ---------- Bluff Table ----------
     // 2–4 seats, bots as in Ancient Wonders. The seed decides the deals, the table cards
     // and where each revolver's bullet sits; every move is appended in order, by its own
