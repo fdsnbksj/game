@@ -36,14 +36,6 @@ export const WondersGlyph = () => (
   </svg>
 );
 
-export const IsleGlyph = () => (
-  <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true">
-    <path d="M12 2.5 20.2 7.25v9.5L12 21.5l-8.2-4.75v-9.5z" fill="currentColor" opacity="0.35" />
-    <path d="M7 15.5V12l3-2.8 3 2.8v3.5z" fill="currentColor" />
-    <path d="M13.5 15.5v-2.5l2.2-2 2.2 2v2.5z" fill="currentColor" opacity="0.85" />
-  </svg>
-);
-
 /** A shield with a stopwatch's face: your hero. */
 export const HeroGlyph = () => (
   <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true">
@@ -74,7 +66,6 @@ export const BluffGlyph = () => (
 export const GAME_GLYPHS = {
   avalon: AvalonGlyph,
   wonders: WondersGlyph,
-  isle: IsleGlyph,
   nonograms: NonogramGlyph,
   hero: HeroGlyph,
   sky: SkyGlyph,

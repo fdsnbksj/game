@@ -19,17 +19,7 @@ export type IconName =
   | 'papyrus'
   | 'compass'
   | 'gear'
-  | 'tablet'
-  // Island Settlers: its five resources (brick and lumber drawn as clay and wood), what
-  // can be built, and a development card.
-  | 'brick'
-  | 'lumber'
-  | 'wool'
-  | 'grain'
-  | 'road'
-  | 'settlement'
-  | 'city'
-  | 'devcard';
+  | 'tablet';
 
 const LABELS: Record<IconName, string> = {
   coin: 'coin',
@@ -49,14 +39,6 @@ const LABELS: Record<IconName, string> = {
   compass: 'compass',
   gear: 'gear',
   tablet: 'tablet',
-  brick: 'brick',
-  lumber: 'lumber',
-  wool: 'wool',
-  grain: 'grain',
-  road: 'road',
-  settlement: 'settlement',
-  city: 'city',
-  devcard: 'development card',
 };
 
 function Shape({ name }: { name: IconName }) {
@@ -98,7 +80,6 @@ function Shape({ name }: { name: IconName }) {
         </g>
       );
     case 'wood':
-    case 'lumber':
       // A log, end on.
       return (
         <>
@@ -115,7 +96,6 @@ function Shape({ name }: { name: IconName }) {
         </>
       );
     case 'clay':
-    case 'brick':
       // A brick.
       return (
         <>
@@ -184,44 +164,6 @@ function Shape({ name }: { name: IconName }) {
         <>
           <path d="M6 4h12a1 1 0 0 1 1 1v15H5V5a1 1 0 0 1 1-1z" fill="var(--icon-science)" />
           <path d="M8 8h8M8 11h8M8 14h5" stroke="var(--icon-on-dark)" strokeWidth="1.4" strokeLinecap="round" />
-        </>
-      );
-    case 'wool':
-      // A fleece: a cloud of curls.
-      return (
-        <g fill="var(--res-wool)">
-          <circle cx="8" cy="10" r="4" />
-          <circle cx="14" cy="8.5" r="4.3" />
-          <circle cx="17.5" cy="13" r="3.8" />
-          <circle cx="11.5" cy="14.5" r="4.4" />
-          <circle cx="6" cy="14.5" r="3" />
-        </g>
-      );
-    case 'grain':
-      // A sheaf: a stalk with its ears.
-      return (
-        <g fill="var(--res-grain)">
-          <path d="M11.3 9h1.4v12.5h-1.4z" />
-          {[4, 8, 12].map((y) => (
-            <g key={y}>
-              <ellipse cx="9.6" cy={y + 1} rx="1.6" ry="2.7" transform={`rotate(-30 9.6 ${y + 1})`} />
-              <ellipse cx="14.4" cy={y + 1} rx="1.6" ry="2.7" transform={`rotate(30 14.4 ${y + 1})`} />
-            </g>
-          ))}
-          <ellipse cx="12" cy="3.6" rx="1.5" ry="2.6" />
-        </g>
-      );
-    case 'road':
-      return <rect x="2.5" y="9.5" width="19" height="5" rx="1.2" fill="var(--icon-build)" transform="rotate(-30 12 12)" />;
-    case 'settlement':
-      return <path d="M5 11 12 4.5 19 11v9H5z" fill="var(--icon-build)" />;
-    case 'city':
-      return <path d="M2.5 20.5V10L7.5 5l5 5v2.5h9v8z" fill="var(--icon-build)" />;
-    case 'devcard':
-      return (
-        <>
-          <rect x="5" y="3" width="14" height="18" rx="2.2" fill="var(--icon-devcard)" />
-          <path d="M12 7.5l1.3 2.8 3 .3-2.3 2 .7 3L12 14l-2.7 1.6.7-3-2.3-2 3-.3z" fill="var(--icon-on-dark)" opacity="0.55" />
         </>
       );
   }

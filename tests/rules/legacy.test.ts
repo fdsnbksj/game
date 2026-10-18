@@ -121,3 +121,23 @@ describe('retired Rival Wonders rooms', () => {
     await assertFails(deleteDoc(doc(db, 'duels', 'ABCD')));
   });
 });
+
+// Island Settlers was removed; its rooms and moves stay, closed.
+describe('retired Island Settlers rooms', () => {
+  beforeEach(async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      const db = asModular(ctx.firestore());
+      await setDoc(doc(db, 'isles', 'ABCD'), { host: 'alice', seats: ['alice', 'bob', 'bot:1'], names: { alice: 'Alice', bob: 'Bob' }, status: 'playing', seed: 'seed123' });
+      await setDoc(doc(db, 'isles', 'ABCD', 'moves', '0'), { n: 0, by: 'alice', move: { type: 'roll' } });
+    });
+  });
+
+  it('closes them to their players too', async () => {
+    const db = dbFor('alice');
+    await assertFails(getDoc(doc(db, 'isles', 'ABCD')));
+    await assertFails(setDoc(doc(db, 'isles', 'WXYZ'), { host: 'alice', seats: ['alice'], names: { alice: 'Alice' }, status: 'lobby', createdAt: serverTimestamp() }));
+    await assertFails(getDoc(doc(db, 'isles', 'ABCD', 'moves', '0')));
+    await assertFails(setDoc(doc(db, 'isles', 'ABCD', 'moves', '1'), { n: 1, by: 'alice', move: {} }));
+    await assertFails(deleteDoc(doc(db, 'isles', 'ABCD')));
+  });
+});

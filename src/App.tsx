@@ -6,8 +6,6 @@ import { AvalonHome } from './screens/avalon/AvalonHome';
 import { Room } from './screens/avalon/Room';
 import { WondersHome } from './screens/wonders/WondersHome';
 import { WondersRoom } from './screens/wonders/WondersRoom';
-import { IsleHome } from './screens/isle/IsleHome';
-import { IsleRoom } from './screens/isle/IsleRoom';
 import { Home } from './screens/hero/Home';
 import { GameList } from './screens/world/GameList';
 import { HeroRoom } from './screens/hero/HeroRoom';
@@ -50,8 +48,6 @@ export function App() {
         <Route path="/avalon/:code" element={<Room />} />
         <Route path="/wonders" element={<WondersHome />} />
         <Route path="/wonders/:code" element={<WondersRoom />} />
-        <Route path="/isle" element={<IsleHome />} />
-        <Route path="/isle/:code" element={<IsleRoom />} />
         <Route path="/bluff" element={<BluffHome />} />
         <Route path="/bluff/:code" element={<BluffRoom />} />
         <Route path="/sky" element={<SkyHome />} />

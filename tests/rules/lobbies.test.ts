@@ -30,7 +30,6 @@ const GAMES = [
   { path: 'rooms', room: { host: 'ann', playerIds: ['ann', 'bob'], names: { ann: 'Ann', bob: 'Bob' }, optional: [], lady: false } },
   { path: 'heroDuels', room: { host: 'ann', playerIds: ['ann', 'bob'], names: { ann: 'Ann', bob: 'Bob' }, version: 13 } },
   { path: 'wonders', room: { host: 'ann', seats: ['ann', 'bob'], names: { ann: 'Ann', bob: 'Bob' }, sides: 'A' } },
-  { path: 'isles', room: { host: 'ann', seats: ['ann', 'bob'], names: { ann: 'Ann', bob: 'Bob' } } },
   { path: 'bluffs', room: { host: 'ann', seats: ['ann', 'bob'], names: { ann: 'Ann', bob: 'Bob' } } },
 ];
 

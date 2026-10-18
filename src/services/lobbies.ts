@@ -12,14 +12,13 @@ import { dbRest } from '../firebase';
 // scheduled jobs, so the game homes do the clearing; firestore.rules lets anyone delete a
 // room that stale.
 
-export type RoomCollection = 'rooms' | 'heroDuels' | 'wonders' | 'isles' | 'bluffs';
+export type RoomCollection = 'rooms' | 'heroDuels' | 'wonders' | 'bluffs';
 
 /** Who's in a room, by collection, and how many it holds. */
 const SPEC: Record<RoomCollection, { members: 'playerIds' | 'seats'; max: number }> = {
   rooms: { members: 'playerIds', max: 10 },
   heroDuels: { members: 'playerIds', max: 2 },
   wonders: { members: 'seats', max: 7 },
-  isles: { members: 'seats', max: 4 },
   bluffs: { members: 'seats', max: 4 },
 };
 
@@ -46,7 +45,6 @@ const UNDER: Record<RoomCollection, string[]> = {
   rooms: ['secrets', 'proposals', 'votes', 'quests', 'lady', 'ladyResults'],
   heroDuels: ['moves'],
   wonders: ['moves'],
-  isles: ['moves'],
   bluffs: ['moves'],
 };
 

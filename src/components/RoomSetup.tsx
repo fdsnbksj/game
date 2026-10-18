@@ -23,7 +23,7 @@ export function GameHome({
 }: {
   title: string;
   tagline: string;
-  /** Where rooms live: `/avalon`, `/wonders`, `/isle`. */
+  /** Where rooms live: `/avalon`, `/wonders`, `/bluff`. */
   base: string;
   /** The Firestore collection its rooms are in, for the open rooms. */
   rooms: RoomCollection;
