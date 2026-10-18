@@ -245,6 +245,8 @@ function Game({ room, moves, uid }: { room: Room; moves: WondersData['moves']; u
           </div>
 
           {me >= 0 && <Table state={state} me={me} name={name} onNeighbour={setNeighbour} />}
+          {/* Above the hand: the hand is pinned to the bottom, so anything after it would sit under the cards. */}
+          <LastTurn state={state} name={name} />
 
           {picked ? (
             <p className="note center-note">
@@ -263,7 +265,7 @@ function Game({ room, moves, uid }: { room: Room; moves: WondersData['moves']; u
           Every player's city
         </button>
       )}
-      <LastTurn state={state} name={name} />
+      {state.phase === 'over' && <LastTurn state={state} name={name} />}
 
       {viewing !== null && me >= 0 && !picked && !reviving && <CardViewer state={state} me={me} start={viewing} canPick={mine} name={name} onMove={play} onClose={() => setViewing(null)} />}
       {neighbour !== null && (
