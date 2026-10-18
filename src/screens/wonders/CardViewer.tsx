@@ -86,6 +86,7 @@ export function Hand({ state, me, onOpen }: { state: WondersState; me: number; o
   const hand = state.hands[me];
   const [held, setHeld] = useState<number | null>(null);
   const press = useRef<{ i: number; x: number; timer: number } | null>(null);
+  const tapped = useRef<number | null>(null);
   const n = hand.length;
   const mid = (n - 1) / 2;
 
@@ -112,6 +113,7 @@ export function Hand({ state, me, onOpen }: { state: WondersState; me: number; o
           style={{ '--n': n } as React.CSSProperties}
           onPointerDown={(e) => {
             const i = cardAt(e.clientX, e.clientY);
+            tapped.current = null;
             if (i === null) return;
             e.currentTarget.setPointerCapture(e.pointerId);
             press.current = {
@@ -129,9 +131,14 @@ export function Hand({ state, me, onOpen }: { state: WondersState; me: number; o
             if (i !== null) press.current.i = i;
           }}
           onPointerUp={() => {
-            const tapped = held === null && press.current ? press.current.i : null;
+            tapped.current = held === null && press.current ? press.current.i : null;
             end();
-            if (tapped !== null) onOpen(tapped);
+          }}
+          // A tap opens the card on its click, not on the lift: a phone sends the click after the
+          // lift to whatever is under the thumb by then, which would be the viewer's buttons.
+          onClick={() => {
+            if (tapped.current !== null) onOpen(tapped.current);
+            tapped.current = null;
           }}
           onPointerCancel={end}
           onContextMenu={(e) => e.preventDefault()}
