@@ -4247,6 +4247,8 @@ button.seat:disabled {
   width: 100%;
   min-height: 0;
   perspective: 900px;
+  /* The card is sized to the room the stage really has, so it never grows over the buttons. */
+  container-type: size;
 }
 
 .view-card {
@@ -4254,6 +4256,7 @@ button.seat:disabled {
   display: flex;
   flex-direction: column;
   width: min(68vw, 280px, calc((100dvh - 360px) * 0.68));
+  width: min(68vw, 280px, calc(100cqh * 5 / 7.4));
   aspect-ratio: 5 / 7.4;
   overflow: hidden;
   border: 6px solid var(--band);
@@ -4340,6 +4343,8 @@ button.seat:disabled {
 }
 
 .viewer-actions {
+  position: relative;
+  z-index: 1;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -4509,6 +4514,12 @@ button.seat:disabled {
   background: color-mix(in srgb, var(--chain-glow) 22%, var(--surface));
   font-size: var(--fs-cap);
   font-weight: 600;
+}
+
+.chain-note.next {
+  background: none;
+  border: 1.5px dashed var(--chain-glow);
+  font-weight: 500;
 }
 
 @keyframes chain-glow {

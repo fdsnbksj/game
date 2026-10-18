@@ -275,4 +275,6 @@ export const ALL_CARDS: Card[] = [...AGE_I, ...AGE_II, ...AGE_III, ...GUILDS];
 const byId = new Map<string, Card>();
 for (const card of ALL_CARDS) if (!byId.has(card.id)) byId.set(card.id, card);
 export const cardOf = (id: string): Card => byId.get(id)!;
+/** The later cards that owning this one makes free: the other end of each chain. */
+export const chainsTo = (id: string): Card[] => [...byId.values()].filter((c) => c.chainFrom?.includes(id));
 export const boardOf = (id: string): Board => BOARDS.find((b) => b.id === id)!;

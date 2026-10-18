@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type PointerEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { Count, Icon } from '../../components/GameIcons';
-import { cardOf, type Card } from '../../games/wonders/cards';
+import { cardOf, chainsTo, type Card } from '../../games/wonders/cards';
 import { cardText, COLOR_NAMES, stageText } from '../../games/wonders/describe';
 import { baseId } from '../../games/wonders/setup';
 import { buildCost, canBuildFree, leftOf, rightOf, stageCost, stagesOf, type Move, type WondersState } from '../../games/wonders/state';
@@ -50,15 +50,29 @@ function CostNow({ state, me, id }: { state: WondersState; me: number; id: strin
   return <Count name="coin" n={cost.total} size={14} />;
 }
 
-/** On a card you can build free through a chain: which of your cards makes it free. */
+/**
+ * The card's chains: which of your cards makes it free now, and which later cards it would
+ * make free (left out once you have them).
+ */
 function ChainNote({ state, me, card }: { state: WondersState; me: number; card: Card }) {
   const city = state.cities[me];
-  const from = card.chainFrom?.find((id) => city.cards.includes(id));
-  if (!from || city.cards.includes(card.id)) return null;
+  const owned = city.cards.includes(card.id);
+  const from = owned ? undefined : card.chainFrom?.find((id) => city.cards.includes(id));
+  const next = chainsTo(card.id).filter((c) => !city.cards.includes(c.id));
+  if (!from && !next.length) return null;
   return (
-    <span className="chain-note">
-      <Icon name="chain" size={14} /> Free: you have {cardOf(from).name}
-    </span>
+    <>
+      {from && (
+        <span className="chain-note">
+          <Icon name="chain" size={14} /> Free: you have {cardOf(from).name}
+        </span>
+      )}
+      {next.length > 0 && (
+        <span className="chain-note next">
+          <Icon name="chain" size={14} /> Makes free later: {next.map((c) => `${c.name} (Age ${AGES[c.age - 1]})`).join(', ')}
+        </span>
+      )}
+    </>
   );
 }
 
