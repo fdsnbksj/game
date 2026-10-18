@@ -178,6 +178,8 @@
   --skill-speed: #10b981;
   --skill-memory: #ef4444;
   --skill-roulette: #8b5cf6;
+  --skill-fast: #0ea5e9;
+  --skill-jackpot: #db2777;
   --hero-hp: #22a34a;
   --hero-hp-low: #dc2626;
   --hero-wheel-red: #dc2626;
@@ -3180,17 +3182,12 @@ button.seat:disabled {
   font-size: var(--fs-sm);
 }
 
-.battle-menu {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-}
-
-.battle-menu .skill-button {
+.skill-drawn {
+  display: flex;
   flex-direction: column;
+  align-items: center;
   gap: 2px;
-  min-height: 72px;
-  border: none;
+  padding: 12px;
   border-radius: var(--r-lg);
   background:
     radial-gradient(80% 90% at 85% 0%, var(--on-feature-soft), transparent 60%),
@@ -3198,34 +3195,110 @@ button.seat:disabled {
     var(--skill, var(--accent));
   box-shadow: 0 8px 18px color-mix(in srgb, var(--skill, var(--accent)) 35%, transparent);
   color: var(--on-feature);
+  animation: result-in 0.3s ease-out;
 }
 
-.battle-menu .skill-button:active:not(:disabled) {
-  background: var(--skill, var(--accent));
+.skill-drawn strong {
+  font-size: var(--fs-lg);
 }
 
-.battle-menu .skill-button:disabled {
-  box-shadow: none;
-  opacity: 0.4;
+.skill-drawn small {
+  opacity: 0.85;
+  font-size: var(--fs-cap);
 }
 
 .skill-stopwatch { --skill: var(--skill-stopwatch); }
 .skill-speed { --skill: var(--skill-speed); }
 .skill-memory { --skill: var(--skill-memory); }
 .skill-roulette { --skill: var(--skill-roulette); }
+.skill-fast { --skill: var(--skill-fast); }
+.skill-jackpot { --skill: var(--skill-jackpot); }
 
-.battle-menu .skill-button small {
-  color: var(--on-feature);
-  opacity: 0.85;
+/* Fast as Fuck: a big pad to tap, and in the show a bar per side. */
+.tap-pad {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-height: 180px;
+  border: none;
+  border-radius: var(--r-lg);
+  background: var(--skill-fast);
+  color: var(--on-dark);
+  font: inherit;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
-.skill-button strong {
-  font-size: var(--fs-base);
+.tap-pad:active:not(.done) {
+  transform: scale(0.98);
 }
 
-.battle-menu small {
-  color: var(--label-3);
-  font-size: var(--fs-cap);
+.tap-pad strong {
+  font-size: 56px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.tap-pad.done {
+  background: var(--fill-3);
+  color: var(--label-2);
+}
+
+.tap-timer {
+  background: var(--skill-fast);
+}
+
+.tap-track {
+  width: min(84vw, 340px);
+  height: 22px;
+  margin-top: 4px;
+  border-radius: 4px;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+
+.tap-bar {
+  display: block;
+  height: 100%;
+  background: var(--skill-fast);
+  transition: width 1.2s ease-out;
+}
+
+/* Jackpot's show: three reels. */
+.show-slots {
+  display: flex;
+  gap: 8px;
+  padding: 14px;
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-2);
+}
+
+.slot-reel {
+  display: grid;
+  place-items: center;
+  width: 72px;
+  height: 88px;
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  font-size: 44px;
+  filter: blur(1px);
+}
+
+.slot-reel.stopped {
+  filter: none;
+}
+
+.slot-reel.match {
+  background: color-mix(in srgb, var(--skill-jackpot) 25%, var(--surface));
+  box-shadow: inset 0 0 0 3px var(--skill-jackpot);
+}
+
+.show-slots.jackpot {
+  animation: result-in 0.3s ease-out;
 }
 
 .hero-play {

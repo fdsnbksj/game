@@ -103,7 +103,7 @@ export function Home() {
         <div className="home-more">
           <SummaryRow label="How to play" title="How to play Hero Gambit">
             <div className="how-to">
-              <p>You and your friend each have 200 HP and the same four skills, each on your own phone or taking turns on one. Take turns using one skill; bring the other's HP to 0 to win. After you use a skill it rests a few of your turns: Stopwatch never, I'm Speed 1, Memory 2, Roulette 3.</p>
+              <p>You and your friend each have 200 HP, each on your own phone or taking turns on one. Take turns; each turn the game picks your skill: Stopwatch, I'm Speed, Memory or Fast as Fuck. Every hit's damage varies a little. At 30 HP or less it's your last stand: you get Roulette or Jackpot instead, a gamble for an instant kill. Bring the other's HP to 0 to win.</p>
               <p>
                 <strong>Stopwatch:</strong> you're shown a time between 1.00 and 10.00 seconds, like 4.37. Press Start, count, press Stop. Then your friend tries the same time: only if you were closer does your hit land, and the closer you are, the harder it is. Within 0.05 s is Perfect: a sure crit.
               </p>
@@ -111,10 +111,16 @@ export function Home() {
                 <strong>I'm Speed:</strong> tap Ready, wait for the light to turn green, then tap. Then your friend gets their own light: only if you were faster does your hit land, and the faster, the harder; 0.15 s or less is a sure crit. Tap on red and you miss.
               </p>
               <p>
-                <strong>Roulette:</strong> pick a number from 0 to 36. If the ball lands on it, it's an instant kill; if not, you punch.
+                <strong>Fast as Fuck:</strong> tap the pad as fast as you can for 5 seconds. Then your friend does: only if you tapped more does your hit land, 5 for every tap more (up to 100).
+              </p>
+              <p>
+                <strong>Roulette</strong> (last stand): pick a number from 0 to 36. If the ball lands on it, it's an instant kill; if not, you punch.
               </p>
               <p>
                 <strong>Memory:</strong> a 20-digit number shows for 5 seconds, then hides; type it back. The first wrong digit ends your go. Then your friend gets their own number: only if you remembered more does your hit of 90 land; all 20 is a sure crit.
+              </p>
+              <p>
+                <strong>Jackpot</strong> (last stand): pull, and three reels spin. Three alike is an instant kill, a pair hits for double (80), nothing alike does nothing.
               </p>
             </div>
           </SummaryRow>
