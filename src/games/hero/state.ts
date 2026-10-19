@@ -8,7 +8,7 @@ import { EVERYDAY, HERO_STATS, HERO_TREE, LAST_STAND, LAST_STAND_HP, type SkillI
 // a fight's moves from its seed, skipping any the game refuses, so both phones come out the same.
 
 /** Bump when a change would make old fights replay differently. */
-export const HERO_VERSION = 14;
+export const HERO_VERSION = 15;
 
 export type Side = 0 | 1;
 

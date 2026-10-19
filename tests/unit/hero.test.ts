@@ -30,10 +30,10 @@ const plain = HERO_STATS;
 const NAMES: [{ name: string }, { name: string }] = [{ name: 'A' }, { name: 'B' }];
 
 describe('every hero', () => {
-  it('is the same: 200 HP and every skill at level 1', () => {
-    expect(HERO_STATS).toEqual({ hp: 200, def: 0, crit: 5, critDmg: 150 });
+  it('is the same: 150 HP and every skill at level 1', () => {
+    expect(HERO_STATS).toEqual({ hp: 150, def: 0, crit: 5, critDmg: 150 });
     expect([HERO_TREE.stopwatch, HERO_TREE.speed, HERO_TREE.memory, HERO_TREE.fast, HERO_TREE.roulette, HERO_TREE.jackpot]).toEqual([1, 1, 1, 1, 1, 1]);
-    expect(start('same', NAMES).hp).toEqual([200, 200]);
+    expect(start('same', NAMES).hp).toEqual([150, 150]);
   });
 });
 
@@ -45,9 +45,9 @@ describe('the skill each turn', () => {
       const s = start(`pick${i}`, NAMES);
       seen.add(skillOf(s));
       expect(skillOf(s)).toBe(skillOf(start(`pick${i}`, NAMES)));
-      const low: HeroState = { ...s, hp: s.turn === 0 ? [30, 200] : [200, 30] };
+      const low: HeroState = { ...s, hp: s.turn === 0 ? [30, 150] : [150, 30] };
       last.add(skillOf(low));
-      const notLow: HeroState = { ...s, hp: s.turn === 0 ? [31, 200] : [200, 31] };
+      const notLow: HeroState = { ...s, hp: s.turn === 0 ? [31, 150] : [150, 31] };
       expect(EVERYDAY).toContain(skillOf(notLow));
     }
     expect([...seen].sort()).toEqual([...EVERYDAY].sort());
@@ -245,7 +245,7 @@ describe('a fight', () => {
     expect(apply(s, { skill: 'tapback', taps: 3 }, attacker)).toBeNull();
     const done = apply(s, { skill: 'tapback', taps: 35 }, defender)!;
     expect([done.log[0].by, done.log[0].skill, done.log[0].detail]).toEqual([attacker, 'fast', { skill: 'fast', taps: 40, theirTaps: 35, won: true }]);
-    expect(done.hp[defender]).toBe(200 - done.log[0].damage);
+    expect(done.hp[defender]).toBe(150 - done.log[0].damage);
     expect([done.pending, done.turn]).toEqual([null, defender]);
   });
 
@@ -277,7 +277,7 @@ describe('a fight', () => {
     expect(apply(s, { skill: 'recall', count: 1 }, defender)).toBeNull();
     expect(apply(s, { skill: 'answer', ms: -1 }, defender)).toBeNull();
     const closer = apply(s, { skill: 'answer', ms: target - 40 }, defender)!;
-    expect([closer.log[0].by, closer.log[0].damage, closer.turn, closer.hp[defender]]).toEqual([attacker, 0, defender, 200]);
+    expect([closer.log[0].by, closer.log[0].damage, closer.turn, closer.hp[defender]]).toEqual([attacker, 0, defender, 150]);
     const tie = apply(s, { skill: 'answer', ms: target - 100 }, defender)!;
     expect(tie.log[0].damage).toBe(0);
     const worse = apply(s, { skill: 'answer', ms: target + 300 }, defender)!;
@@ -334,6 +334,6 @@ describe('a fight', () => {
       const { state } = fightOut(`golden${i}`);
       return `${state.winner}:${state.hp.join(',')}:${state.log.length}`;
     });
-    expect(hashSeed(results.join('|'))).toBe(3460064540);
+    expect(hashSeed(results.join('|'))).toBe(2001262281);
   });
 });

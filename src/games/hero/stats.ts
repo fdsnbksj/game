@@ -14,7 +14,7 @@ export const LAST_STAND: readonly SkillId[] = ['roulette', 'jackpot'];
 export const LAST_STAND_HP = 30;
 export const SKILLS: readonly SkillId[] = [...EVERYDAY, ...LAST_STAND];
 
-/** Every hero: each skill at level 1, and 200 HP (the user's ask, 2026-10-17; it was 100). */
+/** Every hero: each skill at level 1, and 150 HP (the user's ask, 2026-10-19; it was 200, and 100 before that). */
 export const HERO_TREE: Tree = { stopwatch: 1, speed: 1, memory: 1, fast: 1, roulette: 1, jackpot: 1, hp: 0, def: 0, crit: 0, critDmg: 0 };
 
 export interface Stats {
@@ -28,7 +28,7 @@ export interface Stats {
 
 export function statsOf(tree: Tree): Stats {
   return {
-    hp: 200 + 15 * tree.hp,
+    hp: 150 + 15 * tree.hp,
     def: 2 * tree.def,
     crit: Math.min(50, 5 + 3 * tree.crit),
     critDmg: 150 + 10 * tree.critDmg,
