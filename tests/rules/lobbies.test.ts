@@ -31,6 +31,7 @@ const GAMES = [
   { path: 'heroDuels', room: { host: 'ann', playerIds: ['ann', 'bob'], names: { ann: 'Ann', bob: 'Bob' }, version: 13 } },
   { path: 'wonders', room: { host: 'ann', seats: ['ann', 'bob'], names: { ann: 'Ann', bob: 'Bob' }, sides: 'A' } },
   { path: 'bluffs', room: { host: 'ann', seats: ['ann', 'bob'], names: { ann: 'Ann', bob: 'Bob' } } },
+  { path: 'traps', room: { host: 'ann', seats: ['ann', 'bob'], names: { ann: 'Ann', bob: 'Bob' }, version: 1 } },
 ];
 
 for (const { path, room } of GAMES) {

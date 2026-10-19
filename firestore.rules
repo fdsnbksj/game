@@ -27,7 +27,7 @@ service cloud.firestore {
         && isValidName(request.resource.data.displayName);
     }
 
-    // Every party game's room (rooms, heroDuels, wonders, bluffs). A player on the
+    // Every party game's room (rooms, heroDuels, wonders, bluffs, traps). A player on the
     // room's page says they're still there (`seenAt`) about once a minute. A lobby nobody
     // has been in for 10 minutes, or a started game nobody has been in for 30 (or, before
     // its first heartbeat, made that long ago), may be deleted by anyone: that's how the
@@ -696,6 +696,125 @@ service cloud.firestore {
     }
 
     function isBluffFinish() {
+      let before = resource.data;
+      let after = request.resource.data;
+      return before.status == 'playing' && request.auth.uid in before.seats
+        && after.diff(before).affectedKeys().hasOnly(['status', 'endedAt'])
+        && after.status == 'done'
+        && after.endedAt == request.time;
+    }
+
+    // ---------- Trap Tower ----------
+    // 2–4 seats, no bots. The room records the version that opened it, since runs replay
+    // only on the same build. Everyone picks, places and runs at once, appending their own
+    // moves in order; every phone replays them (a run is its inputs) and skips any refused.
+
+    function trapsRoom(code) {
+      return get(/databases/$(database)/documents/traps/$(code)).data;
+    }
+
+    function isTrapsPlayer(code) {
+      return request.auth != null && request.auth.uid in trapsRoom(code).seats;
+    }
+
+    function isTrapsMove(move) {
+      return move is map
+        && move.keys().hasOnly(['type', 'round', 'index', 'x', 'y', 'rot', 'log'])
+        && move.type in ['pick', 'place', 'run']
+        && move.round is int
+        && (!('log' in move) || (move.log is string && move.log.size() <= 20000));
+    }
+
+    match /traps/{code} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+        && code.matches('[A-Z]{4}')
+        && hasExactly(request.resource.data, ['host', 'seats', 'names', 'status', 'version', 'createdAt'])
+        && request.resource.data.host == request.auth.uid
+        && request.resource.data.seats == [request.auth.uid]
+        && request.resource.data.names.keys().hasOnly([request.auth.uid])
+        && isValidName(request.resource.data.names[request.auth.uid])
+        && request.resource.data.status == 'lobby'
+        && request.resource.data.version is int
+        && request.resource.data.createdAt == request.time;
+      allow update: if request.auth != null
+        && (isTrapsJoin() || isTrapsLeave() || isTrapsSeating() || isTrapsStart() || isTrapsFinish() || isTrapsRematch(code) || isHeartbeat(resource.data.seats));
+      allow delete: if isAbandonedLobby() || isAbandonedGame(resource.data);
+
+      match /moves/{n} {
+        allow read, delete: if isAbandonedGame(get(/databases/$(database)/documents/traps/$(code)).data);
+        allow read: if isTrapsPlayer(code);
+        allow create: if isTrapsPlayer(code)
+          && trapsRoom(code).status == 'playing'
+          && hasExactly(request.resource.data, ['n', 'by', 'move'])
+          && request.resource.data.by == request.auth.uid
+          && request.resource.data.n is int && request.resource.data.n >= 0
+          && string(request.resource.data.n) == n
+          && (request.resource.data.n == 0
+            || exists(/databases/$(database)/documents/traps/$(code)/moves/$(string(request.resource.data.n - 1))))
+          && isTrapsMove(request.resource.data.move);
+      }
+    }
+
+    function isTrapsJoin() {
+      let before = resource.data;
+      let after = request.resource.data;
+      return before.status == 'lobby'
+        && !(request.auth.uid in before.seats)
+        && before.seats.size() < 4
+        && after.diff(before).affectedKeys().hasOnly(['seats', 'names'])
+        && after.seats == before.seats.concat([request.auth.uid])
+        && after.names.diff(before.names).affectedKeys().hasOnly([request.auth.uid])
+        && isValidName(after.names[request.auth.uid]);
+    }
+
+    function isTrapsLeave() {
+      let before = resource.data;
+      let after = request.resource.data;
+      return before.status == 'lobby'
+        && request.auth.uid in before.seats && request.auth.uid != before.host
+        && after.diff(before).affectedKeys().hasOnly(['seats'])
+        && after.seats == before.seats.removeAll([request.auth.uid]);
+    }
+
+    // The host's lobby control: the seating order, the same people.
+    function isTrapsSeating() {
+      let before = resource.data;
+      let after = request.resource.data;
+      return before.status == 'lobby' && request.auth.uid == before.host
+        && after.diff(before).affectedKeys().hasOnly(['seats'])
+        && after.seats.size() == before.seats.size()
+        && after.seats.toSet() == before.seats.toSet();
+    }
+
+    function isTrapsStart() {
+      let before = resource.data;
+      let after = request.resource.data;
+      return before.status == 'lobby' && request.auth.uid == before.host
+        && before.seats.size() >= 2 && before.seats.size() <= 4
+        && after.diff(before).affectedKeys().hasOnly(['status', 'seed', 'startedAt'])
+        && after.status == 'playing'
+        && after.seed is string && after.seed.size() >= 6 && after.seed.size() <= 40
+        && after.startedAt == request.time;
+    }
+
+    // Another game with the same seats, once one is over: `from` is exactly where the
+    // room's moves end, so the new game's moves follow on.
+    function isTrapsRematch(code) {
+      let before = resource.data;
+      let after = request.resource.data;
+      return before.status == 'done' && request.auth.uid in before.seats
+        && after.diff(before).affectedKeys().hasOnly(['status', 'seed', 'startedAt', 'from'])
+        && after.status == 'playing'
+        && after.seed is string && after.seed.size() >= 6 && after.seed.size() <= 40
+        && after.seed != before.seed
+        && after.startedAt == request.time
+        && after.from is int && after.from >= 1
+        && exists(/databases/$(database)/documents/traps/$(code)/moves/$(string(after.from - 1)))
+        && !exists(/databases/$(database)/documents/traps/$(code)/moves/$(string(after.from)));
+    }
+
+    function isTrapsFinish() {
       let before = resource.data;
       let after = request.resource.data;
       return before.status == 'playing' && request.auth.uid in before.seats
