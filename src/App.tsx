@@ -13,9 +13,6 @@ import { LocalFight } from './screens/hero/LocalFight';
 import { BluffHome } from './screens/bluff/BluffHome';
 import { BluffRoom } from './screens/bluff/BluffRoom';
 import { SkyHome } from './screens/sky/SkyHome';
-import { TrapsHome } from './screens/traps/TrapsHome';
-import { TrapsLocal } from './screens/traps/TrapsLocal';
-import { TrapsRoom } from './screens/traps/TrapsRoom';
 import { SkyPlay } from './screens/sky/SkyPlay';
 import { WorldShell } from './screens/world/WorldShell';
 import { Play } from './screens/Play';
@@ -53,9 +50,6 @@ export function App() {
         <Route path="/wonders/:code" element={<WondersRoom />} />
         <Route path="/bluff" element={<BluffHome />} />
         <Route path="/bluff/:code" element={<BluffRoom />} />
-        <Route path="/traps" element={<TrapsHome />} />
-        <Route path="/traps/local" element={<TrapsLocal />} />
-        <Route path="/traps/:code" element={<TrapsRoom />} />
         <Route path="/sky" element={<SkyHome />} />
         <Route path="/sky/play" element={<SkyPlay />} />
         <Route path="/hero" element={<Home />} />

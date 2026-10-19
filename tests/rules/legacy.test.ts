@@ -121,3 +121,23 @@ describe('retired Rival Wonders rooms', () => {
     await assertFails(deleteDoc(doc(db, 'duels', 'ABCD')));
   });
 });
+
+// Trap Tower was removed; its rooms and moves stay, closed.
+describe('retired Trap Tower rooms', () => {
+  beforeEach(async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      const db = asModular(ctx.firestore());
+      await setDoc(doc(db, 'traps', 'ABCD'), { host: 'alice', seats: ['alice', 'bob'], names: { alice: 'Alice', bob: 'Bob' }, status: 'playing', version: 1, seed: 'seed123' });
+      await setDoc(doc(db, 'traps', 'ABCD', 'moves', '0'), { n: 0, by: 'alice', move: { type: 'pick', round: 0, index: 0 } });
+    });
+  });
+
+  it('closes them to their players too', async () => {
+    const db = dbFor('alice');
+    await assertFails(getDoc(doc(db, 'traps', 'ABCD')));
+    await assertFails(setDoc(doc(db, 'traps', 'WXYZ'), { host: 'alice', seats: ['alice'], names: { alice: 'Alice' }, status: 'lobby', version: 1, createdAt: serverTimestamp() }));
+    await assertFails(getDoc(doc(db, 'traps', 'ABCD', 'moves', '0')));
+    await assertFails(setDoc(doc(db, 'traps', 'ABCD', 'moves', '1'), { n: 1, by: 'alice', move: {} }));
+    await assertFails(deleteDoc(doc(db, 'traps', 'ABCD')));
+  });
+});

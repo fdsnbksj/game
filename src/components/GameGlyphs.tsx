@@ -62,18 +62,6 @@ export const BluffGlyph = () => (
   </svg>
 );
 
-/** A tower of ledges with a flag on top: Trap Tower. */
-export const TrapsGlyph = () => (
-  <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true">
-    <rect x="3" y="19.5" width="18" height="2" rx="1" fill="currentColor" />
-    <rect x="4" y="14.5" width="7" height="2" rx="1" fill="currentColor" opacity="0.8" />
-    <rect x="13" y="9.5" width="7" height="2" rx="1" fill="currentColor" opacity="0.8" />
-    <path d="M15.5 9.5V2.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-    <path d="M15.5 2.8l4.5 1.7-4.5 1.7z" fill="currentColor" />
-    <path d="M6 19.5l1.2-2.2 1.2 2.2zM8.6 19.5l1.2-2.2 1.2 2.2z" fill="currentColor" opacity="0.6" />
-  </svg>
-);
-
 /** Each game's emblem by its id, for lists built from data. */
 export const GAME_GLYPHS = {
   avalon: AvalonGlyph,
@@ -82,5 +70,4 @@ export const GAME_GLYPHS = {
   hero: HeroGlyph,
   sky: SkyGlyph,
   bluff: BluffGlyph,
-  traps: TrapsGlyph,
 } as const;
