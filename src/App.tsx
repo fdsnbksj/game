@@ -14,6 +14,8 @@ import { BluffHome } from './screens/bluff/BluffHome';
 import { BluffRoom } from './screens/bluff/BluffRoom';
 import { BeadsHome } from './screens/beads/BeadsHome';
 import { BeadsPlay } from './screens/beads/BeadsPlay';
+import { GlideHome } from './screens/glide/GlideHome';
+import { GlidePlay } from './screens/glide/GlidePlay';
 import { SkyHome } from './screens/sky/SkyHome';
 import { SkyPlay } from './screens/sky/SkyPlay';
 import { WorldShell } from './screens/world/WorldShell';
@@ -56,6 +58,8 @@ export function App() {
         <Route path="/sky/play" element={<SkyPlay />} />
         <Route path="/beads" element={<BeadsHome />} />
         <Route path="/beads/play" element={<BeadsPlay />} />
+        <Route path="/glide" element={<GlideHome />} />
+        <Route path="/glide/play" element={<GlidePlay />} />
         <Route path="/hero" element={<Home />} />
         <Route path="/hero/local" element={<LocalFight />} />
         <Route path="/hero/:code" element={<HeroRoom />} />

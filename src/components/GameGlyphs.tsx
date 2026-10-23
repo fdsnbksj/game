@@ -76,6 +76,15 @@ export const BeadsGlyph = () => (
   </svg>
 );
 
+/** A block sliding towards its ring: Glide. */
+export const GlideGlyph = () => (
+  <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true">
+    <rect x="3" y="8" width="8" height="8" rx="1.8" fill="currentColor" />
+    <path d="M13 10h3M13 14h3" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" opacity="0.55" />
+    <rect x="17" y="8.5" width="5" height="7" rx="1.4" fill="none" stroke="currentColor" strokeWidth="1.6" />
+  </svg>
+);
+
 /** Each game's emblem by its id, for lists built from data. */
 export const GAME_GLYPHS = {
   avalon: AvalonGlyph,
@@ -85,4 +94,5 @@ export const GAME_GLYPHS = {
   sky: SkyGlyph,
   bluff: BluffGlyph,
   beads: BeadsGlyph,
+  glide: GlideGlyph,
 } as const;
