@@ -123,6 +123,23 @@
   --bluff-flash-core: #fef08a;
   --bluff-smoke: rgb(161 161 170 / 0.6);
   --bluff-bang-flash: rgb(220 38 38 / 0.35);
+  --game-beads: #db2777;
+  --game-beads-soft: rgb(219 39 119 / 0.12);
+  /* Bead Sort: the tubes, and one colour per bead (up to nine on a level). */
+  --beads-tube: #ffffff;
+  --beads-tube-edge: #c4c4cc;
+  --beads-tube-done: #16a34a;
+  --beads-hint: #f59e0b;
+  --beads-shine: rgb(255 255 255 / 0.45);
+  --beads-1: #ef4444;
+  --beads-2: #f59e0b;
+  --beads-3: #facc15;
+  --beads-4: #22c55e;
+  --beads-5: #06b6d4;
+  --beads-6: #2563eb;
+  --beads-7: #8b5cf6;
+  --beads-8: #ec4899;
+  --beads-9: #78350f;
   --game-sky: #0ea5e9;
   --game-sky-soft: rgb(14 165 233 / 0.14);
   /* Sky Ace's world, drawn on a canvas: grounds, the ship, enemies, shots and pickups. */
@@ -2588,6 +2605,7 @@ button.seat:disabled {
 .tile-wonders { --tile: var(--game-wonders); }
 .tile-sky { --tile: var(--game-sky); }
 .tile-bluff { --tile: var(--game-bluff); }
+.tile-beads { --tile: var(--game-beads); }
 
 .hub-tile-art {
   display: grid;
@@ -4859,4 +4877,124 @@ button.seat:disabled {
   height: 15px;
   border-radius: 2px;
   background: var(--bluff-card-back);
+}
+
+/* Home's tile for a game added lately. */
+.hub-tile-art {
+  position: relative;
+}
+
+.hub-new {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--on-feature);
+  color: var(--tile);
+  font-size: var(--fs-label);
+  font-weight: 750;
+}
+
+/* Bead Sort: a shelf of tubes in the middle, the controls under the thumb. */
+.beads-play {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.beads-shelf {
+  display: grid;
+  grid-template-columns: repeat(var(--per-row), minmax(0, 64px));
+  justify-content: center;
+  gap: 26px 10px;
+  margin-top: 28px;
+}
+
+.beads-tube {
+  display: flex;
+  flex-direction: column-reverse;
+  align-items: center;
+  gap: 4px;
+  aspect-ratio: 1 / 3.5;
+  padding: 6px 0;
+  border: 2px solid var(--beads-tube-edge);
+  border-top: none;
+  border-radius: 4px 4px 999px 999px;
+  background: var(--beads-tube);
+  font: inherit;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: transform var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease);
+}
+
+.beads-tube.picked {
+  border-color: var(--game-beads);
+}
+
+.beads-tube.done {
+  border-color: var(--beads-tube-done);
+}
+
+.beads-tube.tip-from,
+.beads-tube.tip-to {
+  border-color: var(--beads-hint);
+  border-style: dashed;
+}
+
+.beads-tube.tip-from {
+  border-style: solid;
+}
+
+.beads-tube.shake {
+  animation: beads-shake 260ms var(--ease);
+}
+
+.bead {
+  width: 76%;
+  aspect-ratio: 1;
+  flex: none;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 34% 30%, var(--beads-shine) 0 18%, transparent 20%),
+    var(--bead);
+  transition: transform var(--dur-fast) var(--ease);
+}
+
+.bead.lifted {
+  transform: translateY(-22px);
+}
+
+.beads-note {
+  min-height: 1.5em;
+  text-align: center;
+}
+
+.beads-controls {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.beads-controls .button,
+.beads-play > .button {
+  min-height: 52px;
+}
+
+@keyframes beads-shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bead,
+  .beads-tube {
+    transition: none;
+  }
+
+  .beads-tube.shake {
+    animation: none;
+  }
 }

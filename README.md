@@ -45,6 +45,7 @@ npm run build       # type-check + production build
 | `src/games/hero/`, `src/services/hero.ts`, `src/screens/hero/` | Hero Gambit: the one hero, the six skills, the turn's skill draw and the turns as pure code; fights as rooms and moves in Firestore |
 | `src/games/avalon/`, `src/services/avalon.ts` | Avalon: rules, dealing and state as pure code; rooms in Firestore |
 | `src/games/wonders/`, `src/services/wonders.ts`, `src/screens/wonders/` | Ancient Wonders: cards, boards, neighbour trade, simultaneous turns, scoring and bots as pure code; rooms and moves in Firestore |
+| `src/games/beads/`, `src/screens/beads/` | Bead Sort: a one-player tube-sorting puzzle; levels, moves, solver and hints as pure code, saved on the phone |
 | `src/services/` | Firestore reads and writes: session, players, solves and rankings |
 | `tests/unit/`, `tests/rules/` | Puzzle tests, and Firestore rules tests |
 | `firestore.rules` | The only server-side validation (Spark has no Cloud Functions) |

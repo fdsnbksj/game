@@ -8,7 +8,7 @@ describe('the list of games', () => {
   it('lists every game once', () => {
     const ids = GAMES.map((g) => g.id);
     expect(new Set(ids).size).toBe(ids.length);
-    expect([...ids].sort()).toEqual(['avalon', 'bluff', 'hero', 'nonograms', 'sky', 'wonders']);
+    expect([...ids].sort()).toEqual(['avalon', 'beads', 'bluff', 'hero', 'nonograms', 'sky', 'wonders']);
   });
 
   it('sends every game to a route that exists', () => {
@@ -18,7 +18,7 @@ describe('the list of games', () => {
   it('reopens on every game now that they all show', () => {
     const lastPage = readFileSync(new URL('../../src/lastPage.ts', import.meta.url), 'utf8');
     const pages = new RegExp(lastPage.match(/const PAGES = \/(.*)\/;/)![1]);
-    for (const path of ['/nonograms', '/avalon/ABCD', '/wonders/ABCD', '/hero', '/hero/local', '/hero/ABCD', '/sky', '/sky/play', '/bluff', '/bluff/ABCD', '/account'])
+    for (const path of ['/nonograms', '/avalon/ABCD', '/wonders/ABCD', '/hero', '/hero/local', '/hero/ABCD', '/sky', '/sky/play', '/beads', '/beads/play', '/bluff', '/bluff/ABCD', '/account'])
       expect(pages.test(path)).toBe(true);
     for (const path of ['/zone/keep', '/brawl', '/brawl/ABCD', '/hero/abcd', '/elsewhere']) expect(pages.test(path)).toBe(false);
   });

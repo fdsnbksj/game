@@ -90,6 +90,7 @@ export function GameList() {
               <Link key={game.id} className={`hub-tile tile-${game.id}`} to={game.path} style={{ '--i': i } as CSSProperties}>
                 <span className="hub-tile-art">
                   <Glyph />
+                  {game.isNew && <span className="hub-new">New</span>}
                 </span>
                 <span className="hub-tile-text">
                   <strong>{game.name}</strong>

@@ -62,6 +62,20 @@ export const BluffGlyph = () => (
   </svg>
 );
 
+/** Two tubes of beads, one sorted: Bead Sort. */
+export const BeadsGlyph = () => (
+  <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true">
+    <rect x="3.5" y="3" width="7" height="18.5" rx="3.5" fill="none" stroke="currentColor" strokeWidth="1.6" />
+    <rect x="13.5" y="3" width="7" height="18.5" rx="3.5" fill="none" stroke="currentColor" strokeWidth="1.6" />
+    {[17.8, 13.6, 9.4].map((y, i) => (
+      <circle key={`a${y}`} cx="7" cy={y} r="1.9" fill="currentColor" opacity={[1, 0.45, 1][i]} />
+    ))}
+    {[17.8, 13.6].map((y) => (
+      <circle key={`b${y}`} cx="17" cy={y} r="1.9" fill="currentColor" />
+    ))}
+  </svg>
+);
+
 /** Each game's emblem by its id, for lists built from data. */
 export const GAME_GLYPHS = {
   avalon: AvalonGlyph,
@@ -70,4 +84,5 @@ export const GAME_GLYPHS = {
   hero: HeroGlyph,
   sky: SkyGlyph,
   bluff: BluffGlyph,
+  beads: BeadsGlyph,
 } as const;
