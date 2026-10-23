@@ -1,4 +1,4 @@
-import { useState, type CSSProperties } from 'react';
+import { useRef, useState, type CSSProperties } from 'react';
 import { Page } from '../../components/Page';
 import { SummaryRow } from '../../components/SummaryRow';
 import { CAPACITY, hint, isSolved, isStuck, newGame, play, pourCount, topRun, undo, type BeadsGame, type Move } from '../../games/beads/beads';
@@ -12,6 +12,7 @@ export function BeadsPlay() {
   const [{ game, best }, setState] = useState(loadBeads);
   const [picked, setPicked] = useState<number | null>(null);
   const [shake, setShake] = useState<number | null>(null);
+  const plan = useRef<{ moves: Move[]; from: number } | null>(null);
   const [tip, setTip] = useState<Move | 'none' | null>(null);
   const solved = isSolved(game.tubes);
   const stuck = isStuck(game.tubes);
@@ -48,7 +49,8 @@ export function BeadsPlay() {
   };
 
   const askHint = () => {
-    const move = hint(game.tubes);
+    const { move, plan: next } = hint(game, plan.current);
+    plan.current = next;
     setPicked(null);
     setTip(move ?? 'none');
   };
@@ -63,7 +65,7 @@ export function BeadsPlay() {
           <HowTo />
         </SummaryRow>
 
-        <div className="beads-shelf" style={{ '--per-row': perRow } as CSSProperties}>
+        <div className={rows === 2 ? 'beads-shelf two-rows' : 'beads-shelf'} style={{ '--per-row': perRow } as CSSProperties}>
           {game.tubes.map((tube, i) => {
             const lift = picked === i ? topRun(tube) : 0;
             const classes = ['beads-tube'];

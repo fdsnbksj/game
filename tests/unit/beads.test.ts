@@ -15,6 +15,7 @@ import {
   pourCount,
   replay,
   solve,
+  solveShortest,
   SPARE_TUBES,
   topRun,
   undo,
@@ -103,7 +104,7 @@ describe('moves', () => {
       [1, 0, 1, 0],
     ];
     expect(isStuck(tubes)).toBe(true);
-    expect(hint(tubes)).toBeNull();
+    expect(hint({ level: 1, tubes, moves: [] }, null).move).toBeNull();
   });
 
   it('undo one at a time, back to the start', () => {
@@ -117,10 +118,41 @@ describe('moves', () => {
     expect(undo(undo(game))).toEqual(start);
   });
 
-  it('give a hint that leads to sorted', () => {
-    let game = newGame(12);
-    for (let i = 0; i < 200 && !isSolved(game.tubes); i++) game = play(game, hint(game.tubes)!);
-    expect(isSolved(game.tubes)).toBe(true);
+  it('give a hint that leads to sorted, asking again after every move', () => {
+    // A real bug: each hint solved afresh, so following them one by one wandered and never finished.
+    for (const level of [1, 3, 10, 12, 30]) {
+      let game = newGame(level);
+      let plan = null;
+      for (let i = 0; i < 200 && !isSolved(game.tubes); i++) {
+        const next = hint(game, plan);
+        plan = next.plan;
+        game = play(game, next.move!);
+      }
+      expect(isSolved(game.tubes)).toBe(true);
+    }
+  });
+
+  it('hints follow a shortest way when one can be found', () => {
+    const game = newGame(1);
+    const shortest = solveShortest(game.tubes)!;
+    expect(shortest.length).toBeLessThanOrEqual(solve(game.tubes)!.length);
+    let g = game;
+    let plan = null;
+    for (let i = 0; i < shortest.length; i++) {
+      const next = hint(g, plan);
+      plan = next.plan;
+      g = play(g, next.move!);
+    }
+    expect(isSolved(g.tubes)).toBe(true);
+  });
+
+  it('a hint is asked afresh after an undo', () => {
+    let game = newGame(2);
+    const first = hint(game, null);
+    game = play(game, first.move!);
+    const second = hint(game, first.plan);
+    game = undo(play(game, second.move!));
+    expect(hint(game, second.plan).move).toEqual(second.move);
   });
 });
 

@@ -4918,10 +4918,18 @@ button.seat:disabled {
 
 .beads-shelf {
   display: grid;
-  grid-template-columns: repeat(var(--per-row), minmax(0, 64px));
+  --tube-w: 64px;
+  grid-template-columns: repeat(var(--per-row), minmax(0, var(--tube-w)));
   justify-content: center;
   gap: 26px 10px;
   margin-top: 28px;
+}
+
+/* Two rows of tubes on a short screen: narrower tubes, so the controls stay on the screen. */
+.beads-shelf.two-rows {
+  --tube-w: clamp(40px, calc((100dvh - 440px) / 7), 64px);
+  gap: 22px 10px;
+  margin-top: 16px;
 }
 
 .beads-tube {
@@ -4935,6 +4943,7 @@ button.seat:disabled {
   border-top: none;
   border-radius: 4px 4px 999px 999px;
   background: var(--beads-tube);
+  overflow: visible;
   font: inherit;
   cursor: pointer;
   touch-action: manipulation;
@@ -4947,6 +4956,7 @@ button.seat:disabled {
 
 .beads-tube.done {
   border-color: var(--beads-tube-done);
+  animation: beads-pop 320ms var(--ease);
 }
 
 .beads-tube.tip-from,
@@ -4994,6 +5004,12 @@ button.seat:disabled {
   min-height: 52px;
 }
 
+@keyframes beads-pop {
+  0% { transform: scale(1); }
+  45% { transform: scale(1.1); }
+  100% { transform: scale(1); }
+}
+
 @keyframes beads-shake {
   0%, 100% { transform: translateX(0); }
   25% { transform: translateX(-4px); }
@@ -5006,7 +5022,8 @@ button.seat:disabled {
     transition: none;
   }
 
-  .beads-tube.shake {
+  .beads-tube.shake,
+  .beads-tube.done {
     animation: none;
   }
 }

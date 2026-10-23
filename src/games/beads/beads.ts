@@ -187,8 +187,58 @@ export function isStuck(tubes: readonly Tube[]) {
   return !isSolved(tubes) && legalMoves(tubes).length === 0;
 }
 
-/** The next move towards sorted, or null when there's no way on from here (time to undo). */
-export function hint(tubes: readonly Tube[]): Move | null {
-  const path = solve(tubes);
-  return path && path.length > 0 ? path[0] : null;
+/** Positions the shortest-way search may try before the hint falls back to any way. */
+export const SHORTEST_LIMIT = 40_000;
+
+/** A shortest way to sorted by breadth-first search, or null if it needs more than `limit` positions. */
+export function solveShortest(tubes: readonly Tube[], limit = SHORTEST_LIMIT): Move[] | null {
+  if (isSolved(tubes)) return [];
+  interface Node {
+    tubes: readonly Tube[];
+    parent: Node | null;
+    move: Move | null;
+  }
+  const seen = new Set<string>([key(tubes)]);
+  let layer: Node[] = [{ tubes, parent: null, move: null }];
+  while (layer.length > 0 && seen.size <= limit) {
+    const next: Node[] = [];
+    for (const node of layer) {
+      for (const move of legalMoves(node.tubes)) {
+        const tubesAfter = pour(node.tubes, move.from, move.to, pourCount(node.tubes, move.from, move.to));
+        const k = key(tubesAfter);
+        if (seen.has(k)) continue;
+        seen.add(k);
+        const child: Node = { tubes: tubesAfter, parent: node, move };
+        if (isSolved(tubesAfter)) {
+          const path: Move[] = [];
+          for (let n: Node | null = child; n?.move; n = n.parent) path.unshift(n.move);
+          return path;
+        }
+        next.push(child);
+      }
+    }
+    layer = next;
+  }
+  return null;
+}
+
+/** A way to sorted for a hint: the shortest if it can be found, else any. */
+export function hintPlan(tubes: readonly Tube[]): Move[] | null {
+  return solveShortest(tubes) ?? solve(tubes);
+}
+
+/**
+ * The next move towards sorted, or null when there's no way on from here (time to undo).
+ * `plan` is the way an earlier hint found, from `from` moves into the game: while the player has followed it, it is
+ * kept, so asking again and again always gets there instead of wandering between different ways.
+ */
+export function hint(game: BeadsGame, plan: { moves: Move[]; from: number } | null): { move: Move | null; plan: { moves: Move[]; from: number } | null } {
+  if (plan) {
+    const done = game.moves.length - plan.from;
+    const followed = done >= 0 && done < plan.moves.length && plan.moves.slice(0, done).every((m, i) => m.from === game.moves[plan.from + i].from && m.to === game.moves[plan.from + i].to);
+    if (followed && pourCount(game.tubes, plan.moves[done].from, plan.moves[done].to) > 0) return { move: plan.moves[done], plan };
+  }
+  const moves = hintPlan(game.tubes);
+  if (!moves || moves.length === 0) return { move: null, plan: null };
+  return { move: moves[0], plan: { moves, from: game.moves.length } };
 }
