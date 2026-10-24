@@ -1,7 +1,7 @@
 import { useState, type CSSProperties } from 'react';
 import { Page } from '../../components/Page';
 import { SummaryRow } from '../../components/SummaryRow';
-import { DOWN, LEFT, RIGHT, UP, hint, isSolved, leaks, masks, newGame, play, undo, watered, type PipesGame } from '../../games/pipes/pipes';
+import { DOWN, LEFT, RIGHT, UP, hint, isSolved, leakSides, leaks, rotate, masks, newGame, play, undo, watered, type PipesGame } from '../../games/pipes/pipes';
 import { HowTo } from './PipesHome';
 import { loadPipes, savePipes } from './save';
 
@@ -51,12 +51,13 @@ export function PipesPlay() {
             const classes = ['pipes-tile'];
             if (wet[cell]) classes.push('wet');
             if (tip?.cell === cell) classes.push('tip');
+            const spill = wet[cell] && !solved ? leakSides(board, now, cell) : 0;
             const arms = ARMS.filter(([side]) => mask & side);
             return (
               <button key={cell} type="button" className={classes.join(' ')} onClick={() => tap(cell)} disabled={solved} aria-label={`${wet[cell] ? 'Wet' : 'Dry'} pipe${open[cell] ? ', open' : ''}`}>
                 <svg viewBox="0 0 10 10" style={{ transform: `rotate(${game.turns[cell] * 90}deg)` }} aria-hidden="true">
                   {arms.map(([side, d]) => (
-                    <path key={side} d={d} className="pipes-pipe" />
+                    <path key={side} d={d} className={spill & rotate(side, game.turns[cell]) ? 'pipes-pipe spill' : 'pipes-pipe'} />
                   ))}
                   {cell === board.source ? <circle cx="5" cy="5" r="3.2" className="pipes-spring" /> : arms.length === 1 ? <circle cx="5" cy="5" r="2.3" className="pipes-end" /> : <circle cx="5" cy="5" r="1.4" className="pipes-joint" />}
                 </svg>
@@ -72,7 +73,7 @@ export function PipesPlay() {
             : tip
               ? `Tap the marked tile ${tip.taps === 1 ? 'once' : `${tip.taps} times`}.`
               : game.moves.length === 0
-                ? 'Tap a tile to turn it. Bring water to every tile.'
+                ? 'Tap a tile to turn it. Bring water to every tile. Orange ends are leaking.'
                 : ' '}
         </p>
 

@@ -118,15 +118,20 @@ export function watered(board: Board, now: readonly number[]): boolean[] {
   return wet;
 }
 
+/** The open sides of one tile that lead nowhere (a bitmask), for drawing where water would spill. */
+export function leakSides(board: Board, now: readonly number[], cell: number): number {
+  let out = 0;
+  for (const side of SIDES) {
+    if (!(now[cell] & side)) continue;
+    const next = neighbour(board.size, cell, side);
+    if (next < 0 || !(now[next] & OPPOSITE[side])) out |= side;
+  }
+  return out;
+}
+
 /** Tiles with a pipe that leads nowhere: off the edge, or into a tile not open back. */
 export function leaks(board: Board, now: readonly number[]): boolean[] {
-  return now.map((mask, cell) =>
-    SIDES.some((side) => {
-      if (!(mask & side)) return false;
-      const next = neighbour(board.size, cell, side);
-      return next < 0 || !(now[next] & OPPOSITE[side]);
-    }),
-  );
+  return now.map((_, cell) => leakSides(board, now, cell) !== 0);
 }
 
 /** Water reaches every tile and no pipe is open. Checked against the pipes, not the answer, so any way that fits counts. */

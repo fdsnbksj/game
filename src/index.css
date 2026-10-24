@@ -5230,6 +5230,10 @@ button.seat:disabled {
   transition: stroke 160ms;
 }
 
+.pipes-pipe.spill {
+  stroke: var(--pipes-hint);
+}
+
 .pipes-joint {
   fill: var(--pipe);
 }

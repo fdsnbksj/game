@@ -9,6 +9,7 @@ import {
   fewestTaps,
   hint,
   isSolved,
+  leakSides,
   leaks,
   makeLevel,
   masks,
@@ -67,6 +68,14 @@ describe('the water', () => {
     expect(watered(g.board, masks(g))).toEqual([true, true, true, false]);
     expect(leaks(g.board, masks(g))).toEqual([false, false, true, true]);
     expect(isSolved(g)).toBe(false);
+  });
+
+  it('says which sides of a tile leak', () => {
+    const g = tiny([RIGHT | DOWN, LEFT, UP | RIGHT, UP]);
+    const now = masks(g);
+    expect(leakSides(g.board, now, 0)).toBe(0);
+    expect(leakSides(g.board, now, 2)).toBe(RIGHT);
+    expect(leakSides(g.board, now, 3)).toBe(UP);
   });
 
   it('solves when every tile is wet and nothing is open', () => {
