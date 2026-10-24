@@ -151,6 +151,16 @@
   --glide-1: #ef4444;
   --glide-2: #2563eb;
   --glide-3: #f59e0b;
+  --game-pipes: #0369a1;
+  --game-pipes-soft: rgb(3 105 161 / 0.12);
+  /* Waterworks: the tiles, dry and wet pipes, the spring and the hint. */
+  --pipes-tile: #ffffff;
+  --pipes-tile-edge: #dfe3ea;
+  --pipes-dry: #9aa3af;
+  --pipes-wet: #0ea5e9;
+  --pipes-spring: #0369a1;
+  --pipes-done: #16a34a;
+  --pipes-hint: #f59e0b;
   --game-sky: #0ea5e9;
   --game-sky-soft: rgb(14 165 233 / 0.14);
   /* Sky Ace's world, drawn on a canvas: grounds, the ship, enemies, shots and pickups. */
@@ -2618,6 +2628,7 @@ button.seat:disabled {
 .tile-bluff { --tile: var(--game-bluff); }
 .tile-beads { --tile: var(--game-beads); }
 .tile-glide { --tile: var(--game-glide); }
+.tile-pipes { --tile: var(--game-pipes); }
 
 .hub-tile-art {
   display: grid;
@@ -5153,5 +5164,121 @@ button.seat:disabled {
 
   .glide-block.shake .glide-face {
     animation: none;
+  }
+}
+
+/* Waterworks: the pipes in the middle, the controls under the thumb. */
+.pipes-play {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.pipes-board {
+  display: grid;
+  grid-template-columns: repeat(var(--n), minmax(0, 1fr));
+  gap: 3px;
+  width: 100%;
+  max-width: 420px;
+  aspect-ratio: 1;
+  margin: 12px auto 0;
+  padding: 3px;
+  border-radius: var(--r-md);
+  background: var(--pipes-tile-edge);
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.pipes-tile {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: var(--pipes-tile);
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  --pipe: var(--pipes-dry);
+}
+
+.pipes-tile.wet {
+  --pipe: var(--pipes-wet);
+}
+
+.pipes-board.solved .pipes-tile {
+  --pipe: var(--pipes-done);
+}
+
+.pipes-tile:disabled {
+  opacity: 1;
+}
+
+.pipes-tile svg {
+  width: 100%;
+  height: 100%;
+  transition: transform 160ms cubic-bezier(0.2, 0.7, 0.3, 1);
+}
+
+.pipes-pipe {
+  fill: none;
+  stroke: var(--pipe);
+  stroke-width: 3;
+  stroke-linecap: butt;
+  transition: stroke 160ms;
+}
+
+.pipes-joint {
+  fill: var(--pipe);
+}
+
+.pipes-end {
+  fill: var(--pipes-tile);
+  stroke: var(--pipe);
+  stroke-width: 1.4;
+}
+
+.pipes-spring {
+  fill: var(--pipes-spring);
+  stroke: var(--pipes-tile);
+  stroke-width: 0.8;
+}
+
+.pipes-tile.tip {
+  outline: 3px dashed var(--pipes-hint);
+  outline-offset: -3px;
+}
+
+.pipes-tip {
+  position: absolute;
+  top: 2px;
+  right: 4px;
+  color: var(--pipes-hint);
+  font-size: var(--fs-label);
+  font-weight: 800;
+}
+
+.pipes-note {
+  min-height: 1.5em;
+  text-align: center;
+}
+
+.pipes-controls {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.pipes-controls .button,
+.pipes-play > .button {
+  min-height: 52px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pipes-tile svg,
+  .pipes-pipe {
+    transition: none;
   }
 }

@@ -6,7 +6,7 @@
 const KEY = 'game:lastPage';
 
 // Only the app's own pages; anything else (an old or tampered value) opens the home screen.
-const PAGES = /^\/((avalon|wonders|hero|bluff)(\/[A-Z]{4})?|hero\/local|(sky|beads|glide)(\/play)?|nonograms|saved|ranks|settings|account)$/;
+const PAGES = /^\/((avalon|wonders|hero|bluff)(\/[A-Z]{4})?|hero\/local|(sky|beads|glide|pipes)(\/play)?|nonograms|saved|ranks|settings|account)$/;
 
 // The last party-game room, so home can offer a way back until that game ends.
 const ROOM_KEY = 'game:lastRoom';

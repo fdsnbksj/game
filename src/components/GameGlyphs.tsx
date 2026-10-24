@@ -85,6 +85,14 @@ export const GlideGlyph = () => (
   </svg>
 );
 
+/** A pipe bend with a drop at its end: Waterworks. */
+export const PipesGlyph = () => (
+  <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true">
+    <path d="M3 7h7a5 5 0 0 1 5 5v4" fill="none" stroke="currentColor" strokeWidth="3.4" strokeLinecap="round" />
+    <path d="M15 18.5c-1.6 1.9-2.2 2.9-2.2 3.6a2.2 2.2 0 0 0 4.4 0c0-.7-.6-1.7-2.2-3.6z" fill="currentColor" opacity="0.6" />
+  </svg>
+);
+
 /** Each game's emblem by its id, for lists built from data. */
 export const GAME_GLYPHS = {
   avalon: AvalonGlyph,
@@ -95,4 +103,5 @@ export const GAME_GLYPHS = {
   bluff: BluffGlyph,
   beads: BeadsGlyph,
   glide: GlideGlyph,
+  pipes: PipesGlyph,
 } as const;
