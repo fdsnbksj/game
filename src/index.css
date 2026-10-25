@@ -5352,6 +5352,15 @@ button.seat:disabled {
   border-color: var(--lanterns-done);
 }
 
+.lanterns-board.solved {
+  animation: lanterns-solved 600ms ease-out;
+}
+
+@keyframes lanterns-solved {
+  0% { box-shadow: 0 0 0 0 var(--lanterns-done); }
+  100% { box-shadow: 0 0 0 18px transparent; }
+}
+
 .lanterns-cell.tip {
   outline: 3px dashed var(--lanterns-hint);
   outline-offset: 2px;
@@ -5376,5 +5385,9 @@ button.seat:disabled {
 @media (prefers-reduced-motion: reduce) {
   .lanterns-cell {
     transition: none;
+  }
+
+  .lanterns-board.solved {
+    animation: none;
   }
 }
