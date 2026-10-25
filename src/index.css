@@ -161,6 +161,17 @@
   --pipes-spring: #0369a1;
   --pipes-done: #16a34a;
   --pipes-hint: #f59e0b;
+  --game-lanterns: #b45309;
+  --game-lanterns-soft: rgb(180 83 9 / 0.12);
+  /* Lanterns: the night behind them, a lantern out and lit, the glow, the hint. */
+  --lanterns-night: #1e293b;
+  --lanterns-off: #334155;
+  --lanterns-off-edge: #475569;
+  --lanterns-on: #fbbf24;
+  --lanterns-on-edge: #fde68a;
+  --lanterns-glow: rgb(251 191 36 / 0.55);
+  --lanterns-done: #16a34a;
+  --lanterns-hint: #38bdf8;
   --game-sky: #0ea5e9;
   --game-sky-soft: rgb(14 165 233 / 0.14);
   /* Sky Ace's world, drawn on a canvas: grounds, the ship, enemies, shots and pickups. */
@@ -2629,6 +2640,7 @@ button.seat:disabled {
 .tile-beads { --tile: var(--game-beads); }
 .tile-glide { --tile: var(--game-glide); }
 .tile-pipes { --tile: var(--game-pipes); }
+.tile-lanterns { --tile: var(--game-lanterns); }
 
 .hub-tile-art {
   display: grid;
@@ -5283,6 +5295,86 @@ button.seat:disabled {
 @media (prefers-reduced-motion: reduce) {
   .pipes-tile svg,
   .pipes-pipe {
+    transition: none;
+  }
+}
+
+/* Lanterns: the square of lanterns in the middle, the controls under the thumb. */
+.lanterns-play {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.lanterns-board {
+  display: grid;
+  grid-template-columns: repeat(var(--n), minmax(0, 1fr));
+  gap: 6px;
+  width: 100%;
+  max-width: 420px;
+  aspect-ratio: 1;
+  margin: 12px auto 0;
+  padding: 8px;
+  border-radius: var(--r-md);
+  background: var(--lanterns-night);
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.lanterns-cell {
+  position: relative;
+  min-width: 0;
+  padding: 0;
+  border: 2px solid var(--lanterns-off-edge);
+  border-radius: 22%;
+  background: var(--lanterns-off);
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 140ms, border-color 140ms, box-shadow 140ms, transform 140ms;
+}
+
+.lanterns-cell.lit {
+  border-color: var(--lanterns-on-edge);
+  background: var(--lanterns-on);
+  box-shadow: 0 0 14px 2px var(--lanterns-glow);
+}
+
+.lanterns-cell:active:not(:disabled) {
+  transform: scale(0.92);
+}
+
+.lanterns-cell:disabled {
+  opacity: 1;
+}
+
+.lanterns-board.solved .lanterns-cell {
+  border-color: var(--lanterns-done);
+}
+
+.lanterns-cell.tip {
+  outline: 3px dashed var(--lanterns-hint);
+  outline-offset: 2px;
+}
+
+.lanterns-note {
+  min-height: 1.5em;
+  text-align: center;
+}
+
+.lanterns-controls {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.lanterns-controls .button,
+.lanterns-play > .button {
+  min-height: 52px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lanterns-cell {
     transition: none;
   }
 }

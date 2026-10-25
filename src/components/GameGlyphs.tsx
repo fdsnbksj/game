@@ -93,6 +93,17 @@ export const PipesGlyph = () => (
   </svg>
 );
 
+/** A lit lantern with a plus of light round it: Lanterns. */
+export const LanternsGlyph = () => (
+  <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true">
+    <rect x="8.5" y="8.5" width="7" height="7" rx="1.6" fill="currentColor" />
+    <rect x="9.5" y="2" width="5" height="5" rx="1.2" fill="currentColor" opacity="0.55" />
+    <rect x="9.5" y="17" width="5" height="5" rx="1.2" fill="currentColor" opacity="0.55" />
+    <rect x="2" y="9.5" width="5" height="5" rx="1.2" fill="currentColor" opacity="0.55" />
+    <rect x="17" y="9.5" width="5" height="5" rx="1.2" fill="currentColor" opacity="0.55" />
+  </svg>
+);
+
 /** Each game's emblem by its id, for lists built from data. */
 export const GAME_GLYPHS = {
   avalon: AvalonGlyph,
@@ -104,4 +115,5 @@ export const GAME_GLYPHS = {
   beads: BeadsGlyph,
   glide: GlideGlyph,
   pipes: PipesGlyph,
+  lanterns: LanternsGlyph,
 } as const;
