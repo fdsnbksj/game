@@ -126,7 +126,7 @@ export function ThreadsPlay() {
               ? 'Drag from a knot to its partner. Fill every square.'
               : joined === colours
                 ? `All joined, ${empty} ${empty === 1 ? 'square' : 'squares'} empty.`
-                : ' '}
+                : `${empty} ${empty === 1 ? 'square' : 'squares'} still empty.`}
         </p>
 
         <div className="spacer" />
