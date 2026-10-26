@@ -172,6 +172,21 @@
   --lanterns-glow: rgb(251 191 36 / 0.55);
   --lanterns-done: #16a34a;
   --lanterns-hint: #38bdf8;
+  --game-threads: #7c3aed;
+  --game-threads-soft: rgb(124 58 237 / 0.12);
+  /* Threads: the square behind, an empty square, and one colour per pair (up to nine on a level). */
+  --threads-ground: #1f2937;
+  --threads-empty: #374151;
+  --threads-done: #16a34a;
+  --threads-1: #ef4444;
+  --threads-2: #3b82f6;
+  --threads-3: #22c55e;
+  --threads-4: #facc15;
+  --threads-5: #f97316;
+  --threads-6: #a855f7;
+  --threads-7: #22d3ee;
+  --threads-8: #f472b6;
+  --threads-9: #a16207;
   --game-sky: #0ea5e9;
   --game-sky-soft: rgb(14 165 233 / 0.14);
   /* Sky Ace's world, drawn on a canvas: grounds, the ship, enemies, shots and pickups. */
@@ -2641,6 +2656,7 @@ button.seat:disabled {
 .tile-glide { --tile: var(--game-glide); }
 .tile-pipes { --tile: var(--game-pipes); }
 .tile-lanterns { --tile: var(--game-lanterns); }
+.tile-threads { --tile: var(--game-threads); }
 
 .hub-tile-art {
   display: grid;
@@ -5388,6 +5404,92 @@ button.seat:disabled {
   }
 
   .lanterns-board.solved {
+    animation: none;
+  }
+}
+
+/* Threads: the square in the middle, the controls under the thumb. */
+.threads-play {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.threads-board {
+  width: 100%;
+  max-width: 420px;
+  aspect-ratio: 1;
+  margin: 12px auto 0;
+  padding: 6px;
+  border-radius: var(--r-md);
+  background: var(--threads-ground);
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.threads-board svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.threads-cell {
+  fill: var(--threads-empty);
+  transition: fill 120ms;
+}
+
+.threads-cell[data-filled] {
+  fill: color-mix(in srgb, var(--thread) 30%, var(--threads-empty));
+}
+
+.threads-line {
+  fill: none;
+  stroke: var(--thread);
+  stroke-width: 0.34;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.threads-knot {
+  fill: var(--thread);
+}
+
+.threads-board.solved {
+  animation: threads-solved 600ms ease-out;
+}
+
+@keyframes threads-solved {
+  0% { box-shadow: 0 0 0 0 var(--threads-done); }
+  100% { box-shadow: 0 0 0 18px transparent; }
+}
+
+.threads-note {
+  min-height: 1.5em;
+  text-align: center;
+}
+
+.threads-controls {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.threads-controls .button,
+.threads-play > .button {
+  min-height: 52px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .threads-cell {
+    transition: none;
+  }
+
+  .threads-board.solved {
     animation: none;
   }
 }

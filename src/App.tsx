@@ -20,6 +20,8 @@ import { PipesHome } from './screens/pipes/PipesHome';
 import { PipesPlay } from './screens/pipes/PipesPlay';
 import { LanternsHome } from './screens/lanterns/LanternsHome';
 import { LanternsPlay } from './screens/lanterns/LanternsPlay';
+import { ThreadsHome } from './screens/threads/ThreadsHome';
+import { ThreadsPlay } from './screens/threads/ThreadsPlay';
 import { SkyHome } from './screens/sky/SkyHome';
 import { SkyPlay } from './screens/sky/SkyPlay';
 import { WorldShell } from './screens/world/WorldShell';
@@ -68,6 +70,8 @@ export function App() {
         <Route path="/pipes/play" element={<PipesPlay />} />
         <Route path="/lanterns" element={<LanternsHome />} />
         <Route path="/lanterns/play" element={<LanternsPlay />} />
+        <Route path="/threads" element={<ThreadsHome />} />
+        <Route path="/threads/play" element={<ThreadsPlay />} />
         <Route path="/hero" element={<Home />} />
         <Route path="/hero/local" element={<LocalFight />} />
         <Route path="/hero/:code" element={<HeroRoom />} />

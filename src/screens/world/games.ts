@@ -1,5 +1,5 @@
 /** Every game, in the order home lists them: add a game here and it appears there. */
-export type GameId = 'avalon' | 'wonders' | 'nonograms' | 'hero' | 'sky' | 'bluff' | 'beads' | 'glide' | 'pipes' | 'lanterns';
+export type GameId = 'avalon' | 'wonders' | 'nonograms' | 'hero' | 'sky' | 'bluff' | 'beads' | 'glide' | 'pipes' | 'lanterns' | 'threads';
 
 export interface Game {
   id: GameId;
@@ -21,6 +21,7 @@ export const GAMES: readonly Game[] = [
   { id: 'beads', name: 'Bead Sort', tagline: 'One colour to a tube, tap by tap', players: '1', path: '/beads' },
   { id: 'glide', name: 'Glide', tagline: 'Swipe blocks home in so many moves', players: '1', path: '/glide' },
   { id: 'lanterns', name: 'Lanterns', tagline: 'Tap to flip, put every light out', players: '1', path: '/lanterns' },
+  { id: 'threads', name: 'Threads', tagline: 'Join the pairs, fill every square', players: '1', path: '/threads', isNew: true },
   { id: 'pipes', name: 'Waterworks', tagline: 'Turn the pipes till every tile runs', players: '1', path: '/pipes' },
   { id: 'sky', name: 'Sky Ace', tagline: 'A 90s arcade shooter, one thumb', players: '1', path: '/sky' },
   { id: 'hero', name: 'Hero Gambit', tagline: 'Timing, roulette and cards, against a friend', players: '2', path: '/hero' },
