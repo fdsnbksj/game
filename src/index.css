@@ -172,6 +172,25 @@
   --lanterns-glow: rgb(251 191 36 / 0.55);
   --lanterns-done: #16a34a;
   --lanterns-hint: #38bdf8;
+  --game-vault: #4d7c0f;
+  --game-vault-soft: rgb(77 124 15 / 0.12);
+  /* Vault: the lock's face, the pegs (eight colours, each with a white mark), the answer dots. */
+  --vault-face: #1f2937;
+  --vault-row: #374151;
+  --vault-row-edge: #4b5563;
+  --vault-hole: #111827;
+  --vault-mark: #ffffff;
+  --vault-dot: #f9fafb;
+  --vault-dot-off: #4b5563;
+  --vault-open: #16a34a;
+  --vault-1: #dc2626;
+  --vault-2: #2563eb;
+  --vault-3: #eab308;
+  --vault-4: #16a34a;
+  --vault-5: #9333ea;
+  --vault-6: #ea580c;
+  --vault-7: #db2777;
+  --vault-8: #78716c;
   --game-threads: #7c3aed;
   --game-threads-soft: rgb(124 58 237 / 0.12);
   /* Threads: the square behind, an empty square, and one colour per pair (up to nine on a level). */
@@ -2657,6 +2676,7 @@ button.seat:disabled {
 .tile-pipes { --tile: var(--game-pipes); }
 .tile-lanterns { --tile: var(--game-lanterns); }
 .tile-threads { --tile: var(--game-threads); }
+.tile-vault { --tile: var(--game-vault); }
 
 .hub-tile-art {
   display: grid;
@@ -5490,6 +5510,206 @@ button.seat:disabled {
   }
 
   .threads-board.solved {
+    animation: none;
+  }
+}
+
+/* Vault: the rows tried on the lock's face, the row being made, the colours and controls under the thumb. */
+.vault-play {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+}
+
+.vault-rows {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 120px;
+  max-height: 46vh;
+  padding: 8px;
+  overflow-y: auto;
+  border-radius: var(--r-md);
+  background: var(--vault-face);
+}
+
+.vault-empty {
+  margin: auto;
+  padding: 12px;
+  color: var(--vault-dot-off);
+  text-align: center;
+}
+
+.vault-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  border: 2px solid transparent;
+  border-radius: var(--r-md);
+  background: var(--vault-row);
+}
+
+.vault-draft {
+  border-color: var(--game-vault);
+  background: var(--vault-face);
+}
+
+.vault-open {
+  border-color: var(--vault-open);
+  background: var(--vault-face);
+  animation: vault-open 600ms ease-out;
+}
+
+@keyframes vault-open {
+  0% { box-shadow: 0 0 0 0 var(--vault-open); }
+  100% { box-shadow: 0 0 0 16px transparent; }
+}
+
+.vault-num {
+  width: 1.6em;
+  color: var(--vault-dot);
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  opacity: 0.7;
+}
+
+.vault-open-label {
+  margin-left: auto;
+  color: var(--vault-open);
+  font-weight: 700;
+}
+
+.vault-pegs {
+  display: flex;
+  flex: 1;
+  gap: 6px;
+}
+
+.vault-peg {
+  display: block;
+  width: 30px;
+  height: 30px;
+  flex: none;
+}
+
+.vault-draft .vault-peg {
+  width: 40px;
+  height: 40px;
+}
+
+.vault-peg.empty {
+  border: 2px dashed var(--vault-row-edge);
+  border-radius: 50%;
+  background: var(--vault-hole);
+}
+
+.vault-peg.c0 { color: var(--vault-1); }
+.vault-peg.c1 { color: var(--vault-2); }
+.vault-peg.c2 { color: var(--vault-3); }
+.vault-peg.c3 { color: var(--vault-4); }
+.vault-peg.c4 { color: var(--vault-5); }
+.vault-peg.c5 { color: var(--vault-6); }
+.vault-peg.c6 { color: var(--vault-7); }
+.vault-peg.c7 { color: var(--vault-8); }
+
+.vault-mark {
+  color: var(--vault-mark);
+}
+
+.vault-slot {
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.vault-slot:disabled {
+  opacity: 1;
+}
+
+.vault-answer {
+  display: grid;
+  grid-template-columns: repeat(3, 10px);
+  gap: 3px;
+  flex: none;
+}
+
+.vault-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.vault-dot.exact {
+  background: var(--vault-dot);
+}
+
+.vault-dot.near {
+  border: 2px solid var(--vault-dot);
+}
+
+.vault-dot.none {
+  background: var(--vault-dot-off);
+  transform: scale(0.5);
+}
+
+.vault-note {
+  min-height: 1.5em;
+  margin: 0;
+  text-align: center;
+}
+
+.vault-colours {
+  display: grid;
+  gap: 8px;
+}
+
+.vault-colour {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 52px;
+  padding: 0;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.vault-colour .vault-peg {
+  width: 38px;
+  height: 38px;
+}
+
+.vault-colour:disabled {
+  opacity: 0.3;
+}
+
+.vault-colour:active:not(:disabled) {
+  transform: scale(0.94);
+}
+
+.vault-controls {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.vault-controls .button,
+.vault-play > .button {
+  min-height: 52px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vault-open {
     animation: none;
   }
 }

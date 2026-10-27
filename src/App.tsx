@@ -18,6 +18,8 @@ import { GlideHome } from './screens/glide/GlideHome';
 import { GlidePlay } from './screens/glide/GlidePlay';
 import { PipesHome } from './screens/pipes/PipesHome';
 import { PipesPlay } from './screens/pipes/PipesPlay';
+import { VaultHome } from './screens/vault/VaultHome';
+import { VaultPlay } from './screens/vault/VaultPlay';
 import { LanternsHome } from './screens/lanterns/LanternsHome';
 import { LanternsPlay } from './screens/lanterns/LanternsPlay';
 import { ThreadsHome } from './screens/threads/ThreadsHome';
@@ -68,6 +70,8 @@ export function App() {
         <Route path="/glide/play" element={<GlidePlay />} />
         <Route path="/pipes" element={<PipesHome />} />
         <Route path="/pipes/play" element={<PipesPlay />} />
+        <Route path="/vault" element={<VaultHome />} />
+        <Route path="/vault/play" element={<VaultPlay />} />
         <Route path="/lanterns" element={<LanternsHome />} />
         <Route path="/lanterns/play" element={<LanternsPlay />} />
         <Route path="/threads" element={<ThreadsHome />} />

@@ -49,6 +49,7 @@ npm run build       # type-check + production build
 | `src/games/pipes/`, `src/screens/pipes/` | Waterworks: turn pipe tiles until water from the spring reaches every one; levels, water, leaks and hints as pure code, saved on the phone |
 | `src/games/lanterns/`, `src/screens/lanterns/` | Lanterns: tap a lantern to flip it and its neighbours until all are out; levels, the fewest-taps solver and hints as pure code, saved on the phone |
 | `src/games/threads/`, `src/screens/threads/` | Threads: draw a thread between each pair of knots until every square is used; levels, strokes and hints as pure code, saved on the phone |
+| `src/games/vault/`, `src/screens/vault/` | Vault: work out a hidden row of coloured pegs from the lock's answers; codes, answers and hints as pure code, saved on the phone |
 | `src/games/beads/`, `src/screens/beads/` | Bead Sort: a one-player tube-sorting puzzle; levels, moves, solver and hints as pure code, saved on the phone |
 | `src/services/` | Firestore reads and writes: session, players, solves and rankings |
 | `tests/unit/`, `tests/rules/` | Puzzle tests, and Firestore rules tests |

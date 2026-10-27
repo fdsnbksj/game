@@ -114,6 +114,16 @@ export const ThreadsGlyph = () => (
   </svg>
 );
 
+/** A safe door with its dial and handle: Vault. */
+export const VaultGlyph = () => (
+  <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true">
+    <rect x="2.5" y="3" width="19" height="18" rx="3" fill="none" stroke="currentColor" strokeWidth="2.4" />
+    <circle cx="11" cy="12" r="4.6" fill="currentColor" />
+    <path d="M11 9.2v2.8" style={{ stroke: 'var(--tile)' }} strokeWidth="1.8" strokeLinecap="round" />
+    <rect x="17.5" y="8" width="2" height="8" rx="1" fill="currentColor" opacity="0.55" />
+  </svg>
+);
+
 /** Each game's emblem by its id, for lists built from data. */
 export const GAME_GLYPHS = {
   avalon: AvalonGlyph,
@@ -127,4 +137,5 @@ export const GAME_GLYPHS = {
   pipes: PipesGlyph,
   lanterns: LanternsGlyph,
   threads: ThreadsGlyph,
+  vault: VaultGlyph,
 } as const;
