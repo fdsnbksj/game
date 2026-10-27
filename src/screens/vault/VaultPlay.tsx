@@ -54,6 +54,8 @@ export function VaultPlay() {
   const full = !game.draft.includes(null);
   const left = useMemo(() => codesLeft(game), [game]);
   const rowsRef = useRef<HTMLDivElement>(null);
+  // A double tap on Try would otherwise land on Next level, which appears in its place.
+  const nextAt = useRef(0);
 
   // Keep the newest row in view as tries pile up.
   useEffect(() => {
@@ -70,6 +72,7 @@ export function VaultPlay() {
   const move = (m: number) => {
     const next = play(game, m);
     if (next === game) return;
+    if (isSolved(next)) nextAt.current = Date.now() + 700;
     // A solved level counts at once, so leaving before Next keeps it.
     update(next, isSolved(next) ? Math.max(best, next.level) : best);
   };
@@ -150,7 +153,7 @@ export function VaultPlay() {
         <div className="spacer" />
 
         {solved ? (
-          <button className="button primary" onClick={() => update(newGame(game.level + 1))}>
+          <button className="button primary" onClick={() => Date.now() >= nextAt.current && update(newGame(game.level + 1))}>
             Next level
           </button>
         ) : (

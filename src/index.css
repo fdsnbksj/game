@@ -5529,11 +5529,15 @@ button.seat:disabled {
   flex-direction: column;
   gap: 6px;
   min-height: 120px;
-  max-height: 46vh;
+  max-height: 60vh;
   padding: 8px;
   overflow-y: auto;
   border-radius: var(--r-md);
   background: var(--vault-face);
+}
+
+.vault-play .spacer {
+  display: none;
 }
 
 .vault-empty {

@@ -17,7 +17,7 @@ export const GAMES: readonly Game[] = [
   { id: 'avalon', name: 'Avalon', tagline: 'Hidden roles, one table', players: '5–10', path: '/avalon' },
   { id: 'wonders', name: 'Ancient Wonders', tagline: 'Build a city, bots welcome', players: '3–7', path: '/wonders' },
   { id: 'bluff', name: 'Bluff Table', tagline: 'Lie, call, pull the trigger', players: '2–4', path: '/bluff' },
-  { id: 'vault', name: 'Vault', tagline: 'Crack the code from the clues', players: '1', path: '/vault', isNew: true },
+  { id: 'vault', name: 'Vault', tagline: 'Crack the code from the clues', players: '1', path: '/vault' },
   { id: 'nonograms', name: 'Nonograms', tagline: 'Fill the grid to match the clues', players: '1', path: '/nonograms' },
   { id: 'beads', name: 'Bead Sort', tagline: 'One colour to a tube, tap by tap', players: '1', path: '/beads' },
   { id: 'glide', name: 'Glide', tagline: 'Swipe blocks home in so many moves', players: '1', path: '/glide' },
