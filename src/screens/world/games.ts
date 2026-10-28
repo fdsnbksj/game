@@ -18,7 +18,7 @@ export const GAMES: readonly Game[] = [
   { id: 'wonders', name: 'Ancient Wonders', tagline: 'Build a city, bots welcome', players: '3–7', path: '/wonders' },
   { id: 'pass', name: 'Pass or Pay', tagline: 'Pay a coin, or take the card', players: '2–6', path: '/pass', isNew: true },
   { id: 'bluff', name: 'Bluff Table', tagline: 'Lie, call, pull the trigger', players: '2–4', path: '/bluff' },
-  { id: 'gridlock', name: 'Gridlock', tagline: 'Slide the cars, free the red one', players: '1', path: '/gridlock', isNew: true },
+  { id: 'gridlock', name: 'Gridlock', tagline: 'Slide the cars, free the red one', players: '1', path: '/gridlock' },
   { id: 'vault', name: 'Vault', tagline: 'Crack the code from the clues', players: '1', path: '/vault' },
   { id: 'nonograms', name: 'Nonograms', tagline: 'Fill the grid to match the clues', players: '1', path: '/nonograms' },
   { id: 'beads', name: 'Bead Sort', tagline: 'One colour to a tube, tap by tap', players: '1', path: '/beads' },
