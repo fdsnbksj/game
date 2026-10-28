@@ -191,6 +191,23 @@
   --vault-6: #ea580c;
   --vault-7: #db2777;
   --vault-8: #78716c;
+  --game-gridlock: #be123c;
+  --game-gridlock-soft: rgb(190 18 60 / 0.12);
+  /* Gridlock: the car park's wall, its tarmac and lines, the red car, the other cars, the hint. */
+  --gridlock-wall: #374151;
+  --gridlock-lot: #e5e7eb;
+  --gridlock-line: #d1d5db;
+  --gridlock-red: #dc2626;
+  --gridlock-shine: rgb(255 255 255 / 0.3);
+  --gridlock-mark: #ffffff;
+  --gridlock-hint: #f59e0b;
+  --gridlock-done: #16a34a;
+  --gridlock-car-1: #2563eb;
+  --gridlock-car-2: #16a34a;
+  --gridlock-car-3: #f59e0b;
+  --gridlock-car-4: #7c3aed;
+  --gridlock-car-5: #0891b2;
+  --gridlock-car-6: #78716c;
   --game-threads: #7c3aed;
   --game-threads-soft: rgb(124 58 237 / 0.12);
   /* Threads: the square behind, an empty square, and one colour per pair (up to nine on a level). */
@@ -2677,6 +2694,7 @@ button.seat:disabled {
 .tile-lanterns { --tile: var(--game-lanterns); }
 .tile-threads { --tile: var(--game-threads); }
 .tile-vault { --tile: var(--game-vault); }
+.tile-gridlock { --tile: var(--game-gridlock); }
 
 .hub-tile-art {
   display: grid;
@@ -5715,5 +5733,149 @@ button.seat:disabled {
 @media (prefers-reduced-motion: reduce) {
   .vault-open {
     animation: none;
+  }
+}
+
+/* Gridlock: the car park in the middle, the controls under the thumb. */
+.gridlock-play {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* The wall round the car park; the board inside is the 6×6 of tarmac. */
+.gridlock-frame {
+  position: relative;
+  width: 100%;
+  max-width: 420px;
+  margin: 12px auto 0;
+  padding: 8px;
+  overflow: hidden;
+  border-radius: var(--r-md);
+  background: var(--gridlock-wall);
+}
+
+/* The gap in the right wall at the red car's row. */
+.gridlock-exit {
+  position: absolute;
+  top: calc(8px + (100% - 16px) * var(--y) / 6);
+  right: 0;
+  width: 8px;
+  height: calc((100% - 16px) / 6);
+  background: var(--gridlock-lot);
+}
+
+.gridlock-frame.solved .gridlock-exit {
+  background: var(--gridlock-done);
+}
+
+.gridlock-board {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-rows: repeat(6, minmax(0, 1fr));
+  aspect-ratio: 1;
+  border-radius: 6px;
+  background: var(--gridlock-lot);
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.gridlock-cell {
+  box-shadow: inset 0 0 0 0.5px var(--gridlock-line);
+}
+
+/* A car covers --w × --h cells from (--x, --y); moving those is the slide. */
+.gridlock-car,
+.gridlock-ghost {
+  position: absolute;
+  top: calc(var(--y) * 100% / 6);
+  left: calc(var(--x) * 100% / 6);
+  display: grid;
+  place-items: center;
+  width: calc(var(--w) * 100% / 6);
+  height: calc(var(--h) * 100% / 6);
+  padding: 4px;
+  touch-action: none;
+}
+
+.gridlock-car {
+  transition: left 160ms cubic-bezier(0.2, 0.7, 0.3, 1), top 160ms cubic-bezier(0.2, 0.7, 0.3, 1);
+  cursor: grab;
+}
+
+.gridlock-car.dragging {
+  z-index: 2;
+  transition: none;
+}
+
+.gridlock-frame.solved .gridlock-car.red {
+  transition: left 600ms cubic-bezier(0.5, 0, 0.8, 0.6);
+}
+
+.gridlock-body {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  border-radius: 10px;
+  background: var(--car);
+  color: var(--gridlock-mark);
+  font-size: 1.4rem;
+  font-weight: 800;
+}
+
+.gridlock-car.across .gridlock-body {
+  background:
+    linear-gradient(180deg, var(--gridlock-shine) 0 28%, transparent 29%),
+    var(--car);
+}
+
+.gridlock-car.down .gridlock-body {
+  background:
+    linear-gradient(90deg, var(--gridlock-shine) 0 28%, transparent 29%),
+    var(--car);
+}
+
+.gridlock-car.dragging .gridlock-body {
+  box-shadow: 0 4px 10px rgb(0 0 0 / 0.25);
+}
+
+.gridlock-car.tip .gridlock-body {
+  outline: 3px dashed var(--gridlock-hint);
+  outline-offset: 1px;
+}
+
+.gridlock-ghost {
+  pointer-events: none;
+}
+
+.gridlock-ghost .gridlock-body {
+  border: 3px dashed var(--gridlock-hint);
+  background: transparent;
+}
+
+.gridlock-note {
+  min-height: 1.5em;
+  text-align: center;
+}
+
+.gridlock-controls {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.gridlock-controls .button,
+.gridlock-play > .button {
+  min-height: 52px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gridlock-car,
+  .gridlock-frame.solved .gridlock-car.red {
+    transition: none;
   }
 }

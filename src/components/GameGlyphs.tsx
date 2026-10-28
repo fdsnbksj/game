@@ -124,6 +124,15 @@ export const VaultGlyph = () => (
   </svg>
 );
 
+/** A car driving out of a gap in a wall, past a car standing across its way: Gridlock. */
+export const GridlockGlyph = () => (
+  <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true">
+    <path d="M21 9.5V3H3v18h18v-5.5" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinejoin="round" />
+    <rect x="12.5" y="9.6" width="10" height="4.8" rx="1.6" fill="currentColor" />
+    <rect x="6" y="5.5" width="4.4" height="10" rx="1.6" fill="currentColor" opacity="0.55" />
+  </svg>
+);
+
 /** Each game's emblem by its id, for lists built from data. */
 export const GAME_GLYPHS = {
   avalon: AvalonGlyph,
@@ -138,4 +147,5 @@ export const GAME_GLYPHS = {
   lanterns: LanternsGlyph,
   threads: ThreadsGlyph,
   vault: VaultGlyph,
+  gridlock: GridlockGlyph,
 } as const;
