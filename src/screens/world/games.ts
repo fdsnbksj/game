@@ -1,5 +1,5 @@
 /** Every game, in the order home lists them: add a game here and it appears there. */
-export type GameId = 'avalon' | 'wonders' | 'nonograms' | 'hero' | 'sky' | 'bluff' | 'beads' | 'glide' | 'pipes' | 'lanterns' | 'threads' | 'vault' | 'gridlock';
+export type GameId = 'avalon' | 'wonders' | 'nonograms' | 'hero' | 'sky' | 'bluff' | 'beads' | 'glide' | 'pipes' | 'lanterns' | 'threads' | 'vault' | 'gridlock' | 'pass';
 
 export interface Game {
   id: GameId;
@@ -16,6 +16,7 @@ export interface Game {
 export const GAMES: readonly Game[] = [
   { id: 'avalon', name: 'Avalon', tagline: 'Hidden roles, one table', players: '5–10', path: '/avalon' },
   { id: 'wonders', name: 'Ancient Wonders', tagline: 'Build a city, bots welcome', players: '3–7', path: '/wonders' },
+  { id: 'pass', name: 'Pass or Pay', tagline: 'Pay a coin, or take the card', players: '2–6', path: '/pass', isNew: true },
   { id: 'bluff', name: 'Bluff Table', tagline: 'Lie, call, pull the trigger', players: '2–4', path: '/bluff' },
   { id: 'gridlock', name: 'Gridlock', tagline: 'Slide the cars, free the red one', players: '1', path: '/gridlock', isNew: true },
   { id: 'vault', name: 'Vault', tagline: 'Crack the code from the clues', players: '1', path: '/vault' },

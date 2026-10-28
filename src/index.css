@@ -191,6 +191,14 @@
   --vault-6: #ea580c;
   --vault-7: #db2777;
   --vault-8: #78716c;
+  --game-pass: #a21caf;
+  --game-pass-soft: rgb(162 28 175 / 0.12);
+  /* Pass or Pay: the number cards, a card that costs nothing in a run, and the coins. */
+  --pass-card: #ffffff;
+  --pass-card-ink: #18181b;
+  --pass-card-edge: #d4d4d8;
+  --pass-coin: #f59e0b;
+  --pass-coin-edge: #b45309;
   --game-gridlock: #be123c;
   --game-gridlock-soft: rgb(190 18 60 / 0.12);
   /* Gridlock: the car park's wall, its tarmac and lines, the red car, the other cars, the hint. */
@@ -2695,6 +2703,7 @@ button.seat:disabled {
 .tile-threads { --tile: var(--game-threads); }
 .tile-vault { --tile: var(--game-vault); }
 .tile-gridlock { --tile: var(--game-gridlock); }
+.tile-pass { --tile: var(--game-pass); }
 
 .hub-tile-art {
   display: grid;
@@ -5878,4 +5887,230 @@ button.seat:disabled {
   .gridlock-frame.solved .gridlock-car.red {
     transition: none;
   }
+}
+
+/* ---------- Pass or Pay ---------- */
+
+.pass-table {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 16px;
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  border: 2px solid transparent;
+}
+
+.pass-table.yours {
+  background: var(--game-pass);
+  color: var(--on-feature);
+}
+
+.pass-table-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.pass-pot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.pass-left {
+  font-size: 14px;
+  opacity: 0.8;
+}
+
+.pass-card {
+  display: inline-grid;
+  place-items: center;
+  min-width: 30px;
+  height: 40px;
+  padding: 0 4px;
+  border: 1px solid var(--pass-card-edge);
+  border-radius: 6px;
+  background: var(--pass-card);
+  color: var(--pass-card-ink);
+  font-size: 16px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.pass-card.big {
+  width: 76px;
+  height: 104px;
+  border-radius: 10px;
+  font-size: 40px;
+  border-width: 2px;
+  border-color: var(--game-pass);
+}
+
+.pass-card.free {
+  background: var(--surface-2);
+  color: var(--label-3);
+}
+
+.pass-coin {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--pass-coin-edge);
+  border-radius: 50%;
+  background: var(--pass-coin);
+  vertical-align: -3px;
+}
+
+.pass-last {
+  margin: 0;
+  color: var(--label-2);
+  text-align: center;
+  font-size: 14px;
+}
+
+.pass-players {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pass-player {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 52px;
+  padding: 6px 12px;
+  border-left: 4px solid transparent;
+}
+
+.pass-player + .pass-player {
+  border-top: 1px solid var(--fill-2);
+}
+
+.pass-player > strong {
+  flex: 0 0 92px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pass-player.turn {
+  border-left-color: var(--game-pass);
+}
+
+.pass-player.me {
+  background: var(--game-pass-soft);
+}
+
+.pass-runs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.pass-run {
+  display: flex;
+}
+
+.pass-run .pass-card + .pass-card {
+  margin-left: -1px;
+}
+
+.pass-me {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  font-size: 15px;
+}
+
+.pass-cost {
+  color: var(--label-2);
+}
+
+.pass-line {
+  margin: 0;
+  color: var(--label-2);
+  text-align: center;
+}
+
+.pass-line.yours {
+  color: var(--label);
+  font-weight: 700;
+}
+
+.pass-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.pass-result {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 20px;
+  border-radius: var(--r-lg);
+  background: var(--game-pass);
+  color: var(--on-feature);
+  text-align: center;
+}
+
+.pass-result .micro {
+  color: inherit;
+  opacity: 0.85;
+}
+
+.pass-result strong {
+  font-size: 28px;
+}
+
+.pass-scores {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pass-score {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+}
+
+.pass-score + .pass-score {
+  border-top: 1px solid var(--fill-2);
+}
+
+.pass-score.me {
+  background: var(--game-pass-soft);
+}
+
+.pass-score-name {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pass-score-figures {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.pass-score-figures strong {
+  font-size: 22px;
+}
+
+.pass-score-figures small {
+  color: var(--label-2);
+  white-space: nowrap;
 }

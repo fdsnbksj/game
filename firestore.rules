@@ -27,7 +27,7 @@ service cloud.firestore {
         && isValidName(request.resource.data.displayName);
     }
 
-    // Every party game's room (rooms, heroDuels, wonders, bluffs). A player on the
+    // Every party game's room (rooms, heroDuels, wonders, bluffs, passes). A player on the
     // room's page says they're still there (`seenAt`) about once a minute. A lobby nobody
     // has been in for 10 minutes, or a started game nobody has been in for 30 (or, before
     // its first heartbeat, made that long ago), may be deleted by anyone: that's how the
@@ -696,6 +696,117 @@ service cloud.firestore {
     }
 
     function isBluffFinish() {
+      let before = resource.data;
+      let after = request.resource.data;
+      return before.status == 'playing' && request.auth.uid in before.seats
+        && after.diff(before).affectedKeys().hasOnly(['status', 'endedAt'])
+        && after.status == 'done'
+        && after.endedAt == request.time;
+    }
+
+    // ---------- Pass or Pay ----------
+    // 2–6 seats, people only. The seed decides the deck; every move is appended in order by
+    // its own player, and every phone replays them and skips any refused. A room records the
+    // PASS_VERSION that opened it, so phones on another version don't join.
+
+    function passRoom(code) {
+      return get(/databases/$(database)/documents/passes/$(code)).data;
+    }
+
+    function isPassPlayer(code) {
+      return request.auth != null && request.auth.uid in passRoom(code).seats;
+    }
+
+    match /passes/{code} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+        && code.matches('[A-Z]{4}')
+        && hasExactly(request.resource.data, ['host', 'seats', 'names', 'status', 'version', 'createdAt'])
+        && request.resource.data.host == request.auth.uid
+        && request.resource.data.seats == [request.auth.uid]
+        && request.resource.data.names.keys().hasOnly([request.auth.uid])
+        && isValidName(request.resource.data.names[request.auth.uid])
+        && request.resource.data.status == 'lobby'
+        && request.resource.data.version is int
+        && request.resource.data.createdAt == request.time;
+      allow update: if request.auth != null
+        && (isPassJoin() || isPassLeave() || isPassSeating() || isPassStart() || isPassFinish() || isPassRematch(code) || isHeartbeat(resource.data.seats));
+      allow delete: if isAbandonedLobby() || isAbandonedGame(resource.data);
+
+      match /moves/{n} {
+        allow read, delete: if isAbandonedGame(get(/databases/$(database)/documents/passes/$(code)).data);
+        allow read: if isPassPlayer(code);
+        allow create: if isPassPlayer(code)
+          && passRoom(code).status == 'playing'
+          && hasExactly(request.resource.data, ['n', 'by', 'move'])
+          && request.resource.data.by == request.auth.uid
+          && request.resource.data.n is int && request.resource.data.n >= 0
+          && string(request.resource.data.n) == n
+          && (request.resource.data.n == 0
+            || exists(/databases/$(database)/documents/passes/$(code)/moves/$(string(request.resource.data.n - 1))))
+          && request.resource.data.move is map;
+      }
+    }
+
+    function isPassJoin() {
+      let before = resource.data;
+      let after = request.resource.data;
+      return before.status == 'lobby'
+        && !(request.auth.uid in before.seats)
+        && before.seats.size() < 6
+        && after.diff(before).affectedKeys().hasOnly(['seats', 'names'])
+        && after.seats == before.seats.concat([request.auth.uid])
+        && after.names.diff(before.names).affectedKeys().hasOnly([request.auth.uid])
+        && isValidName(after.names[request.auth.uid]);
+    }
+
+    function isPassLeave() {
+      let before = resource.data;
+      let after = request.resource.data;
+      return before.status == 'lobby'
+        && request.auth.uid in before.seats && request.auth.uid != before.host
+        && after.diff(before).affectedKeys().hasOnly(['seats'])
+        && after.seats == before.seats.removeAll([request.auth.uid]);
+    }
+
+    // The host's seating order: the same people, in another order.
+    function isPassSeating() {
+      let before = resource.data;
+      let after = request.resource.data;
+      return before.status == 'lobby' && request.auth.uid == before.host
+        && after.diff(before).affectedKeys().hasOnly(['seats'])
+        && after.seats.size() == before.seats.size()
+        && after.seats.toSet() == before.seats.toSet();
+    }
+
+    function isPassStart() {
+      let before = resource.data;
+      let after = request.resource.data;
+      return before.status == 'lobby' && request.auth.uid == before.host
+        && before.seats.size() >= 2 && before.seats.size() <= 6
+        && after.diff(before).affectedKeys().hasOnly(['status', 'seed', 'startedAt'])
+        && after.status == 'playing'
+        && after.seed is string && after.seed.size() >= 6 && after.seed.size() <= 40
+        && after.startedAt == request.time;
+    }
+
+    // Another game with the same seats, once one is over: `from` is exactly where the
+    // room's moves end, so the new game's moves follow on.
+    function isPassRematch(code) {
+      let before = resource.data;
+      let after = request.resource.data;
+      return before.status == 'done' && request.auth.uid in before.seats
+        && after.diff(before).affectedKeys().hasOnly(['status', 'seed', 'startedAt', 'from'])
+        && after.status == 'playing'
+        && after.seed is string && after.seed.size() >= 6 && after.seed.size() <= 40
+        && after.seed != before.seed
+        && after.startedAt == request.time
+        && after.from is int && after.from >= 1
+        && exists(/databases/$(database)/documents/passes/$(code)/moves/$(string(after.from - 1)))
+        && !exists(/databases/$(database)/documents/passes/$(code)/moves/$(string(after.from)));
+    }
+
+    function isPassFinish() {
       let before = resource.data;
       let after = request.resource.data;
       return before.status == 'playing' && request.auth.uid in before.seats

@@ -133,6 +133,15 @@ export const GridlockGlyph = () => (
   </svg>
 );
 
+/** A numbered card with a coin on it: Pass or Pay. */
+export const PassGlyph = () => (
+  <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true">
+    <rect x="3.5" y="2.5" width="12.5" height="18" rx="2.2" fill="currentColor" opacity="0.55" />
+    <circle cx="15.5" cy="16" r="6" fill="currentColor" />
+    <circle cx="15.5" cy="16" r="3.4" fill="none" style={{ stroke: 'var(--tile)' }} strokeWidth="1.4" />
+  </svg>
+);
+
 /** Each game's emblem by its id, for lists built from data. */
 export const GAME_GLYPHS = {
   avalon: AvalonGlyph,
@@ -148,4 +157,5 @@ export const GAME_GLYPHS = {
   threads: ThreadsGlyph,
   vault: VaultGlyph,
   gridlock: GridlockGlyph,
+  pass: PassGlyph,
 } as const;
