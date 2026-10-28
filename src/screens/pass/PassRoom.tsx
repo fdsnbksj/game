@@ -169,6 +169,8 @@ function Lobby({ room, uid }: { room: Room; uid: string }) {
 
 // ---------- The table ----------
 
+/** Taps this soon after the table changes are ignored. */
+const TAP_GUARD_MS = 450;
 const coins = (n: number) => `${n} ${n === 1 ? 'coin' : 'coins'}`;
 const signed = (n: number) => (n > 0 ? `+${n}` : n < 0 ? `−${-n}` : '±0');
 
@@ -184,7 +186,15 @@ function Game({ room, moves, uid }: { room: Room; moves: PassData['moves']; uid:
   const [sentAt, setSentAt] = useState<number | null>(null);
   const sending = sentAt !== null && sentAt === state.count;
 
+  // A tap just after the table changed is a late tap meant for the last view (a thumb still down
+  // on Take when the next card turns up): ignore it, so no card is taken unseen.
+  const changedAt = useRef(0);
+  useEffect(() => {
+    changedAt.current = performance.now();
+  }, [state.count]);
+
   const play = (move: Move) => {
+    if (performance.now() - changedAt.current < TAP_GUARD_MS) return;
     setError(null);
     setSentAt(state.count);
     void sendMove(room.code, () => count.current, move).catch((e) => {
@@ -280,15 +290,17 @@ function Game({ room, moves, uid }: { room: Room; moves: PassData['moves']; uid:
         <span className="pass-cost">Taking it: {signed(cost)}</span>
       </div>
 
-      <p className={mine ? 'pass-line yours' : 'pass-line'}>{line}</p>
-      {error && <p className="error">{error}</p>}
-      <div className="pass-actions">
+      <div className="pass-dock">
+        <p className={mine ? 'pass-line yours' : 'pass-line'}>{line}</p>
+        {error && <p className="error">{error}</p>}
+        <div className="pass-actions">
         <button className="button" disabled={!mine || forced || sending} onClick={() => play({ type: 'pay' })}>
           Pay a coin
         </button>
         <button className="button primary" disabled={!mine || sending} onClick={() => play({ type: 'take' })}>
           {state.pot ? `Take it (+${coins(state.pot)})` : 'Take it'}
         </button>
+        </div>
       </div>
 
       <SummaryRow label="How to play" title="How to play">

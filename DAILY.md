@@ -7,6 +7,7 @@ Nobody wants the card. The numbers 3 to 35 come up one at a time (nine never sho
 ## Done
 
 - 2026-10-28: Day one. Host, join by code or from Open rooms, host's seating order, play to the end with scores (runs, coins, ties share), Rematch in the same room; room version check with reload; heartbeat and abandoned-room cleanup; rules and rules tests.
+- 2026-10-28 polish: at six phones on a 360×640 screen the Pay and Take buttons sat below the fold; they now sit in a dock stuck to the bottom of the screen. Taps within 0.45 s of the table changing are ignored (a thumb still down on Take could take the next card unseen, as when you take and move again). Runs of cards are spaced further apart. Checked: 3 and 6 phones to the end with scores and Rematch, join by code and from Open rooms, one phone reloaded mid-game (same table), one phone's listen/write channels blocked (stayed in step), 390×844, 360×640, no sideways scroll.
 
 ## Next
 
