@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type Ref } from 'react';
 import { Link, useParams } from 'react-router';
 import { Page } from '../../components/Page';
 import { Lobby as LobbyFrame } from '../../components/RoomSetup';
@@ -9,6 +9,7 @@ import { reloadFresh } from '../../reload';
 import { useRoomHeartbeat } from '../../services/lobbies';
 import { finishGame, joinRoom, leaveRoom, rematch, sendMove, setSeats, startGame, versionProblem, watchRoom, type PassData, type PassRoom as Room } from '../../services/pass';
 import { useGameStore } from '../../store';
+import { playMove } from './motion';
 
 // Pass or Pay's room: the lobby, then the table. The screen centres on the face-up card,
 // its coins and your two buttons, with what taking it would do to your score; everyone's
@@ -193,6 +194,17 @@ function Game({ room, moves, uid }: { room: Room; moves: PassData['moves']; uid:
     changedAt.current = performance.now();
   }, [state.count]);
 
+  // A move that arrives on its own plays out over the table; several at once (catching up) just appear.
+  const cardEl = useRef<HTMLSpanElement>(null);
+  const potEl = useRef<HTMLSpanElement>(null);
+  const playersEl = useRef<HTMLUListElement>(null);
+  const mineEl = useRef<HTMLSpanElement>(null);
+  const shown = useRef(state.count);
+  useLayoutEffect(() => {
+    if (state.count === shown.current + 1) playMove(state, me, { card: cardEl.current, pot: potEl.current, players: playersEl.current, mine: mineEl.current });
+    shown.current = state.count;
+  }, [state, me]);
+
   const play = (move: Move) => {
     if (performance.now() - changedAt.current < TAP_GUARD_MS) return;
     setError(null);
@@ -266,10 +278,12 @@ function Game({ room, moves, uid }: { room: Room; moves: PassData['moves']; uid:
   return (
     <>
       <div className={mine ? 'pass-table yours' : 'pass-table'}>
-        <span className="pass-card big">{state.card}</span>
+        <span ref={cardEl} className="pass-card big">
+          {state.card}
+        </span>
         <div className="pass-table-text">
           <span className="pass-pot">
-            <Coin />
+            <Coin ref={potEl} />
             {state.pot ? `${coins(state.pot)} on it` : 'No coins on it'}
           </span>
           <span className="pass-left">{state.deck.length ? `${state.deck.length} more to come` : 'The last card'}</span>
@@ -278,11 +292,11 @@ function Game({ room, moves, uid }: { room: Room; moves: PassData['moves']; uid:
 
       <p className="pass-last">{state.last ? lastLine(state, name) : `${name(state.turn)} ${state.turn === me ? 'go' : 'goes'} first.`}</p>
 
-      <Players state={state} name={name} me={me} />
+      <Players ref={playersEl} state={state} name={name} me={me} />
 
       <div className="pass-me">
         <span>
-          <Coin /> <strong>{coins(you.coins)}</strong>
+          <Coin ref={mineEl} /> <strong>{coins(you.coins)}</strong>
         </span>
         <span>
           Score <strong>{score(you)}</strong>
@@ -321,11 +335,11 @@ function lastLine(state: PassState, name: (s: number) => string): string {
 }
 
 /** Everyone round the table: their cards in runs, whose move. Coins stay hidden, as at a real table. */
-function Players({ state, name, me }: { state: PassState; name: (s: number) => string; me: number }) {
+function Players({ ref, state, name, me }: { ref: Ref<HTMLUListElement>; state: PassState; name: (s: number) => string; me: number }) {
   return (
-    <ul className="group pass-players">
+    <ul ref={ref} className="group pass-players">
       {state.players.map((p, i) => (
-        <li key={i} className={['pass-player', i === state.turn ? 'turn' : '', i === me ? 'me' : ''].join(' ')}>
+        <li key={i} data-seat={i} className={['pass-player', i === state.turn ? 'turn' : '', i === me ? 'me' : ''].join(' ')}>
           <strong>{name(i)}</strong>
           {p.cards.length ? <Runs cards={p.cards} /> : <span className="note">No cards yet</span>}
         </li>
@@ -341,7 +355,7 @@ function Runs({ cards }: { cards: number[] }) {
       {runs(cards).map((run) => (
         <span key={run[0]} className="pass-run">
           {run.map((c, k) => (
-            <span key={c} className={k === 0 ? 'pass-card' : 'pass-card free'}>
+            <span key={c} data-card={c} className={k === 0 ? 'pass-card' : 'pass-card free'}>
               {c}
             </span>
           ))}
@@ -351,4 +365,4 @@ function Runs({ cards }: { cards: number[] }) {
   );
 }
 
-const Coin = () => <span className="pass-coin" aria-hidden="true" />;
+const Coin = ({ ref }: { ref?: Ref<HTMLSpanElement> }) => <span ref={ref} className="pass-coin" aria-hidden="true" />;

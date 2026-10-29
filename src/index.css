@@ -5964,6 +5964,15 @@ button.seat:disabled {
   vertical-align: -3px;
 }
 
+.pass-fly {
+  position: fixed;
+  z-index: 50;
+  margin: 0;
+  box-sizing: border-box;
+  pointer-events: none;
+  vertical-align: baseline;
+}
+
 .pass-last {
   margin: 0;
   color: var(--label-2);
