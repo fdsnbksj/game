@@ -9,7 +9,7 @@ import { reloadFresh } from '../../reload';
 import { useRoomHeartbeat } from '../../services/lobbies';
 import { finishGame, joinRoom, leaveRoom, rematch, sendMove, setSeats, startGame, versionProblem, watchRoom, type PassData, type PassRoom as Room } from '../../services/pass';
 import { useGameStore } from '../../store';
-import { playMove } from './motion';
+import { playMove, reducedMotion } from './motion';
 
 // Pass or Pay's room: the lobby, then the table. The screen centres on the face-up card,
 // its coins and your two buttons, with what taking it would do to your score; everyone's
@@ -202,6 +202,8 @@ function Game({ room, moves, uid }: { room: Room; moves: PassData['moves']; uid:
   const shown = useRef(state.count);
   useLayoutEffect(() => {
     if (state.count === shown.current + 1) playMove(state, me, { card: cardEl.current, pot: potEl.current, players: playersEl.current, mine: mineEl.current });
+    // Your move after someone else's: a short buzz where the phone allows it, for a book-reading eye.
+    if (state.count > shown.current && state.winners === null && state.turn === me && state.last?.by !== me && !reducedMotion()) navigator.vibrate?.(40);
     shown.current = state.count;
   }, [state, me]);
 

@@ -82,14 +82,25 @@ export async function startGame(code: string) {
   poke(`passes/${code}`);
 }
 
-/** Another game with the same seats once one is over; whichever phone asks first starts it. */
+/**
+ * Another game with the same seats once one is over; whichever phone asks first starts it.
+ * Tapped the instant a game ends, the room may not be marked done yet (refused), and a busy
+ * server can abort a write, so it tries again a few times before giving up.
+ */
 export async function rematch(code: string, from: number) {
-  try {
-    await rest.updateDoc(roomRef(code), { status: 'playing', seed: newSeed(), startedAt: rest.serverTimestamp(), from });
-  } catch (error) {
-    if (!(error instanceof FirebaseError && error.code === 'permission-denied')) throw error;
+  let last: unknown;
+  for (let tries = 0; tries < 5; tries++) {
+    try {
+      await rest.updateDoc(roomRef(code), { status: 'playing', seed: newSeed(), startedAt: rest.serverTimestamp(), from });
+      poke(`passes/${code}`);
+      return;
+    } catch (error) {
+      last = error;
+      poke(`passes/${code}`);
+      await sleep(500 + tries * 300);
+    }
   }
-  poke(`passes/${code}`);
+  throw last;
 }
 
 export async function finishGame(code: string) {
