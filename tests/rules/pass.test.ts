@@ -55,8 +55,21 @@ describe('pass rooms', () => {
     await assertFails(updateDoc(ref(dbFor('bob')), { seats: ['bob', 'ann', 'cat'] }));
     await assertFails(updateDoc(ref(dbFor('ann')), { seats: ['ann', 'bob', 'eve'] }));
     await assertFails(updateDoc(ref(dbFor('ann')), { seats: ['ann', 'bob'] }));
-    await assertFails(updateDoc(ref(dbFor('ann')), { seats: ['ann', 'bob', 'cat', 'bot:1'] }));
     await assertSucceeds(updateDoc(ref(dbFor('ann')), { seats: ['cat', 'ann', 'bob'] }));
+  });
+
+  it('let the host add, remove and seat bots, up to six seats, but not people', async () => {
+    await seed({ seats: ['ann', 'bob'], status: 'lobby' });
+    const bots = { ...NAMES, 'bot:1': 'Bot 1', 'bot:2': 'Bot 2' };
+    await assertFails(updateDoc(ref(dbFor('bob')), { seats: ['ann', 'bob', 'bot:1'], names: bots }));
+    await assertFails(updateDoc(ref(dbFor('ann')), { seats: ['ann', 'bob', 'bot:7'], names: { ...NAMES, 'bot:7': 'Bot 7' } }));
+    await assertFails(updateDoc(ref(dbFor('ann')), { seats: ['ann', 'bob', 'bot:1', 'bot:1'], names: bots }));
+    await assertSucceeds(updateDoc(ref(dbFor('ann')), { seats: ['ann', 'bot:1', 'bob', 'bot:2'], names: bots }));
+    await assertFails(updateDoc(ref(dbFor('ann')), { seats: ['ann', 'bot:1', 'bot:2'], names: bots }));
+    await assertSucceeds(updateDoc(ref(dbFor('ann')), { seats: ['ann', 'bob', 'bot:2'], names: bots }));
+    await assertFails(updateDoc(ref(dbFor('ann')), { seats: ['ann', 'bob', 'bot:2', 'bot:3', 'bot:4', 'bot:5', 'bot:6'], names: bots }));
+    await assertSucceeds(updateDoc(ref(dbFor('ann')), { seats: ['ann', 'bob', 'bot:2', 'bot:3', 'bot:4', 'bot:5'], names: bots }));
+    await assertFails(updateDoc(ref(dbFor('cat')), { seats: ['ann', 'bob', 'bot:2', 'bot:3', 'bot:4', 'bot:5', 'cat'], names: { ...bots } }));
   });
 
   it('start only by the host, with two to six seats', async () => {
@@ -102,6 +115,14 @@ describe('pass moves', () => {
     await assertSucceeds(move('ann', 1));
     await assertFails(move('ann', 2, 'bob'));
     await assertFails(move('eve', 2));
+  });
+
+  it("by a bot that's seated, written only by the host", async () => {
+    await seed({ seats: ['ann', 'bob', 'bot:1'], status: 'playing', seed: 'abcdef12' });
+    await assertFails(move('bob', 0, 'bot:1'));
+    await assertSucceeds(move('ann', 0, 'bot:1'));
+    await assertFails(move('ann', 1, 'bot:2'));
+    await assertSucceeds(move('bob', 1));
   });
 
   it('only while playing', async () => {

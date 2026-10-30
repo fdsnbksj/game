@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { botMove } from '../../src/games/pass/bot';
 import { apply, HIGH, LOW, MAX_SEATS, mustTake, PASS_VERSION, replay, runs, score, SET_ASIDE, start, startingCoins, takeCost, type PassState, type Recorded } from '../../src/games/pass/state';
 import { stream } from '../../src/nonogram/rng';
 import { hashSeed } from '../../src/shared/random';
@@ -105,6 +106,44 @@ describe('scoring', () => {
     expect(apply(t, { type: 'take' }, 1)).toBeNull();
     const tie = apply({ ...s, players: [{ cards: [last + 5], coins: 5 }, s.players[1], s.players[2]] }, { type: 'take' }, 1)!;
     expect(tie.winners).toEqual([0, 1]);
+  });
+});
+
+describe('bots', () => {
+  it('move only on their turn, and must take when broke', () => {
+    const s = { ...start('bot', 3), turn: 1 };
+    expect(botMove(s, 0)).toBeNull();
+    expect(botMove(s, 1)).not.toBeNull();
+    const broke: PassState = { ...s, players: s.players.map((p, i) => (i === 1 ? { ...p, coins: 0 } : p)) };
+    expect(botMove(broke, 1)).toEqual({ type: 'take' });
+  });
+
+  it('take a fat pot or a card that joins their run, and pass a costly one', () => {
+    const s0 = { ...start('bot2', 3), turn: 0 };
+    const at = (card: number, pot: number, cards: number[], coins = 11): PassState => ({ ...s0, card, pot, players: s0.players.map((p, i) => (i === 0 ? { cards, coins } : p)) });
+    expect(botMove(at(30, 31, []), 0)).toEqual({ type: 'take' });
+    expect(botMove(at(30, 0, []), 0)).toEqual({ type: 'pay' });
+    expect(botMove(at(21, 0, [20], 2), 0)).toEqual({ type: 'take' });
+  });
+
+  it('are the same on every phone, and play whole games to the end', () => {
+    for (let g = 0; g < 200; g++) {
+      const seats = Array.from({ length: 2 + (g % 5) }, (_, i) => `bot:${i + 1}`);
+      const seed = `bots${g}`;
+      let s = start(seed, seats.length);
+      const moves: Recorded[] = [];
+      for (let t = 0; t < 5000 && s.winners === null; t++) {
+        const move = botMove(s, s.turn)!;
+        expect(botMove(s, s.turn)).toEqual(move);
+        const next = apply(s, move, s.turn);
+        expect(next).not.toBeNull();
+        moves.push({ by: seats[s.turn], move });
+        s = next!;
+      }
+      expect(s.winners).not.toBeNull();
+      expect(botMove(s, s.turn)).toBeNull();
+      expect(replay(seed, seats, moves)).toEqual(s);
+    }
   });
 });
 

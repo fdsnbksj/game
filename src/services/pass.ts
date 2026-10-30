@@ -6,7 +6,8 @@ import { followRoom, poke, rest, restDoc } from './resilient';
 import { newCode } from './roomCode';
 
 // Pass or Pay rooms: passes/{code}, and its moves, one document each, in order, like Bluff
-// Table's. Only the player whose turn it is moves. A room records the PASS_VERSION that
+// Table's. Only the player whose turn it is moves; bots are seats named `bot:N` whose moves
+// only the host's phone writes. A room records the PASS_VERSION that
 // opened it: a phone on another version would replay the moves differently, so it can't
 // join. tests/rules/pass.test.ts mirrors these writes.
 
@@ -26,6 +27,7 @@ export interface PassRoom {
 export const versionProblem = (version: number | null) =>
   version === PASS_VERSION ? null : version !== null && version > PASS_VERSION ? 'This room is on a newer version of the game. Reload to get it.' : 'This room was opened on an older version of the game. Reload, and open a new room.';
 
+export const isBot = (seat: string) => seat.startsWith('bot:');
 const roomRef = (code: string) => restDoc('passes', code);
 
 function me() {
@@ -69,10 +71,17 @@ export async function leaveRoom(room: PassRoom) {
   poke(`passes/${room.code}`);
 }
 
-/** The host's seating order. */
+/** The host's lobby controls: bots in or out, and the seating order. */
 export async function setSeats(room: PassRoom, seats: string[]) {
-  await rest.updateDoc(roomRef(room.code), { seats });
+  const names = { ...room.names };
+  for (const seat of seats) if (isBot(seat) && !names[seat]) names[seat] = `Bot ${seat.slice(4)}`;
+  await rest.updateDoc(roomRef(room.code), { seats, names });
   poke(`passes/${room.code}`);
+}
+
+export async function addBot(room: PassRoom) {
+  const free = [1, 2, 3, 4, 5, 6].map((i) => `bot:${i}`).find((id) => !room.seats.includes(id));
+  if (free) await setSeats(room, [...room.seats, free]);
 }
 
 const newSeed = () => Array.from(crypto.getRandomValues(new Uint32Array(3)), (n) => n.toString(36)).join('');
@@ -110,13 +119,16 @@ export async function finishGame(code: string) {
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-/** Appends your move as the next one; if another write took that number, waits for the watcher to catch up and tries again. */
-export async function sendMove(code: string, next: () => number, move: Move) {
+/**
+ * Appends a move as `by` (yourself, or a bot when you're the host) as the next one; if
+ * another write took that number, waits for the watcher to catch up and tries again.
+ */
+export async function sendMove(code: string, next: () => number, move: Move, by?: string) {
   const { uid } = me();
   for (let tries = 0; tries < 12; tries++) {
     const n = next();
     try {
-      await rest.setDoc(restDoc('passes', code, 'moves', String(n)), { n, by: uid, move });
+      await rest.setDoc(restDoc('passes', code, 'moves', String(n)), { n, by: by ?? uid, move });
       poke(`passes/${code}`);
       return;
     } catch (error) {

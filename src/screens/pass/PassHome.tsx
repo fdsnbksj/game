@@ -5,7 +5,7 @@ export function PassHome() {
   return (
     <GameHome
       title="Pass or Pay"
-      tagline="Nobody wants the card. Pay a coin, or take it. Two to six."
+      tagline="Nobody wants the card. Pay a coin, or take it. Two to six, bots welcome."
       rooms="passes"
       base="/pass"
       onHost={createRoom}

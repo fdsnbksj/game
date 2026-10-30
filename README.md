@@ -45,7 +45,7 @@ npm run build       # type-check + production build
 | `src/games/hero/`, `src/services/hero.ts`, `src/screens/hero/` | Hero Gambit: the one hero, the six skills, the turn's skill draw and the turns as pure code; fights as rooms and moves in Firestore |
 | `src/games/avalon/`, `src/services/avalon.ts` | Avalon: rules, dealing and state as pure code; rooms in Firestore |
 | `src/games/wonders/`, `src/services/wonders.ts`, `src/screens/wonders/` | Ancient Wonders: cards, boards, neighbour trade, simultaneous turns, scoring and bots as pure code; rooms and moves in Firestore |
-| `src/games/pass/`, `src/services/pass.ts`, `src/screens/pass/` | Pass or Pay: the daily game (see `DAILY.md`), a take-it-or-pay-a-coin card game for 2–6 phones; rules as pure code, rooms and moves in Firestore |
+| `src/games/pass/`, `src/services/pass.ts`, `src/screens/pass/` | Pass or Pay: the daily game (see `DAILY.md`), a take-it-or-pay-a-coin card game for 2–6 seats, bots welcome; rules as pure code, rooms and moves in Firestore |
 | `src/games/glide/`, `src/screens/glide/` | Glide: swipe blocks across the ice onto their rings in the fewest moves; levels, slides, solver and hints as pure code, saved on the phone |
 | `src/games/pipes/`, `src/screens/pipes/` | Waterworks: turn pipe tiles until water from the spring reaches every one; levels, water, leaks and hints as pure code, saved on the phone |
 | `src/games/lanterns/`, `src/screens/lanterns/` | Lanterns: tap a lantern to flip it and its neighbours until all are out; levels, the fewest-taps solver and hints as pure code, saved on the phone |

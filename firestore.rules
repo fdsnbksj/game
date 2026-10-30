@@ -705,8 +705,9 @@ service cloud.firestore {
     }
 
     // ---------- Pass or Pay ----------
-    // 2–6 seats, people only. The seed decides the deck; every move is appended in order by
-    // its own player, and every phone replays them and skips any refused. A room records the
+    // 2–6 seats, bots as in Bluff Table. The seed decides the deck; every move is appended in
+    // order by its own player or, for a bot, the host, and every phone replays them and skips
+    // any refused. A room records the
     // PASS_VERSION that opened it, so phones on another version don't join.
 
     function passRoom(code) {
@@ -730,7 +731,7 @@ service cloud.firestore {
         && request.resource.data.version is int
         && request.resource.data.createdAt == request.time;
       allow update: if request.auth != null
-        && (isPassJoin() || isPassLeave() || isPassSeating() || isPassStart() || isPassFinish() || isPassRematch(code) || isHeartbeat(resource.data.seats));
+        && (isPassJoin() || isPassLeave() || isPassSetup() || isPassStart() || isPassFinish() || isPassRematch(code) || isHeartbeat(resource.data.seats));
       allow delete: if isAbandonedLobby() || isAbandonedGame(resource.data);
 
       match /moves/{n} {
@@ -739,7 +740,9 @@ service cloud.firestore {
         allow create: if isPassPlayer(code)
           && passRoom(code).status == 'playing'
           && hasExactly(request.resource.data, ['n', 'by', 'move'])
-          && request.resource.data.by == request.auth.uid
+          && (request.resource.data.by == request.auth.uid
+            || (request.resource.data.by in botIds() && request.resource.data.by in passRoom(code).seats
+              && request.auth.uid == passRoom(code).host))
           && request.resource.data.n is int && request.resource.data.n >= 0
           && string(request.resource.data.n) == n
           && (request.resource.data.n == 0
@@ -769,14 +772,17 @@ service cloud.firestore {
         && after.seats == before.seats.removeAll([request.auth.uid]);
     }
 
-    // The host's seating order: the same people, in another order.
-    function isPassSeating() {
+    // The host's lobby controls: adding and removing bots, and the seating order.
+    function isPassSetup() {
       let before = resource.data;
       let after = request.resource.data;
       return before.status == 'lobby' && request.auth.uid == before.host
-        && after.diff(before).affectedKeys().hasOnly(['seats'])
-        && after.seats.size() == before.seats.size()
-        && after.seats.toSet() == before.seats.toSet();
+        && after.diff(before).affectedKeys().hasOnly(['seats', 'names'])
+        && after.seats.size() >= 1 && after.seats.size() <= 6
+        && after.seats.toSet().size() == after.seats.size()
+        && after.seats.toSet().difference(before.seats.toSet()).hasOnly(botIds())
+        && before.seats.toSet().difference(after.seats.toSet()).hasOnly(botIds())
+        && after.names.diff(before.names).affectedKeys().hasOnly(botIds());
     }
 
     function isPassStart() {

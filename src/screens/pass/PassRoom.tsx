@@ -3,11 +3,12 @@ import { Link, useParams } from 'react-router';
 import { Page } from '../../components/Page';
 import { Lobby as LobbyFrame } from '../../components/RoomSetup';
 import { SummaryRow } from '../../components/SummaryRow';
+import { botMove } from '../../games/pass/bot';
 import { MAX_SEATS, MIN_SEATS, mustTake, replay, runs, score, takeCost, type Move, type PassState } from '../../games/pass/state';
 import { forgetRoom, rememberPage } from '../../lastPage';
 import { reloadFresh } from '../../reload';
 import { useRoomHeartbeat } from '../../services/lobbies';
-import { finishGame, joinRoom, leaveRoom, rematch, sendMove, setSeats, startGame, versionProblem, watchRoom, type PassData, type PassRoom as Room } from '../../services/pass';
+import { addBot, finishGame, isBot, joinRoom, leaveRoom, rematch, sendMove, setSeats, startGame, versionProblem, watchRoom, type PassData, type PassRoom as Room } from '../../services/pass';
 import { useGameStore } from '../../store';
 import { playMove, reducedMotion } from './motion';
 
@@ -116,9 +117,20 @@ function Lobby({ room, uid }: { room: Room; uid: string }) {
               <li key={seat} className="row">
                 <span>{label(seat)}</span>
                 {seat === room.host && <span className="row-detail">Host</span>}
+                {isBot(seat) && <span className="row-detail">Bot</span>}
+                {isHost && isBot(seat) && (
+                  <button className="icon-button small" aria-label="Remove this bot" onClick={() => act(setSeats(room, room.seats.filter((s) => s !== seat)))}>
+                    ✕
+                  </button>
+                )}
               </li>
             ))}
           </ol>
+          {isHost && n < MAX_SEATS && (
+            <button className="button" onClick={() => act(addBot(room))}>
+              Add a bot
+            </button>
+          )}
         </>
       }
       options={
@@ -152,7 +164,7 @@ function Lobby({ room, uid }: { room: Room; uid: string }) {
           {error && <p className="error">{error}</p>}
           {isHost ? (
             <button className="button primary" disabled={n < MIN_SEATS} onClick={() => act(startGame(room.code))}>
-              {n < MIN_SEATS ? 'Waiting for a friend to join…' : 'Start'}
+              {n < MIN_SEATS ? 'Need one more: add a bot?' : 'Start'}
             </button>
           ) : (
             <>
@@ -172,6 +184,8 @@ function Lobby({ room, uid }: { room: Room; uid: string }) {
 
 /** Taps this soon after the table changes are ignored. */
 const TAP_GUARD_MS = 450;
+/** How long the host's phone waits before a bot moves, so people can follow. */
+const BOT_MS = 1100;
 const coins = (n: number) => `${n} ${n === 1 ? 'coin' : 'coins'}`;
 const signed = (n: number) => (n > 0 ? `+${n}` : n < 0 ? `−${-n}` : '±0');
 
@@ -216,6 +230,24 @@ function Game({ room, moves, uid }: { room: Room; moves: PassData['moves']; uid:
       setError(e instanceof Error ? e.message : String(e));
     });
   };
+
+  // The host's phone plays the bots, a beat after each move.
+  const isHost = room.host === uid;
+  const sentFor = useRef(new Set<number>());
+  useEffect(() => {
+    if (!isHost || state.winners !== null) return;
+    const id = room.seats[state.turn];
+    if (!isBot(id) || sentFor.current.has(state.count)) return;
+    const key = state.count;
+    const move = botMove(state, state.turn);
+    if (!move) return;
+    const timer = setTimeout(() => {
+      sentFor.current.add(key);
+      void sendMove(room.code, () => count.current, move, id).catch(() => sentFor.current.delete(key));
+    }, BOT_MS);
+    return () => clearTimeout(timer);
+    // Keyed on the move count, not the state: a refresh with nothing new mustn't restart the wait.
+  }, [isHost, state.count, state.winners, room.code, room.seats]);
 
   // Over on every phone at once; the first to say so marks the room done.
   useEffect(() => {
