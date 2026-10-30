@@ -5906,6 +5906,25 @@ button.seat:disabled {
   color: var(--on-feature);
 }
 
+.pass-table.yours .pass-card.big {
+  animation: pass-nudge 1.2s ease-out 1;
+}
+
+@keyframes pass-nudge {
+  0% {
+    box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.9);
+  }
+  100% {
+    box-shadow: 0 0 0 22px rgba(255, 255, 255, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pass-table.yours .pass-card.big {
+    animation: none;
+  }
+}
+
 .pass-table-text {
   display: flex;
   flex-direction: column;
