@@ -290,13 +290,15 @@ function Game({ room, moves, uid }: { room: Room; moves: PassData['moves']; uid:
           ))}
         </ol>
         {room.past.length > 0 && <Tally room={room} moves={moves} name={name} me={me} />}
-        {error && <p className="error">{error}</p>}
-        <button className="button primary" disabled={rematching} onClick={again}>
-          {rematching ? 'Starting…' : 'Rematch'}
-        </button>
-        <Link className="button ghost" to="/pass">
-          Leave the room
-        </Link>
+        <div className="pass-dock">
+          {error && <p className="error">{error}</p>}
+          <button className="button primary" disabled={rematching} onClick={again}>
+            {rematching ? 'Starting…' : 'Rematch'}
+          </button>
+          <Link className="button ghost" to="/pass">
+            Leave the room
+          </Link>
+        </div>
       </>
     );
   }
