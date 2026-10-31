@@ -797,12 +797,14 @@ service cloud.firestore {
     }
 
     // Another game with the same seats, once one is over: `from` is exactly where the
-    // room's moves end, so the new game's moves follow on.
+    // room's moves end, so the new game's moves follow on. The game just over goes onto
+    // `past` (its seed and first move), so every phone can replay the room's wins.
     function isPassRematch(code) {
       let before = resource.data;
       let after = request.resource.data;
       return before.status == 'done' && request.auth.uid in before.seats
-        && after.diff(before).affectedKeys().hasOnly(['status', 'seed', 'startedAt', 'from'])
+        && after.diff(before).affectedKeys().hasOnly(['status', 'seed', 'startedAt', 'from', 'past'])
+        && after.past == before.get('past', []).concat([{ 'seed': before.seed, 'from': before.get('from', 0) }])
         && after.status == 'playing'
         && after.seed is string && after.seed.size() >= 6 && after.seed.size() <= 40
         && after.seed != before.seed

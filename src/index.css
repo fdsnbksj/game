@@ -6154,3 +6154,46 @@ button.seat:disabled {
   color: var(--label-2);
   white-space: nowrap;
 }
+
+.pass-tally {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pass-tally-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pass-tally-list li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px 4px 12px;
+  border: 1px solid var(--separator);
+  border-radius: 999px;
+  background: var(--surface);
+  font-size: 14px;
+}
+
+.pass-tally-list li.me {
+  background: var(--game-pass-soft);
+}
+
+.pass-tally-list strong {
+  min-width: 22px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--fill-2);
+  text-align: center;
+}
+
+.pass-tally-list li.lead strong {
+  background: var(--game-pass);
+  color: var(--on-feature);
+}

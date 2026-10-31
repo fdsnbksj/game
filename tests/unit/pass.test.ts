@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { botMove } from '../../src/games/pass/bot';
-import { apply, HIGH, LOW, MAX_SEATS, mustTake, PASS_VERSION, replay, runs, score, SET_ASIDE, start, startingCoins, takeCost, type PassState, type Recorded } from '../../src/games/pass/state';
+import { apply, HIGH, LOW, MAX_SEATS, mustTake, PASS_VERSION, replay, runs, score, SET_ASIDE, start, startingCoins, takeCost, tally, type PassState, type Recorded } from '../../src/games/pass/state';
 import { stream } from '../../src/nonogram/rng';
 import { hashSeed } from '../../src/shared/random';
 
@@ -183,5 +183,38 @@ describe('whole games', () => {
     while (s.winners === null) s = apply(s, { type: rng(3) === 0 || mustTake(s) ? 'take' : 'pay' }, s.turn)!;
     expect(PASS_VERSION).toBe(1);
     expect(hashSeed(JSON.stringify(s))).toBe(1043184058);
+  });
+});
+
+describe('the room tally', () => {
+  const seats = ['ann', 'bob', 'bot:1'];
+  /** A whole game's moves from a seed, played by the bot for every seat. */
+  function game(seed: string): { moves: Recorded[]; winners: number[] } {
+    let s = start(seed, seats.length);
+    const moves: Recorded[] = [];
+    while (s.winners === null) {
+      const move = botMove(s, s.turn)!;
+      moves.push({ by: seats[s.turn], move });
+      s = apply(s, move, s.turn)!;
+    }
+    return { moves, winners: s.winners };
+  }
+
+  it('counts each finished game in the room, shared wins for each, a game under way not at all', () => {
+    const seeds = ['t1', 't2', 't3', 't4', 't5'];
+    const games = seeds.map(game);
+    const moves = games.flatMap((g) => g.moves);
+    const froms = games.map((_, i) => games.slice(0, i).reduce((n, g) => n + g.moves.length, 0));
+    const expected = seats.map(() => 0);
+    for (const g of games) for (const w of g.winners) expected[w]++;
+    const past = seeds.slice(0, 4).map((seed, i) => ({ seed, from: froms[i] }));
+    expect(tally(seats, past, { seed: 't5', from: froms[4] }, moves)).toEqual(expected);
+
+    // The last game half played: only the four before it count.
+    const half = moves.slice(0, froms[4] + 5);
+    const four = seats.map(() => 0);
+    for (const g of games.slice(0, 4)) for (const w of g.winners) four[w]++;
+    expect(tally(seats, past, { seed: 't5', from: froms[4] }, half)).toEqual(four);
+    expect(tally(seats, [], { seed: 't1', from: 0 }, games[0].moves)).toEqual(seats.map((_, i) => (games[0].winners.includes(i) ? 1 : 0)));
   });
 });

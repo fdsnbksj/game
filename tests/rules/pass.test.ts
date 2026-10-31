@@ -92,16 +92,34 @@ describe('pass rooms', () => {
     await env.withSecurityRulesDisabled(async (ctx) => {
       for (const n of [0, 1, 2]) await setDoc(doc(asModular(ctx.firestore()), 'passes', CODE, 'moves', String(n)), { n, by: 'ann', move: { type: 'pay' } });
     });
+    const past = [{ seed: 'abcdef12', from: 0 }];
     const again = (uid: string, from: number, extra: Record<string, unknown> = {}) =>
-      updateDoc(ref(dbFor(uid)), { status: 'playing', seed: 'ghijkl34', startedAt: serverTimestamp(), from, ...extra });
+      updateDoc(ref(dbFor(uid)), { status: 'playing', seed: 'ghijkl34', startedAt: serverTimestamp(), from, past, ...extra });
     await assertFails(again('eve', 3));
     await assertFails(again('bob', 2));
     await assertFails(again('bob', 4));
     await assertFails(again('bob', 3, { seed: 'abcdef12' }));
     await assertFails(again('bob', 3, { seats: ['ann'] }));
+    // The game just over goes onto `past`, exactly.
+    await assertFails(again('bob', 3, { past: [] }));
+    await assertFails(again('bob', 3, { past: [{ seed: 'abcdef12', from: 1 }] }));
+    await assertFails(again('bob', 3, { past: [{ seed: 'other123', from: 0 }] }));
+    await assertFails(updateDoc(ref(dbFor('bob')), { status: 'playing', seed: 'ghijkl34', startedAt: serverTimestamp(), from: 3 }));
     await assertSucceeds(again('bob', 3));
     await assertFails(again('ann', 3, { seed: 'mnopqr56' }));
     await assertSucceeds(move('ann', 3));
+  });
+
+  it('rematch again adds the next game to the room history, keeping the earlier ones', async () => {
+    const past = [{ seed: 'aaaaaa11', from: 0 }];
+    await seed({ seats: ['ann', 'bob'], status: 'done', seed: 'bbbbbb22', from: 2, past });
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      for (const n of [0, 1, 2, 3]) await setDoc(doc(asModular(ctx.firestore()), 'passes', CODE, 'moves', String(n)), { n, by: 'ann', move: { type: 'pay' } });
+    });
+    const again = (next: unknown[]) => updateDoc(ref(dbFor('ann')), { status: 'playing', seed: 'cccccc33', startedAt: serverTimestamp(), from: 4, past: next });
+    await assertFails(again([{ seed: 'bbbbbb22', from: 2 }]));
+    await assertFails(again([...past, { seed: 'bbbbbb22', from: 2 }, { seed: 'xxxxxx99', from: 3 }]));
+    await assertSucceeds(again([...past, { seed: 'bbbbbb22', from: 2 }]));
   });
 });
 

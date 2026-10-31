@@ -4,7 +4,7 @@ import { Page } from '../../components/Page';
 import { Lobby as LobbyFrame } from '../../components/RoomSetup';
 import { SummaryRow } from '../../components/SummaryRow';
 import { botMove } from '../../games/pass/bot';
-import { MAX_SEATS, MIN_SEATS, mustTake, replay, runs, score, takeCost, type Move, type PassState } from '../../games/pass/state';
+import { MAX_SEATS, MIN_SEATS, mustTake, replay, runs, score, takeCost, tally, type Move, type PassState } from '../../games/pass/state';
 import { forgetRoom, rememberPage } from '../../lastPage';
 import { reloadFresh } from '../../reload';
 import { useRoomHeartbeat } from '../../services/lobbies';
@@ -259,7 +259,7 @@ function Game({ room, moves, uid }: { room: Room; moves: PassData['moves']; uid:
   const again = () => {
     setRematching(true);
     setError(null);
-    void rematch(room.code, moves.length).catch(() => {
+    void rematch(room, moves.length).catch(() => {
       setRematching(false);
       setError('Couldn’t start a rematch. Check the connection and try again.');
     });
@@ -289,6 +289,7 @@ function Game({ room, moves, uid }: { room: Room; moves: PassData['moves']; uid:
             </li>
           ))}
         </ol>
+        {room.past.length > 0 && <Tally room={room} moves={moves} name={name} me={me} />}
         {error && <p className="error">{error}</p>}
         <button className="button primary" disabled={rematching} onClick={again}>
           {rematching ? 'Starting…' : 'Rematch'}
@@ -358,6 +359,26 @@ function Game({ room, moves, uid }: { room: Room; moves: PassData['moves']; uid:
         </div>
       </SummaryRow>
     </>
+  );
+}
+
+/** Wins per player over every game in this room, this one included, most first. */
+function Tally({ room, moves, name, me }: { room: Room; moves: PassData['moves']; name: (s: number) => string; me: number }) {
+  const wins = useMemo(() => tally(room.seats, room.past, { seed: room.seed!, from: room.from }, moves), [room, moves]);
+  const best = Math.max(...wins);
+  const order = wins.map((w, i) => ({ w, i })).sort((a, b) => b.w - a.w || a.i - b.i);
+  return (
+    <div className="pass-tally">
+      <p className="micro">Wins in this room · {room.past.length + 1} games</p>
+      <ul className="pass-tally-list">
+        {order.map(({ w, i }) => (
+          <li key={i} className={[w === best && w > 0 ? 'lead' : '', i === me ? 'me' : ''].join(' ')}>
+            <span>{name(i)}</span>
+            <strong>{w}</strong>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 

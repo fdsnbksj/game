@@ -1,6 +1,6 @@
 import { FirebaseError } from 'firebase/app';
 import type { Unsubscribe } from 'firebase/firestore';
-import { MAX_SEATS, PASS_VERSION, type Move, type Recorded } from '../games/pass/state';
+import { MAX_SEATS, PASS_VERSION, type Move, type PastGame, type Recorded } from '../games/pass/state';
 import { useGameStore } from '../store';
 import { followRoom, poke, rest, restDoc } from './resilient';
 import { newCode } from './roomCode';
@@ -21,6 +21,8 @@ export interface PassRoom {
   version: number | null;
   /** The number of this game's first move: 0, or where the latest rematch began. */
   from: number;
+  /** The room's finished games before this one, oldest first, for the tally. */
+  past: PastGame[];
 }
 
 /** Why this phone can't play in a room made by another version of the game, if it can't. */
@@ -96,11 +98,14 @@ export async function startGame(code: string) {
  * Tapped the instant a game ends, the room may not be marked done yet (refused), and a busy
  * server can abort a write, so it tries again a few times before giving up.
  */
-export async function rematch(code: string, from: number) {
+export async function rematch(room: PassRoom, from: number) {
+  const { code } = room;
+  // This game joins the room's history; the rules check it's exactly the one just over.
+  const past = [...room.past, { seed: room.seed!, from: room.from }];
   let last: unknown;
   for (let tries = 0; tries < 5; tries++) {
     try {
-      await rest.updateDoc(roomRef(code), { status: 'playing', seed: newSeed(), startedAt: rest.serverTimestamp(), from });
+      await rest.updateDoc(roomRef(code), { status: 'playing', seed: newSeed(), startedAt: rest.serverTimestamp(), from, past });
       poke(`passes/${code}`);
       return;
     } catch (error) {
@@ -160,6 +165,7 @@ export function watchRoom(code: string, uid: string, onChange: (data: PassData) 
       seed: (d.seed as string | undefined) ?? null,
       version: (d.version as number | undefined) ?? null,
       from: (d.from as number | undefined) ?? 0,
+      past: (d.past as PastGame[] | undefined) ?? [],
     }),
     (room) => room.seats.includes(uid) && room.status !== 'lobby',
     onChange,

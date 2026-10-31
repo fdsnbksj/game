@@ -136,3 +136,23 @@ export function replay(seed: string, seats: readonly string[], moves: readonly R
   }
   return state;
 }
+
+/** A finished game in a room: its seed and the number of its first move. */
+export interface PastGame {
+  seed: string;
+  from: number;
+}
+
+/**
+ * Wins per seat over a room's games: each past game replayed from its own moves (up to the
+ * next game's first), plus the current one if it's over. A shared win counts for each.
+ */
+export function tally(seats: readonly string[], past: readonly PastGame[], current: PastGame, moves: readonly Recorded[]): number[] {
+  const wins = seats.map(() => 0);
+  const games = [...past, current];
+  games.forEach((game, i) => {
+    const to = i + 1 < games.length ? games[i + 1].from : moves.length;
+    for (const w of replay(game.seed, seats, moves.slice(game.from, to)).winners ?? []) wins[w]++;
+  });
+  return wins;
+}
