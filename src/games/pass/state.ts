@@ -92,8 +92,11 @@ export function runs(cards: readonly number[]): number[][] {
   return out;
 }
 
+/** What a player's cards count for: each run's lowest number. Coins aren't in it, so anyone may see it. */
+export const cardPoints = (cards: readonly number[]) => runs(cards).reduce((sum, run) => sum + run[0], 0);
+
 /** Each run's lowest number, less a point for every coin. Lower is better. */
-export const score = (p: Player) => runs(p.cards).reduce((sum, run) => sum + run[0], 0) - p.coins;
+export const score = (p: Player) => cardPoints(p.cards) - p.coins;
 
 /** What taking `card` would add to this player's score, coins on it included: a card next to a run costs nothing. */
 export function takeCost(p: Player, card: number, pot: number): number {

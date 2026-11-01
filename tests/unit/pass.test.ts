@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { botMove } from '../../src/games/pass/bot';
-import { apply, HIGH, LOW, MAX_SEATS, mustTake, PASS_VERSION, replay, runs, score, SET_ASIDE, start, startingCoins, takeCost, tally, type PassState, type Recorded } from '../../src/games/pass/state';
+import { apply, cardPoints, HIGH, LOW, MAX_SEATS, mustTake, PASS_VERSION, replay, runs, score, SET_ASIDE, start, startingCoins, takeCost, tally, type PassState, type Recorded } from '../../src/games/pass/state';
 import { stream } from '../../src/nonogram/rng';
 import { hashSeed } from '../../src/shared/random';
 
@@ -74,6 +74,13 @@ describe('scoring', () => {
     expect(runs([23, 3, 21, 22, 5])).toEqual([[3], [5], [21, 22, 23]]);
     expect(score({ cards: [3, 5, 21, 22, 23], coins: 4 })).toBe(3 + 5 + 21 - 4);
     expect(score({ cards: [], coins: 11 })).toBe(-11);
+  });
+
+  it('card points are the runs alone, coins left out', () => {
+    expect(cardPoints([])).toBe(0);
+    expect(cardPoints([23, 3, 21, 22, 5])).toBe(3 + 5 + 21);
+    const p = { cards: [7, 8, 30], coins: 6 };
+    expect(cardPoints(p.cards) - p.coins).toBe(score(p));
   });
 
   it('a card next to your run costs only what its coins take off', () => {

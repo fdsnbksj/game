@@ -6025,6 +6025,33 @@ button.seat:disabled {
   white-space: nowrap;
 }
 
+.pass-players-box {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.pass-points {
+  margin-left: auto;
+  flex: 0 0 auto;
+  min-width: 28px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  color: var(--label-2);
+}
+
+.pass-points-toggle {
+  align-self: center;
+  min-height: 36px;
+  padding: 6px 12px;
+  border: 0;
+  background: none;
+  color: var(--game-pass);
+  font: inherit;
+  font-size: 13px;
+}
+
 .pass-player.turn {
   border-left-color: var(--game-pass);
 }

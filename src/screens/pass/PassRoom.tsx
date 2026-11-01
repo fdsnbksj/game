@@ -4,7 +4,7 @@ import { Page } from '../../components/Page';
 import { Lobby as LobbyFrame } from '../../components/RoomSetup';
 import { SummaryRow } from '../../components/SummaryRow';
 import { botMove } from '../../games/pass/bot';
-import { MAX_SEATS, MIN_SEATS, mustTake, replay, runs, score, takeCost, tally, type Move, type PassState } from '../../games/pass/state';
+import { cardPoints, MAX_SEATS, MIN_SEATS, mustTake, replay, runs, score, takeCost, tally, type Move, type PassState } from '../../games/pass/state';
 import { forgetRoom, rememberPage } from '../../lastPage';
 import { reloadFresh } from '../../reload';
 import { useRoomHeartbeat } from '../../services/lobbies';
@@ -391,17 +391,49 @@ function lastLine(state: PassState, name: (s: number) => string): string {
   return `${who} took ${last.card}${last.pot ? ` and ${coins(last.pot)}` : ''}.`;
 }
 
-/** Everyone round the table: their cards in runs, whose move. Coins stay hidden, as at a real table. */
+/** Whether this phone shows card points in the players list: a per-viewer choice, kept if the browser allows. */
+const POINTS_KEY = 'game:passPoints';
+function readShowPoints(): boolean {
+  try {
+    return localStorage.getItem(POINTS_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Everyone round the table: their cards in runs, whose move. Coins stay hidden, as at a real
+ * table; a tap under the list shows what each player's cards count for so far (coins left out).
+ */
 function Players({ ref, state, name, me }: { ref: Ref<HTMLUListElement>; state: PassState; name: (s: number) => string; me: number }) {
+  const [show, setShow] = useState(readShowPoints);
+  const toggle = () => {
+    setShow(!show);
+    try {
+      localStorage.setItem(POINTS_KEY, show ? '0' : '1');
+    } catch {
+      // Private window or blocked storage: the choice lasts this visit.
+    }
+  };
   return (
-    <ul ref={ref} className="group pass-players">
-      {state.players.map((p, i) => (
-        <li key={i} data-seat={i} className={['pass-player', i === state.turn ? 'turn' : '', i === me ? 'me' : ''].join(' ')}>
-          <strong>{name(i)}</strong>
-          {p.cards.length ? <Runs cards={p.cards} /> : <span className="note">No cards yet</span>}
-        </li>
-      ))}
-    </ul>
+    <div className="pass-players-box">
+      <ul ref={ref} className="group pass-players">
+        {state.players.map((p, i) => (
+          <li key={i} data-seat={i} className={['pass-player', i === state.turn ? 'turn' : '', i === me ? 'me' : ''].join(' ')}>
+            <strong>{name(i)}</strong>
+            {p.cards.length ? <Runs cards={p.cards} /> : <span className="note">No cards yet</span>}
+            {show && (
+              <span className="pass-points" aria-label={`${cardPoints(p.cards)} card points`}>
+                {cardPoints(p.cards)}
+              </span>
+            )}
+          </li>
+        ))}
+      </ul>
+      <button className="pass-points-toggle" aria-pressed={show} onClick={toggle}>
+        {show ? 'Card points shown · coins not in them · hide' : 'Show card points so far'}
+      </button>
+    </div>
   );
 }
 

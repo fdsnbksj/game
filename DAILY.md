@@ -13,19 +13,20 @@ Nobody wants the card. The numbers 3 to 35 come up one at a time (nine never sho
 - 2026-10-30 polish: nothing broken found in the bots. Added the visual half of the your-turn nudge: a white ring spreads once from the table card when the move becomes yours (off with reduced motion). Checked: host + 1 friend + 2 bots at 390×844 and host + 5 bots at 360×640, each to the end with touch taps, Rematch with bots (bots play the new game), host reloaded mid-game with six seats (same table, bots carry on), no sideways scroll, Add a bot hides at six seats. Removed the New chip.
 - 2026-10-31: A running tally across rematches. From the second game on, the end screen shows wins per player in this room (shared wins count for each), the leader's count in purple. Each Rematch adds the game just over (its seed and first move) to the room's `past`, checked exactly by the rules, so every phone replays the same tally from the moves.
 - 2026-10-31 polish: on a short phone with 3–4 players the end screen pushed Rematch (and the new tally) below the fold; Rematch and Leave the room now sit in the sticky bottom dock, like Pay and Take. Checked: the tally with 2 phones over 3 games and 4 phones over 2 games (390×844, 360×640): every phone shows the same counts, shared wins count for each, a reload on the end screen keeps the tally, no sideways scroll. Removed the New chip.
+- 2026-11-01: Card points so far. A tap on "Show card points so far" under the players list shows what each player's cards count for (each run's lowest; coins left out, since they stay hidden), right-aligned in each row; tap again to hide. The choice is kept on the phone (`game:passPoints`).
 
 ## Next
 
-1. Show each player's score so far in the players list (from their cards; coins stay hidden), folded behind a tap.
-2. A "last moves" log in a SummaryRow: who paid, who took what and for how many coins, this game.
-3. Lobby option: hidden or open coins (open shows everyone's coins in the players list).
-4. Lobby option: a shorter game (set aside more cards, e.g. 15) for quick rounds between stops.
-5. End screen: a reveal of the nine cards set aside.
-6. Hint line for newcomers: "26 would join your 24–25: it costs you nothing" when a card fits your run.
-7. Name chips with a colour per seat, used in the players list and the last-move line.
-8. Lobby option: starting coins (7, 9, 11).
-9. A host who leaves mid-game stalls the bots: let another player's phone take over playing them.
-10. Bots with a little character (a careful one, a greedy one) chosen in the lobby.
-11. A small tally line during play too ("Game 3 · Ann leads 2–1"), folded into the players row.
+1. A "last moves" log in a SummaryRow: who paid, who took what and for how many coins, this game.
+2. Lobby option: hidden or open coins (open shows everyone's coins in the players list).
+3. Lobby option: a shorter game (set aside more cards, e.g. 15) for quick rounds between stops.
+4. End screen: a reveal of the nine cards set aside.
+5. Hint line for newcomers: "26 would join your 24–25: it costs you nothing" when a card fits your run.
+6. Name chips with a colour per seat, used in the players list and the last-move line.
+7. Lobby option: starting coins (7, 9, 11).
+8. A host who leaves mid-game stalls the bots: let another player's phone take over playing them.
+9. Bots with a little character (a careful one, a greedy one) chosen in the lobby.
+10. A small tally line during play too ("Game 3 · Ann leads 2–1"), folded into the players row.
+11. With open coins on (item 2), the card points column shows full scores instead.
 
 ## From the user
