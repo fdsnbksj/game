@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
-import { FAST_MS, MEMORY_DIGITS, MEMORY_SHOW_MS, memoryNumber, seconds, SPEED_MAX_MS, speedDelay, stopwatchTarget, VISIBLE_MS, WHEEL, type Move } from '../../games/hero/skills';
+import { FAST_MAX_TAPS, FAST_MS, MEMORY_DIGITS, MEMORY_SHOW_MS, memoryNumber, seconds, SPEED_MAX_MS, speedDelay, stopwatchTarget, VISIBLE_MS, WHEEL, type Move } from '../../games/hero/skills';
 import { skillOf, type HeroState, type Side, type Turn } from '../../games/hero/state';
 import { LAST_STAND, type SkillId } from '../../games/hero/stats';
 import { Stickman } from './Stickman';
@@ -48,6 +48,8 @@ const SPIN_MS = 2400;
 const DIGIT_MS = 60;
 /** A wrong digit shows red this long, then the go is sent; so does Time! after tapping, so a last tap can't land on what comes next. */
 const WRONG_MS = 700;
+/** The longest stop the rules take (`isTimed`); a stopwatch left running stops there. */
+const STOPWATCH_MAX_MS = 60_000;
 /** Jackpot's reels change symbol this often while spinning, and stop one after another. */
 const REEL_TICK_MS = 80;
 const REEL_STOPS = [900, 1400, 1900];
@@ -572,7 +574,9 @@ function TapPlay({ onDone }: { onDone: (taps: number) => void }) {
         onPointerDown={() => {
           if (phase === 'done') return;
           if (phase === 'pad') setPhase('tapping');
-          count.current += 1;
+          // The rules refuse more than FAST_MAX_TAPS, and a refused move left the fight stuck on
+          // "Time!" (several fingers drumming the pad got there), so the count stops at it.
+          count.current = Math.min(FAST_MAX_TAPS, count.current + 1);
           setTaps(count.current);
         }}
       >
@@ -729,7 +733,7 @@ function Stopwatch({ target, onStop }: { target: number; onStop: (ms: number) =>
           Start
         </button>
       ) : (
-        <button className="button primary" onPointerDown={() => onStop(Math.round(performance.now() - startedAt))}>
+        <button className="button primary" onPointerDown={() => onStop(Math.min(STOPWATCH_MAX_MS, Math.round(performance.now() - startedAt)))}>
           Stop
         </button>
       )}

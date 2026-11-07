@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { Link } from 'react-router';
 import { Page } from '../../components/Page';
 import type { Move } from '../../games/hero/skills';
-import { HERO_VERSION, replay, type Recorded } from '../../games/hero/state';
+import { apply, HERO_VERSION, replay, type Recorded } from '../../games/hero/state';
 import { Fight } from './Fight';
 
 // A fight on one phone (the user's ask): two players take turns, passing the phone. Nothing
@@ -80,7 +80,11 @@ function Setup({ onStart }: { onStart: (names: [string, string]) => void }) {
 function Game({ saved, onChange }: { saved: Saved; onChange: (next: Saved | null) => void }) {
   const state = useMemo(() => replay(saved.seed, [{ name: saved.names[0] }, { name: saved.names[1] }], PLAYERS, saved.moves), [saved]);
 
-  const play = (move: Move) => onChange({ ...saved, moves: [...saved.moves, { by: PLAYERS[state.turn], move }] });
+  const play = (move: Move) => {
+    // A move the rules refuse is dropped, not saved: replay would skip it anyway.
+    if (!apply(state, move, state.turn)) return;
+    onChange({ ...saved, moves: [...saved.moves, { by: PLAYERS[state.turn], move }] });
+  };
 
   return (
     <Fight state={state} me={0} names={saved.names} hotseat onMove={play} waiting="">
