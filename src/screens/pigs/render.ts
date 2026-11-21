@@ -216,7 +216,14 @@ function ellipse(ctx: CanvasRenderingContext2D, x: number, y: number, rx: number
 }
 
 function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
+  // Drawn by hand: ctx.roundRect is missing on older phones (iOS before 16), and a throw
+  // here would stop the pen dead on the first frame.
   ctx.beginPath();
-  ctx.roundRect(x, y, w, h, r);
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
   ctx.fill();
 }

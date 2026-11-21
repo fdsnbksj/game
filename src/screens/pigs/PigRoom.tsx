@@ -209,13 +209,20 @@ function Game({ room, moves, uid }: { room: Room; moves: PigRoomData['moves']; u
     const resize = new ResizeObserver(fit);
     resize.observe(wrap);
     let frame = 0;
+    let reported = false;
     const loop = () => {
-      const now = tickNow();
-      advance(pen.current, throwsRef.current, Math.max(0, now));
-      const countdown = now < 0 ? startMs - serverNow() : null;
-      draw(ctx, pen.current, palette, { me, names, countdown });
-      setPhase(now < 0 ? 'waiting' : now < GAME_TICKS ? 'playing' : 'over');
+      // The next frame is asked for first, so one bad frame can't stop the pen for good.
       frame = requestAnimationFrame(loop);
+      const now = tickNow();
+      setPhase(now < 0 ? 'waiting' : now < GAME_TICKS ? 'playing' : 'over');
+      try {
+        advance(pen.current, throwsRef.current, Math.max(0, now));
+        const countdown = now < 0 ? startMs - serverNow() : null;
+        draw(ctx, pen.current, palette, { me, names, countdown });
+      } catch (e) {
+        if (!reported) console.error('Pig Lasso frame failed', e);
+        reported = true;
+      }
     };
     frame = requestAnimationFrame(loop);
     return () => {
