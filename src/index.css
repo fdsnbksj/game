@@ -191,6 +191,26 @@
   --vault-6: #ea580c;
   --vault-7: #db2777;
   --vault-8: #78716c;
+  --game-pigs: #db2777;
+  --game-pigs-soft: rgb(219 39 119 / 0.12);
+  /* Pig Lasso: the pen, its fences and farmers, the pigs, and the clock and scores over it. */
+  --pigs-grass: #86c06c;
+  --pigs-grass-mark: #6fa857;
+  --pigs-mud: #a47b55;
+  --pigs-fence: #8a5a2b;
+  --pigs-farmer: #1f2937;
+  --pigs-rope: #f5e6c8;
+  --pigs-pink: #f9a8c4;
+  --pigs-pink-dark: #db6f97;
+  --pigs-black: #27272a;
+  --pigs-black-dark: #52525b;
+  --pigs-ink: #18181b;
+  --pigs-text: #18181b;
+  --pigs-gain: #15803d;
+  --pigs-loss: #b91c1c;
+  --pigs-clock: #18181b;
+  --pigs-clock-low: #b91c1c;
+  --pigs-panel: rgb(255 255 255 / 0.88);
   --game-pass: #a21caf;
   --game-pass-soft: rgb(162 28 175 / 0.12);
   /* Pass or Pay: the number cards, a card that costs nothing in a run, and the coins. */
@@ -2704,6 +2724,7 @@ button.seat:disabled {
 .tile-vault { --tile: var(--game-vault); }
 .tile-gridlock { --tile: var(--game-gridlock); }
 .tile-pass { --tile: var(--game-pass); }
+.tile-pigs { --tile: var(--game-pigs); }
 
 .hub-tile-art {
   display: grid;
@@ -6223,4 +6244,75 @@ button.seat:disabled {
 .pass-tally-list li.lead strong {
   background: var(--game-pass);
   color: var(--on-feature);
+}
+
+/* ---------- Pig Lasso ---------- */
+
+/* The pen, as big as fits under the bar in its own shape (360 × 560); a tap anywhere on it throws. */
+.pigs-field {
+  position: relative;
+  align-self: center;
+  height: min(calc(100dvh - 150px), calc((min(100vw, 480px) - 32px) * 560 / 360));
+  aspect-ratio: 360 / 560;
+  border-radius: 16px;
+  overflow: hidden;
+  background: var(--pigs-grass);
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.pigs-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.pigs-banner {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  margin: 0;
+  padding: 10px 18px;
+  border-radius: 999px;
+  background: var(--pigs-panel);
+  color: var(--pigs-text);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.pigs-result {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 18px;
+  border-radius: 16px;
+  background: var(--pigs-panel);
+  color: var(--pigs-text);
+  text-align: center;
+}
+
+.pigs-result h2 {
+  margin: 0 0 8px;
+  font-size: 26px;
+}
+
+.pigs-result p {
+  margin: 4px 0;
+}
+
+.pigs-hint {
+  margin: 0;
+}
+
+.pigs-dock {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }

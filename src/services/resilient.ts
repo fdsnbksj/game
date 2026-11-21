@@ -86,10 +86,11 @@ export function keepFresh(
 
 /**
  * How far along a room is; a read that arrives late never steps a room back past this. A
- * rematch (a later `from`) is further along than the game before it, though it's playing again.
+ * rematch (a later `from`, or a later `game` where a game can end with no moves) is further
+ * along than the game before it, though it's playing again.
  */
 const STAGES: Record<string, number> = { lobby: 0, playing: 1, done: 2 };
-const stage = (room: { status: string; from?: number }) => (room.from ?? 0) * 3 + (STAGES[room.status] ?? 0);
+const stage = (room: { status: string; from?: number; game?: number }) => ((room.game ?? 0) * 1e6 + (room.from ?? 0)) * 3 + (STAGES[room.status] ?? 0);
 
 export interface Recorded<M> {
   by: string;
@@ -108,7 +109,7 @@ export interface RoomWithMoves<R, M> {
  * arrives, it counts once; the moves are read only once `canReadMoves(room)` (the rules let
  * only the room's members read them, once the game has started).
  */
-export function followRoom<R extends { status: string; from?: number }, M>(
+export function followRoom<R extends { status: string; from?: number; game?: number }, M>(
   root: string,
   code: string,
   parse: (data: Record<string, unknown>) => R,

@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { HERO_VERSION } from '../games/hero/state';
 import { PASS_VERSION } from '../games/pass/state';
+import { PIGS_VERSION } from '../games/pigs/sim';
 import { useGameStore } from '../store';
 import { rest } from './resilient';
 import { dbRest } from '../firebase';
@@ -13,7 +14,7 @@ import { dbRest } from '../firebase';
 // scheduled jobs, so the game homes do the clearing; firestore.rules lets anyone delete a
 // room that stale.
 
-export type RoomCollection = 'rooms' | 'heroDuels' | 'wonders' | 'bluffs' | 'passes';
+export type RoomCollection = 'rooms' | 'heroDuels' | 'wonders' | 'bluffs' | 'passes' | 'pigs';
 
 /** Who's in a room, by collection, and how many it holds. */
 const SPEC: Record<RoomCollection, { members: 'playerIds' | 'seats'; max: number }> = {
@@ -22,6 +23,7 @@ const SPEC: Record<RoomCollection, { members: 'playerIds' | 'seats'; max: number
   wonders: { members: 'seats', max: 7 },
   bluffs: { members: 'seats', max: 4 },
   passes: { members: 'seats', max: 6 },
+  pigs: { members: 'playerIds', max: 2 },
 };
 
 /** A lobby nobody has been in for this long is empty; firestore.rules says the same (10 m). */
@@ -49,6 +51,7 @@ const UNDER: Record<RoomCollection, string[]> = {
   wonders: ['moves'],
   bluffs: ['moves'],
   passes: ['moves'],
+  pigs: ['moves'],
 };
 
 const millis = (t: unknown) => (t && typeof (t as { toMillis?: unknown }).toMillis === 'function' ? (t as { toMillis(): number }).toMillis() : null);
@@ -74,6 +77,7 @@ export async function openRooms(path: RoomCollection): Promise<OpenRoom[]> {
     // A fight on another version can't be joined from this phone.
     if (path === 'heroDuels' && data.version !== HERO_VERSION) continue;
     if (path === 'passes' && data.version !== PASS_VERSION) continue;
+    if (path === 'pigs' && data.version !== PIGS_VERSION) continue;
     const ids = (data[members] as string[] | undefined) ?? [];
     const names = data.names as Record<string, string> | undefined;
     open.push({ code: d.id, names: ids.map((id) => names?.[id] ?? '?'), count: ids.length, max, mine: !!uid && ids.includes(uid), at });

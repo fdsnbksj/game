@@ -142,6 +142,19 @@ export const PassGlyph = () => (
   </svg>
 );
 
+/** A pig's face: Pig Lasso. */
+export const PigsGlyph = () => (
+  <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true">
+    <path d="M5 4.5l3.5 3.2M19 4.5l-3.5 3.2" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
+    <circle cx="12" cy="13" r="8" fill="currentColor" />
+    <ellipse cx="12" cy="15.5" rx="3.6" ry="2.6" fill="none" style={{ stroke: 'var(--tile)' }} strokeWidth="1.4" />
+    <circle cx="10.6" cy="15.5" r="0.8" style={{ fill: 'var(--tile)' }} />
+    <circle cx="13.4" cy="15.5" r="0.8" style={{ fill: 'var(--tile)' }} />
+    <circle cx="8.6" cy="10.8" r="1" style={{ fill: 'var(--tile)' }} />
+    <circle cx="15.4" cy="10.8" r="1" style={{ fill: 'var(--tile)' }} />
+  </svg>
+);
+
 /** Each game's emblem by its id, for lists built from data. */
 export const GAME_GLYPHS = {
   avalon: AvalonGlyph,
@@ -158,4 +171,5 @@ export const GAME_GLYPHS = {
   vault: VaultGlyph,
   gridlock: GridlockGlyph,
   pass: PassGlyph,
+  pigs: PigsGlyph,
 } as const;

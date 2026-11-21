@@ -32,6 +32,7 @@ const GAMES = [
   { path: 'wonders', room: { host: 'ann', seats: ['ann', 'bob'], names: { ann: 'Ann', bob: 'Bob' }, sides: 'A' } },
   { path: 'bluffs', room: { host: 'ann', seats: ['ann', 'bob'], names: { ann: 'Ann', bob: 'Bob' } } },
   { path: 'passes', room: { host: 'ann', seats: ['ann', 'bob'], names: { ann: 'Ann', bob: 'Bob' }, version: 1 } },
+  { path: 'pigs', room: { host: 'ann', playerIds: ['ann', 'bob'], names: { ann: 'Ann', bob: 'Bob' }, version: 1, game: 0 } },
 ];
 
 for (const { path, room } of GAMES) {

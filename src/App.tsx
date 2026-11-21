@@ -14,6 +14,8 @@ import { BluffHome } from './screens/bluff/BluffHome';
 import { BluffRoom } from './screens/bluff/BluffRoom';
 import { PassHome } from './screens/pass/PassHome';
 import { PassRoom } from './screens/pass/PassRoom';
+import { PigsHome } from './screens/pigs/PigsHome';
+import { PigRoom } from './screens/pigs/PigRoom';
 import { BeadsHome } from './screens/beads/BeadsHome';
 import { BeadsPlay } from './screens/beads/BeadsPlay';
 import { GlideHome } from './screens/glide/GlideHome';
@@ -68,6 +70,8 @@ export function App() {
         <Route path="/bluff/:code" element={<BluffRoom />} />
         <Route path="/pass" element={<PassHome />} />
         <Route path="/pass/:code" element={<PassRoom />} />
+        <Route path="/pigs" element={<PigsHome />} />
+        <Route path="/pigs/:code" element={<PigRoom />} />
         <Route path="/sky" element={<SkyHome />} />
         <Route path="/sky/play" element={<SkyPlay />} />
         <Route path="/beads" element={<BeadsHome />} />
