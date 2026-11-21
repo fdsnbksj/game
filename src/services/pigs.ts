@@ -127,22 +127,32 @@ export async function sendThrow(code: string, next: () => number, t: number) {
   throw new Error('That throw didn’t go through.');
 }
 
+/** Gives up on a request that hasn't answered in `ms` (a phone's connection can hang without failing). */
+function within<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return Promise.race([promise, new Promise<T>((_, reject) => setTimeout(() => reject(new Error('timed out')), ms))]);
+}
+
 /**
- * How far the server's clock is ahead of this phone's, in ms: stamps the room's heartbeat
- * with the server's time and reads it back, a few times, trusting the quickest round trip.
+ * How far the server's clock is ahead of this phone's, in ms, or null if it couldn't tell:
+ * stamps the room's heartbeat with the server's time and reads it back, a few times,
+ * trusting the quickest round trip. A sample that fails or hangs is skipped.
  */
-export async function measureClock(code: string): Promise<number> {
-  let best = { rtt: Infinity, offset: 0 };
+export async function measureClock(code: string): Promise<number | null> {
+  let best: { rtt: number; offset: number } | null = null;
   for (let i = 0; i < 3; i++) {
-    const sent = Date.now();
-    await rest.updateDoc(roomRef(code), { seenAt: rest.serverTimestamp() });
-    const back = Date.now();
-    const snap = await rest.getDoc(roomRef(code));
-    const seenAt = millis(snap.data()?.seenAt);
-    // The stamp was made somewhere in the write's round trip; the read adds nothing to that.
-    if (seenAt !== null && back - sent < best.rtt) best = { rtt: back - sent, offset: seenAt - (sent + back) / 2 };
+    try {
+      const sent = Date.now();
+      await within(rest.updateDoc(roomRef(code), { seenAt: rest.serverTimestamp() }), 4000);
+      const back = Date.now();
+      const snap = await within(rest.getDoc(roomRef(code)), 4000);
+      const seenAt = millis(snap.data()?.seenAt);
+      // The stamp was made somewhere in the write's round trip; the read adds nothing to that.
+      if (seenAt !== null && (!best || back - sent < best.rtt)) best = { rtt: back - sent, offset: seenAt - (sent + back) / 2 };
+    } catch {
+      // Offline for a moment, or the request hung: try the next sample.
+    }
   }
-  return best.offset;
+  return best?.offset ?? null;
 }
 
 export interface PigRoomData {

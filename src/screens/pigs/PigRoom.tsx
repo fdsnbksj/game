@@ -151,7 +151,6 @@ function Game({ room, moves, uid }: { room: Room; moves: PigRoomData['moves']; u
   const wrapRef = useRef<HTMLDivElement>(null);
   // How far the server's clock is ahead of this phone's; 0 until measured.
   const offset = useRef(0);
-  const [synced, setSynced] = useState(false);
   // This game's throws as the server has them, and this phone's own still on their way.
   const recorded = useMemo<Throw[]>(
     () => moves.slice(room.from).map((m) => ({ seat: room.playerIds.indexOf(m.by), tick: m.move.t })),
@@ -170,18 +169,30 @@ function Game({ room, moves, uid }: { room: Room; moves: PigRoomData['moves']; u
   const serverNow = () => Date.now() + offset.current;
   const tickNow = () => Math.floor(((serverNow() - startMs) * TICKS_PER_SECOND) / 1000);
 
+  // The server stamped `startedAt` before this phone could see it, so the server's clock is
+  // at least that far on: a phone whose own clock is slow starts on time even before (or
+  // without) a measurement. A measurement, retried until one works, then sets it exactly.
+  const seenAt = useRef(Date.now());
+  const atLeast = room.startedAt! - seenAt.current;
+  if (offset.current < atLeast) offset.current = atLeast;
   useEffect(() => {
     let live = true;
-    measureClock(room.code)
-      .then((ms) => {
-        if (live) offset.current = ms;
-      })
-      .catch(() => {})
-      .finally(() => live && setSynced(true));
+    let timer: ReturnType<typeof setTimeout>;
+    const measure = (tries: number) =>
+      void measureClock(room.code).then((ms) => {
+        if (!live) return;
+        if (ms === null) {
+          if (tries < 6) timer = setTimeout(() => measure(tries + 1), 2000);
+          return;
+        }
+        offset.current = Math.max(ms, room.startedAt! - seenAt.current);
+      });
+    measure(1);
     return () => {
       live = false;
+      clearTimeout(timer);
     };
-  }, [room.code]);
+  }, [room.code, room.startedAt]);
 
   // New throws: play the pen again from the start, up to where it was.
   useEffect(() => {
@@ -278,7 +289,6 @@ function Game({ room, moves, uid }: { room: Room; moves: PigRoomData['moves']; u
         }}
       >
         <canvas ref={canvasRef} className="pigs-canvas" aria-label="The pen: tap to throw your lasso" />
-        {phase === 'waiting' && !synced && <p className="pigs-banner">Setting the clocks…</p>}
         {phase === 'over' && !final && <p className="pigs-banner">Time’s up! Counting…</p>}
         {final && <Result state={final} me={me} names={names} />}
       </div>
