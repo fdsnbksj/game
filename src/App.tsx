@@ -16,6 +16,8 @@ import { PassHome } from './screens/pass/PassHome';
 import { PassRoom } from './screens/pass/PassRoom';
 import { PigsHome } from './screens/pigs/PigsHome';
 import { PigRoom } from './screens/pigs/PigRoom';
+import { KitchenHome } from './screens/kitchen/KitchenHome';
+import { KitchenRoom } from './screens/kitchen/KitchenRoom';
 import { BeadsHome } from './screens/beads/BeadsHome';
 import { BeadsPlay } from './screens/beads/BeadsPlay';
 import { GlideHome } from './screens/glide/GlideHome';
@@ -72,6 +74,8 @@ export function App() {
         <Route path="/pass/:code" element={<PassRoom />} />
         <Route path="/pigs" element={<PigsHome />} />
         <Route path="/pigs/:code" element={<PigRoom />} />
+        <Route path="/kitchen" element={<KitchenHome />} />
+        <Route path="/kitchen/:code" element={<KitchenRoom />} />
         <Route path="/sky" element={<SkyHome />} />
         <Route path="/sky/play" element={<SkyPlay />} />
         <Route path="/beads" element={<BeadsHome />} />

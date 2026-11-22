@@ -27,7 +27,7 @@ service cloud.firestore {
         && isValidName(request.resource.data.displayName);
     }
 
-    // Every party game's room (rooms, heroDuels, wonders, bluffs, passes, pigs). A player on the
+    // Every party game's room (rooms, heroDuels, wonders, bluffs, passes, pigs, kitchens). A player on the
     // room's page says they're still there (`seenAt`) about once a minute. A lobby nobody
     // has been in for 10 minutes, or a started game nobody has been in for 30 (or, before
     // its first heartbeat, made that long ago), may be deleted by anyone: that's how the
@@ -934,6 +934,129 @@ service cloud.firestore {
       let after = request.resource.data;
       return before.status == 'playing' && request.auth.uid in before.playerIds
         && request.time.toMillis() - before.startedAt.toMillis() >= 63000
+        && after.diff(before).affectedKeys().hasOnly(['status', 'endedAt'])
+        && after.status == 'done'
+        && after.endedAt == request.time;
+    }
+
+    // ---------- Short Order ----------
+    // One to four phones cook in one seeded kitchen for three minutes. A move is a tap,
+    // `{t, x, y}`: the tick (1/60 s) it was made at, counted from 3 s after `startedAt`, and
+    // the tile (7 by 9). Every phone replays the kitchen from the seed and the taps, so the
+    // rules check only that a tap is the tapper's own, on the grid, inside the three
+    // minutes, not ahead of the server's clock (2 s of slack) and not more than 10 s behind.
+
+    function kitchenRoom(code) {
+      return get(/databases/$(database)/documents/kitchens/$(code)).data;
+    }
+
+    function isKitchenPlayer(code) {
+      return request.auth != null && request.auth.uid in kitchenRoom(code).playerIds;
+    }
+
+    function isKitchenTap(room, move) {
+      let elapsed = request.time.toMillis() - room.startedAt.toMillis();
+      return hasExactly(move, ['t', 'x', 'y'])
+        && move.t is int && move.t >= 0 && move.t < 10800
+        && move.x is int && move.x >= 0 && move.x < 7
+        && move.y is int && move.y >= 0 && move.y < 9
+        && move.t * 1000 <= (elapsed - 1000) * 60
+        && move.t * 1000 >= (elapsed - 13000) * 60;
+    }
+
+    match /kitchens/{code} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+        && code.matches('[A-Z]{4}')
+        && hasExactly(request.resource.data, ['host', 'playerIds', 'names', 'status', 'version', 'game', 'createdAt'])
+        && request.resource.data.host == request.auth.uid
+        && request.resource.data.playerIds == [request.auth.uid]
+        && request.resource.data.names.keys().hasOnly([request.auth.uid])
+        && isValidName(request.resource.data.names[request.auth.uid])
+        && request.resource.data.status == 'lobby'
+        && request.resource.data.version is int
+        && request.resource.data.game == 0
+        && request.resource.data.createdAt == request.time;
+      allow update: if request.auth != null
+        && (isKitchenJoin() || isKitchenLeave() || isKitchenStart() || isKitchenFinish() || isKitchenRematch(code) || isHeartbeat(resource.data.playerIds));
+      allow delete: if isAbandonedLobby() || isAbandonedGame(resource.data);
+
+      match /moves/{n} {
+        allow read, delete: if isAbandonedGame(get(/databases/$(database)/documents/kitchens/$(code)).data);
+        allow read: if isKitchenPlayer(code);
+        allow create: if isKitchenPlayer(code)
+          && kitchenRoom(code).status == 'playing'
+          && hasExactly(request.resource.data, ['n', 'by', 'move'])
+          && request.resource.data.by == request.auth.uid
+          && request.resource.data.n is int && request.resource.data.n >= 0
+          && string(request.resource.data.n) == n
+          && (request.resource.data.n == 0
+            || exists(/databases/$(database)/documents/kitchens/$(code)/moves/$(string(request.resource.data.n - 1))))
+          && request.resource.data.move is map
+          && isKitchenTap(kitchenRoom(code), request.resource.data.move);
+      }
+    }
+
+    function isKitchenNumber(kitchen) {
+      return kitchen is int && kitchen >= 0 && kitchen < 3;
+    }
+
+    function isKitchenJoin() {
+      let before = resource.data;
+      let after = request.resource.data;
+      return before.status == 'lobby'
+        && before.playerIds.size() < 4
+        && !(request.auth.uid in before.playerIds)
+        && after.diff(before).affectedKeys().hasOnly(['playerIds', 'names'])
+        && after.playerIds == before.playerIds.concat([request.auth.uid])
+        && after.names.diff(before.names).affectedKeys().hasOnly([request.auth.uid])
+        && isValidName(after.names[request.auth.uid]);
+    }
+
+    function isKitchenLeave() {
+      let before = resource.data;
+      let after = request.resource.data;
+      return before.status == 'lobby'
+        && request.auth.uid in before.playerIds && request.auth.uid != before.host
+        && after.diff(before).affectedKeys().hasOnly(['playerIds'])
+        && after.playerIds == before.playerIds.removeAll([request.auth.uid]);
+    }
+
+    function isKitchenStart() {
+      let before = resource.data;
+      let after = request.resource.data;
+      return before.status == 'lobby' && request.auth.uid == before.host
+        && after.diff(before).affectedKeys().hasOnly(['status', 'seed', 'startedAt', 'kitchen'])
+        && isKitchenNumber(after.kitchen)
+        && after.status == 'playing'
+        && after.seed is string && after.seed.size() >= 6 && after.seed.size() <= 40
+        && after.startedAt == request.time;
+    }
+
+    // Another shift in the same room once one is over, by any player (in the same or another kitchen): `game` counts up
+    // by one and `from` is exactly where the room's moves end (a game may have none).
+    function isKitchenRematch(code) {
+      let before = resource.data;
+      let after = request.resource.data;
+      return before.status == 'done' && request.auth.uid in before.playerIds
+        && after.diff(before).affectedKeys().hasOnly(['status', 'seed', 'startedAt', 'from', 'game', 'kitchen'])
+        && isKitchenNumber(after.kitchen)
+        && after.status == 'playing'
+        && after.seed is string && after.seed.size() >= 6 && after.seed.size() <= 40
+        && after.seed != before.seed
+        && after.startedAt == request.time
+        && after.game == before.game + 1
+        && after.from is int && after.from >= before.get('from', 0)
+        && (after.from == 0 || exists(/databases/$(database)/documents/kitchens/$(code)/moves/$(string(after.from - 1))))
+        && !exists(/databases/$(database)/documents/kitchens/$(code)/moves/$(string(after.from)));
+    }
+
+    // Over once the countdown and the three minutes are up by the server's clock.
+    function isKitchenFinish() {
+      let before = resource.data;
+      let after = request.resource.data;
+      return before.status == 'playing' && request.auth.uid in before.playerIds
+        && request.time.toMillis() - before.startedAt.toMillis() >= 183000
         && after.diff(before).affectedKeys().hasOnly(['status', 'endedAt'])
         && after.status == 'done'
         && after.endedAt == request.time;

@@ -211,6 +211,35 @@
   --pigs-clock: #18181b;
   --pigs-clock-low: #b91c1c;
   --pigs-panel: rgb(255 255 255 / 0.88);
+  --game-kitchen: #ea580c;
+  --game-kitchen-soft: rgb(234 88 12 / 0.12);
+  /* Short Order: the kitchen's tiles, the food, the chefs and the orders strip. */
+  --kitchen-floor: #f3e9d7;
+  --kitchen-floor-2: #e9dcc4;
+  --kitchen-counter: #c9ced6;
+  --kitchen-counter-edge: #8b93a1;
+  --kitchen-board: #c08a53;
+  --kitchen-stove: #3f3f46;
+  --kitchen-pot: #a1a1aa;
+  --kitchen-plate: #ffffff;
+  --kitchen-plate-edge: #a1a1aa;
+  --kitchen-hatch: #16a34a;
+  --kitchen-bin: #52525b;
+  --kitchen-tomato: #e11d48;
+  --kitchen-onion: #f5d76e;
+  --kitchen-mushroom: #a47148;
+  --kitchen-chef-1: #2563eb;
+  --kitchen-chef-2: #db2777;
+  --kitchen-chef-3: #16a34a;
+  --kitchen-chef-4: #9333ea;
+  --kitchen-hat: #ffffff;
+  --kitchen-ink: #18181b;
+  --kitchen-panel: rgb(255 255 255 / 0.92);
+  --kitchen-good: #16a34a;
+  --kitchen-warn: #f59e0b;
+  --kitchen-late: #dc2626;
+  --kitchen-tap: rgb(37 99 235 / 0.45);
+  --kitchen-star: #f59e0b;
   --game-pass: #a21caf;
   --game-pass-soft: rgb(162 28 175 / 0.12);
   /* Pass or Pay: the number cards, a card that costs nothing in a run, and the coins. */
@@ -2725,6 +2754,7 @@ button.seat:disabled {
 .tile-gridlock { --tile: var(--game-gridlock); }
 .tile-pass { --tile: var(--game-pass); }
 .tile-pigs { --tile: var(--game-pigs); }
+.tile-kitchen { --tile: var(--game-kitchen); }
 
 .hub-tile-art {
   display: grid;
@@ -6315,4 +6345,88 @@ button.seat:disabled {
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+/* ---------- Short Order ---------- */
+
+/* The kitchen, as big as fits under the bar in its own shape (350 × 528); a tap picks a tile. */
+.kitchen-field {
+  position: relative;
+  align-self: center;
+  height: min(calc(100dvh - 160px), calc((min(100vw, 480px) - 32px) * 528 / 350));
+  aspect-ratio: 350 / 528;
+  border-radius: 16px;
+  overflow: hidden;
+  background: var(--kitchen-counter-edge);
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.kitchen-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.kitchen-banner {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  margin: 0;
+  padding: 10px 18px;
+  border-radius: 999px;
+  background: var(--kitchen-panel);
+  color: var(--kitchen-ink);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.kitchen-result {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 18px;
+  border-radius: 16px;
+  background: var(--kitchen-panel);
+  color: var(--kitchen-ink);
+  text-align: center;
+}
+
+.kitchen-result h2 {
+  margin: 0 0 6px;
+  font-size: 26px;
+}
+
+.kitchen-result p {
+  margin: 4px 0;
+}
+
+.kitchen-stars {
+  font-size: 40px;
+  line-height: 1;
+  letter-spacing: 4px;
+  color: var(--kitchen-plate-edge);
+}
+
+.kitchen-stars .on {
+  color: var(--kitchen-star);
+}
+
+.kitchen-hint {
+  margin: 0;
+  min-height: 2.6em;
+}
+
+.kitchen-dock {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
 }

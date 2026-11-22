@@ -155,6 +155,17 @@ export const PigsGlyph = () => (
   </svg>
 );
 
+/** A pot on the boil, for Short Order. */
+export const KitchenGlyph = () => (
+  <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true">
+    <path d="M8 3.5c-1 1.2 1 2 0 3.3M12 3c-1 1.2 1 2 0 3.3M16 3.5c-1 1.2 1 2 0 3.3" stroke="currentColor" strokeWidth="1.6" fill="none" strokeLinecap="round" />
+    <rect x="1.5" y="9" width="4" height="2.4" rx="1.2" fill="currentColor" />
+    <rect x="18.5" y="9" width="4" height="2.4" rx="1.2" fill="currentColor" />
+    <path d="M4 8.5h16v7.5a4.5 4.5 0 0 1-4.5 4.5h-7A4.5 4.5 0 0 1 4 16V8.5z" fill="currentColor" />
+    <rect x="7" y="12" width="10" height="2" rx="1" style={{ fill: 'var(--tile)' }} />
+  </svg>
+);
+
 /** Each game's emblem by its id, for lists built from data. */
 export const GAME_GLYPHS = {
   avalon: AvalonGlyph,
@@ -172,4 +183,5 @@ export const GAME_GLYPHS = {
   gridlock: GridlockGlyph,
   pass: PassGlyph,
   pigs: PigsGlyph,
+  kitchen: KitchenGlyph,
 } as const;
